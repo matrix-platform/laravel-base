@@ -12,4 +12,15 @@ class BaseServiceProvider extends ServiceProvider {
         }
     }
 
+    public function register() {
+        if (!$this->app->configurationIsCached()) {
+            foreach (glob(__DIR__ . '/../config/*.php') as $file) {
+                $this->mergeConfigFrom($file, basename($file, '.php'));
+            }
+        }
+
+        $this->app->singleton("PackageInfo:base", fn () => new PackageInfo(dirname(__DIR__)));
+        $this->app->singleton(Resources::class);
+    }
+
 }
