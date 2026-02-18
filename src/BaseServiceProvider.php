@@ -2,11 +2,14 @@
 
 namespace MatrixPlatform;
 
+use Carbon\Carbon;
 use Illuminate\Support\ServiceProvider;
 
 class BaseServiceProvider extends ServiceProvider {
 
     public function boot() {
+        Carbon::serializeUsing(fn ($carbon) => $carbon->format('Y-m-d H:i:s'));
+
         if ($this->app->runningInConsole()) {
             $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
         }
