@@ -1,9 +1,14 @@
 <?php //>
 
+use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Resources;
 
 function cfg($token, $default = null) {
     return app(Resources::class)->config($token, $default);
+}
+
+function error($message, $code = 500) {
+    throw new ServiceException($message, $code);
 }
 
 function i18n($token, $locale = null) {
