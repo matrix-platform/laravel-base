@@ -9,4 +9,7 @@ Route::prefix(config('matrix.admin-api-prefix'))->group(function () {
     Route::middleware('user-api')->group(function () {
         Route::prefix('auth')->controller(AuthController::class)->scan();
     });
+
+    Route::middleware('user-api:admin')->group(function () {
+    });
 });

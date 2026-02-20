@@ -7,12 +7,14 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Routing\RouteRegistrar;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use MatrixPlatform\Attributes\Action;
 use MatrixPlatform\Console\Commands\ResetUserPassword;
 use MatrixPlatform\Http\Middleware\UserMiddleware;
+use MatrixPlatform\Support\AdminPermission;
 use ReflectionClass;
 
 class BaseServiceProvider extends ServiceProvider {
@@ -66,6 +68,7 @@ class BaseServiceProvider extends ServiceProvider {
         }
 
         $this->app->singleton("PackageInfo:base", fn () => new PackageInfo(dirname(__DIR__)));
+        $this->app->singleton(AdminPermission::class, fn () => new AdminPermission(Request::user()));
         $this->app->singleton(Resources::class);
     }
 
