@@ -12,4 +12,6 @@ return [
 
     'invalid-username-or-password' => '帳號或密碼錯誤',
 
+    'permission-denied' => '權限不足',
+
 ];

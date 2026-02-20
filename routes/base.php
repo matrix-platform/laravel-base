@@ -16,4 +16,7 @@ Route::prefix(config('matrix.admin-api-prefix'))->group(function () {
             Route::post('profile', 'profile');
         });
     });
+
+    Route::middleware('user-api:admin')->group(function () {
+    });
 });

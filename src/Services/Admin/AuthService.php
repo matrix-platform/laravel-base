@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use MatrixPlatform\Models\AuthToken;
 use MatrixPlatform\Models\User;
+use MatrixPlatform\Support\AdminPermission;
 use MatrixPlatform\Support\Captcha;
 
 class AuthService {
@@ -83,7 +84,7 @@ class AuthService {
     }
 
     public function profile($user) {
-        return ['profile' => $user];
+        return ['nodes' => app(AdminPermission::class)->getMenuNodes(), 'profile' => $user];
     }
 
 }

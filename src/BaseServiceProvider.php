@@ -6,10 +6,12 @@ use Carbon\Carbon;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\ServiceProvider;
 use MatrixPlatform\Console\Commands\ResetUserPassword;
 use MatrixPlatform\Http\Middleware\UserMiddleware;
+use MatrixPlatform\Support\AdminPermission;
 
 class BaseServiceProvider extends ServiceProvider {
 
@@ -46,6 +48,7 @@ class BaseServiceProvider extends ServiceProvider {
         }
 
         $this->app->singleton("PackageInfo:base", fn () => new PackageInfo(dirname(__DIR__)));
+        $this->app->singleton(AdminPermission::class, fn () => new AdminPermission(Request::user()));
         $this->app->singleton(Resources::class);
     }
 

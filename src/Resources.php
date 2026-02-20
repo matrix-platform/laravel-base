@@ -23,6 +23,10 @@ class Resources {
         return Arr::get($this->getConfigBundle($name), $key, $default);
     }
 
+    public function getAdminMenuBundle($name) {
+        return $this->getBundle("menu/{$name}");
+    }
+
     public function getConfigBundle($name) {
         return $this->getBundle("cfg/{$name}");
     }
