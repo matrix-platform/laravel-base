@@ -5,4 +5,17 @@ namespace MatrixPlatform\Models\Builders;
 use Illuminate\Database\Eloquent\Builder;
 
 class BaseBuilder extends Builder {
+
+    public function whereActive($enable = 'enable_time', $disable = 'disable_time') {
+        return $this->where(fn ($query) => $query->whereExpired($enable)->whereNotExpired($disable));
+    }
+
+    public function whereExpired($column = 'expire_time') {
+        return $this->where(fn ($query) => $query->whereNotNull($column)->where($column, '<=', now()));
+    }
+
+    public function whereNotExpired($column = 'expire_time') {
+        return $this->where(fn ($query) => $query->whereNull($column)->orWhere($column, '>', now()));
+    }
+
 }
