@@ -2,6 +2,7 @@
 
 namespace MatrixPlatform;
 
+use Illuminate\Support\Facades\Response;
 use Illuminate\Support\ServiceProvider;
 
 class BaseServiceProvider extends ServiceProvider {
@@ -9,6 +10,8 @@ class BaseServiceProvider extends ServiceProvider {
     public function boot() {
         if ($this->app->runningInConsole()) {
             $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
+        } else {
+            Response::macro('success', fn ($data = null) => Response::json(['success' => true, 'data' => $data]));
         }
     }
 
