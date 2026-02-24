@@ -13,6 +13,8 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use MatrixPlatform\Attributes\Action;
 use MatrixPlatform\Console\Commands\ResetUserPassword;
+use MatrixPlatform\Http\Middleware\MemberAwareMiddleware;
+use MatrixPlatform\Http\Middleware\MemberMiddleware;
 use MatrixPlatform\Http\Middleware\UserMiddleware;
 use MatrixPlatform\Support\AdminPermission;
 use ReflectionClass;
@@ -36,6 +38,8 @@ class BaseServiceProvider extends ServiceProvider {
 
             $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
         } else {
+            $router->aliasMiddleware('member-api', MemberMiddleware::class);
+            $router->aliasMiddleware('member-aware-api', MemberAwareMiddleware::class);
             $router->aliasMiddleware('user-api', UserMiddleware::class);
         }
 
