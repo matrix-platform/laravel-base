@@ -29,6 +29,10 @@ class BaseServiceProvider extends ServiceProvider {
                 $this->integer('id')->default(DB::raw('NEXTVAL(\'base_id\')'))->primary();
             });
 
+            Blueprint::macro('ranking', function () {
+                $this->integer('ranking')->default(DB::raw('NEXTVAL(\'base_ranking\')'));
+            });
+
             Blueprint::macro('schedules', function () {
                 $this->timestamp('enable_time')->nullable();
                 $this->timestamp('disable_time')->nullable();
