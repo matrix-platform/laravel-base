@@ -1,0 +1,36 @@
+{
+    "name": "matrix-platform/laravel-base",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "files": [
+            "src/Helpers/base.php"
+        ],
+        "psr-4": {
+            "MatrixPlatform\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "MatrixPlatform\\BaseServiceProvider"
+            ]
+        }
+    },
+    "require": {
+        "doctrine/annotations": "^2.0",
+        "illuminate/support": "^13.0",
+        "james-heinrich/getid3": "^1.9",
+        "php": "^8.3",
+        "zircote/swagger-php": "^6.1"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^11.1",
+        "phpunit/phpunit": "^12.5"
+    }
+}

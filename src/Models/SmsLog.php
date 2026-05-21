@@ -1,0 +1,21 @@
+<?php //>
+
+namespace MatrixPlatform\Models;
+
+use MatrixPlatform\Models\Generators\CreatorAddress;
+
+class SmsLog extends BaseModel {
+
+    const TRACEABLE = false;
+
+    protected $casts = [
+        'send_time' => 'datetime'
+    ];
+
+    protected $generators = [
+        'ip' => CreatorAddress::class
+    ];
+
+    protected $table = 'base_sms_log';
+
+}

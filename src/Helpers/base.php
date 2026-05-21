@@ -1,0 +1,37 @@
+<?php //>
+
+use MatrixPlatform\Exceptions\ServiceException;
+use MatrixPlatform\Support\Actor;
+use MatrixPlatform\Support\Resources;
+
+function actor() {
+    return app(Actor::class);
+}
+
+function cfg($token, $default = null) {
+    return app(Resources::class)->config($token, $default);
+}
+
+function error($message, $code = 500) {
+    throw new ServiceException($message, $code);
+}
+
+function i18n($token, $locale = null) {
+    return app(Resources::class)->translate($token, $locale);
+}
+
+function isolate_require() {
+    return require func_get_arg(0);
+}
+
+function member() {
+    return actor()->member;
+}
+
+function tokenize($text) {
+    return preg_split('/[\s;,]/', $text, 0, PREG_SPLIT_NO_EMPTY);
+}
+
+function user() {
+    return actor()->user;
+}
