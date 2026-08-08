@@ -231,7 +231,7 @@ foreach ($targets as $target) {
         $tokens = token_get_all($source);
         $lines = explode("\n", rtrim($source, "\n"));
         $name = substr($file, strlen($root) + 1);
-        $comma = str_starts_with($name, 'config/') || str_starts_with($name, 'resources/');
+        $comma = preg_match('#(^|/)(config|resources)/#', $name) === 1;
 
         $checks = array_merge(
             check_opening_tag($lines),

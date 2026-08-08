@@ -13,7 +13,7 @@ class FeatureTestCase extends TestCase {
      * @param Application $app
      */
     protected function defineEnvironment($app): void {
-        $app['config']->set('app.locale', 'tw');
+        $app['config']->set('app.locale', 'en');
     }
 
 }
