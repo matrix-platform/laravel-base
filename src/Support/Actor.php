@@ -10,6 +10,10 @@ class Actor {
     private ?Model $user = null;
     private ?Model $vendor = null;
 
+    public function current(): ?Model {
+        return $this->user ?: $this->member ?: $this->vendor;
+    }
+
     public function member(): ?Model {
         return $this->member;
     }

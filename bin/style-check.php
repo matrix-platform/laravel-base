@@ -145,6 +145,7 @@ function collect_members(array $tokens): array {
     $members = [];
     $modifiers = [];
     $paren = 0;
+    $signature = false;
 
     foreach ($tokens as $token) {
         if (is_array($token) && in_array($token[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
@@ -157,6 +158,7 @@ function collect_members(array $tokens): array {
             } elseif ($token === ')') {
                 $paren--;
             } elseif ($token === '{') {
+                $signature = false;
                 $depth++;
             } elseif ($token === '}') {
                 if ($depth === $bodyDepth) {
@@ -166,6 +168,7 @@ function collect_members(array $tokens): array {
                 $depth--;
             } elseif ($token === ';' && $depth === $bodyDepth) {
                 $modifiers = [];
+                $signature = false;
             }
 
             $afterNew = false;
@@ -183,8 +186,9 @@ function collect_members(array $tokens): array {
                     $members[] = ['name' => $token[1], 'rank' => $awaiting, 'line' => $token[2]];
                     $awaiting = null;
                     $modifiers = [];
+                    $signature = true;
                 }
-            } elseif ($paren === 0 && in_array($token[0], [T_ABSTRACT, T_FINAL, T_PRIVATE, T_PROTECTED, T_PUBLIC, T_READONLY, T_STATIC], true)) {
+            } elseif ($paren === 0 && !$signature && in_array($token[0], [T_ABSTRACT, T_FINAL, T_PRIVATE, T_PROTECTED, T_PUBLIC, T_READONLY, T_STATIC], true)) {
                 $modifiers[] = $token[0];
             } elseif ($token[0] === T_CONST) {
                 $awaiting = 0;

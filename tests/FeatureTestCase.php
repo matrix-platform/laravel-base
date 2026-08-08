@@ -9,6 +9,10 @@ class FeatureTestCase extends TestCase {
 
     use RefreshDatabase;
 
+    protected function defineDatabaseMigrations(): void {
+        $this->loadMigrationsFrom(__DIR__ . '/Stubs/migrations');
+    }
+
     /**
      * @param Application $app
      */

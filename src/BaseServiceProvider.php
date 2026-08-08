@@ -3,8 +3,11 @@
 namespace MatrixPlatform;
 
 use Illuminate\Database\Events\TransactionRolledBack;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use MatrixPlatform\Database\Schema\BaseBlueprint;
 use MatrixPlatform\Support\Actor;
 use MatrixPlatform\Support\PackageRegistry;
 use MatrixPlatform\Support\Resources;
@@ -18,10 +21,14 @@ class BaseServiceProvider extends ServiceProvider {
         $packages = app(PackageRegistry::class);
         $packages->register('app', base_path());
         $packages->register('base', dirname(__DIR__));
+
+        $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
     }
 
     public function register(): void {
         $this->mergeConfigFrom(__DIR__ . '/../config/matrix.php', 'matrix');
+
+        $this->app->bind(Blueprint::class, fn (Application $app, array $parameters) => new BaseBlueprint(...$parameters));
 
         $this->app->scoped(Actor::class);
         $this->app->scoped(RollbackCallbacks::class);
