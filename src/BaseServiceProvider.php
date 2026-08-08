@@ -6,8 +6,11 @@ use Illuminate\Database\Events\TransactionRolledBack;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use MatrixPlatform\Database\Schema\BaseBlueprint;
+use MatrixPlatform\Http\Middleware\EnvelopeMiddleware;
+use MatrixPlatform\Http\Middleware\LocaleMiddleware;
 use MatrixPlatform\Support\Actor;
 use MatrixPlatform\Support\PackageRegistry;
 use MatrixPlatform\Support\Resources;
@@ -21,6 +24,9 @@ class BaseServiceProvider extends ServiceProvider {
         $packages = app(PackageRegistry::class);
         $packages->register('app', base_path());
         $packages->register('base', dirname(__DIR__));
+
+        Route::aliasMiddleware('envelope-api', EnvelopeMiddleware::class);
+        Route::aliasMiddleware('locale-api', LocaleMiddleware::class);
 
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
     }
