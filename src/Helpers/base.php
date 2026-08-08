@@ -1,7 +1,13 @@
 <?php //>
 
+use Illuminate\Database\Eloquent\Model;
 use MatrixPlatform\Exceptions\ServiceException;
+use MatrixPlatform\Support\Actor;
 use MatrixPlatform\Support\Resources;
+
+function actor(): Actor {
+    return app(Actor::class);
+}
 
 /**
  * @param array<string|int, mixed>|null $array
@@ -22,9 +28,21 @@ function i18n(string $token, ?string $locale = null): string {
     return app(Resources::class)->translate($token, $locale);
 }
 
+function member(): ?Model {
+    return actor()->member();
+}
+
 /**
  * @return list<string>
  */
 function tokenize(?string $text): array {
     return preg_split('/[\s;,]+/', (string) $text, 0, PREG_SPLIT_NO_EMPTY) ?: [];
+}
+
+function user(): ?Model {
+    return actor()->user();
+}
+
+function vendor(): ?Model {
+    return actor()->vendor();
 }
