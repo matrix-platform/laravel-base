@@ -3,6 +3,9 @@
     "type": "library",
     "license": "MIT",
     "autoload": {
+        "files": [
+            "src/Helpers/base.php"
+        ],
         "psr-4": {
             "MatrixPlatform\\": "src/"
         }
