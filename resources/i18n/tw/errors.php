@@ -8,7 +8,15 @@ return [
 
     'data-not-found' => '查無資料',
 
+    'invalid-captcha' => '驗證碼錯誤',
+
+    'invalid-password' => '密碼錯誤',
+
     'invalid-resource-token' => '資源代碼格式錯誤',
+
+    'invalid-token' => '登入憑證無效或已過期',
+
+    'invalid-username-or-password' => '帳號或密碼錯誤',
 
     'request-failed' => '請求無法處理',
 

@@ -14,4 +14,8 @@ class ServiceException extends Exception {
         return $this->error;
     }
 
+    public function report(): bool {
+        return false;
+    }
+
 }

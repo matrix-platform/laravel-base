@@ -8,7 +8,15 @@ return [
 
     'data-not-found' => 'Data not found',
 
+    'invalid-captcha' => 'Invalid captcha',
+
+    'invalid-password' => 'Invalid password',
+
     'invalid-resource-token' => 'Invalid resource token',
+
+    'invalid-token' => 'Invalid or expired token',
+
+    'invalid-username-or-password' => 'Invalid username or password',
 
     'request-failed' => 'Request could not be processed',
 

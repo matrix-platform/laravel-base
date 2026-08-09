@@ -3,11 +3,12 @@
 namespace MatrixPlatform\Support;
 
 use Illuminate\Database\Eloquent\Model;
+use MatrixPlatform\Models\User;
 
 class Actor {
 
     private ?Model $member = null;
-    private ?Model $user = null;
+    private ?User $user = null;
     private ?Model $vendor = null;
 
     public function current(): ?Model {
@@ -18,6 +19,14 @@ class Actor {
         return $this->member;
     }
 
+    public function requireUser(): User {
+        if ($this->user === null) {
+            error('invalid-token', 401);
+        }
+
+        return $this->user;
+    }
+
     public function setMember(Model $member): void {
         if ($this->member !== null) {
             error('actor-already-assigned');
@@ -26,7 +35,7 @@ class Actor {
         $this->member = $member;
     }
 
-    public function setUser(Model $user): void {
+    public function setUser(User $user): void {
         if ($this->user !== null) {
             error('actor-already-assigned');
         }
@@ -42,7 +51,7 @@ class Actor {
         $this->vendor = $vendor;
     }
 
-    public function user(): ?Model {
+    public function user(): ?User {
         return $this->user;
     }
 

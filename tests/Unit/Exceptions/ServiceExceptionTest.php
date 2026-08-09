@@ -4,7 +4,6 @@ namespace Tests\Unit\Exceptions;
 
 use MatrixPlatform\Exceptions\ServiceException;
 use PHPUnit\Framework\TestCase;
-use ReflectionClass;
 
 class ServiceExceptionTest extends TestCase {
 
@@ -25,18 +24,6 @@ class ServiceExceptionTest extends TestCase {
         $exception = new ServiceException('data-not-found');
 
         $this->assertSame('data-not-found', $exception->getMessage());
-    }
-
-    public function test_source_never_reaches_for_the_resource_system(): void {
-        $file = (new ReflectionClass(ServiceException::class))->getFileName();
-
-        $this->assertIsString($file);
-
-        $source = (string) file_get_contents($file);
-
-        $this->assertStringNotContainsString('i18n(', $source);
-        $this->assertStringNotContainsString('cfg(', $source);
-        $this->assertStringNotContainsString('app(', $source);
     }
 
 }

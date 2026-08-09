@@ -6,12 +6,15 @@ use Illuminate\Database\Events\TransactionRolledBack;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use MatrixPlatform\Database\Schema\BaseBlueprint;
 use MatrixPlatform\Http\Middleware\EnvelopeMiddleware;
 use MatrixPlatform\Http\Middleware\LocaleMiddleware;
+use MatrixPlatform\Http\Middleware\UserMiddleware;
 use MatrixPlatform\Support\Actor;
+use MatrixPlatform\Support\LoginRateLimiter;
 use MatrixPlatform\Support\PackageRegistry;
 use MatrixPlatform\Support\Resources;
 use MatrixPlatform\Support\RollbackCallbacks;
@@ -27,8 +30,12 @@ class BaseServiceProvider extends ServiceProvider {
 
         Route::aliasMiddleware('envelope-api', EnvelopeMiddleware::class);
         Route::aliasMiddleware('locale-api', LocaleMiddleware::class);
+        Route::aliasMiddleware('user-api', UserMiddleware::class);
+
+        RateLimiter::for('matrix-login', (new LoginRateLimiter())(...));
 
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
+        $this->loadRoutesFrom(__DIR__ . '/../routes/base.php');
     }
 
     public function register(): void {

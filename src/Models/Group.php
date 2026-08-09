@@ -1,22 +1,19 @@
 <?php //>
 
-namespace Tests\Stubs;
+namespace MatrixPlatform\Models;
 
 use Illuminate\Support\Carbon;
-use MatrixPlatform\Models\BaseModel;
 
 /**
  * @property int $id
- * @property ?string $title
+ * @property string $title
  * @property ?int $creator_id
  * @property Carbon $create_time
  * @property ?int $updater_id
  * @property ?Carbon $update_time
  */
-class Gadget extends BaseModel {
+class Group extends BaseModel {
 
-    const TRACEABLE = false;
-
-    protected $table = 'stub_gadget';
+    protected $table = 'base_group';
 
 }

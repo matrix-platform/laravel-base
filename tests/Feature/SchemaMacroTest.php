@@ -20,7 +20,7 @@ class SchemaMacroTest extends FeatureTestCase {
         $first = Widget::forceCreate(['title' => 'alpha'])->refresh();
         $second = Widget::forceCreate(['title' => 'beta'])->refresh();
 
-        $this->assertSame(100, $second->getAttribute('ranking') - $first->getAttribute('ranking'));
+        $this->assertSame(100, $second->ranking - $first->ranking);
     }
 
     public function test_schedules_adds_both_window_columns(): void {

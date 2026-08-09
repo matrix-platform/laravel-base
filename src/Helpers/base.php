@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Eloquent\Model;
 use MatrixPlatform\Exceptions\ServiceException;
+use MatrixPlatform\Models\User;
 use MatrixPlatform\Support\Actor;
 use MatrixPlatform\Support\Resources;
 
@@ -39,7 +40,7 @@ function tokenize(?string $text): array {
     return preg_split('/[\s;,]+/', (string) $text, 0, PREG_SPLIT_NO_EMPTY) ?: [];
 }
 
-function user(): ?Model {
+function user(): ?User {
     return actor()->user();
 }
 

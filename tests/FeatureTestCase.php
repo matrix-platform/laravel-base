@@ -3,7 +3,9 @@
 namespace Tests;
 
 use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 
 class FeatureTestCase extends TestCase {
 
@@ -18,6 +20,8 @@ class FeatureTestCase extends TestCase {
      */
     protected function defineEnvironment($app): void {
         $app['config']->set('app.locale', 'en');
+
+        Event::listen(RequestHandled::class, fn () => $app->forgetScopedInstances());
     }
 
 }

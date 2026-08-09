@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Database\Eloquent\Model;
+use MatrixPlatform\Models\User;
 use MatrixPlatform\Support\Actor;
 use Tests\FeatureTestCase;
 
@@ -24,7 +25,7 @@ class HelpersTest extends FeatureTestCase {
     }
 
     public function test_identity_helpers_read_through_the_shared_actor(): void {
-        $user = $this->model();
+        $user = new User();
         $member = $this->model();
         $vendor = $this->model();
 

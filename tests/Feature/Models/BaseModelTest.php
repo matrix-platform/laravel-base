@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\ManipulationType;
+use MatrixPlatform\Models\User;
 use MatrixPlatform\Support\Actor;
 use Tests\FeatureTestCase;
 use Tests\Stubs\Gadget;
@@ -26,16 +27,17 @@ class BaseModelTest extends FeatureTestCase {
 
         $log = $this->lastLog();
 
-        $this->assertSame(ManipulationType::Created, $log->getAttribute('type'));
-        $this->assertNull($log->getAttribute('before'));
-        $this->assertSame('alpha', $log->getAttribute('after')['title']);
+        $this->assertSame(ManipulationType::Created, $log->type);
+        $this->assertNull($log->before);
+        $this->assertSame('alpha', array_get_value($log->after, 'title'));
     }
 
     public function test_creating_log_excludes_the_primary_key_and_audit_columns(): void {
         Widget::forceCreate(['title' => 'alpha']);
 
-        $after = $this->lastLog()->getAttribute('after');
+        $after = $this->lastLog()->after;
 
+        $this->assertIsArray($after);
         $this->assertArrayNotHasKey('id', $after);
         $this->assertArrayNotHasKey('create_time', $after);
         $this->assertArrayNotHasKey('creator_id', $after);
@@ -46,7 +48,10 @@ class BaseModelTest extends FeatureTestCase {
     public function test_creating_log_excludes_untraceable_columns(): void {
         Widget::forceCreate(['title' => 'alpha', 'secret' => 'hunter2']);
 
-        $this->assertArrayNotHasKey('secret', $this->lastLog()->getAttribute('after'));
+        $after = $this->lastLog()->after;
+
+        $this->assertIsArray($after);
+        $this->assertArrayNotHasKey('secret', $after);
     }
 
     public function test_updating_writes_a_log_of_type_updated_with_only_the_changed_columns(): void {
@@ -57,9 +62,9 @@ class BaseModelTest extends FeatureTestCase {
 
         $log = $this->lastLog();
 
-        $this->assertSame(ManipulationType::Updated, $log->getAttribute('type'));
-        $this->assertSame(['title' => 'alpha'], $log->getAttribute('before'));
-        $this->assertSame('beta', $log->getAttribute('after')['title']);
+        $this->assertSame(ManipulationType::Updated, $log->type);
+        $this->assertSame(['title' => 'alpha'], $log->before);
+        $this->assertSame('beta', array_get_value($log->after, 'title'));
     }
 
     public function test_updating_only_untraceable_columns_writes_no_log(): void {
@@ -78,9 +83,9 @@ class BaseModelTest extends FeatureTestCase {
 
         $log = $this->lastLog();
 
-        $this->assertSame(ManipulationType::Deleted, $log->getAttribute('type'));
-        $this->assertSame('alpha', $log->getAttribute('before')['title']);
-        $this->assertNull($log->getAttribute('after'));
+        $this->assertSame(ManipulationType::Deleted, $log->type);
+        $this->assertSame('alpha', array_get_value($log->before, 'title'));
+        $this->assertNull($log->after);
     }
 
     public function test_a_model_with_tracing_disabled_writes_no_log(): void {
@@ -92,8 +97,8 @@ class BaseModelTest extends FeatureTestCase {
     public function test_create_time_is_set_while_update_time_starts_null(): void {
         $widget = Widget::forceCreate(['title' => 'alpha']);
 
-        $this->assertNotNull($widget->getAttribute('create_time'));
-        $this->assertNull($widget->getAttribute('update_time'));
+        $this->assertTrue($widget->create_time->isToday());
+        $this->assertNull($widget->update_time);
     }
 
     public function test_updating_sets_update_time(): void {
@@ -102,7 +107,7 @@ class BaseModelTest extends FeatureTestCase {
         $widget->setAttribute('title', 'beta');
         $widget->save();
 
-        $this->assertNotNull($widget->getAttribute('update_time'));
+        $this->assertTrue($widget->update_time?->isToday());
     }
 
     public function test_creator_and_updater_are_null_for_a_guest(): void {
@@ -111,12 +116,12 @@ class BaseModelTest extends FeatureTestCase {
         $widget->setAttribute('title', 'beta');
         $widget->save();
 
-        $this->assertNull($widget->getAttribute('creator_id'));
-        $this->assertNull($widget->getAttribute('updater_id'));
+        $this->assertNull($widget->creator_id);
+        $this->assertNull($widget->updater_id);
     }
 
     public function test_creator_and_updater_pick_up_the_current_identity(): void {
-        $user = Widget::forceCreate(['title' => 'the-actor']);
+        $user = User::forceCreate(['username' => 'the-actor']);
 
         app(Actor::class)->setUser($user);
 
@@ -125,14 +130,14 @@ class BaseModelTest extends FeatureTestCase {
         $widget->setAttribute('title', 'beta');
         $widget->save();
 
-        $this->assertSame($user->getKey(), $widget->getAttribute('creator_id'));
-        $this->assertSame($user->getKey(), $widget->getAttribute('updater_id'));
+        $this->assertSame($user->getKey(), $widget->creator_id);
+        $this->assertSame($user->getKey(), $widget->updater_id);
     }
 
     public function test_generators_fill_their_column_on_create(): void {
         $widget = Widget::forceCreate(['title' => 'alpha']);
 
-        $this->assertSame('127.0.0.1', $widget->getAttribute('ip'));
+        $this->assertSame('127.0.0.1', $widget->ip);
     }
 
     public function test_lock_succeeds_when_nothing_changed_underneath(): void {

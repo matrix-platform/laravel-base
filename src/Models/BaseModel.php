@@ -122,13 +122,15 @@ abstract class BaseModel extends Model {
      * @param array<string, mixed>|null $after
      */
     private function trace(ManipulationType $type, ?array $before, ?array $after): void {
-        (new ManipulationLog())->forceFill([
-            'type' => $type,
-            'data_type' => $this->getTable(),
-            'data_id' => $this->getKey(),
-            'before' => $before === [] ? (object) [] : $before,
-            'after' => $after === [] ? (object) [] : $after
-        ])->save();
+        $log = new ManipulationLog();
+
+        $log->type = $type;
+        $log->data_type = $this->getTable();
+        $log->data_id = (int) $this->getKey();
+        $log->before = $before === [] ? (object) [] : $before;
+        $log->after = $after === [] ? (object) [] : $after;
+
+        $log->save();
     }
 
     private function traceCreated(): void {
