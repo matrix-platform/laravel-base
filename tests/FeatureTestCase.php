@@ -6,6 +6,8 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
+use MatrixPlatform\Support\PackageRegistry;
+use MatrixPlatform\Support\Resources;
 
 class FeatureTestCase extends TestCase {
 
@@ -22,6 +24,15 @@ class FeatureTestCase extends TestCase {
         $app['config']->set('app.locale', 'en');
 
         Event::listen(RequestHandled::class, fn () => $app->forgetScopedInstances());
+    }
+
+    protected function useMenuFixtures(string $menus): void {
+        app(PackageRegistry::class)->register('menu-fixture', __DIR__ . '/fixtures/package-menu');
+
+        config()->set('matrix.packages', 'menu-fixture app base');
+        config()->set('matrix.admin-menus', $menus);
+
+        app()->forgetInstance(Resources::class);
     }
 
 }

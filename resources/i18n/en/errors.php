@@ -18,6 +18,8 @@ return [
 
     'invalid-username-or-password' => 'Invalid username or password',
 
+    'permission-denied' => 'Permission denied',
+
     'request-failed' => 'Request could not be processed',
 
     'server-error' => 'An unexpected error occurred',

@@ -50,6 +50,13 @@ class Resources {
         return $this->getBundle("i18n/{$locale}/{$name}");
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function getMenuBundle(string $name): ?array {
+        return $this->getBundle("menu/{$name}");
+    }
+
     public function translate(string $token, ?string $locale = null): string {
         [$name, $key] = $this->split($token);
 

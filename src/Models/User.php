@@ -21,8 +21,6 @@ use MatrixPlatform\Models\Builders\UserBuilder;
  */
 class User extends BaseModel {
 
-    const ADMIN = 2;
-    const REGULAR = 3;
     const ROOT = 1;
 
     protected $attributes = [

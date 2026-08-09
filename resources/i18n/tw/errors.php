@@ -18,6 +18,8 @@ return [
 
     'invalid-username-or-password' => '帳號或密碼錯誤',
 
+    'permission-denied' => '權限不足',
+
     'request-failed' => '請求無法處理',
 
     'server-error' => '系統發生錯誤',

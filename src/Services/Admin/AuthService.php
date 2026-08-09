@@ -9,6 +9,7 @@ use MatrixPlatform\Models\AuthToken;
 use MatrixPlatform\Models\IdentityType;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Models\UserLogType;
+use MatrixPlatform\Support\AdminPermission;
 use MatrixPlatform\Support\Captcha;
 use MatrixPlatform\Support\RollbackCallbacks;
 
@@ -73,8 +74,11 @@ class AuthService {
         $user->writeLog(UserLogType::ChangePassword);
     }
 
-    public function profile(User $user): User {
-        return $user;
+    /**
+     * @return array{nodes: array<string, array<string, mixed>>, profile: User}
+     */
+    public function profile(User $user): array {
+        return ['nodes' => app(AdminPermission::class)->getMenuNodes(), 'profile' => $user];
     }
 
 }

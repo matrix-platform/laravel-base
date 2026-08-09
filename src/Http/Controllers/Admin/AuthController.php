@@ -61,8 +61,11 @@ class AuthController extends BaseController {
         $this->service->passwd(actor()->requireUser(), $request->string('current')->value(), $request->string('password')->value());
     }
 
+    /**
+     * @return array{nodes: array<string, array<string, mixed>>, profile: User}
+     */
     #[Action]
-    public function profile(): User {
+    public function profile(): array {
         return $this->service->profile(actor()->requireUser());
     }
 

@@ -61,7 +61,7 @@ class AuthControllerTest extends FeatureTestCase {
         $response = $this->withToken($token)->postJson('admin/auth/profile');
 
         $response->assertStatus(200);
-        $response->assertJsonPath('data.username', 'alice');
+        $response->assertJsonPath('data.profile.username', 'alice');
     }
 
     public function test_a_cookie_reaches_a_protected_endpoint(): void {
@@ -72,7 +72,28 @@ class AuthControllerTest extends FeatureTestCase {
         $response = $this->withCredentials()->withUnencryptedCookie('matrix-user', $token)->postJson('admin/auth/profile');
 
         $response->assertStatus(200);
-        $response->assertJsonPath('data.username', 'alice');
+        $response->assertJsonPath('data.profile.username', 'alice');
+    }
+
+    public function test_the_profile_carries_the_navigation_nodes(): void {
+        $this->useMenuFixtures('authority');
+
+        $this->user();
+
+        $token = $this->login()->json('data.token');
+
+        $response = $this->withToken($token)->postJson('admin/auth/profile');
+
+        $response->assertJsonPath('data.nodes.system.title', 'System');
+        $response->assertJsonMissingPath('data.nodes.user');
+    }
+
+    public function test_the_profile_carries_no_nodes_when_no_menu_is_listed(): void {
+        $this->user();
+
+        $token = $this->login()->json('data.token');
+
+        $this->withToken($token)->postJson('admin/auth/profile')->assertJsonPath('data.nodes', []);
     }
 
     public function test_the_profile_never_exposes_the_password(): void {
@@ -80,7 +101,7 @@ class AuthControllerTest extends FeatureTestCase {
 
         $token = $this->login()->json('data.token');
 
-        $this->withToken($token)->postJson('admin/auth/profile')->assertJsonMissingPath('data.password');
+        $this->withToken($token)->postJson('admin/auth/profile')->assertJsonMissingPath('data.profile.password');
     }
 
     public function test_logout_invalidates_the_token(): void {

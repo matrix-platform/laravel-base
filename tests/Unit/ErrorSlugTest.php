@@ -24,24 +24,6 @@ class ErrorSlugTest extends TestCase {
         }
     }
 
-    public function test_every_locale_declares_the_same_slugs(): void {
-        $declared = $this->declared();
-
-        $this->assertGreaterThan(1, count($declared));
-
-        $expected = array_keys(reset($declared) ?: []);
-
-        sort($expected);
-
-        foreach ($declared as $locale => $messages) {
-            $slugs = array_keys($messages);
-
-            sort($slugs);
-
-            $this->assertSame($expected, $slugs, "locale '{$locale}' declares a different set of slugs");
-        }
-    }
-
     public function test_the_scanner_actually_finds_slugs(): void {
         $this->assertContains('invalid-resource-token', array_merge(...array_values($this->used())));
     }

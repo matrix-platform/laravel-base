@@ -113,7 +113,7 @@ class UserMiddlewareTest extends FeatureTestCase {
     public function test_the_actor_carries_the_authenticated_user(): void {
         $user = UserFactory::new()->createOne(['username' => 'carol']);
 
-        $this->withToken($user->createToken())->postJson('admin/auth/profile')->assertJsonPath('data.username', 'carol');
+        $this->withToken($user->createToken())->postJson('admin/auth/profile')->assertJsonPath('data.profile.username', 'carol');
     }
 
 }
