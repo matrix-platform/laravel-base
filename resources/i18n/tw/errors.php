@@ -10,6 +10,10 @@ return [
 
     'invalid-captcha' => '驗證碼錯誤',
 
+    'invalid-column-condition' => '欄位條件語法錯誤',
+
+    'invalid-column-expression' => '欄位運算式語法錯誤',
+
     'invalid-password' => '密碼錯誤',
 
     'invalid-resource-token' => '資源代碼格式錯誤',
@@ -25,6 +29,8 @@ return [
     'server-error' => '系統發生錯誤',
 
     'too-many-requests' => '請求過於頻繁，請稍後再試',
+
+    'undeclared-model' => 'Model 未宣告欄位',
 
     'unknown-package' => '套件未註冊',
 

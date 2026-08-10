@@ -3,6 +3,8 @@
 namespace MatrixPlatform\Models;
 
 use Illuminate\Support\Carbon;
+use MatrixPlatform\Attributes\Declared;
+use MatrixPlatform\Models\Declarations\AuthTokenDeclaration;
 use MatrixPlatform\Models\Generators\CreatorAddress;
 use MatrixPlatform\Models\Generators\CreatorUserAgent;
 
@@ -19,6 +21,7 @@ use MatrixPlatform\Models\Generators\CreatorUserAgent;
  * @property ?int $updater_id
  * @property ?Carbon $update_time
  */
+#[Declared(AuthTokenDeclaration::class)]
 class AuthToken extends BaseModel {
 
     const TRACEABLE = false;

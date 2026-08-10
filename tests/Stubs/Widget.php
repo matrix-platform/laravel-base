@@ -2,6 +2,7 @@
 
 namespace Tests\Stubs;
 
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use MatrixPlatform\Models\BaseModel;
 use MatrixPlatform\Models\Generators\CreatorAddress;
@@ -28,6 +29,13 @@ class Widget extends BaseModel {
     protected array $untraceable = ['secret'];
 
     protected $table = 'stub_widget';
+
+    /**
+     * @return HasMany<Trinket, $this>
+     */
+    public function trinkets(): HasMany {
+        return $this->hasMany(Trinket::class);
+    }
 
     /**
      * @return array<string, string>

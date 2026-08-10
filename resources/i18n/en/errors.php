@@ -10,6 +10,10 @@ return [
 
     'invalid-captcha' => 'Invalid captcha',
 
+    'invalid-column-condition' => 'Invalid column condition',
+
+    'invalid-column-expression' => 'Invalid column expression',
+
     'invalid-password' => 'Invalid password',
 
     'invalid-resource-token' => 'Invalid resource token',
@@ -25,6 +29,8 @@ return [
     'server-error' => 'An unexpected error occurred',
 
     'too-many-requests' => 'Too many requests, please try again later',
+
+    'undeclared-model' => 'Model has no declaration',
 
     'unknown-package' => 'Package is not registered',
 

@@ -3,6 +3,8 @@
 namespace MatrixPlatform\Models;
 
 use Illuminate\Support\Carbon;
+use MatrixPlatform\Attributes\Declared;
+use MatrixPlatform\Models\Declarations\UserLogDeclaration;
 use MatrixPlatform\Models\Generators\CreatorAddress;
 use MatrixPlatform\Models\Generators\CreatorUserAgent;
 
@@ -16,6 +18,7 @@ use MatrixPlatform\Models\Generators\CreatorUserAgent;
  * @property ?int $creator_id
  * @property Carbon $create_time
  */
+#[Declared(UserLogDeclaration::class)]
 class UserLog extends BaseModel {
 
     const TRACEABLE = false;

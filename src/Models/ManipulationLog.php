@@ -3,6 +3,8 @@
 namespace MatrixPlatform\Models;
 
 use Illuminate\Support\Carbon;
+use MatrixPlatform\Attributes\Declared;
+use MatrixPlatform\Models\Declarations\ManipulationLogDeclaration;
 use MatrixPlatform\Models\Generators\CreatorAddress;
 use MatrixPlatform\Models\Generators\CreatorEndpoint;
 
@@ -20,6 +22,7 @@ use MatrixPlatform\Models\Generators\CreatorEndpoint;
  * @property ?int $creator_id
  * @property Carbon $create_time
  */
+#[Declared(ManipulationLogDeclaration::class)]
 class ManipulationLog extends BaseModel {
 
     const TRACEABLE = false;

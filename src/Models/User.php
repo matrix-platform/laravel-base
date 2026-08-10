@@ -4,7 +4,9 @@ namespace MatrixPlatform\Models;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use MatrixPlatform\Attributes\Declared;
 use MatrixPlatform\Models\Builders\UserBuilder;
+use MatrixPlatform\Models\Declarations\UserDeclaration;
 
 /**
  * @property int $id
@@ -19,6 +21,7 @@ use MatrixPlatform\Models\Builders\UserBuilder;
  * @property ?int $updater_id
  * @property ?Carbon $update_time
  */
+#[Declared(UserDeclaration::class)]
 class User extends BaseModel {
 
     const ROOT = 1;

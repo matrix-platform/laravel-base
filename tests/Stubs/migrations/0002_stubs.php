@@ -17,6 +17,16 @@ return new class extends Migration {
             $table->auditings();
         });
 
+        Schema::create('stub_trinket', function (BaseBlueprint $table) {
+            $table->primaryKey();
+            $table->text('label');
+            $table->integer('widget_id')->nullable();
+            $table->integer('trinket_id')->nullable();
+            $table->integer('gadget_id')->nullable();
+            $table->ranking();
+            $table->auditings();
+        });
+
         Schema::create('stub_gadget', function (BaseBlueprint $table) {
             $table->primaryKey();
             $table->text('title')->nullable();
@@ -26,6 +36,7 @@ return new class extends Migration {
 
     public function down(): void {
         Schema::dropIfExists('stub_gadget');
+        Schema::dropIfExists('stub_trinket');
         Schema::dropIfExists('stub_widget');
     }
 

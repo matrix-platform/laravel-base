@@ -4,12 +4,19 @@ namespace Tests\Feature;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use MatrixPlatform\Models\User;
+use MatrixPlatform\Support\MetadataRegistry;
 use Tests\FeatureTestCase;
 
 class SmokeTest extends FeatureTestCase {
 
     public function test_the_database_driver_is_postgres(): void {
         $this->assertSame('pgsql', DB::connection()->getDriverName());
+    }
+
+    public function test_the_metadata_registry_is_a_singleton(): void {
+        $this->assertSame(app(MetadataRegistry::class), app(MetadataRegistry::class));
+        $this->assertSame('username', app(MetadataRegistry::class)->of(User::class)?->title);
     }
 
     public function test_the_package_registers_its_middleware_aliases(): void {

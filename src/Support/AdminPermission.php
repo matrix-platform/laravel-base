@@ -95,6 +95,7 @@ class AdminPermission {
             }
 
             $this->origins += array_fill_keys(array_keys($bundle), $name);
+
             $menus = array_replace_recursive($bundle, $menus);
         }
 
