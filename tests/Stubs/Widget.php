@@ -2,7 +2,10 @@
 
 namespace Tests\Stubs;
 
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Carbon;
 use MatrixPlatform\Models\BaseModel;
 use MatrixPlatform\Models\Generators\CreatorAddress;
@@ -29,6 +32,27 @@ class Widget extends BaseModel {
     protected array $untraceable = ['secret'];
 
     protected $table = 'stub_widget';
+
+    /**
+     * @return MorphMany<Trinket, $this>
+     */
+    public function owned(): MorphMany {
+        return $this->morphMany(Trinket::class, 'owner');
+    }
+
+    /**
+     * @return HasOne<Trinket, $this>
+     */
+    public function sole(): HasOne {
+        return $this->hasOne(Trinket::class);
+    }
+
+    /**
+     * @return BelongsToMany<Trinket, $this>
+     */
+    public function tagged(): BelongsToMany {
+        return $this->belongsToMany(Trinket::class, 'stub_trinket_widget');
+    }
 
     /**
      * @return HasMany<Trinket, $this>

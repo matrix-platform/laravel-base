@@ -12,6 +12,9 @@ use MatrixPlatform\Models\BaseModel;
  * @property ?int $widget_id
  * @property ?int $trinket_id
  * @property ?int $gadget_id
+ * @property ?int $amount
+ * @property ?int $owner_id
+ * @property ?string $owner_type
  * @property int $ranking
  * @property ?int $creator_id
  * @property Carbon $create_time
