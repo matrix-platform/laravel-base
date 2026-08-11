@@ -65,7 +65,9 @@ class QueryPlanTest extends FeatureTestCase {
     }
 
     public function test_a_belongs_to_relation_becomes_a_left_join(): void {
-        $sql = $this->plan(['widget.title'], new Trinket())->projection()->toSql();
+        $sql = $this->plan(['widget.title'], new Trinket())
+            ->projection()
+            ->toSql();
 
         $this->assertSame(
             'select "stub_trinket"."id", widget.title as widget_title from "stub_trinket" '
@@ -75,7 +77,9 @@ class QueryPlanTest extends FeatureTestCase {
     }
 
     public function test_a_has_one_relation_joins_on_the_local_key(): void {
-        $sql = $this->plan(['sole.label'], new Widget())->projection()->toSql();
+        $sql = $this->plan(['sole.label'], new Widget())
+            ->projection()
+            ->toSql();
 
         $this->assertStringContainsString(
             'left join "stub_trinket" as "sole" on "sole"."widget_id" = "stub_widget"."id"',
@@ -84,7 +88,9 @@ class QueryPlanTest extends FeatureTestCase {
     }
 
     public function test_a_two_level_path_chains_the_joins(): void {
-        $sql = $this->plan(['trinket.widget.title'], new Trinket())->projection()->toSql();
+        $sql = $this->plan(['trinket.widget.title'], new Trinket())
+            ->projection()
+            ->toSql();
 
         $this->assertStringContainsString(
             'left join "stub_trinket" as "trinket" on "trinket"."id" = "stub_trinket"."trinket_id"',
@@ -98,13 +104,17 @@ class QueryPlanTest extends FeatureTestCase {
     }
 
     public function test_a_relation_used_by_two_columns_is_joined_once(): void {
-        $sql = $this->plan(['widget.title', 'widget.ranking'], new Trinket())->projection()->toSql();
+        $sql = $this->plan(['widget.title', 'widget.ranking'], new Trinket())
+            ->projection()
+            ->toSql();
 
         $this->assertSame(1, substr_count($sql, 'left join'));
     }
 
     public function test_projection_selects_the_key_and_every_declared_column(): void {
-        $sql = $this->plan(['title', 'ranking'])->projection()->toSql();
+        $sql = $this->plan(['title', 'ranking'])
+            ->projection()
+            ->toSql();
 
         $this->assertSame(
             'select "stub_widget"."id", stub_widget.title as title, stub_widget.ranking as ranking from "stub_widget"',
@@ -113,7 +123,9 @@ class QueryPlanTest extends FeatureTestCase {
     }
 
     public function test_complete_selects_the_whole_row_and_only_the_joined_columns(): void {
-        $sql = $this->plan(['title', 'widget.title'], new Trinket())->complete()->toSql();
+        $sql = $this->plan(['title', 'widget.title'], new Trinket())
+            ->complete()
+            ->toSql();
 
         $this->assertSame(
             'select "stub_trinket".*, widget.title as widget_title from "stub_trinket" '
@@ -123,7 +135,9 @@ class QueryPlanTest extends FeatureTestCase {
     }
 
     public function test_a_virtual_column_is_not_selected(): void {
-        $sql = $this->plan(['title', '+note'])->projection()->toSql();
+        $sql = $this->plan(['title', '+note'])
+            ->projection()
+            ->toSql();
 
         $this->assertSame('select "stub_widget"."id", stub_widget.title as title from "stub_widget"', $sql);
     }
@@ -136,7 +150,9 @@ class QueryPlanTest extends FeatureTestCase {
     }
 
     public function test_a_function_wraps_the_qualified_field(): void {
-        $sql = $this->plan(['lowered=lower(title)'])->projection()->toSql();
+        $sql = $this->plan(['lowered=lower(title)'])
+            ->projection()
+            ->toSql();
 
         $this->assertSame(
             'select "stub_widget"."id", lower(stub_widget.title) as lowered from "stub_widget"',
@@ -145,7 +161,9 @@ class QueryPlanTest extends FeatureTestCase {
     }
 
     public function test_a_count_aggregate_becomes_a_grouped_subquery(): void {
-        $sql = $this->plan(['count(trinkets)'])->projection()->toSql();
+        $sql = $this->plan(['count(trinkets)'])
+            ->projection()
+            ->toSql();
 
         $this->assertSame(
             'select "stub_widget"."id", trinkets.trinkets_count as trinkets_count from "stub_widget" '
@@ -157,7 +175,9 @@ class QueryPlanTest extends FeatureTestCase {
     }
 
     public function test_the_grouped_key_keeps_its_own_name(): void {
-        $sql = $this->plan(['count(trinkets)'])->projection()->toSql();
+        $sql = $this->plan(['count(trinkets)'])
+            ->projection()
+            ->toSql();
 
         $this->assertStringNotContainsString('"trinkets"."widget_id" as', $sql);
     }
@@ -165,7 +185,10 @@ class QueryPlanTest extends FeatureTestCase {
     public function test_a_count_aggregate_counts_the_related_rows(): void {
         $this->widgets();
 
-        $rows = $this->plan(['title', 'count(trinkets)'])->projection()->orderBy('title')->get();
+        $rows = $this->plan(['title', 'count(trinkets)'])
+            ->projection()
+            ->orderBy('title')
+            ->get();
 
         $this->assertSame([2, 1, null], $rows->pluck('trinkets_count')->all());
     }
@@ -181,7 +204,9 @@ class QueryPlanTest extends FeatureTestCase {
     }
 
     public function test_two_aggregates_share_one_subquery(): void {
-        $sql = $this->plan(['count(trinkets)', 'sum(trinkets.amount)'])->projection()->toSql();
+        $sql = $this->plan(['count(trinkets)', 'sum(trinkets.amount)'])
+            ->projection()
+            ->toSql();
 
         $this->assertSame(1, substr_count($sql, 'left join ('));
         $this->assertStringContainsString('count(*) as trinkets_count, sum(trinkets.amount) as trinkets_sum_amount', $sql);
@@ -197,7 +222,10 @@ class QueryPlanTest extends FeatureTestCase {
     public function test_a_conditional_aggregate_separates_no_match_from_no_rows(): void {
         $this->widgets();
 
-        $rows = $this->plan(['title', 'count(trinkets[label^=a])'])->projection()->orderBy('title')->get();
+        $rows = $this->plan(['title', 'count(trinkets[label^=a])'])
+            ->projection()
+            ->orderBy('title')
+            ->get();
 
         $this->assertSame([2, 0, null], $rows->pluck('trinkets_count')->all());
     }
@@ -232,7 +260,9 @@ class QueryPlanTest extends FeatureTestCase {
     }
 
     public function test_a_nested_aggregate_joins_the_intermediate_table_inside_the_subquery(): void {
-        $sql = $this->plan(['count(trinkets.trinket)'])->projection()->toSql();
+        $sql = $this->plan(['count(trinkets.trinket)'])
+            ->projection()
+            ->toSql();
 
         $this->assertSame(
             'select "stub_widget"."id", trinkets__trinket.trinkets__trinket_count as trinkets__trinket_count '
@@ -246,13 +276,17 @@ class QueryPlanTest extends FeatureTestCase {
     }
 
     public function test_an_intermediate_node_of_an_aggregate_is_not_joined_in_the_outer_query(): void {
-        $sql = $this->plan(['count(trinkets.trinket)'])->projection()->toSql();
+        $sql = $this->plan(['count(trinkets.trinket)'])
+            ->projection()
+            ->toSql();
 
         $this->assertSame(1, substr_count($sql, 'left join'));
     }
 
     public function test_a_referenced_intermediate_with_an_aggregated_leaf_is_allowed(): void {
-        $sql = $this->plan(['widget.title', 'count(widget.trinkets)'], new Trinket())->projection()->toSql();
+        $sql = $this->plan(['widget.title', 'count(widget.trinkets)'], new Trinket())
+            ->projection()
+            ->toSql();
 
         $this->assertSame(2, substr_count($sql, 'left join'));
     }

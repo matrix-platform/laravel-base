@@ -17,6 +17,7 @@ use MatrixPlatform\Http\Middleware\UserMiddleware;
 use MatrixPlatform\Support\Actor;
 use MatrixPlatform\Support\AdminPermission;
 use MatrixPlatform\Support\LoginRateLimiter;
+use MatrixPlatform\Support\Menus;
 use MatrixPlatform\Support\MetadataRegistry;
 use MatrixPlatform\Support\PackageRegistry;
 use MatrixPlatform\Support\Resources;
@@ -48,8 +49,9 @@ class BaseServiceProvider extends ServiceProvider {
         $this->app->bind(Blueprint::class, fn (Application $app, array $parameters) => new BaseBlueprint(...$parameters));
 
         $this->app->scoped(Actor::class);
-        $this->app->scoped(AdminPermission::class, fn () => new AdminPermission(actor()->requireUser()));
+        $this->app->scoped(AdminPermission::class, fn () => new AdminPermission(actor()->requireUser(), app(Menus::class)));
         $this->app->scoped(RollbackCallbacks::class);
+        $this->app->singleton(Menus::class);
         $this->app->singleton(MetadataRegistry::class);
         $this->app->singleton(PackageRegistry::class);
         $this->app->singleton(Resources::class);

@@ -35,7 +35,10 @@ class AuthService {
             error('invalid-captcha', 422);
         }
 
-        $user = User::query()->where('username', $username)->whereEnabled()->first();
+        $user = User::query()
+            ->where('username', $username)
+            ->whereEnabled()
+            ->first();
 
         if ($user === null || $user->password === null || !Hash::check($password, $user->password)) {
             if ($user !== null) {

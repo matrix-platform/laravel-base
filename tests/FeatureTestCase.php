@@ -6,6 +6,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
+use MatrixPlatform\Support\Menus;
 use MatrixPlatform\Support\PackageRegistry;
 use MatrixPlatform\Support\Resources;
 
@@ -32,6 +33,7 @@ class FeatureTestCase extends TestCase {
         config()->set('matrix.packages', 'menu-fixture app base');
         config()->set('matrix.admin-menus', $menus);
 
+        app()->forgetInstance(Menus::class);
         app()->forgetInstance(Resources::class);
     }
 

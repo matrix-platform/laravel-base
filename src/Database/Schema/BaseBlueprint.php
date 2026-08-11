@@ -18,7 +18,9 @@ class BaseBlueprint extends Blueprint {
     }
 
     public function primaryKey(): void {
-        $this->integer('id')->default(DB::raw('NEXTVAL(\'base_id\')'))->primary();
+        $this->integer('id')
+            ->default(DB::raw('NEXTVAL(\'base_id\')'))
+            ->primary();
     }
 
     public function ranking(): void {

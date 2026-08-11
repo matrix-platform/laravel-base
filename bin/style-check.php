@@ -1,6 +1,28 @@
 <?php //>
 
 /**
+ * @param list<array{int, string, int}|string> $tokens
+ * @return list<array{int, string}>
+ */
+function check_arrow_functions(array $tokens): array {
+    $violations = [];
+
+    foreach ($tokens as $index => $token) {
+        if (!is_array($token) || $token[0] !== T_FN || !array_key_exists($index + 1, $tokens)) {
+            continue;
+        }
+
+        $next = $tokens[$index + 1];
+
+        if (!is_array($next) || $next[0] !== T_WHITESPACE || $next[1] !== ' ') {
+            $violations[] = [$token[2], 'fn must be followed by a single space, see CLAUDE.md 7.2'];
+        }
+    }
+
+    return $violations;
+}
+
+/**
  * @param list<string> $lines
  * @return list<array{int, string}>
  */
@@ -61,6 +83,50 @@ function check_member_order(array $tokens): array {
  * @param list<array{int, string, int}|string> $tokens
  * @return list<array{int, string}>
  */
+function check_method_chains(array $tokens): array {
+    $calls = collect_calls($tokens);
+    $ends = [];
+    $violations = [];
+
+    foreach ($calls as $call) {
+        $ends[$call['close']] = true;
+    }
+
+    foreach ($calls as $slot => $call) {
+        if (array_key_exists($slot - 1, $ends)) {
+            continue;
+        }
+
+        $chain = [];
+        $cursor = $slot;
+
+        while (array_key_exists($cursor, $calls)) {
+            $chain[] = $calls[$cursor];
+            $cursor = $calls[$cursor]['close'] + 1;
+        }
+
+        if (count($chain) < 3 || !$call['anchored'] || !$chain[count($chain) - 1]['terminated']) {
+            continue;
+        }
+
+        $previous = $call['boundary'];
+
+        foreach ($chain as $link) {
+            if ($link['line'] === $previous) {
+                $violations[] = [$link['line'], 'a chain of more than two calls must break every -> onto its own line, see CLAUDE.md 7.2'];
+            }
+
+            $previous = $link['line'];
+        }
+    }
+
+    return $violations;
+}
+
+/**
+ * @param list<array{int, string, int}|string> $tokens
+ * @return list<array{int, string}>
+ */
 function check_null_coalescing(array $tokens): array {
     $violations = [];
 
@@ -109,6 +175,72 @@ function check_trailing_commas(array $lines, bool $comma): array {
     }
 
     return $violations;
+}
+
+/**
+ * @param list<array{int, string, int}|string> $tokens
+ * @return array<int, array{line: int, close: int, boundary: int, anchored: bool, terminated: bool}>
+ */
+function collect_calls(array $tokens): array {
+    $line = 1;
+    $lines = [];
+    $sequence = [];
+
+    foreach ($tokens as $index => $token) {
+        $text = is_array($token) ? $token[1] : $token;
+        $lines[$index] = $line;
+        $line += substr_count($text, "\n");
+
+        if (!is_array($token) || !in_array($token[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+            $sequence[] = $index;
+        }
+    }
+
+    $calls = [];
+    $total = count($sequence);
+
+    foreach ($sequence as $slot => $index) {
+        $token = $tokens[$index];
+
+        if (!is_array($token) || !in_array($token[0], [T_OBJECT_OPERATOR, T_NULLSAFE_OBJECT_OPERATOR], true) || $slot === 0 || $slot + 2 >= $total) {
+            continue;
+        }
+
+        $name = $tokens[$sequence[$slot + 1]];
+
+        if (!is_array($name) || $name[0] !== T_STRING || $tokens[$sequence[$slot + 2]] !== '(') {
+            continue;
+        }
+
+        $depth = 0;
+
+        for ($cursor = $slot + 2; $cursor < $total; $cursor++) {
+            $current = $tokens[$sequence[$cursor]];
+
+            if ($current === '(') {
+                $depth++;
+            } elseif ($current === ')') {
+                $depth--;
+
+                if ($depth === 0) {
+                    $receiver = $tokens[$sequence[$slot - 1]];
+                    $start = receiver_start($tokens, $sequence, $slot);
+
+                    $calls[$slot] = [
+                        'line' => $lines[$index],
+                        'close' => $cursor,
+                        'boundary' => is_array($receiver) && $receiver[0] === T_VARIABLE ? 0 : $lines[$sequence[$slot - 1]],
+                        'anchored' => $start === 0 || statement_opener($tokens[$sequence[$start - 1]]),
+                        'terminated' => $cursor + 1 < $total && $tokens[$sequence[$cursor + 1]] === ';'
+                    ];
+
+                    break;
+                }
+            }
+        }
+    }
+
+    return $calls;
 }
 
 /**
@@ -182,12 +314,10 @@ function collect_members(array $tokens): array {
             }
         } elseif ($depth === $bodyDepth) {
             if ($awaiting !== null) {
-                if ($token[0] === T_STRING) {
-                    $members[] = ['name' => $token[1], 'rank' => $awaiting, 'line' => $token[2]];
-                    $awaiting = null;
-                    $modifiers = [];
-                    $signature = true;
-                }
+                $members[] = ['name' => $token[1], 'rank' => $awaiting, 'line' => $token[2]];
+                $awaiting = null;
+                $modifiers = [];
+                $signature = true;
             } elseif ($paren === 0 && !$signature && in_array($token[0], [T_ABSTRACT, T_FINAL, T_PRIVATE, T_PROTECTED, T_PUBLIC, T_READONLY, T_STATIC], true)) {
                 $modifiers[] = $token[0];
             } elseif ($token[0] === T_CONST) {
@@ -225,6 +355,79 @@ function previous_content(array $lines, int $index): ?string {
     return null;
 }
 
+/**
+ * @param list<array{int, string, int}|string> $tokens
+ * @param list<int> $sequence
+ * @param int<0, max> $slot
+ * @return int<0, max>
+ */
+function receiver_start(array $tokens, array $sequence, int $slot): int {
+    $cursor = $slot;
+
+    while ($cursor > 0) {
+        $token = $tokens[$sequence[$cursor - 1]];
+
+        if ($token === ')' || $token === ']') {
+            $open = $token === ')' ? '(' : '[';
+            $depth = 0;
+            $group = null;
+
+            for ($scan = $cursor - 1; $scan >= 0; $scan--) {
+                $current = $tokens[$sequence[$scan]];
+
+                if ($current === $token) {
+                    $depth++;
+                } elseif ($current === $open) {
+                    $depth--;
+
+                    if ($depth === 0) {
+                        $group = $scan;
+
+                        break;
+                    }
+                }
+            }
+
+            if ($group === null) {
+                break;
+            }
+
+            if ($group === 0) {
+                return 0;
+            }
+
+            $before = $tokens[$sequence[$group - 1]];
+
+            if (!is_array($before) || !in_array($before[0], [T_STRING, T_VARIABLE], true)) {
+                return $group;
+            }
+
+            $cursor = $group;
+
+            continue;
+        }
+
+        if (!is_array($token) || !in_array($token[0], [T_DOUBLE_COLON, T_NS_SEPARATOR, T_NULLSAFE_OBJECT_OPERATOR, T_OBJECT_OPERATOR, T_STATIC, T_STRING, T_VARIABLE], true)) {
+            break;
+        }
+
+        $cursor--;
+    }
+
+    return $cursor;
+}
+
+/**
+ * @param array{int, string, int}|string $token
+ */
+function statement_opener(array|string $token): bool {
+    if (is_array($token)) {
+        return in_array($token[0], [T_OPEN_TAG, T_RETURN], true);
+    }
+
+    return in_array($token, ['=', ';', '{', '}'], true);
+}
+
 $root = dirname(__DIR__);
 $targets = ['bin', 'config', 'database', 'resources', 'routes', 'src', 'tests'];
 $violations = [];
@@ -240,8 +443,10 @@ foreach ($targets as $target) {
         $checks = array_merge(
             check_opening_tag($lines),
             check_class_blank_lines($lines),
+            check_arrow_functions($tokens),
             check_null_coalescing($tokens),
             check_trailing_commas($lines, $comma),
+            str_starts_with($name, 'src/') || str_starts_with($name, 'tests/') ? check_method_chains($tokens) : [],
             str_starts_with($name, 'tests/') ? [] : check_member_order($tokens)
         );
 

@@ -33,6 +33,13 @@ class ActionRoutesTest extends TestCase {
         $this->assertNotContains('named', $paths);
     }
 
+    public function test_an_empty_path_stays_empty(): void {
+        $paths = $this->paths(null);
+
+        $this->assertContains('', $paths);
+        $this->assertNotContains('nameless', $paths);
+    }
+
     public function test_the_scope_filters_the_result(): void {
         $this->assertSame(['open'], $this->paths('anonymous'));
         $this->assertNotContains('open', $this->paths(null));

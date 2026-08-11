@@ -12,6 +12,7 @@ return new class extends Migration {
             $table->text('title')->nullable();
             $table->text('secret')->nullable();
             $table->text('ip')->nullable();
+            $table->integer('trinket_id')->nullable();
             $table->ranking();
             $table->schedules();
             $table->auditings();

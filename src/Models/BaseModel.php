@@ -41,7 +41,10 @@ abstract class BaseModel extends Model {
     protected array $untraceable = [];
 
     public function lock(): static {
-        $data = static::newQueryWithoutScopes()->whereKey($this->getKey())->lockForUpdate()->firstOrFail();
+        $data = static::newQueryWithoutScopes()
+            ->whereKey($this->getKey())
+            ->lockForUpdate()
+            ->firstOrFail();
         $latest = $data->getOriginal();
         $reserved = $this->reserved();
 

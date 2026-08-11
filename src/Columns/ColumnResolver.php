@@ -9,8 +9,10 @@ use MatrixPlatform\Columns\Options\BundleOptions;
 use MatrixPlatform\Columns\Options\OptionProvider;
 use MatrixPlatform\Columns\Options\RelationOptions;
 use MatrixPlatform\Columns\Syntax\ParsedColumn;
+use MatrixPlatform\Support\Menus;
 use MatrixPlatform\Support\MetadataRegistry;
 use MatrixPlatform\Support\Resources;
+use MatrixPlatform\Support\Subject;
 
 class ColumnResolver {
 
@@ -19,7 +21,7 @@ class ColumnResolver {
      */
     private array $bundles = [];
 
-    public function __construct(private MetadataRegistry $registry, private Resources $resources) {}
+    public function __construct(private MetadataRegistry $registry, private Resources $resources, private Menus $menus, private Subject $subject) {}
 
     public function resolve(ParsedColumn $column, Model $root): Column {
         $terminal = $this->terminal($root, $column->expression->path);
@@ -43,7 +45,7 @@ class ColumnResolver {
             $column->name,
             $this->operator($column, $type, $presentation),
             $options,
-            $column->path,
+            $this->path($column, $terminal),
             $silent ? $column->placeholder : $this->label($root, $column, $column->placeholder, ':placeholder'),
             $presentation,
             $column->readonly,
@@ -167,6 +169,20 @@ class ColumnResolver {
         }
 
         return new RelationOptions($model);
+    }
+
+    private function path(ParsedColumn $column, Model $terminal): ?string {
+        if ($column->path !== null) {
+            return $column->path;
+        }
+
+        if ($column->expression->aggregate !== 'count') {
+            return null;
+        }
+
+        $prefix = $this->subject->prefix($terminal);
+
+        return $this->menus->has($prefix) ? $this->subject->generic($prefix) : null;
     }
 
     private function presentation(ParsedColumn $column, ?Definition $definition, ?string $cast): Presentation|string|null {

@@ -14,6 +14,8 @@ return [
 
     'invalid-column-expression' => 'Invalid column expression',
 
+    'invalid-parent-relation' => 'Parent relation must be a belongsTo',
+
     'invalid-password' => 'Invalid password',
 
     'invalid-resource-token' => 'Invalid resource token',

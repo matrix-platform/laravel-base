@@ -2,6 +2,7 @@
 
 namespace Tests\Stubs;
 
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -15,6 +16,7 @@ use MatrixPlatform\Models\Generators\CreatorAddress;
  * @property ?string $title
  * @property ?string $secret
  * @property ?string $ip
+ * @property ?int $trinket_id
  * @property int $ranking
  * @property ?Carbon $enable_time
  * @property ?Carbon $disable_time
@@ -24,6 +26,10 @@ use MatrixPlatform\Models\Generators\CreatorAddress;
  * @property ?Carbon $update_time
  */
 class Widget extends BaseModel {
+
+    protected $hidden = [
+        'secret'
+    ];
 
     protected array $generators = [
         'ip' => CreatorAddress::class
@@ -38,6 +44,13 @@ class Widget extends BaseModel {
      */
     public function owned(): MorphMany {
         return $this->morphMany(Trinket::class, 'owner');
+    }
+
+    /**
+     * @return BelongsTo<Trinket, $this>
+     */
+    public function pinned(): BelongsTo {
+        return $this->belongsTo(Trinket::class);
     }
 
     /**

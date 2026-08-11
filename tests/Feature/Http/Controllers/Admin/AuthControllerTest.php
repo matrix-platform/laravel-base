@@ -69,7 +69,9 @@ class AuthControllerTest extends FeatureTestCase {
 
         $token = $this->login()->json('data.token');
 
-        $response = $this->withCredentials()->withUnencryptedCookie('matrix-user', $token)->postJson('admin/auth/profile');
+        $response = $this->withCredentials()
+            ->withUnencryptedCookie('matrix-user', $token)
+            ->postJson('admin/auth/profile');
 
         $response->assertStatus(200);
         $response->assertJsonPath('data.profile.username', 'alice');
@@ -93,7 +95,9 @@ class AuthControllerTest extends FeatureTestCase {
 
         $token = $this->login()->json('data.token');
 
-        $this->withToken($token)->postJson('admin/auth/profile')->assertJsonPath('data.nodes', []);
+        $this->withToken($token)
+            ->postJson('admin/auth/profile')
+            ->assertJsonPath('data.nodes', []);
     }
 
     public function test_the_profile_never_exposes_the_password(): void {
@@ -101,7 +105,9 @@ class AuthControllerTest extends FeatureTestCase {
 
         $token = $this->login()->json('data.token');
 
-        $this->withToken($token)->postJson('admin/auth/profile')->assertJsonMissingPath('data.profile.password');
+        $this->withToken($token)
+            ->postJson('admin/auth/profile')
+            ->assertJsonMissingPath('data.profile.password');
     }
 
     public function test_logout_invalidates_the_token(): void {
@@ -109,9 +115,13 @@ class AuthControllerTest extends FeatureTestCase {
 
         $token = $this->login()->json('data.token');
 
-        $this->withToken($token)->postJson('admin/auth/logout')->assertStatus(200);
+        $this->withToken($token)
+            ->postJson('admin/auth/logout')
+            ->assertStatus(200);
 
-        $this->withToken($token)->postJson('admin/auth/profile')->assertJson(['code' => 401, 'error' => 'invalid-token']);
+        $this->withToken($token)
+            ->postJson('admin/auth/profile')
+            ->assertJson(['code' => 401, 'error' => 'invalid-token']);
     }
 
     public function test_a_captcha_token_is_burned_even_when_the_answer_is_wrong(): void {
@@ -182,7 +192,9 @@ class AuthControllerTest extends FeatureTestCase {
 
         $this->login(code: '00000')->assertStatus(200);
         $this->login(password: 'wrong-Passw0rd')->assertStatus(200);
-        $this->withToken('nonsense')->postJson('admin/auth/profile')->assertStatus(200);
+        $this->withToken('nonsense')
+            ->postJson('admin/auth/profile')
+            ->assertStatus(200);
     }
 
     public function test_repeated_failures_are_rate_limited(): void {
@@ -223,7 +235,9 @@ class AuthControllerTest extends FeatureTestCase {
 
         $token = $this->login()->json('data.token');
 
-        $this->withToken($token)->postJson('admin/auth/passwd', ['current' => self::PASSWORD, 'password' => 'another-Passw0rd'])->assertJsonPath('success', true);
+        $this->withToken($token)
+            ->postJson('admin/auth/passwd', ['current' => self::PASSWORD, 'password' => 'another-Passw0rd'])
+            ->assertJsonPath('success', true);
 
         $this->login(password: self::PASSWORD)->assertJson(['error' => 'invalid-username-or-password']);
         $this->login(password: 'another-Passw0rd')->assertJsonPath('success', true);

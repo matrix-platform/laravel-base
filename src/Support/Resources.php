@@ -13,9 +13,7 @@ class Resources {
         foreach ($patch as $key => $value) {
             $existing = array_get_value($base, $key);
 
-            $base[$key] = is_array($value) && !array_is_list($value) && is_array($existing) && !array_is_list($existing)
-                ? self::combine($existing, $value)
-                : $value;
+            $base[$key] = is_array($value) && !array_is_list($value) && is_array($existing) && !array_is_list($existing) ? self::combine($existing, $value) : $value;
         }
 
         return $base;

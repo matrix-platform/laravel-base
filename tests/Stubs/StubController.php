@@ -32,6 +32,11 @@ class StubController extends BaseController {
         return 'named';
     }
 
+    #[Action('')]
+    public function nameless(): string {
+        return 'nameless';
+    }
+
     #[Action(scope: 'anonymous')]
     public function open(): string {
         return 'open';

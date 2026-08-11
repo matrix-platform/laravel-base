@@ -8,33 +8,25 @@ use MatrixPlatform\Models\User;
 
 class AdminPermission {
 
-    /**
-     * @var array<string, mixed>
-     */
-    private array $bundle;
-
     private ?MenuNode $current = null;
 
     private AdminLevel $level;
-
-    /**
-     * @var array<string, string>
-     */
-    private array $origins = [];
 
     /**
      * @var array<string, mixed>|null
      */
     private ?array $permissions = null;
 
-    public function __construct(private User $user) {
-        $this->bundle = $this->combine();
+    private bool $resolved = false;
+
+    public function __construct(private User $user, private Menus $menus) {
         $this->level = AdminLevel::of($user->id);
     }
 
     public function getCurrentMenu(): ?MenuNode {
-        if ($this->current === null) {
+        if (!$this->resolved) {
             $this->current = $this->resolve();
+            $this->resolved = true;
         }
 
         return $this->current;
@@ -46,14 +38,10 @@ class AdminPermission {
     public function getMenuNodes(): array {
         $nodes = [];
 
-        foreach ($this->bundle as $path => $node) {
-            if (!is_array($node) || array_get_value($node, 'ranking') === null) {
-                continue;
-            }
+        foreach (array_keys($this->menus->bundle()) as $path) {
+            $menu = $this->menus->node($path);
 
-            $menu = $this->node($path, $node);
-
-            if ($menu->group && $this->denied($path, $menu->tag)) {
+            if ($menu === null || $menu->ranking === null || ($menu->group && $this->denied($menu->path, $menu->tag))) {
                 continue;
             }
 
@@ -78,28 +66,6 @@ class AdminPermission {
         $own = $this->load("permission/User/{$this->user->id}");
 
         return array_replace_recursive($group, $own);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function combine(): array {
-        $configured = config('matrix.admin-menus');
-        $menus = [];
-
-        foreach (tokenize(is_string($configured) ? $configured : null) as $name) {
-            $bundle = app(Resources::class)->getMenuBundle($name);
-
-            if ($bundle === null) {
-                continue;
-            }
-
-            $this->origins += array_fill_keys(array_keys($bundle), $name);
-
-            $menus = array_replace_recursive($bundle, $menus);
-        }
-
-        return $menus;
     }
 
     private function denied(?string $path, ?string $tag): bool {
@@ -135,26 +101,6 @@ class AdminPermission {
         return is_array($data) ? $data : [];
     }
 
-    /**
-     * @param array<string, mixed> $node
-     */
-    private function node(string $path, array $node): MenuNode {
-        $icon = array_get_value($node, 'icon');
-        $parent = array_get_value($node, 'parent');
-        $ranking = array_get_value($node, 'ranking');
-        $tag = array_get_value($node, 'tag');
-
-        return new MenuNode(
-            array_key_exists($path, $this->origins) ? $this->origins[$path] : '',
-            array_get_value($node, 'group') === true,
-            is_string($icon) ? $icon : null,
-            is_string($parent) ? $parent : null,
-            $path,
-            is_int($ranking) ? $ranking : null,
-            is_string($tag) ? $tag : null
-        );
-    }
-
     private function resolve(): ?MenuNode {
         $configured = config('matrix.admin-api-prefix');
         $route = request()->route();
@@ -165,16 +111,13 @@ class AdminPermission {
             return null;
         }
 
-        $path = substr($uri, strlen($prefix));
-        $node = array_get_value($this->bundle, $path);
+        $menu = $this->menus->node(substr($uri, strlen($prefix)));
 
-        if (!is_array($node)) {
+        if ($menu === null) {
             return null;
         }
 
-        $menu = $this->node($path, $node);
-
-        return $this->denied($menu->group ? $path : $menu->parent, $menu->tag) ? null : $menu;
+        return $this->denied($menu->group ? $menu->path : $menu->parent, $menu->tag) ? null : $menu;
     }
 
 }

@@ -7,6 +7,7 @@ use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Storage;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Support\AdminPermission;
+use MatrixPlatform\Support\Menus;
 use MatrixPlatform\Support\PackageRegistry;
 use MatrixPlatform\Support\Resources;
 use Tests\FeatureTestCase;
@@ -31,11 +32,18 @@ class AdminPermissionTest extends FeatureTestCase {
         Storage::put("permission/{$owner}", (string) json_encode($permissions));
     }
 
+    private function listing(?string $menus): void {
+        config()->set('matrix.admin-menus', $menus);
+
+        app()->forgetInstance(Menus::class);
+    }
+
     private function override(): void {
         app(PackageRegistry::class)->register('menu-override', __DIR__ . '/../../fixtures/package-menu-override');
 
         config()->set('matrix.packages', 'menu-override menu-fixture app base');
 
+        app()->forgetInstance(Menus::class);
         app()->forgetInstance(Resources::class);
     }
 
@@ -45,7 +53,7 @@ class AdminPermissionTest extends FeatureTestCase {
         $user->id = $id;
         $user->group_id = $groupId;
 
-        return new AdminPermission($user);
+        return new AdminPermission($user, app(Menus::class));
     }
 
     private function route(string $uri): void {
@@ -188,7 +196,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_a_menu_bundle_that_is_not_listed_never_enters_the_system(): void {
-        config()->set('matrix.admin-menus', 'authority');
+        $this->listing('authority');
 
         $this->route('admin/resource');
 
@@ -196,7 +204,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_a_menu_bundle_that_is_not_listed_is_absent_from_the_navigation(): void {
-        config()->set('matrix.admin-menus', 'authority');
+        $this->listing('authority');
 
         $nodes = $this->permission(User::ROOT)->getMenuNodes();
 
@@ -206,7 +214,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_no_menu_is_loaded_when_nothing_is_listed(): void {
-        config()->set('matrix.admin-menus', null);
+        $this->listing(null);
 
         $this->route('admin/user');
 

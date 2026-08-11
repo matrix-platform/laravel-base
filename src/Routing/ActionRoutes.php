@@ -30,7 +30,9 @@ class ActionRoutes {
                 continue;
             }
 
-            $routes[] = ['path' => $action->path ?: Str::kebab($method->getName()), 'method' => $method->getName(), 'middleware' => $action->middleware];
+            $path = $action->path === null ? Str::kebab($method->getName()) : $action->path;
+
+            $routes[] = ['path' => $path, 'method' => $method->getName(), 'middleware' => $action->middleware];
         }
 
         usort($routes, fn (array $first, array $second): int => $first['path'] <=> $second['path']);

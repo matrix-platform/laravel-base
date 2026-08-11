@@ -28,7 +28,9 @@ class UserMiddlewareTest extends FeatureTestCase {
     }
 
     public function test_a_valid_token_reaches_the_endpoint(): void {
-        $this->withToken($this->token())->postJson('admin/auth/profile')->assertJsonPath('success', true);
+        $this->withToken($this->token())
+            ->postJson('admin/auth/profile')
+            ->assertJsonPath('success', true);
     }
 
     public function test_an_unknown_token_is_refused_with_a_200_envelope(): void {
@@ -43,7 +45,9 @@ class UserMiddlewareTest extends FeatureTestCase {
 
         AuthToken::query()->where('token', $token)->update(['expire_time' => now()->subMinute()]);
 
-        $this->withToken($token)->postJson('admin/auth/profile')->assertJson(['code' => 401]);
+        $this->withToken($token)
+            ->postJson('admin/auth/profile')
+            ->assertJson(['code' => 401]);
     }
 
     public function test_a_token_whose_user_became_disabled_is_refused(): void {
@@ -53,7 +57,9 @@ class UserMiddlewareTest extends FeatureTestCase {
         $user->disabled = true;
         $user->save();
 
-        $this->withToken($token)->postJson('admin/auth/profile')->assertJson(['code' => 401]);
+        $this->withToken($token)
+            ->postJson('admin/auth/profile')
+            ->assertJson(['code' => 401]);
     }
 
     public function test_the_token_is_touched_at_most_once_per_minute(): void {
@@ -83,7 +89,9 @@ class UserMiddlewareTest extends FeatureTestCase {
 
         $this->travel(2)->minutes();
 
-        $this->withToken($token)->postJson('admin/auth/profile')->assertJsonPath('success', true);
+        $this->withToken($token)
+            ->postJson('admin/auth/profile')
+            ->assertJsonPath('success', true);
 
         $after = AuthToken::query()->where('token', $token)->firstOrFail()->update_time;
 
@@ -98,7 +106,9 @@ class UserMiddlewareTest extends FeatureTestCase {
         for ($hop = 0; $hop < 3; $hop++) {
             $this->travel(20)->minutes();
 
-            $this->withToken($token)->postJson('admin/auth/profile')->assertJsonPath('success', true);
+            $this->withToken($token)
+                ->postJson('admin/auth/profile')
+                ->assertJsonPath('success', true);
         }
     }
 
@@ -107,13 +117,17 @@ class UserMiddlewareTest extends FeatureTestCase {
 
         $this->travel(31)->minutes();
 
-        $this->withToken($token)->postJson('admin/auth/profile')->assertJson(['code' => 401, 'error' => 'invalid-token']);
+        $this->withToken($token)
+            ->postJson('admin/auth/profile')
+            ->assertJson(['code' => 401, 'error' => 'invalid-token']);
     }
 
     public function test_the_actor_carries_the_authenticated_user(): void {
         $user = UserFactory::new()->createOne(['username' => 'carol']);
 
-        $this->withToken($user->createToken())->postJson('admin/auth/profile')->assertJsonPath('data.profile.username', 'carol');
+        $this->withToken($user->createToken())
+            ->postJson('admin/auth/profile')
+            ->assertJsonPath('data.profile.username', 'carol');
     }
 
 }

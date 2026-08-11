@@ -31,7 +31,9 @@ class PermissionMiddlewareTest extends FeatureTestCase {
     }
 
     public function test_root_reaches_the_endpoint(): void {
-        $this->withToken($this->token(User::ROOT))->postJson('admin/user')->assertJsonPath('reached', true);
+        $this->withToken($this->token(User::ROOT))
+            ->postJson('admin/user')
+            ->assertJsonPath('reached', true);
     }
 
     public function test_a_regular_user_without_grants_is_refused_with_a_200_envelope(): void {
@@ -44,13 +46,17 @@ class PermissionMiddlewareTest extends FeatureTestCase {
     public function test_a_granted_regular_user_reaches_the_endpoint(): void {
         Storage::put('permission/User/2000', (string) json_encode(['user' => ['query' => true]]));
 
-        $this->withToken($this->token(2000))->postJson('admin/user')->assertJsonPath('reached', true);
+        $this->withToken($this->token(2000))
+            ->postJson('admin/user')
+            ->assertJsonPath('reached', true);
     }
 
     public function test_the_grant_is_scoped_to_the_action_that_was_granted(): void {
         Storage::put('permission/User/2000', (string) json_encode(['user' => ['query' => true]]));
 
-        $this->withToken($this->token(2000))->postJson('admin/user/insert')->assertJson(['code' => 403]);
+        $this->withToken($this->token(2000))
+            ->postJson('admin/user/insert')
+            ->assertJson(['code' => 403]);
     }
 
     public function test_an_anonymous_request_is_refused_before_the_permission_check(): void {
