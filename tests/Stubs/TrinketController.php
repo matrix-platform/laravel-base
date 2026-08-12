@@ -28,7 +28,7 @@ class TrinketController extends CrudController {
     }
 
     protected function onList(ListService $service): ListService {
-        return parent::onList($service)->rowActions(['edit', new Operation('delete', fn (Trinket $trinket) => $trinket->label !== 'locked')]);
+        return parent::onList($service)->rowActions(['edit', 'copy', new Operation('delete', fn (Trinket $trinket) => $trinket->label !== 'locked')]);
     }
 
 }

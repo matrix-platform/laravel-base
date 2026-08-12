@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use MatrixPlatform\Attributes\Action;
 use MatrixPlatform\Http\Controllers\BaseController;
+use MatrixPlatform\Services\Admin\Crud\CopyService;
 use MatrixPlatform\Services\Admin\Crud\CrudService;
 use MatrixPlatform\Services\Admin\Crud\DeleteService;
 use MatrixPlatform\Services\Admin\Crud\GetService;
@@ -43,6 +44,14 @@ abstract class CrudController extends BaseController {
      * @var list<string|array<string, mixed>>
      */
     protected array $updates = [];
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[Action('{id}/copy')]
+    public function copy(Request $request): array {
+        return $this->onCopy($this->prepare(new CopyService($this->model), $request))->copy($this->identifier($request));
+    }
 
     /**
      * @return array<string, mixed>
@@ -90,6 +99,10 @@ abstract class CrudController extends BaseController {
     #[Action('{id}/update')]
     public function update(Request $request): array {
         return $this->onUpdate($this->prepare(new UpdateService($this->model), $request))->update($this->identifier($request), $request->all());
+    }
+
+    protected function onCopy(CopyService $service): CopyService {
+        return $service;
     }
 
     protected function onDelete(DeleteService $service): DeleteService {

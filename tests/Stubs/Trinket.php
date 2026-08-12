@@ -3,6 +3,7 @@
 namespace Tests\Stubs;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use MatrixPlatform\Models\BaseModel;
 
@@ -39,6 +40,13 @@ class Trinket extends BaseModel {
      */
     public function trinket(): BelongsTo {
         return $this->belongsTo(Trinket::class);
+    }
+
+    /**
+     * @return HasMany<Trinket, $this>
+     */
+    public function trinkets(): HasMany {
+        return $this->hasMany(Trinket::class);
     }
 
     /**

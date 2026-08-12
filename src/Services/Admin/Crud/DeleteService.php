@@ -3,7 +3,6 @@
 namespace MatrixPlatform\Services\Admin\Crud;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Arr;
 
 class DeleteService extends CrudService {
@@ -28,7 +27,7 @@ class DeleteService extends CrudService {
     public function delete(mixed $input): array {
         $values = is_array($input) ? $input : [];
         $items = array_values(array_unique(Arr::wrap(array_get_value($values, 'id'))));
-        $models = $this->complete()
+        $models = $this->plain()
             ->whereIn("{$this->model->getTable()}.id", $items)
             ->get();
 
@@ -56,16 +55,13 @@ class DeleteService extends CrudService {
      */
     private function purge(Model $model, array $chain): void {
         $name = array_shift($chain);
-        $relation = $name !== null && $model->isRelation($name) ? $model->{$name}() : null;
 
-        if (!$relation instanceof Relation) {
-            error('invalid-parent-relation');
+        if ($name === null) {
+            return;
         }
 
-        foreach ($relation->get() as $child) {
-            if ($chain !== []) {
-                $this->purge($child, $chain);
-            }
+        foreach ($this->cascading($model, $name)->get() as $child) {
+            $this->purge($child, $chain);
 
             $child->delete();
         }

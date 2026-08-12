@@ -8,6 +8,8 @@ return [
 
     'widget/{id}/update' => 'Edit Widget',
 
+    'widget/{id}/copy' => 'Copy Widget',
+
     'widget/new' => 'New Widget',
 
     'widget/delete' => 'Delete Widget',
@@ -17,6 +19,8 @@ return [
     'widget/{widget_id}/trinket/{id}' => 'Trinket',
 
     'widget/{widget_id}/trinket/{id}/update' => 'Edit Trinket',
+
+    'widget/{widget_id}/trinket/{id}/copy' => 'Copy Trinket',
 
     'widget/{widget_id}/trinket/new' => 'New Trinket',
 

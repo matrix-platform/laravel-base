@@ -77,6 +77,10 @@ abstract class BaseModel extends Model {
             $this->setAttribute(static::UPDATED_AT, null);
         }
 
+        if (static::UPDATED_BY !== null) {
+            $this->setAttribute(static::UPDATED_BY, null);
+        }
+
         foreach ($this->generators as $name => $class) {
             if (is_a($class, Generates::class, true)) {
                 $this->setAttribute($name, app($class)->generate($this->getAttribute($name), $this));

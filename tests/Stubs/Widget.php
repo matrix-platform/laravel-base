@@ -50,7 +50,7 @@ class Widget extends BaseModel {
      * @return BelongsTo<Trinket, $this>
      */
     public function pinned(): BelongsTo {
-        return $this->belongsTo(Trinket::class);
+        return $this->belongsTo(Trinket::class, 'trinket_id');
     }
 
     /**

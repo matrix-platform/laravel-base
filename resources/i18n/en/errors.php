@@ -10,6 +10,8 @@ return [
 
     'invalid-captcha' => 'Invalid captcha',
 
+    'invalid-cascade-relation' => 'Cascade relation must be a hasOne, hasMany or their morph form',
+
     'invalid-column-condition' => 'Invalid column condition',
 
     'invalid-column-expression' => 'Invalid column expression',

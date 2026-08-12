@@ -331,8 +331,8 @@ class CrudControllerTest extends FeatureTestCase {
         $rows = $this->admin("admin/widget/{$alpha->id}/trinket")->json('data.rows');
         $actions = array_combine(array_column($rows, 'label'), array_column($rows, 'actions'));
 
-        $this->assertSame(['edit'], $actions['locked']);
-        $this->assertSame(['edit', 'delete'], $actions['open']);
+        $this->assertSame(['edit', 'copy'], $actions['locked']);
+        $this->assertSame(['edit', 'copy', 'delete'], $actions['open']);
     }
 
     public function test_a_guard_refuses_the_whole_delete_before_anything_is_removed(): void {
@@ -345,6 +345,69 @@ class CrudControllerTest extends FeatureTestCase {
 
         $response->assertJson(['success' => false, 'code' => 403, 'error' => 'permission-denied']);
         $this->assertSame(2, Trinket::query()->count());
+    }
+
+    public function test_copy_duplicates_the_row_and_its_declared_children(): void {
+        $alpha = $this->widget('Alpha');
+
+        Trinket::forceCreate(['label' => 'a', 'widget_id' => $alpha->id]);
+
+        $response = $this->admin("admin/widget/{$alpha->id}/copy");
+        $copy = intval($response->json('data.id'));
+
+        $response->assertJsonPath('success', true);
+        $this->assertNotSame($alpha->id, $copy);
+        $this->assertSame('Alpha', Widget::query()->findOrFail($copy)->title);
+        $this->assertSame(1, Trinket::query()->where('widget_id', $copy)->count());
+    }
+
+    public function test_a_nested_copy_duplicates_its_own_record(): void {
+        $alpha = $this->widget('Alpha');
+        $trinket = Trinket::forceCreate(['label' => 'mine', 'widget_id' => $alpha->id]);
+
+        $response = $this->admin("admin/widget/{$alpha->id}/trinket/{$trinket->id}/copy");
+        $copy = Trinket::query()->findOrFail(intval($response->json('data.id')));
+
+        $this->assertNotSame($trinket->id, $copy->id);
+        $this->assertSame('mine', $copy->label);
+        $this->assertSame($alpha->id, $copy->widget_id);
+    }
+
+    public function test_a_nested_copy_cannot_reach_another_parent(): void {
+        $alpha = $this->widget('Alpha');
+        $beta = $this->widget('Beta');
+
+        $trinket = Trinket::forceCreate(['label' => 'theirs', 'widget_id' => $beta->id]);
+
+        $response = $this->admin("admin/widget/{$alpha->id}/trinket/{$trinket->id}/copy");
+
+        $response->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
+        $this->assertSame(1, Trinket::query()->count());
+    }
+
+    public function test_a_guard_refusing_a_child_rolls_back_the_whole_copy(): void {
+        $alpha = $this->widget('Alpha');
+
+        Trinket::forceCreate(['label' => 'locked', 'widget_id' => $alpha->id]);
+
+        $response = $this->admin("admin/widget/{$alpha->id}/copy");
+
+        $response->assertJson(['success' => false, 'code' => 403, 'error' => 'permission-denied']);
+        $this->assertSame(1, Widget::query()->count());
+        $this->assertSame(1, Trinket::query()->count());
+    }
+
+    public function test_the_copy_action_carries_its_translated_confirmation_and_url(): void {
+        $alpha = $this->widget('Alpha');
+
+        Trinket::forceCreate(['label' => 'mine', 'widget_id' => $alpha->id]);
+
+        $actions = $this->admin("admin/widget/{$alpha->id}/trinket")->json('data.actions.row');
+        $copy = array_values(array_filter($actions, fn (array $action): bool => $action['type'] === 'copy'))[0];
+
+        $this->assertSame('Copy', $copy['title']);
+        $this->assertSame('Are you sure you want to copy?', $copy['confirm']);
+        $this->assertSame('widget/{widget_id}/trinket/{id}/copy', $copy['url']);
     }
 
 }

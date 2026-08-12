@@ -5,6 +5,7 @@ namespace MatrixPlatform\Services\Admin\Crud;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOneOrMany;
 use Illuminate\Support\Facades\Validator;
 use MatrixPlatform\Columns\Column;
 use MatrixPlatform\Columns\ColumnResolver;
@@ -147,6 +148,19 @@ abstract class CrudService {
     }
 
     /**
+     * @return HasOneOrMany<Model, Model, *>
+     */
+    protected function cascading(Model $model, string $name): HasOneOrMany {
+        $relation = $model->isRelation($name) ? $model->{$name}() : null;
+
+        if (!$relation instanceof HasOneOrMany) {
+            error('invalid-cascade-relation');
+        }
+
+        return $relation;
+    }
+
+    /**
      * @return Builder<Model>
      */
     protected function complete(): Builder {
@@ -154,11 +168,11 @@ abstract class CrudService {
     }
 
     /**
-     * @param array<string, mixed>|null $before
+     * @param array<string, mixed>|Model|null $context
      */
-    protected function inspect(Model $model, ?array $before = null): void {
+    protected function inspect(Model $model, array|Model|null $context = null): void {
         if ($this->guard !== null) {
-            ($this->guard)($model, $before);
+            ($this->guard)($model, $context);
         }
     }
 
@@ -206,6 +220,13 @@ abstract class CrudService {
             'rule' => $column->rule,
             'sortable' => $column->sortable
         ], $columns);
+    }
+
+    /**
+     * @return Builder<Model>
+     */
+    protected function plain(): Builder {
+        return $this->prepared($this->model->query());
     }
 
     protected function plan(): QueryPlan {

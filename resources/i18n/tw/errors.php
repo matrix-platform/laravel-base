@@ -10,6 +10,8 @@ return [
 
     'invalid-captcha' => '驗證碼錯誤',
 
+    'invalid-cascade-relation' => '連動關聯必須是 hasOne、hasMany 或其 morph 形式',
+
     'invalid-column-condition' => '欄位條件語法錯誤',
 
     'invalid-column-expression' => '欄位運算式語法錯誤',

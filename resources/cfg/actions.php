@@ -2,6 +2,8 @@
 
 return [
 
+    'copy' => ['icon' => 'fa-solid fa-copy', 'severity' => 'secondary', 'confirm' => 'actions.copy-confirm', 'modify' => true, 'url' => '{prefix}/{id}/copy'],
+
     'delete' => ['icon' => 'fa-solid fa-trash-can', 'severity' => 'danger', 'confirm' => 'actions.delete-confirm', 'modify' => true, 'url' => '{prefix}/delete'],
 
     'edit' => ['icon' => 'fa-solid fa-pen-to-square', 'severity' => 'secondary', 'navigate' => true, 'url' => '{prefix}/{id}'],

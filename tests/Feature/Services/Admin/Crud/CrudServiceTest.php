@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\ValidationException;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\ManipulationLog;
+use MatrixPlatform\Models\ManipulationType;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Services\Admin\Crud\DeleteService;
 use MatrixPlatform\Services\Admin\Crud\GetService;
@@ -220,6 +221,66 @@ class CrudServiceTest extends FeatureTestCase {
         $this->assertSame(['a', 'b'], $deleted);
         $this->assertSame(0, Trinket::query()->count());
         $this->assertSame(0, Widget::query()->count());
+    }
+
+    public function test_cascade_delete_reaches_grandchildren(): void {
+        $widget = $this->widgets();
+        $child = Trinket::forceCreate(['label' => 'child', 'widget_id' => $widget->id]);
+
+        Trinket::forceCreate(['label' => 'grandchild', 'trinket_id' => $child->id]);
+
+        (new DeleteService(Widget::class))
+            ->standalone(true)
+            ->cascade(['trinkets.trinkets'])
+            ->delete(['id' => $widget->id]);
+
+        $this->assertSame(0, Trinket::query()->count());
+    }
+
+    public function test_cascade_delete_reaches_a_morph_relation(): void {
+        $widget = $this->widgets();
+
+        Trinket::forceCreate(['label' => 'owned', 'owner_id' => $widget->id, 'owner_type' => Widget::class]);
+
+        (new DeleteService(Widget::class))
+            ->standalone(true)
+            ->cascade(['owned'])
+            ->delete(['id' => $widget->id]);
+
+        $this->assertSame(0, Trinket::query()->count());
+    }
+
+    public function test_cascade_delete_refuses_a_relation_it_would_walk_backwards(): void {
+        $widget = $this->widgets();
+
+        $this->expectException(ServiceException::class);
+        $this->expectExceptionMessage('invalid-cascade-relation');
+
+        (new DeleteService(Widget::class))
+            ->standalone(true)
+            ->cascade(['tagged'])
+            ->delete(['id' => $widget->id]);
+    }
+
+    public function test_a_removal_record_excludes_the_joined_columns(): void {
+        $trinket = Trinket::forceCreate(['label' => 'pin']);
+        $widget = Widget::forceCreate(['title' => 'Alpha', 'trinket_id' => $trinket->id]);
+
+        (new DeleteService(Widget::class))
+            ->standalone(true)
+            ->columns(['pinned.label'])
+            ->delete(['id' => $widget->id]);
+
+        $before = ManipulationLog::query()
+            ->where('data_type', 'stub_widget')
+            ->where('type', ManipulationType::Deleted)
+            ->sole()
+            ->before;
+        $keys = is_array($before) ? array_keys($before) : [];
+
+        sort($keys);
+
+        $this->assertSame(['ip', 'ranking', 'title', 'trinket_id'], $keys);
     }
 
     public function test_a_removal_is_recorded_in_the_audit_trail(): void {

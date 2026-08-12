@@ -2,6 +2,10 @@
 
 return [
 
+    'copy' => '複製',
+
+    'copy-confirm' => '確定要複製嗎？',
+
     'delete' => '刪除',
 
     'delete-confirm' => '確定要刪除嗎？',
