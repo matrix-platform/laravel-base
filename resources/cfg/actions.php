@@ -8,6 +8,8 @@ return [
 
     'edit' => ['icon' => 'fa-solid fa-pen-to-square', 'severity' => 'secondary', 'navigate' => true, 'url' => '{prefix}/{id}'],
 
+    'export' => ['icon' => 'fa-solid fa-file-export', 'severity' => 'secondary', 'url' => '{prefix}/export'],
+
     'insert' => ['icon' => 'fa-solid fa-check', 'severity' => 'primary', 'url' => '{prefix}/insert'],
 
     'new' => ['icon' => 'fa-solid fa-plus', 'severity' => 'primary', 'navigate' => true, 'url' => '{prefix}/new'],

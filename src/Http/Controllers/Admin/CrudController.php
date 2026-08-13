@@ -10,6 +10,7 @@ use MatrixPlatform\Http\Controllers\BaseController;
 use MatrixPlatform\Services\Admin\Crud\CopyService;
 use MatrixPlatform\Services\Admin\Crud\CrudService;
 use MatrixPlatform\Services\Admin\Crud\DeleteService;
+use MatrixPlatform\Services\Admin\Crud\ExportService;
 use MatrixPlatform\Services\Admin\Crud\GetService;
 use MatrixPlatform\Services\Admin\Crud\InsertService;
 use MatrixPlatform\Services\Admin\Crud\ListService;
@@ -18,6 +19,13 @@ use MatrixPlatform\Services\Admin\Crud\SortService;
 use MatrixPlatform\Services\Admin\Crud\UpdateService;
 
 abstract class CrudController extends BaseController {
+
+    protected bool $exportable = false;
+
+    /**
+     * @var list<string|array<string, mixed>>|null
+     */
+    protected ?array $exports = null;
 
     /**
      * @var list<string|array<string, mixed>>|null
@@ -62,6 +70,18 @@ abstract class CrudController extends BaseController {
     #[Action]
     public function delete(Request $request): array {
         return $this->onDelete($this->prepare(new DeleteService($this->model), $request))->delete($request->all());
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[Action]
+    public function export(Request $request): array {
+        if (!$this->exportable) {
+            error('data-not-found', 404);
+        }
+
+        return $this->onExport($this->prepare(new ExportService($this->model), $request))->export($request->all());
     }
 
     /**
@@ -128,6 +148,13 @@ abstract class CrudController extends BaseController {
         return $service;
     }
 
+    protected function onExport(ExportService $service): ExportService {
+        return $service
+            ->columns($this->exporting())
+            ->filterColumns($this->listing())
+            ->sorting($this->sorting);
+    }
+
     protected function onGet(GetService $service): GetService {
         return $service->columns($this->updates);
     }
@@ -150,6 +177,13 @@ abstract class CrudController extends BaseController {
 
     protected function onUpdate(UpdateService $service): UpdateService {
         return $service->columns($this->updates);
+    }
+
+    /**
+     * @return list<string|array<string, mixed>>
+     */
+    private function exporting(): array {
+        return $this->exports === null ? $this->listing() : $this->exports;
     }
 
     /**

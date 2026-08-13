@@ -27,13 +27,23 @@ class FeatureTestCase extends TestCase {
         Event::listen(RequestHandled::class, fn () => $app->forgetScopedInstances());
     }
 
-    protected function useMenuFixtures(string $menus): void {
-        app(PackageRegistry::class)->register('menu-fixture', __DIR__ . '/fixtures/package-menu');
+    protected function useCfgFixtures(): void {
+        $this->usePackageFixtures('cfg-fixture', 'package-format');
+    }
 
-        config()->set('matrix.packages', 'menu-fixture app base');
+    protected function useMenuFixtures(string $menus): void {
+        $this->usePackageFixtures('menu-fixture', 'package-menu');
+
         config()->set('matrix.admin-menus', $menus);
 
         app()->forgetInstance(Menus::class);
+    }
+
+    private function usePackageFixtures(string $package, string $directory): void {
+        app(PackageRegistry::class)->register($package, __DIR__ . "/fixtures/{$directory}");
+
+        config()->set('matrix.packages', "{$package} app base");
+
         app()->forgetInstance(Resources::class);
     }
 

@@ -60,7 +60,11 @@ abstract class CrudService {
      */
     public function columns(array $columns): static {
         foreach ($columns as $column) {
-            $this->columns[] = $this->resolve($column);
+            $resolved = $this->resolve($column);
+
+            if (!$this->has($resolved->name)) {
+                $this->columns[] = $resolved;
+            }
         }
 
         $this->plan = null;
@@ -205,10 +209,7 @@ abstract class CrudService {
      */
     protected function payload(array $columns, ?Model $record): array {
         return array_map(fn (Column $column): array => [
-            'name' => $column->name,
-            'title' => $column->title,
-            'type' => $column->type->value,
-            'presentation' => $column->presentation instanceof Presentation ? $column->presentation->value : $column->presentation,
+            ...$this->shape($column),
             'group' => $column->group,
             'op' => $column->op,
             'options' => $column->options === null ? null : $column->options->options($record),
@@ -269,6 +270,18 @@ abstract class CrudService {
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    protected function shape(Column $column): array {
+        return [
+            'name' => $column->name,
+            'title' => $column->title,
+            'type' => $column->type->value,
+            'presentation' => $column->presentation instanceof Presentation ? $column->presentation->value : $column->presentation
+        ];
+    }
+
+    /**
      * @param list<Model> $parents
      */
     protected function subtitle(array $parents): ?string {
@@ -310,6 +323,10 @@ abstract class CrudService {
 
     private function foreign(): ?string {
         return $this->standalone ? null : $this->subject->foreign($this->model);
+    }
+
+    private function has(string $name): bool {
+        return in_array($name, array_column($this->columns, 'name'), true);
     }
 
     /**

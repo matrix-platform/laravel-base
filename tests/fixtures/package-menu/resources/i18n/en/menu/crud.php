@@ -16,6 +16,8 @@ return [
 
     'widget/delete' => 'Delete Widget',
 
+    'widget/export' => 'Export Widgets',
+
     'widget/sort' => 'Sort Widgets',
 
     'widget/sort/save' => 'Save Widget Order',
@@ -34,9 +36,15 @@ return [
 
     'widget/{widget_id}/trinket/delete' => 'Delete Trinket',
 
+    'widget/{widget_id}/trinket/export' => 'Export Trinkets',
+
     'widget/{widget_id}/trinket/sort' => 'Sort Trinkets',
 
     'widget/{widget_id}/trinket/sort/save' => 'Save Trinket Order',
+
+    'gadget' => 'Gadgets',
+
+    'gadget/export' => 'Export Gadgets',
 
     'gizmo' => 'Gizmos',
 

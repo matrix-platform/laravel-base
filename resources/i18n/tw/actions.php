@@ -12,6 +12,8 @@ return [
 
     'edit' => '編輯',
 
+    'export' => '匯出',
+
     'insert' => '儲存',
 
     'new' => '新增',

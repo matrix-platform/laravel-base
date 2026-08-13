@@ -8,6 +8,15 @@ use MatrixPlatform\Services\Admin\Crud\CopyService;
 
 class WidgetController extends CrudController {
 
+    protected bool $exportable = true;
+
+    protected ?array $exports = [
+        'title',
+        'secret',
+        'ip:password',
+        'count(trinkets)'
+    ];
+
     protected ?array $lists = [
         'title',
         'count(trinkets)'

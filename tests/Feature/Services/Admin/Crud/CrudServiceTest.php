@@ -90,6 +90,38 @@ class CrudServiceTest extends FeatureTestCase {
         $this->assertFalse($columns[0]['sortable']);
     }
 
+    public function test_a_repeated_column_name_keeps_only_the_first_definition(): void {
+        $columns = (new ListService(Widget::class))
+            ->standalone(true)
+            ->columns(['*title'])
+            ->columns(['title'])
+            ->list([])['columns'];
+        $titles = array_values(array_filter($columns, fn (array $column): bool => $column['name'] === 'title'));
+
+        $this->assertCount(1, $titles);
+        $this->assertTrue($titles[0]['required']);
+    }
+
+    public function test_an_explicit_identifier_column_cannot_overwrite_the_key(): void {
+        $widget = $this->widgets();
+
+        (new UpdateService(Widget::class))
+            ->standalone(true)
+            ->columns(['*title', 'id'])
+            ->update($widget->id, ['title' => 'renamed', 'id' => 999999]);
+
+        $this->assertTrue(Widget::query()->whereKey($widget->id)->exists());
+        $this->assertFalse(Widget::query()->whereKey(999999)->exists());
+        $this->assertSame('renamed', Widget::query()->sole()->title);
+    }
+
+    public function test_an_aliased_identifier_column_is_still_usable(): void {
+        $widget = $this->widgets();
+        $rows = (new ListService(Widget::class))->standalone(true)->columns(['key=id'])->list([])['rows'];
+
+        $this->assertSame(strval($widget->id), strval($rows[0]['key']));
+    }
+
     public function test_the_payload_carries_the_full_column_shape(): void {
         $columns = (new ListService(Widget::class))->standalone(true)->columns(['title'])->list([])['columns'];
 

@@ -65,7 +65,7 @@ abstract class BaseModel extends Model {
     }
 
     protected function serializeDate(DateTimeInterface $date): string {
-        return $date->format('Y-m-d H:i:s');
+        return $date->format(cfg('system.datetime-format'));
     }
 
     private function applyCreatingGenerators(): void {

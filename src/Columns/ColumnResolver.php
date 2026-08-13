@@ -36,7 +36,7 @@ class ColumnResolver {
         $type = $this->type($column, $definition, $cast);
         $declared = $this->presentation($column, $definition, $cast);
         $silent = $declared === Presentation::Hidden && !$this->searchable($column);
-        $options = $silent ? $column->options : $this->options($column, $definition, $terminal);
+        $options = $silent ? $column->options : $this->options($column, $definition, $terminal, $type);
         $presentation = $this->shown($declared, $options);
 
         return new Column(
@@ -124,19 +124,22 @@ class ColumnResolver {
             return null;
         }
 
+        if ($type === ColumnType::Boolean) {
+            return 'eq';
+        }
+
         if ($presentation === Presentation::Select || $presentation === Presentation::MultiSelect) {
             return 'in';
         }
 
         return match ($type) {
-            ColumnType::Boolean => 'eq',
             ColumnType::Date, ColumnType::DateTime, ColumnType::Float, ColumnType::Integer => 'between',
             ColumnType::Text => 'contains',
             ColumnType::Json => null
         };
     }
 
-    private function options(ParsedColumn $column, ?Definition $definition, Model $terminal): ?OptionProvider {
+    private function options(ParsedColumn $column, ?Definition $definition, Model $terminal, ColumnType $type): ?OptionProvider {
         if ($column->options !== null) {
             return $column->options;
         }
@@ -147,6 +150,10 @@ class ColumnResolver {
 
         if ($column->optionsName !== null) {
             return new BundleOptions($column->optionsName);
+        }
+
+        if ($type === ColumnType::Boolean) {
+            return new BundleOptions('boolean');
         }
 
         $field = $column->expression->field;

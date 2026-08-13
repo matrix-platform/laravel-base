@@ -172,4 +172,12 @@ class BaseModelTest extends FeatureTestCase {
         $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $widget->toArray()['enable_time']);
     }
 
+    public function test_dates_serialize_with_the_configured_format(): void {
+        $this->useCfgFixtures();
+
+        $widget = Widget::forceCreate(['title' => 'alpha', 'enable_time' => '2026-08-12 13:45:07']);
+
+        $this->assertSame('12/08/2026 13:45', $widget->toArray()['enable_time']);
+    }
+
 }

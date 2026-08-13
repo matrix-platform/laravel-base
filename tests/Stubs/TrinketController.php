@@ -9,6 +9,8 @@ use MatrixPlatform\Services\Admin\Crud\Operation;
 
 class TrinketController extends CrudController {
 
+    protected bool $exportable = true;
+
     protected ?array $lists = [
         'label',
         'widget.title',
@@ -31,7 +33,7 @@ class TrinketController extends CrudController {
 
     protected function onList(ListService $service): ListService {
         return parent::onList($service)
-            ->pageActions(['new', 'sort', 'delete'])
+            ->pageActions(['new', 'sort', 'export', 'delete'])
             ->rowActions(['edit', 'copy', new Operation('delete', fn (Trinket $trinket) => $trinket->label !== 'locked')]);
     }
 

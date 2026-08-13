@@ -8,7 +8,9 @@ use MatrixPlatform\Columns\ColumnResolver;
 use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Options\BundleOptions;
+use MatrixPlatform\Columns\Options\Option;
 use MatrixPlatform\Columns\Options\RelationOptions;
+use MatrixPlatform\Columns\Options\StaticOptions;
 use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Columns\Syntax\ColumnParser;
 use MatrixPlatform\Models\User;
@@ -248,6 +250,29 @@ class ColumnResolverTest extends FeatureTestCase {
 
     public function test_a_boolean_column_is_not_sortable_by_default(): void {
         $this->assertFalse($this->resolve('disabled', new User())->sortable);
+    }
+
+    public function test_a_boolean_column_carries_yes_and_no_options(): void {
+        $column = $this->resolve('disabled', new User());
+        $options = $column->options === null ? [] : $column->options->options();
+
+        $this->assertSame(Presentation::Select, $column->presentation);
+        $this->assertSame([1, 0], array_map(fn (Option $option): int|string => $option->id, $options));
+        $this->assertSame(['Yes', 'No'], array_map(fn (Option $option): string => $option->title, $options));
+    }
+
+    public function test_a_boolean_column_is_still_compared_by_equality(): void {
+        $column = $this->resolve('disabled', new User());
+
+        $this->assertNotNull($column->options);
+        $this->assertSame('eq', $column->op);
+    }
+
+    public function test_an_explicit_option_provider_wins_over_the_boolean_default(): void {
+        $options = new StaticOptions([]);
+        $column = $this->resolve(['name' => 'disabled', 'options' => $options], new User());
+
+        $this->assertSame($options, $column->options);
     }
 
     public function test_a_custom_widget_name_survives_resolution(): void {

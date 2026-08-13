@@ -12,6 +12,8 @@ return [
 
     'edit' => 'Edit',
 
+    'export' => 'Export',
+
     'insert' => 'Save',
 
     'new' => 'Create',

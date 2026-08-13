@@ -12,6 +12,8 @@ use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
+use Tests\Stubs\Gadget;
+use Tests\Stubs\GadgetController;
 use Tests\Stubs\GizmoController;
 use Tests\Stubs\StubDeclaration;
 use Tests\Stubs\Trinket;
@@ -33,6 +35,7 @@ class CrudControllerTest extends FeatureTestCase {
                 Route::prefix('widget')->group(fn () => ActionRoutes::scan(WidgetController::class));
                 Route::prefix('widget/{widget_id}/trinket')->group(fn () => ActionRoutes::scan(TrinketController::class));
                 Route::prefix('gizmo')->group(fn () => ActionRoutes::scan(GizmoController::class));
+                Route::prefix('gadget')->group(fn () => ActionRoutes::scan(GadgetController::class));
             });
     }
 
@@ -43,6 +46,7 @@ class CrudControllerTest extends FeatureTestCase {
 
         app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
         app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'widget')));
+        app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget')));
 
         $this->token = UserFactory::new()->createOne(['id' => User::ROOT])->createToken();
     }
@@ -442,6 +446,76 @@ class CrudControllerTest extends FeatureTestCase {
         $this->assertSame('widget/{widget_id}/trinket/sort', $sort['url']);
         $this->assertTrue($sort['navigate']);
         $this->assertArrayNotHasKey('confirm', $sort);
+    }
+
+    public function test_export_returns_the_declared_columns_only(): void {
+        $alpha = $this->widget('Alpha');
+
+        Trinket::forceCreate(['label' => 'a', 'widget_id' => $alpha->id]);
+
+        $response = $this->admin('admin/widget/export');
+
+        $response->assertJsonPath('data.title', 'Export Widgets');
+        $this->assertSame(['title', 'trinkets_count'], array_column($response->json('data.columns'), 'name'));
+        $response->assertJsonPath('data.rows.0.title', 'Alpha');
+        $response->assertJsonPath('data.rows.0.trinkets_count', '1');
+    }
+
+    public function test_export_leaves_out_the_hidden_and_password_columns(): void {
+        $this->widget('Alpha');
+
+        $names = array_column($this->admin('admin/widget/export')->json('data.columns'), 'name');
+
+        $this->assertNotContains('secret', $names);
+        $this->assertNotContains('ip', $names);
+    }
+
+    public function test_export_falls_back_to_the_list_columns(): void {
+        $alpha = $this->widget('Alpha');
+
+        Trinket::forceCreate(['label' => 'mine', 'widget_id' => $alpha->id]);
+
+        $names = array_column($this->admin("admin/widget/{$alpha->id}/trinket/export")->json('data.columns'), 'name');
+
+        $this->assertSame(['label', 'widget_title', 'amount'], $names);
+    }
+
+    public function test_an_empty_export_list_yields_no_columns(): void {
+        Gadget::forceCreate(['title' => 'Alpha']);
+
+        $response = $this->admin('admin/gadget/export');
+
+        $response->assertJsonPath('data.columns', []);
+        $response->assertJsonPath('data.rows', [[]]);
+    }
+
+    public function test_a_nested_export_is_scoped_to_its_parent(): void {
+        $alpha = $this->widget('Alpha');
+        $beta = $this->widget('Beta');
+
+        Trinket::forceCreate(['label' => 'mine', 'widget_id' => $alpha->id]);
+        Trinket::forceCreate(['label' => 'theirs', 'widget_id' => $beta->id]);
+
+        $rows = $this->admin("admin/widget/{$alpha->id}/trinket/export")->json('data.rows');
+
+        $this->assertSame(['mine'], array_column($rows, 'label'));
+    }
+
+    public function test_export_is_hidden_when_the_resource_is_not_exportable(): void {
+        $this->admin('admin/gizmo/export')->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
+    }
+
+    public function test_the_export_action_carries_its_translated_title_and_url(): void {
+        $alpha = $this->widget('Alpha');
+
+        Trinket::forceCreate(['label' => 'mine', 'widget_id' => $alpha->id]);
+
+        $actions = $this->admin("admin/widget/{$alpha->id}/trinket")->json('data.actions.page');
+        $export = array_values(array_filter($actions, fn (array $action): bool => $action['type'] === 'export'))[0];
+
+        $this->assertSame('Export', $export['title']);
+        $this->assertSame('widget/{widget_id}/trinket/export', $export['url']);
+        $this->assertArrayNotHasKey('confirm', $export);
     }
 
     public function test_the_copy_action_carries_its_translated_confirmation_and_url(): void {
