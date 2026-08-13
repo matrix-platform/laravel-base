@@ -2,8 +2,11 @@
 
 namespace Tests\Feature\Support;
 
+use MatrixPlatform\Routing\ActionRoutes;
 use MatrixPlatform\Support\Menus;
 use Tests\FeatureTestCase;
+use Tests\Stubs\TrinketController;
+use Tests\Stubs\WidgetController;
 
 class MenusTest extends FeatureTestCase {
 
@@ -11,6 +14,17 @@ class MenusTest extends FeatureTestCase {
         parent::setUp();
 
         $this->useMenuFixtures('crud');
+    }
+
+    /**
+     * @param class-string $controller
+     */
+    private function assertActionsHaveNodes(string $controller, string $prefix): void {
+        foreach (ActionRoutes::resolve($controller) as $route) {
+            $path = $route['path'] === '' ? $prefix : "{$prefix}/{$route['path']}";
+
+            $this->assertTrue($this->menus()->has($path), "missing menu node for {$path}");
+        }
     }
 
     private function menus(): Menus {
@@ -63,6 +77,11 @@ class MenusTest extends FeatureTestCase {
             $this->assertNotNull($node, strval($path));
             $this->assertNotSame($node->token(), i18n($node->token()), strval($path));
         }
+    }
+
+    public function test_every_crud_action_has_a_menu_node(): void {
+        $this->assertActionsHaveNodes(WidgetController::class, 'widget');
+        $this->assertActionsHaveNodes(TrinketController::class, 'widget/{widget_id}/trinket');
     }
 
     public function test_the_singleton_is_resolvable_without_an_authenticated_user(): void {

@@ -17,6 +17,8 @@ class TrinketController extends CrudController {
 
     protected string $model = Trinket::class;
 
+    protected bool $sortable = true;
+
     protected array $updates = [
         '*label',
         'amount',
@@ -28,7 +30,9 @@ class TrinketController extends CrudController {
     }
 
     protected function onList(ListService $service): ListService {
-        return parent::onList($service)->rowActions(['edit', 'copy', new Operation('delete', fn (Trinket $trinket) => $trinket->label !== 'locked')]);
+        return parent::onList($service)
+            ->pageActions(['new', 'sort', 'delete'])
+            ->rowActions(['edit', 'copy', new Operation('delete', fn (Trinket $trinket) => $trinket->label !== 'locked')]);
     }
 
 }

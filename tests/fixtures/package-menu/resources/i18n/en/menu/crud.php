@@ -12,7 +12,13 @@ return [
 
     'widget/new' => 'New Widget',
 
+    'widget/insert' => 'Save New Widget',
+
     'widget/delete' => 'Delete Widget',
+
+    'widget/sort' => 'Sort Widgets',
+
+    'widget/sort/save' => 'Save Widget Order',
 
     'widget/{widget_id}/trinket' => 'Trinkets',
 
@@ -24,7 +30,13 @@ return [
 
     'widget/{widget_id}/trinket/new' => 'New Trinket',
 
+    'widget/{widget_id}/trinket/insert' => 'Save New Trinket',
+
     'widget/{widget_id}/trinket/delete' => 'Delete Trinket',
+
+    'widget/{widget_id}/trinket/sort' => 'Sort Trinkets',
+
+    'widget/{widget_id}/trinket/sort/save' => 'Save Trinket Order',
 
     'gizmo' => 'Gizmos',
 

@@ -16,6 +16,8 @@ return [
 
     'new' => 'Create',
 
+    'sort' => 'Sort',
+
     'update' => 'Save',
 
 ];

@@ -14,6 +14,7 @@ use MatrixPlatform\Services\Admin\Crud\GetService;
 use MatrixPlatform\Services\Admin\Crud\InsertService;
 use MatrixPlatform\Services\Admin\Crud\ListService;
 use MatrixPlatform\Services\Admin\Crud\NewService;
+use MatrixPlatform\Services\Admin\Crud\SortService;
 use MatrixPlatform\Services\Admin\Crud\UpdateService;
 
 abstract class CrudController extends BaseController {
@@ -32,6 +33,8 @@ abstract class CrudController extends BaseController {
      * @var class-string<Model>
      */
     protected string $model;
+
+    protected bool $sortable = false;
 
     /**
      * @var list<string>
@@ -96,6 +99,22 @@ abstract class CrudController extends BaseController {
     /**
      * @return array<string, mixed>
      */
+    #[Action]
+    public function sort(Request $request): array {
+        return $this->sorter($request)->items();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[Action('sort/save')]
+    public function sortSave(Request $request): array {
+        return $this->sorter($request)->sort($request->all());
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     #[Action('{id}/update')]
     public function update(Request $request): array {
         return $this->onUpdate($this->prepare(new UpdateService($this->model), $request))->update($this->identifier($request), $request->all());
@@ -123,6 +142,10 @@ abstract class CrudController extends BaseController {
 
     protected function onNew(NewService $service): NewService {
         return $service->columns($this->forming());
+    }
+
+    protected function onSort(SortService $service): SortService {
+        return $service;
     }
 
     protected function onUpdate(UpdateService $service): UpdateService {
@@ -156,6 +179,14 @@ abstract class CrudController extends BaseController {
         $route = $request->route();
 
         return $service->standalone($this->standalone)->params($route instanceof Route ? $route->parameters() : []);
+    }
+
+    private function sorter(Request $request): SortService {
+        if (!$this->sortable) {
+            error('data-not-found', 404);
+        }
+
+        return $this->onSort($this->prepare(new SortService($this->model), $request));
     }
 
 }

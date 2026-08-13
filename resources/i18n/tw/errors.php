@@ -22,6 +22,8 @@ return [
 
     'invalid-resource-token' => '資源代碼格式錯誤',
 
+    'invalid-sort-order' => '排序內容與資料不符',
+
     'invalid-token' => '登入憑證無效或已過期',
 
     'invalid-username-or-password' => '帳號或密碼錯誤',

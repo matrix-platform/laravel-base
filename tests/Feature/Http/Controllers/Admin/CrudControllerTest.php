@@ -12,6 +12,7 @@ use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
+use Tests\Stubs\GizmoController;
 use Tests\Stubs\StubDeclaration;
 use Tests\Stubs\Trinket;
 use Tests\Stubs\TrinketController;
@@ -31,6 +32,7 @@ class CrudControllerTest extends FeatureTestCase {
             ->group(function (): void {
                 Route::prefix('widget')->group(fn () => ActionRoutes::scan(WidgetController::class));
                 Route::prefix('widget/{widget_id}/trinket')->group(fn () => ActionRoutes::scan(TrinketController::class));
+                Route::prefix('gizmo')->group(fn () => ActionRoutes::scan(GizmoController::class));
             });
     }
 
@@ -395,6 +397,51 @@ class CrudControllerTest extends FeatureTestCase {
         $response->assertJson(['success' => false, 'code' => 403, 'error' => 'permission-denied']);
         $this->assertSame(1, Widget::query()->count());
         $this->assertSame(1, Trinket::query()->count());
+    }
+
+    public function test_the_sort_listing_is_mounted_and_reachable(): void {
+        $alpha = $this->widget('Alpha');
+        $beta = $this->widget('Beta');
+
+        $rows = $this->admin('admin/widget/sort')->json('data.rows');
+
+        $this->assertSame([$alpha->id, $beta->id], array_column($rows, 'id'));
+        $this->assertSame(['Alpha', 'Beta'], array_column($rows, 'title'));
+    }
+
+    public function test_the_sort_listing_is_not_swallowed_by_the_get_route(): void {
+        $this->widget('Alpha');
+
+        $this->admin('admin/widget/sort')->assertJsonPath('data.rows.0.title', 'Alpha');
+    }
+
+    public function test_sort_save_persists_the_requested_order(): void {
+        $alpha = $this->widget('Alpha');
+        $beta = $this->widget('Beta');
+
+        $response = $this->admin('admin/widget/sort/save', ['order' => [$beta->id, $alpha->id]]);
+
+        $response->assertJsonPath('success', true);
+        $this->assertLessThan($alpha->refresh()->ranking, $beta->refresh()->ranking);
+    }
+
+    public function test_both_sort_endpoints_are_hidden_when_the_resource_is_not_sortable(): void {
+        $this->admin('admin/gizmo/sort')->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
+        $this->admin('admin/gizmo/sort/save', ['order' => []])->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
+    }
+
+    public function test_the_sort_action_carries_its_translated_title_and_url(): void {
+        $alpha = $this->widget('Alpha');
+
+        Trinket::forceCreate(['label' => 'mine', 'widget_id' => $alpha->id]);
+
+        $actions = $this->admin("admin/widget/{$alpha->id}/trinket")->json('data.actions.page');
+        $sort = array_values(array_filter($actions, fn (array $action): bool => $action['type'] === 'sort'))[0];
+
+        $this->assertSame('Sort', $sort['title']);
+        $this->assertSame('widget/{widget_id}/trinket/sort', $sort['url']);
+        $this->assertTrue($sort['navigate']);
+        $this->assertArrayNotHasKey('confirm', $sort);
     }
 
     public function test_the_copy_action_carries_its_translated_confirmation_and_url(): void {

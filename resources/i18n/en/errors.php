@@ -22,6 +22,8 @@ return [
 
     'invalid-resource-token' => 'Invalid resource token',
 
+    'invalid-sort-order' => 'Sort order does not match the data',
+
     'invalid-token' => 'Invalid or expired token',
 
     'invalid-username-or-password' => 'Invalid username or password',

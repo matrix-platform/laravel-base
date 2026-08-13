@@ -12,6 +12,8 @@ return [
 
     'new' => ['icon' => 'fa-solid fa-plus', 'severity' => 'primary', 'navigate' => true, 'url' => '{prefix}/new'],
 
+    'sort' => ['icon' => 'fa-solid fa-up-down', 'severity' => 'secondary', 'navigate' => true, 'url' => '{prefix}/sort'],
+
     'update' => ['icon' => 'fa-solid fa-check', 'severity' => 'primary', 'url' => '{prefix}/{id}/update'],
 
 ];
