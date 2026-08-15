@@ -67,6 +67,39 @@ class BaseModelTest extends FeatureTestCase {
         $this->assertSame('beta', array_get_value($log->after, 'title'));
     }
 
+    public function test_a_json_column_is_logged_as_a_map_when_created(): void {
+        Widget::forceCreate(['title' => 'alpha', 'payload' => ['a' => 1]]);
+
+        $this->assertSame(['a' => 1], array_get_value($this->lastLog()->after, 'payload'));
+    }
+
+    public function test_a_json_column_is_logged_as_a_map_on_both_sides_of_an_update(): void {
+        $widget = Widget::forceCreate(['title' => 'alpha', 'payload' => ['a' => 1]]);
+
+        $widget->setAttribute('payload', ['a' => 1, 'b' => 2]);
+        $widget->save();
+
+        $log = $this->lastLog();
+
+        $this->assertSame(['a' => 1], array_get_value($log->before, 'payload'));
+        $this->assertSame(['a' => 1, 'b' => 2], array_get_value($log->after, 'payload'));
+    }
+
+    public function test_a_boolean_column_is_logged_in_its_cast_shape(): void {
+        $user = User::forceCreate(['username' => 'the-actor']);
+
+        $user->setAttribute('disabled', '1');
+        $user->save();
+
+        $this->assertTrue(array_get_value($this->lastLog()->after, 'disabled'));
+    }
+
+    public function test_a_datetime_column_keeps_its_plain_representation_in_the_log(): void {
+        Widget::forceCreate(['title' => 'alpha', 'enable_time' => '2026-08-12 13:45:07']);
+
+        $this->assertSame('2026-08-12 13:45:07', array_get_value($this->lastLog()->after, 'enable_time'));
+    }
+
     public function test_updating_only_untraceable_columns_writes_no_log(): void {
         $widget = Widget::forceCreate(['title' => 'alpha']);
         $before = $this->logCount();

@@ -17,6 +17,7 @@ use MatrixPlatform\Models\Generators\CreatorAddress;
  * @property ?string $secret
  * @property ?string $ip
  * @property ?int $trinket_id
+ * @property ?array<string, mixed> $payload
  * @property int $ranking
  * @property ?Carbon $enable_time
  * @property ?Carbon $disable_time
@@ -80,7 +81,8 @@ class Widget extends BaseModel {
     protected function casts(): array {
         return [
             'disable_time' => 'datetime',
-            'enable_time' => 'datetime'
+            'enable_time' => 'datetime',
+            'payload' => 'array'
         ];
     }
 

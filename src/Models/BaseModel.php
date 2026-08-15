@@ -104,6 +104,20 @@ abstract class BaseModel extends Model {
      * @param array<string, mixed> $data
      * @return array<string, mixed>
      */
+    private function decoded(array $data): array {
+        foreach (array_intersect_key($data, $this->getCasts()) as $name => $value) {
+            if (!$this->isDateCastable($name)) {
+                $data[$name] = $this->castAttribute($name, $value);
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
     private function getTraceables(array $data, bool $truncate = true): array {
         Arr::forget($data, $this->untraceable);
         Arr::forget($data, $this->reserved());
@@ -141,7 +155,7 @@ abstract class BaseModel extends Model {
     }
 
     private function traceCreated(): void {
-        $this->trace(ManipulationType::Created, null, $this->getTraceables($this->getAttributes()));
+        $this->trace(ManipulationType::Created, null, $this->decoded($this->getTraceables($this->getAttributes())));
     }
 
     private function traceDeleted(): void {
@@ -154,7 +168,7 @@ abstract class BaseModel extends Model {
         if ($changes) {
             $original = $this->getOriginal();
 
-            $this->trace(ManipulationType::Updated, Arr::map($changes, fn (mixed $_, string $name) => array_get_value($original, $name)), $changes);
+            $this->trace(ManipulationType::Updated, Arr::map($changes, fn (mixed $_, string $name) => array_get_value($original, $name)), $this->decoded($changes));
         }
     }
 
