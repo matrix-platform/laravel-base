@@ -10,12 +10,13 @@ class Definition {
 
     /**
      * @param list<string> $rule
+     * @param OptionProvider|class-string<OptionProvider>|null $options
      */
     public function __construct(
         public readonly ColumnType $type = ColumnType::Text,
         public readonly Presentation|string|null $presentation = null,
         public readonly array $rule = [],
-        public readonly ?OptionProvider $options = null
+        public readonly OptionProvider|string|null $options = null
     ) {}
 
 }

@@ -22,7 +22,7 @@ return [
 
     'widget/sort/save' => ['parent' => 'widget', 'tag' => 'update'],
 
-    'widget/{widget_id}/trinket' => ['parent' => 'widget/{id}', 'tag' => 'query'],
+    'widget/{widget_id}/trinket' => ['parent' => 'widget/{id}', 'group' => true, 'tag' => 'query'],
 
     'widget/{widget_id}/trinket/{id}' => ['parent' => 'widget/{widget_id}/trinket', 'tag' => 'query'],
 

@@ -22,6 +22,7 @@ class UserDeclaration implements Declares {
                 'password' => new Definition(ColumnType::Text, Presentation::Password),
                 'group_id' => new Definition(ColumnType::Integer)
             ],
+            Definitions::permissions(),
             Definitions::schedules(),
             ['disabled' => new Definition(ColumnType::Boolean)],
             Definitions::auditings()

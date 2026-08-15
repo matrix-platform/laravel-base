@@ -3,7 +3,9 @@
 namespace Tests\Feature\Support;
 
 use MatrixPlatform\Routing\ActionRoutes;
+use MatrixPlatform\Support\MenuNode;
 use MatrixPlatform\Support\Menus;
+use MatrixPlatform\Support\Resources;
 use Tests\FeatureTestCase;
 use Tests\Stubs\TrinketController;
 use Tests\Stubs\WidgetController;
@@ -29,6 +31,10 @@ class MenusTest extends FeatureTestCase {
 
     private function menus(): Menus {
         return app(Menus::class);
+    }
+
+    private function rendered(MenuNode $node): bool {
+        return $node->ranking !== null || $node->group || str_ends_with($node->path, '/{id}') || str_ends_with($node->path, '/new');
     }
 
     public function test_a_listed_path_is_present(): void {
@@ -77,6 +83,48 @@ class MenusTest extends FeatureTestCase {
             $this->assertNotNull($node, strval($path));
             $this->assertNotSame($node->token(), i18n($node->token()), strval($path));
         }
+    }
+
+    public function test_the_production_translations_cover_exactly_the_rendered_nodes(): void {
+        $this->useMenus('base');
+
+        $rendered = [];
+
+        foreach ($this->menus()->nodes() as $node) {
+            if (!$this->rendered($node)) {
+                continue;
+            }
+
+            $this->assertNotSame($node->token(), i18n($node->token()), $node->path);
+
+            $rendered[] = $node->path;
+        }
+
+        $bundle = app(Resources::class)->getI18nBundle('menu/base');
+
+        $this->assertCount(8, $rendered);
+        $this->assertSame($rendered, array_keys($bundle === null ? [] : $bundle));
+    }
+
+    public function test_every_action_node_in_the_production_bundle_hangs_on_its_group_resource(): void {
+        $this->useMenus('base');
+
+        $checked = 0;
+
+        foreach ($this->menus()->nodes() as $node) {
+            if ($node->group || $node->tag === null) {
+                continue;
+            }
+
+            $parent = $node->parent === null ? null : $this->menus()->node($node->parent);
+
+            $this->assertNotNull($parent, $node->path);
+            $this->assertTrue($parent->group, $node->path);
+
+            $checked++;
+        }
+
+        $this->assertSame(10, $checked);
     }
 
     public function test_every_crud_action_has_a_menu_node(): void {

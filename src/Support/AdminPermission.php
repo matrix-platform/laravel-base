@@ -3,7 +3,7 @@
 namespace MatrixPlatform\Support;
 
 use Illuminate\Routing\Route;
-use Illuminate\Support\Facades\Storage;
+use MatrixPlatform\Models\Group;
 use MatrixPlatform\Models\User;
 
 class AdminPermission {
@@ -38,10 +38,8 @@ class AdminPermission {
     public function getMenuNodes(): array {
         $nodes = [];
 
-        foreach (array_keys($this->menus->bundle()) as $path) {
-            $menu = $this->menus->node($path);
-
-            if ($menu === null || $menu->ranking === null || ($menu->group && $this->denied($menu->path, $menu->tag))) {
+        foreach ($this->menus->nodes() as $path => $menu) {
+            if ($menu->ranking === null || ($menu->group && $this->denied($menu->path, $menu->tag))) {
                 continue;
             }
 
@@ -58,14 +56,17 @@ class AdminPermission {
         return $nodes;
     }
 
+    public function permits(string $path, string $tag): bool {
+        return !$this->denied($path, $tag);
+    }
+
     /**
      * @return array<string, mixed>
      */
     private function collect(): array {
-        $group = $this->user->group_id === null ? [] : $this->load("permission/Group/{$this->user->group_id}");
-        $own = $this->load("permission/User/{$this->user->id}");
+        $group = $this->user->group_id === null ? null : Group::query()->find($this->user->group_id);
 
-        return array_replace_recursive($group, $own);
+        return array_replace_recursive($group === null ? [] : $group->permissions, $this->user->permissions);
     }
 
     private function denied(?string $path, ?string $tag): bool {
@@ -90,15 +91,6 @@ class AdminPermission {
         $node = array_get_value($this->permissions, $path);
 
         return is_array($node) && array_get_value($node, $tag) === true;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function load(string $path): array {
-        $data = Storage::json($path);
-
-        return is_array($data) ? $data : [];
     }
 
     private function resolve(): ?MenuNode {

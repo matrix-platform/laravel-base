@@ -36,6 +36,23 @@ class Menus {
     }
 
     /**
+     * @return array<string, MenuNode>
+     */
+    public function nodes(): array {
+        $nodes = [];
+
+        foreach (array_keys($this->bundle()) as $path) {
+            $node = $this->node(strval($path));
+
+            if ($node !== null) {
+                $nodes[strval($path)] = $node;
+            }
+        }
+
+        return $nodes;
+    }
+
+    /**
      * @param array<string, mixed> $node
      */
     private function build(string $path, array $node): MenuNode {

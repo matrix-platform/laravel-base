@@ -3,6 +3,7 @@
 namespace MatrixPlatform\Columns\Declarations;
 
 use MatrixPlatform\Columns\ColumnType;
+use MatrixPlatform\Support\PermissionTree;
 
 class Definitions {
 
@@ -23,6 +24,13 @@ class Definitions {
             'updater_id' => new Definition(ColumnType::Integer),
             'update_time' => new Definition(ColumnType::DateTime)
         ]);
+    }
+
+    /**
+     * @return array<string, Definition>
+     */
+    public static function permissions(): array {
+        return ['permissions' => new Definition(ColumnType::Json, 'permissions', [], PermissionTree::class)];
     }
 
     /**

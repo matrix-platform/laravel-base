@@ -20,6 +20,7 @@ use MatrixPlatform\Support\LoginRateLimiter;
 use MatrixPlatform\Support\Menus;
 use MatrixPlatform\Support\MetadataRegistry;
 use MatrixPlatform\Support\PackageRegistry;
+use MatrixPlatform\Support\PermissionTree;
 use MatrixPlatform\Support\Resources;
 use MatrixPlatform\Support\RollbackCallbacks;
 
@@ -50,6 +51,7 @@ class BaseServiceProvider extends ServiceProvider {
 
         $this->app->scoped(Actor::class);
         $this->app->scoped(AdminPermission::class, fn () => new AdminPermission(actor()->requireUser(), app(Menus::class)));
+        $this->app->scoped(PermissionTree::class);
         $this->app->scoped(RollbackCallbacks::class);
         $this->app->singleton(Menus::class);
         $this->app->singleton(MetadataRegistry::class);

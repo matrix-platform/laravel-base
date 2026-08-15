@@ -4,7 +4,7 @@ return [
 
     'admin-api-prefix' => 'admin',
 
-    'admin-menus' => null,
+    'admin-menus' => 'base',
 
     'api-prefix' => 'api',
 

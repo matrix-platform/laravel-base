@@ -87,6 +87,10 @@ class QueryPlan {
         return $query->select($selects);
     }
 
+    public function qualify(string $field): string {
+        return $this->wrap($this->table(), $field);
+    }
+
     public function table(): string {
         return $this->root->getTable();
     }
@@ -147,7 +151,7 @@ class QueryPlan {
             $qualifier = $alias === '' ? $this->table() : $alias;
 
             if ($expression->aggregate === null) {
-                $field = "{$qualifier}.{$expression->field}";
+                $field = $this->wrap($qualifier, strval($expression->field));
                 $this->fields[$column->name] = $expression->function === null ? $field : "{$expression->function}({$field})";
 
                 continue;
@@ -158,7 +162,7 @@ class QueryPlan {
             }
 
             $aggregated[$alias][] = new Aggregate($expression->aggregate, $column->name, $expression->field, $expression->conditions);
-            $this->fields[$column->name] = "{$qualifier}.{$column->name}";
+            $this->fields[$column->name] = $this->wrap($qualifier, $column->name);
         }
 
         foreach ($structure as $alias => $node) {
@@ -247,6 +251,12 @@ class QueryPlan {
         }
 
         return [$sub, $top];
+    }
+
+    private function wrap(string $qualifier, string $field): string {
+        $grammar = $this->root->getConnection()->getQueryGrammar();
+
+        return "{$grammar->wrap($qualifier)}.{$grammar->wrap($field)}";
     }
 
 }

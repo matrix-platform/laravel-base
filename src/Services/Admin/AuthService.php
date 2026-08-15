@@ -81,7 +81,7 @@ class AuthService {
      * @return array{nodes: array<string, array<string, mixed>>, profile: User}
      */
     public function profile(User $user): array {
-        return ['nodes' => app(AdminPermission::class)->getMenuNodes(), 'profile' => $user];
+        return ['nodes' => app(AdminPermission::class)->getMenuNodes(), 'profile' => $user->makeHidden('permissions')];
     }
 
 }

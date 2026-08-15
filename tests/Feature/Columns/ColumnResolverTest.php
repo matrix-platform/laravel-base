@@ -16,6 +16,7 @@ use MatrixPlatform\Columns\Syntax\ColumnParser;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
+use MatrixPlatform\Support\PermissionTree;
 use Tests\FeatureTestCase;
 use Tests\Stubs\Gadget;
 use Tests\Stubs\StubDeclaration;
@@ -46,6 +47,15 @@ class ColumnResolverTest extends FeatureTestCase {
      */
     private function resolve(string|array $column, ?Model $root = null): Column {
         return app(ColumnResolver::class)->resolve((new ColumnParser())->parse($column), $root === null ? new Widget() : $root);
+    }
+
+    public function test_a_declared_class_string_provider_is_resolved_to_an_instance(): void {
+        $this->declare(['title' => new Definition(ColumnType::Json, 'permissions', [], PermissionTree::class)]);
+
+        $column = $this->resolve('title');
+
+        $this->assertInstanceOf(PermissionTree::class, $column->options);
+        $this->assertSame('authority', $column->options->options()[0]->id);
     }
 
     public function test_a_column_with_no_cast_falls_back_to_text(): void {

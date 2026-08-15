@@ -34,6 +34,10 @@ class FeatureTestCase extends TestCase {
     protected function useMenuFixtures(string $menus): void {
         $this->usePackageFixtures('menu-fixture', 'package-menu');
 
+        $this->useMenus($menus);
+    }
+
+    protected function useMenus(?string $menus): void {
         config()->set('matrix.admin-menus', $menus);
 
         app()->forgetInstance(Menus::class);

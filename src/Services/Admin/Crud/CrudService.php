@@ -23,7 +23,10 @@ abstract class CrudService {
      */
     protected array $columns = [];
 
-    protected ?Closure $guard = null;
+    /**
+     * @var list<Closure>
+     */
+    protected array $guards = [];
 
     protected Model $model;
 
@@ -73,7 +76,7 @@ abstract class CrudService {
     }
 
     public function guard(Closure $guard): static {
-        $this->guard = $guard;
+        $this->guards[] = $guard;
 
         return $this;
     }
@@ -175,8 +178,8 @@ abstract class CrudService {
      * @param array<string, mixed>|Model|null $context
      */
     protected function inspect(Model $model, array|Model|null $context = null): void {
-        if ($this->guard !== null) {
-            ($this->guard)($model, $context);
+        foreach ($this->guards as $guard) {
+            $guard($model, $context);
         }
     }
 

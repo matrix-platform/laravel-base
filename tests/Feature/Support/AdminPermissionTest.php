@@ -4,7 +4,7 @@ namespace Tests\Feature\Support;
 
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
-use Illuminate\Support\Facades\Storage;
+use MatrixPlatform\Models\Group;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Support\AdminPermission;
 use MatrixPlatform\Support\Menus;
@@ -17,10 +17,13 @@ class AdminPermissionTest extends FeatureTestCase {
     private const ADMIN = 500;
     private const REGULAR = 2000;
 
+    /**
+     * @var array<int, array<string, array<string, bool>>>
+     */
+    private array $granted = [];
+
     protected function setUp(): void {
         parent::setUp();
-
-        Storage::fake();
 
         $this->useMenuFixtures('authority resource');
     }
@@ -28,8 +31,15 @@ class AdminPermissionTest extends FeatureTestCase {
     /**
      * @param array<string, array<string, bool>> $permissions
      */
-    private function grant(string $owner, array $permissions): void {
-        Storage::put("permission/{$owner}", (string) json_encode($permissions));
+    private function grantGroup(int $id, array $permissions): void {
+        Group::forceCreate(['id' => $id, 'title' => "group-{$id}", 'permissions' => $permissions]);
+    }
+
+    /**
+     * @param array<string, array<string, bool>> $permissions
+     */
+    private function grantUser(int $id, array $permissions): void {
+        $this->granted[$id] = $permissions;
     }
 
     private function listing(?string $menus): void {
@@ -52,6 +62,7 @@ class AdminPermissionTest extends FeatureTestCase {
 
         $user->id = $id;
         $user->group_id = $groupId;
+        $user->permissions = array_key_exists($id, $this->granted) ? $this->granted[$id] : [];
 
         return new AdminPermission($user, app(Menus::class));
     }
@@ -89,7 +100,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_a_regular_user_with_a_personal_grant_is_allowed(): void {
-        $this->grant('User/2000', ['user' => ['query' => true]]);
+        $this->grantUser(2000, ['user' => ['query' => true]]);
 
         $this->route('admin/user');
 
@@ -97,7 +108,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_a_group_grant_reaches_its_members(): void {
-        $this->grant('Group/77', ['user' => ['query' => true]]);
+        $this->grantGroup(77, ['user' => ['query' => true]]);
 
         $this->route('admin/user');
 
@@ -105,8 +116,8 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_a_personal_grant_is_merged_over_the_group_grant(): void {
-        $this->grant('Group/77', ['user' => ['query' => true]]);
-        $this->grant('User/2000', ['user' => ['delete' => true]]);
+        $this->grantGroup(77, ['user' => ['query' => true]]);
+        $this->grantUser(2000, ['user' => ['delete' => true]]);
 
         $this->route('admin/user/delete');
 
@@ -118,7 +129,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_a_group_grant_is_ignored_when_the_user_has_no_group(): void {
-        $this->grant('Group/77', ['user' => ['query' => true]]);
+        $this->grantGroup(77, ['user' => ['query' => true]]);
 
         $this->route('admin/user');
 
@@ -126,7 +137,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_an_action_node_is_authorised_through_its_parent(): void {
-        $this->grant('User/2000', ['user' => ['insert' => true]]);
+        $this->grantUser(2000, ['user' => ['insert' => true]]);
 
         $this->route('admin/user/insert');
 
@@ -134,7 +145,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_an_action_node_is_denied_when_only_a_sibling_action_is_granted(): void {
-        $this->grant('User/2000', ['user' => ['query' => true]]);
+        $this->grantUser(2000, ['user' => ['query' => true]]);
 
         $this->route('admin/user/insert');
 
@@ -142,7 +153,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_every_action_tag_is_enforced_independently(): void {
-        $this->grant('User/2000', ['user' => ['update' => true]]);
+        $this->grantUser(2000, ['user' => ['update' => true]]);
 
         foreach (['user/{id}/update' => true, 'user/delete' => false, 'user/insert' => false, 'user/{id}' => false] as $path => $allowed) {
             $this->route("admin/{$path}");
@@ -159,7 +170,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_a_system_tagged_node_can_still_be_granted_explicitly(): void {
-        $this->grant('User/500', ['console' => ['system' => true]]);
+        $this->grantUser(500, ['console' => ['system' => true]]);
 
         $this->route('admin/console');
 
@@ -173,7 +184,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_a_tag_defined_by_the_host_package_can_be_granted(): void {
-        $this->grant('User/2000', ['report' => ['export' => true]]);
+        $this->grantUser(2000, ['report' => ['export' => true]]);
 
         $this->route('admin/report');
 
@@ -188,7 +199,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_a_host_tag_reaches_the_action_nodes_through_their_parent(): void {
-        $this->grant('User/2000', ['report' => ['export' => true]]);
+        $this->grantUser(2000, ['report' => ['export' => true]]);
 
         $this->route('admin/report/run');
 
@@ -257,7 +268,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_menu_nodes_hide_the_resources_the_user_cannot_reach(): void {
-        $this->grant('User/2000', ['user' => ['query' => true]]);
+        $this->grantUser(2000, ['user' => ['query' => true]]);
 
         $nodes = $this->permission(self::REGULAR)->getMenuNodes();
 

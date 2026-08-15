@@ -17,6 +17,7 @@ class GroupDeclaration implements Declares {
         return array_merge(
             Definitions::primaryKey(),
             ['title' => new Definition(ColumnType::Text)],
+            Definitions::permissions(),
             Definitions::auditings()
         );
     }

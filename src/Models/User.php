@@ -2,10 +2,12 @@
 
 namespace MatrixPlatform\Models;
 
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use MatrixPlatform\Attributes\Declared;
 use MatrixPlatform\Models\Builders\UserBuilder;
+use MatrixPlatform\Models\Casts\PermissionMap;
 use MatrixPlatform\Models\Declarations\UserDeclaration;
 
 /**
@@ -13,6 +15,8 @@ use MatrixPlatform\Models\Declarations\UserDeclaration;
  * @property string $username
  * @property ?string $password
  * @property ?int $group_id
+ * @property-read array<string, array<string, bool>> $permissions
+ * @property-write array<string, mixed>|object|null $permissions
  * @property ?Carbon $enable_time
  * @property ?Carbon $disable_time
  * @property bool $disabled
@@ -27,7 +31,8 @@ class User extends BaseModel {
     const ROOT = 1;
 
     protected $attributes = [
-        'disabled' => false
+        'disabled' => false,
+        'permissions' => '{}'
     ];
 
     protected $hidden = [
@@ -49,6 +54,13 @@ class User extends BaseModel {
         $auth->keepAlive();
 
         return $auth->token;
+    }
+
+    /**
+     * @return BelongsTo<Group, $this>
+     */
+    public function group(): BelongsTo {
+        return $this->belongsTo(Group::class);
     }
 
     public function newEloquentBuilder($query): UserBuilder {
@@ -76,7 +88,8 @@ class User extends BaseModel {
             'disable_time' => 'datetime',
             'disabled' => 'boolean',
             'enable_time' => 'datetime',
-            'password' => 'hashed'
+            'password' => 'hashed',
+            'permissions' => PermissionMap::class
         ];
     }
 

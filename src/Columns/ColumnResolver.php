@@ -145,7 +145,7 @@ class ColumnResolver {
         }
 
         if ($definition?->options !== null) {
-            return $definition->options;
+            return is_string($definition->options) ? app($definition->options) : $definition->options;
         }
 
         if ($column->optionsName !== null) {

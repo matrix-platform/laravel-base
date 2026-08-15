@@ -51,7 +51,7 @@ class SortingTest extends FeatureTestCase {
     public function test_a_sortable_column_is_ordered_by_its_expression(): void {
         $sql = $this->sql(['label'], [['name' => 'label', 'direction' => 'desc']]);
 
-        $this->assertStringContainsString('order by stub_trinket.label desc', $sql);
+        $this->assertStringContainsString('order by "stub_trinket"."label" desc', $sql);
     }
 
     public function test_an_unsortable_column_is_ignored(): void {
@@ -65,7 +65,7 @@ class SortingTest extends FeatureTestCase {
     }
 
     public function test_a_missing_direction_defaults_to_ascending(): void {
-        $this->assertStringContainsString('order by stub_trinket.label asc', $this->sql(['label'], [['name' => 'label']]));
+        $this->assertStringContainsString('order by "stub_trinket"."label" asc', $this->sql(['label'], [['name' => 'label']]));
     }
 
     public function test_an_explicit_null_direction_drops_the_whole_entry(): void {
@@ -77,7 +77,7 @@ class SortingTest extends FeatureTestCase {
     public function test_the_direction_is_case_insensitive(): void {
         $sql = $this->sql(['label'], [['name' => 'label', 'direction' => 'DESC']]);
 
-        $this->assertStringContainsString('order by stub_trinket.label desc', $sql);
+        $this->assertStringContainsString('order by "stub_trinket"."label" desc', $sql);
     }
 
     public function test_an_unknown_direction_is_ignored(): void {
@@ -107,26 +107,26 @@ class SortingTest extends FeatureTestCase {
         $applied = (new Sorting(['-ranking']))->apply($query, $plan, []);
 
         $this->assertSame([], $applied);
-        $this->assertStringContainsString('order by stub_trinket.ranking desc', $query->toSql());
+        $this->assertStringContainsString('order by "stub_trinket"."ranking" desc', $query->toSql());
     }
 
     public function test_a_default_runs_after_the_requested_sorting(): void {
         $sql = $this->sql(['label'], [['name' => 'label', 'direction' => 'asc']], ['-ranking']);
 
-        $this->assertStringContainsString('order by stub_trinket.label asc, stub_trinket.ranking desc', $sql);
+        $this->assertStringContainsString('order by "stub_trinket"."label" asc, "stub_trinket"."ranking" desc', $sql);
     }
 
     public function test_a_default_is_skipped_when_the_column_was_already_requested(): void {
         $sql = $this->sql(['label'], [['name' => 'label', 'direction' => 'asc']], ['-label']);
 
-        $this->assertStringContainsString('order by stub_trinket.label asc', $sql);
+        $this->assertStringContainsString('order by "stub_trinket"."label" asc', $sql);
         $this->assertStringNotContainsString('desc', $sql);
     }
 
     public function test_a_default_on_an_unsortable_column_falls_back_to_the_root_table(): void {
         $sql = $this->sql([['name' => 'ranking', 'sortable' => false]], [], ['-ranking']);
 
-        $this->assertStringContainsString('order by stub_trinket.ranking desc', $sql);
+        $this->assertStringContainsString('order by "stub_trinket"."ranking" desc', $sql);
     }
 
     public function test_a_default_that_is_not_a_bare_name_is_dropped(): void {

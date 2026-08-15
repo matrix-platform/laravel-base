@@ -63,7 +63,7 @@ class Sorting {
     }
 
     private function qualified(QueryPlan $plan, string $name): ?string {
-        return preg_match('/^\w+$/u', $name) === 1 ? "{$plan->table()}.{$name}" : null;
+        return preg_match('/^\w+$/u', $name) === 1 ? $plan->qualify($name) : null;
     }
 
     /**

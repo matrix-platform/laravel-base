@@ -21,6 +21,7 @@ return new class extends Migration {
         Schema::create('base_group', function (BaseBlueprint $table) {
             $table->primaryKey();
             $table->text('title')->unique();
+            $table->jsonb('permissions')->nullable();
             $table->auditings();
         });
 
@@ -29,6 +30,7 @@ return new class extends Migration {
             $table->text('username')->unique();
             $table->text('password')->nullable();
             $table->integer('group_id')->nullable();
+            $table->jsonb('permissions')->nullable();
             $table->schedules();
             $table->boolean('disabled');
             $table->auditings();

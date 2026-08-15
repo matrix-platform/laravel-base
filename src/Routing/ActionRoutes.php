@@ -7,8 +7,29 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use MatrixPlatform\Attributes\Action;
 use ReflectionClass;
+use ReflectionMethod;
 
 class ActionRoutes {
+
+    private static function attribute(ReflectionMethod $method): ?Action {
+        $name = $method->getName();
+
+        while (true) {
+            $attributes = $method->getAttributes(Action::class);
+
+            if ($attributes !== []) {
+                return $attributes[0]->newInstance();
+            }
+
+            $parent = $method->getDeclaringClass()->getParentClass();
+
+            if ($parent === false || !$parent->hasMethod($name)) {
+                return null;
+            }
+
+            $method = $parent->getMethod($name);
+        }
+    }
 
     /**
      * @param class-string $controller
@@ -17,16 +38,10 @@ class ActionRoutes {
     public static function resolve(string $controller, ?string $scope = null): array {
         $routes = [];
 
-        foreach ((new ReflectionClass($controller))->getMethods() as $method) {
-            $attributes = $method->getAttributes(Action::class);
+        foreach ((new ReflectionClass($controller))->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
+            $action = self::attribute($method);
 
-            if ($attributes === []) {
-                continue;
-            }
-
-            $action = $attributes[0]->newInstance();
-
-            if ($action->scope !== $scope) {
+            if ($action === null || $action->scope !== $scope) {
                 continue;
             }
 

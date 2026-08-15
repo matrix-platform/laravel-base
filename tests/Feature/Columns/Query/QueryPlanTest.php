@@ -70,7 +70,7 @@ class QueryPlanTest extends FeatureTestCase {
             ->toSql();
 
         $this->assertSame(
-            'select "stub_trinket"."id", widget.title as widget_title from "stub_trinket" '
+            'select "stub_trinket"."id", "widget"."title" as widget_title from "stub_trinket" '
                 . 'left join "stub_widget" as "widget" on "widget"."id" = "stub_trinket"."widget_id"',
             $sql
         );
@@ -117,7 +117,7 @@ class QueryPlanTest extends FeatureTestCase {
             ->toSql();
 
         $this->assertSame(
-            'select "stub_widget"."id", stub_widget.title as title, stub_widget.ranking as ranking from "stub_widget"',
+            'select "stub_widget"."id", "stub_widget"."title" as title, "stub_widget"."ranking" as ranking from "stub_widget"',
             $sql
         );
     }
@@ -128,7 +128,7 @@ class QueryPlanTest extends FeatureTestCase {
             ->toSql();
 
         $this->assertSame(
-            'select "stub_trinket".*, widget.title as widget_title from "stub_trinket" '
+            'select "stub_trinket".*, "widget"."title" as widget_title from "stub_trinket" '
                 . 'left join "stub_widget" as "widget" on "widget"."id" = "stub_trinket"."widget_id"',
             $sql
         );
@@ -139,14 +139,14 @@ class QueryPlanTest extends FeatureTestCase {
             ->projection()
             ->toSql();
 
-        $this->assertSame('select "stub_widget"."id", stub_widget.title as title from "stub_widget"', $sql);
+        $this->assertSame('select "stub_widget"."id", "stub_widget"."title" as title from "stub_widget"', $sql);
     }
 
     public function test_a_virtual_column_keeps_its_join_so_that_it_stays_filterable(): void {
         $plan = $this->plan([['name' => '+widget.title', 'op' => 'eq']], new Trinket());
 
         $this->assertStringContainsString('left join "stub_widget" as "widget"', $plan->projection()->toSql());
-        $this->assertSame('widget.title', $plan->field('widget_title'));
+        $this->assertSame('"widget"."title"', $plan->field('widget_title'));
     }
 
     public function test_a_function_wraps_the_qualified_field(): void {
@@ -155,7 +155,7 @@ class QueryPlanTest extends FeatureTestCase {
             ->toSql();
 
         $this->assertSame(
-            'select "stub_widget"."id", lower(stub_widget.title) as lowered from "stub_widget"',
+            'select "stub_widget"."id", lower("stub_widget"."title") as lowered from "stub_widget"',
             $sql
         );
     }
@@ -166,7 +166,7 @@ class QueryPlanTest extends FeatureTestCase {
             ->toSql();
 
         $this->assertSame(
-            'select "stub_widget"."id", trinkets.trinkets_count as trinkets_count from "stub_widget" '
+            'select "stub_widget"."id", "trinkets"."trinkets_count" as trinkets_count from "stub_widget" '
                 . 'left join (select "trinkets"."widget_id", count(*) as trinkets_count '
                 . 'from "stub_trinket" as "trinkets" group by "trinkets"."widget_id") as "trinkets" '
                 . 'on "trinkets"."widget_id" = "stub_widget"."id"',
@@ -265,7 +265,7 @@ class QueryPlanTest extends FeatureTestCase {
             ->toSql();
 
         $this->assertSame(
-            'select "stub_widget"."id", trinkets__trinket.trinkets__trinket_count as trinkets__trinket_count '
+            'select "stub_widget"."id", "trinkets__trinket"."trinkets__trinket_count" as trinkets__trinket_count '
                 . 'from "stub_widget" left join (select "trinkets"."widget_id", count(*) as trinkets__trinket_count '
                 . 'from "stub_trinket" as "trinkets__trinket" '
                 . 'inner join "stub_trinket" as "trinkets" on "trinkets__trinket"."id" = "trinkets"."trinket_id" '

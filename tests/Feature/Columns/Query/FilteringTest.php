@@ -73,49 +73,49 @@ class FilteringTest extends FeatureTestCase {
 
     public function test_every_operator_compiles_into_a_where_clause(): void {
         $expected = [
-            'eq' => 'label = ?',
-            'neq' => 'label != ?',
-            'contains' => 'label ILIKE ?',
-            'startsWith' => 'label ILIKE ?',
-            'endsWith' => 'label ILIKE ?',
-            'gt' => 'label > ?',
-            'gte' => 'label >= ?',
-            'lt' => 'label < ?',
-            'lte' => 'label <= ?',
-            'in' => 'label IN (?)',
-            'notIn' => 'label NOT IN (?)'
+            'eq' => '= ?',
+            'neq' => '!= ?',
+            'contains' => 'ILIKE ?',
+            'startsWith' => 'ILIKE ?',
+            'endsWith' => 'ILIKE ?',
+            'gt' => '> ?',
+            'gte' => '>= ?',
+            'lt' => '< ?',
+            'lte' => '<= ?',
+            'in' => 'IN (?)',
+            'notIn' => 'NOT IN (?)'
         ];
 
         foreach ($expected as $operator => $clause) {
             $sql = $this->sql(['label' => ['op' => $operator, 'value' => 'x']]);
 
-            $this->assertStringContainsString("where stub_trinket.{$clause}", $sql, $operator);
+            $this->assertStringContainsString("where \"stub_trinket\".\"label\" {$clause}", $sql, $operator);
         }
 
         $this->assertStringContainsString(
-            'where stub_trinket.label IS NULL',
+            'where "stub_trinket"."label" IS NULL',
             $this->sql(['label' => ['op' => 'null', 'value' => 'x']])
         );
 
         $this->assertStringContainsString(
-            'where stub_trinket.label IS NOT NULL',
+            'where "stub_trinket"."label" IS NOT NULL',
             $this->sql(['label' => ['op' => 'notNull', 'value' => 'x']])
         );
     }
 
     public function test_between_covers_four_states(): void {
         $this->assertStringContainsString(
-            'where stub_trinket.label BETWEEN ? AND ?',
+            'where "stub_trinket"."label" BETWEEN ? AND ?',
             $this->sql(['label' => ['op' => 'between', 'from' => 'a', 'to' => 'z']])
         );
 
         $this->assertStringContainsString(
-            'where stub_trinket.label >= ?',
+            'where "stub_trinket"."label" >= ?',
             $this->sql(['label' => ['op' => 'between', 'from' => 'a']])
         );
 
         $this->assertStringContainsString(
-            'where stub_trinket.label <= ?',
+            'where "stub_trinket"."label" <= ?',
             $this->sql(['label' => ['op' => 'between', 'to' => 'z']])
         );
 
@@ -142,12 +142,12 @@ class FilteringTest extends FeatureTestCase {
 
     public function test_a_null_value_turns_equality_into_a_null_test(): void {
         $this->assertStringContainsString(
-            'where stub_trinket.label IS NULL',
+            'where "stub_trinket"."label" IS NULL',
             $this->sql(['label' => ['op' => 'eq', 'value' => null]])
         );
 
         $this->assertStringContainsString(
-            'where stub_trinket.label IS NOT NULL',
+            'where "stub_trinket"."label" IS NOT NULL',
             $this->sql(['label' => ['op' => 'neq', 'value' => null]])
         );
     }

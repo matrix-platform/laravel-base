@@ -90,7 +90,30 @@ class AuthControllerTest extends FeatureTestCase {
         $response->assertJsonMissingPath('data.nodes.user');
     }
 
+    public function test_the_profile_carries_the_production_nodes_without_any_configuration(): void {
+        $this->user(['id' => User::ROOT]);
+
+        $token = $this->login()->json('data.token');
+
+        $this->withToken($token)
+            ->postJson('admin/auth/profile')
+            ->assertJsonPath('data.nodes.authority.title', 'Authority')
+            ->assertJsonPath('data.nodes.user.title', 'Accounts');
+    }
+
+    public function test_the_profile_never_exposes_the_permissions(): void {
+        $this->user(['id' => User::ROOT, 'permissions' => ['user' => ['query' => true]]]);
+
+        $token = $this->login()->json('data.token');
+
+        $this->withToken($token)
+            ->postJson('admin/auth/profile')
+            ->assertJsonMissingPath('data.profile.permissions');
+    }
+
     public function test_the_profile_carries_no_nodes_when_no_menu_is_listed(): void {
+        $this->useMenus(null);
+
         $this->user();
 
         $token = $this->login()->json('data.token');

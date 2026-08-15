@@ -4,9 +4,18 @@ namespace Tests\Unit\Routing;
 
 use MatrixPlatform\Routing\ActionRoutes;
 use PHPUnit\Framework\TestCase;
+use Tests\Stubs\LeafController;
 use Tests\Stubs\StubController;
 
 class ActionRoutesTest extends TestCase {
+
+    /**
+     * @param class-string $controller
+     * @return list<string>
+     */
+    private function inherited(string $controller): array {
+        return array_column(ActionRoutes::resolve($controller, null), 'path');
+    }
 
     /**
      * @return list<string>
@@ -52,6 +61,21 @@ class ActionRoutesTest extends TestCase {
         sort($sorted);
 
         $this->assertSame($sorted, $paths);
+    }
+
+    public function test_an_override_without_the_attribute_keeps_the_inherited_route(): void {
+        $this->assertContains('plain', $this->inherited(LeafController::class));
+    }
+
+    public function test_the_nearest_ancestor_wins_over_the_topmost_declaration(): void {
+        $paths = $this->inherited(LeafController::class);
+
+        $this->assertContains('middle-path', $paths);
+        $this->assertNotContains('custom-path', $paths);
+    }
+
+    public function test_a_non_public_method_is_not_routed(): void {
+        $this->assertNotContains('guarded', $this->inherited(LeafController::class));
     }
 
     public function test_the_middleware_travels_with_the_route(): void {
