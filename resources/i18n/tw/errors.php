@@ -16,6 +16,8 @@ return [
 
     'invalid-column-expression' => '欄位運算式語法錯誤',
 
+    'invalid-identity-model' => '身分 model 設定錯誤',
+
     'invalid-parent-relation' => '上層關聯必須是 belongsTo',
 
     'invalid-password' => '密碼錯誤',

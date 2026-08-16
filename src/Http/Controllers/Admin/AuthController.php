@@ -23,7 +23,7 @@ class AuthController extends BaseController {
         return $this->service->captcha();
     }
 
-    #[Action(scope: 'anonymous', middleware: 'throttle:matrix-login')]
+    #[Action(scope: 'anonymous', middleware: 'login-throttle-api:admin')]
     public function login(Request $request): JsonResponse {
         $request->validate([
             'username' => ['required'],
@@ -39,9 +39,7 @@ class AuthController extends BaseController {
             $request->string('code')->value()
         );
 
-        return response()
-            ->json(['success' => true, 'data' => $data])
-            ->cookie(IdentityType::User->cookie(), $data['token'], 0, '/', null, (bool) config('session.secure'), true, false, 'lax');
+        return IdentityToken::attach(response()->json(['success' => true, 'data' => $data]), IdentityType::User, $data['token']);
     }
 
     #[Action]

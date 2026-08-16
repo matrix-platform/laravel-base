@@ -2,30 +2,28 @@
 
 namespace MatrixPlatform\Http\Middleware;
 
-use Closure;
-use Illuminate\Http\Request;
-use MatrixPlatform\Http\IdentityToken;
-use MatrixPlatform\Models\AuthToken;
+use Illuminate\Database\Eloquent\Model;
 use MatrixPlatform\Models\IdentityType;
 use MatrixPlatform\Models\User;
 
-class UserMiddleware {
+/**
+ * @extends IdentityMiddleware<User>
+ */
+class UserMiddleware extends IdentityMiddleware {
 
-    public function handle(Request $request, Closure $next): mixed {
-        $auth = AuthToken::findByToken(IdentityToken::from($request, IdentityType::User), IdentityType::User);
-        $user = $auth === null ? null : User::query()->whereKey($auth->target_id)->whereEnabled()->first();
+    protected function assign(Model $subject): void {
+        actor()->setUser($subject);
+    }
 
-        if ($auth === null || $user === null) {
-            error('invalid-token', 401);
-        }
+    protected function subject(int $id): ?User {
+        return User::query()
+            ->whereKey($id)
+            ->whereEnabled()
+            ->first();
+    }
 
-        $auth->keepAlive();
-
-        $request->setUserResolver(fn () => $user);
-
-        actor()->setUser($user);
-
-        return $next($request);
+    protected function type(): IdentityType {
+        return IdentityType::User;
     }
 
 }

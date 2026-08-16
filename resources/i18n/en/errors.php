@@ -16,6 +16,8 @@ return [
 
     'invalid-column-expression' => 'Invalid column expression',
 
+    'invalid-identity-model' => 'Configured identity model is invalid',
+
     'invalid-parent-relation' => 'Parent relation must be a belongsTo',
 
     'invalid-password' => 'Invalid password',

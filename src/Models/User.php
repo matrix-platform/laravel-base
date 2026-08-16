@@ -4,7 +4,6 @@ namespace MatrixPlatform\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Str;
 use MatrixPlatform\Attributes\Declared;
 use MatrixPlatform\Models\Builders\UserBuilder;
 use MatrixPlatform\Models\Casts\PermissionMap;
@@ -44,16 +43,7 @@ class User extends BaseModel {
     protected array $untraceable = ['password'];
 
     public function createToken(): string {
-        $auth = new AuthToken();
-
-        $auth->token = (string) Str::uuid();
-        $auth->type = IdentityType::User;
-        $auth->target_id = $this->id;
-
-        $auth->save();
-        $auth->keepAlive();
-
-        return $auth->token;
+        return AuthToken::issue(IdentityType::User, $this->id);
     }
 
     /**

@@ -68,9 +68,11 @@ class UserMiddlewareTest extends FeatureTestCase {
         $this->travel(1)->minutes();
 
         $updates = $this->updateCount(function () use ($token): void {
-            $this->withToken($token)->postJson('admin/auth/profile');
-            $this->withToken($token)->postJson('admin/auth/profile');
-            $this->withToken($token)->postJson('admin/auth/profile');
+            for ($hop = 0; $hop < 3; $hop++) {
+                $this->withToken($token)
+                    ->postJson('admin/auth/profile')
+                    ->assertJsonPath('success', true);
+            }
         });
 
         $this->assertSame(1, $updates);

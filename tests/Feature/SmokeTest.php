@@ -24,8 +24,11 @@ class SmokeTest extends FeatureTestCase {
 
         $this->assertContains('envelope-api', $aliases);
         $this->assertContains('locale-api', $aliases);
+        $this->assertContains('member-api', $aliases);
+        $this->assertContains('member-aware-api', $aliases);
         $this->assertContains('permission-api', $aliases);
         $this->assertContains('user-api', $aliases);
+        $this->assertContains('vendor-api', $aliases);
     }
 
 }

@@ -6,17 +6,19 @@ use Illuminate\Database\Events\TransactionRolledBack;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use MatrixPlatform\Database\Schema\BaseBlueprint;
 use MatrixPlatform\Http\Middleware\EnvelopeMiddleware;
 use MatrixPlatform\Http\Middleware\LocaleMiddleware;
+use MatrixPlatform\Http\Middleware\LoginThrottleMiddleware;
+use MatrixPlatform\Http\Middleware\MemberAwareMiddleware;
+use MatrixPlatform\Http\Middleware\MemberMiddleware;
 use MatrixPlatform\Http\Middleware\PermissionMiddleware;
 use MatrixPlatform\Http\Middleware\UserMiddleware;
+use MatrixPlatform\Http\Middleware\VendorMiddleware;
 use MatrixPlatform\Support\Actor;
 use MatrixPlatform\Support\AdminPermission;
-use MatrixPlatform\Support\LoginRateLimiter;
 use MatrixPlatform\Support\Menus;
 use MatrixPlatform\Support\MetadataRegistry;
 use MatrixPlatform\Support\PackageRegistry;
@@ -35,10 +37,12 @@ class BaseServiceProvider extends ServiceProvider {
 
         Route::aliasMiddleware('envelope-api', EnvelopeMiddleware::class);
         Route::aliasMiddleware('locale-api', LocaleMiddleware::class);
+        Route::aliasMiddleware('login-throttle-api', LoginThrottleMiddleware::class);
+        Route::aliasMiddleware('member-api', MemberMiddleware::class);
+        Route::aliasMiddleware('member-aware-api', MemberAwareMiddleware::class);
         Route::aliasMiddleware('permission-api', PermissionMiddleware::class);
         Route::aliasMiddleware('user-api', UserMiddleware::class);
-
-        RateLimiter::for('matrix-login', (new LoginRateLimiter())(...));
+        Route::aliasMiddleware('vendor-api', VendorMiddleware::class);
 
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
         $this->loadRoutesFrom(__DIR__ . '/../routes/base.php');

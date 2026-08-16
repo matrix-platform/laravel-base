@@ -3,6 +3,7 @@
 namespace MatrixPlatform\Models;
 
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use MatrixPlatform\Attributes\Declared;
 use MatrixPlatform\Models\Declarations\AuthTokenDeclaration;
 use MatrixPlatform\Models\Generators\CreatorAddress;
@@ -37,6 +38,19 @@ class AuthToken extends BaseModel {
             ->whereNotExpired()
             ->where('update_time', '>=', now()->subMinutes((int) cfg("{$type->bundle()}.token-idle-minutes")))
             ->first();
+    }
+
+    public static function issue(IdentityType $type, int $id): string {
+        $auth = new self();
+
+        $auth->token = (string) Str::uuid();
+        $auth->type = $type;
+        $auth->target_id = $id;
+
+        $auth->save();
+        $auth->keepAlive();
+
+        return $auth->token;
     }
 
     protected array $generators = [

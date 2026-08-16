@@ -1,5 +1,8 @@
 <?php //>
 
+use MatrixPlatform\Models\Member;
+use MatrixPlatform\Models\Vendor;
+
 return [
 
     'admin-api-prefix' => 'admin',
@@ -10,6 +13,10 @@ return [
 
     'locales' => 'tw en',
 
+    'member-model' => Member::class,
+
     'packages' => 'app base',
+
+    'vendor-model' => Vendor::class,
 
 ];
