@@ -8,6 +8,8 @@ return [
 
     'data-not-found' => '查無資料',
 
+    'file-too-large' => '檔案大小超過限制',
+
     'invalid-captcha' => '驗證碼錯誤',
 
     'invalid-cascade-relation' => '連動關聯必須是 hasOne、hasMany 或其 morph 形式',
@@ -17,6 +19,8 @@ return [
     'invalid-column-expression' => '欄位運算式語法錯誤',
 
     'invalid-identity-model' => '身分 model 設定錯誤',
+
+    'invalid-mime-type' => '不接受這種檔案類型',
 
     'invalid-parent-relation' => '上層關聯必須是 belongsTo',
 

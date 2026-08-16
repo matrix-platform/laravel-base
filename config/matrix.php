@@ -11,6 +11,10 @@ return [
 
     'api-prefix' => 'api',
 
+    'file-private-disk' => 'local',
+
+    'file-public-disk' => 'public',
+
     'locales' => 'tw en',
 
     'member-model' => Member::class,

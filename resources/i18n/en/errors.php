@@ -8,6 +8,8 @@ return [
 
     'data-not-found' => 'Data not found',
 
+    'file-too-large' => 'File exceeds the size limit',
+
     'invalid-captcha' => 'Invalid captcha',
 
     'invalid-cascade-relation' => 'Cascade relation must be a hasOne, hasMany or their morph form',
@@ -17,6 +19,8 @@ return [
     'invalid-column-expression' => 'Invalid column expression',
 
     'invalid-identity-model' => 'Configured identity model is invalid',
+
+    'invalid-mime-type' => 'File type is not accepted',
 
     'invalid-parent-relation' => 'Parent relation must be a belongsTo',
 

@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use MatrixPlatform\Http\Controllers\Admin\AuthController;
+use MatrixPlatform\Http\Controllers\Admin\FileController;
 use MatrixPlatform\Http\Controllers\Admin\GroupController;
 use MatrixPlatform\Http\Controllers\Admin\UserController;
 use MatrixPlatform\Routing\ActionRoutes;
@@ -12,6 +13,10 @@ Route::middleware(['envelope-api', 'locale-api'])->group(function () {
             ActionRoutes::scan(AuthController::class, 'anonymous');
 
             Route::middleware('user-api')->group(fn () => ActionRoutes::scan(AuthController::class));
+        });
+
+        Route::middleware('user-api')->group(function () {
+            Route::prefix('file')->group(fn () => ActionRoutes::scan(FileController::class));
         });
 
         Route::middleware(['user-api', 'permission-api'])->group(function () {
