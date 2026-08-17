@@ -1,6 +1,8 @@
 <?php //>
 
+use MatrixPlatform\Models\MailLog;
 use MatrixPlatform\Models\Member;
+use MatrixPlatform\Models\SmsLog;
 use MatrixPlatform\Models\Vendor;
 
 return [
@@ -18,6 +20,14 @@ return [
     'locales' => 'tw en',
 
     'member-model' => Member::class,
+
+    'messaging' => [
+        'queue' => 'default',
+        'channels' => [
+            'mail' => ['model' => MailLog::class],
+            'sms' => ['model' => SmsLog::class],
+        ],
+    ],
 
     'packages' => 'app base',
 

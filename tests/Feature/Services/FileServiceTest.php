@@ -42,18 +42,6 @@ class FileServiceTest extends FeatureTestCase {
         return UploadedFile::fake()->createWithContent($name, $content);
     }
 
-    private function refuses(string $slug, callable $upload): void {
-        try {
-            $upload();
-        } catch (ServiceException $exception) {
-            $this->assertSame($slug, $exception->getError());
-
-            return;
-        }
-
-        $this->fail("expected the upload to be refused with '{$slug}'");
-    }
-
     private function reload(File $file): File {
         return File::query()->whereKey($file->id)->firstOrFail();
     }

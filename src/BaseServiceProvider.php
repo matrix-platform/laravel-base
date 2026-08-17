@@ -8,6 +8,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use MatrixPlatform\Console\Commands\DispatchMessagesCommand;
 use MatrixPlatform\Database\Schema\BaseBlueprint;
 use MatrixPlatform\Http\Middleware\EnvelopeMiddleware;
 use MatrixPlatform\Http\Middleware\LocaleMiddleware;
@@ -17,6 +18,7 @@ use MatrixPlatform\Http\Middleware\MemberMiddleware;
 use MatrixPlatform\Http\Middleware\PermissionMiddleware;
 use MatrixPlatform\Http\Middleware\UserMiddleware;
 use MatrixPlatform\Http\Middleware\VendorMiddleware;
+use MatrixPlatform\Messaging\Channels;
 use MatrixPlatform\Support\Actor;
 use MatrixPlatform\Support\AdminPermission;
 use MatrixPlatform\Support\Menus;
@@ -29,6 +31,8 @@ use MatrixPlatform\Support\RollbackCallbacks;
 class BaseServiceProvider extends ServiceProvider {
 
     public function boot(): void {
+        $this->commands([DispatchMessagesCommand::class]);
+
         Event::listen(TransactionRolledBack::class, fn () => app(RollbackCallbacks::class)->run());
 
         $packages = app(PackageRegistry::class);
@@ -57,6 +61,7 @@ class BaseServiceProvider extends ServiceProvider {
         $this->app->scoped(AdminPermission::class, fn () => new AdminPermission(actor()->requireUser(), app(Menus::class)));
         $this->app->scoped(PermissionTree::class);
         $this->app->scoped(RollbackCallbacks::class);
+        $this->app->singleton(Channels::class);
         $this->app->singleton(Menus::class);
         $this->app->singleton(MetadataRegistry::class);
         $this->app->singleton(PackageRegistry::class);

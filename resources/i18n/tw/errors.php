@@ -20,6 +20,16 @@ return [
 
     'invalid-identity-model' => '身分 model 設定錯誤',
 
+    'invalid-message-channel' => '訊息管道設定錯誤',
+
+    'invalid-message-content' => '訊息內容不得為空',
+
+    'invalid-message-driver' => '訊息傳送器設定錯誤',
+
+    'invalid-message-provider' => '訊息供應商設定錯誤',
+
+    'invalid-message-receiver' => '收件對象不得為空',
+
     'invalid-mime-type' => '不接受這種檔案類型',
 
     'invalid-parent-relation' => '上層關聯必須是 belongsTo',
@@ -34,6 +44,12 @@ return [
 
     'invalid-username-or-password' => '帳號或密碼錯誤',
 
+    'message-provider-has-no-driver' => '訊息供應商未設定傳送器',
+
+    'message-refused-by-provider' => '訊息被供應商拒絕',
+
+    'message-template-not-found' => '查無訊息樣板',
+
     'permission-denied' => '權限不足',
 
     'request-failed' => '請求無法處理',
@@ -43,6 +59,8 @@ return [
     'too-many-requests' => '請求過於頻繁，請稍後再試',
 
     'undeclared-model' => 'Model 未宣告欄位',
+
+    'unknown-message-channel' => '訊息管道未註冊',
 
     'unknown-package' => '套件未註冊',
 
