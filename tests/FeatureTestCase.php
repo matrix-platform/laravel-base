@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Event;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Support\Menus;
 use MatrixPlatform\Support\PackageRegistry;
+use MatrixPlatform\Support\ResourceGroup;
 use MatrixPlatform\Support\Resources;
 
 class FeatureTestCase extends TestCase {
@@ -58,6 +59,21 @@ class FeatureTestCase extends TestCase {
 
     protected function useMessagingFixtures(): void {
         $this->usePackageFixtures('messaging-fixture', 'package-messaging');
+    }
+
+    /**
+     * @param array<string, list<string>> $groups
+     */
+    protected function useResourceWhitelist(array $groups): void {
+        foreach (ResourceGroup::cases() as $group) {
+            $names = array_get_value($groups, $group->value);
+
+            config()->set("matrix.{$group->config()}", is_array($names) ? $names : []);
+        }
+    }
+
+    protected function useResourceFixtures(): void {
+        $this->usePackageFixtures('resource-fixture', 'package-resource');
     }
 
     private function usePackageFixtures(string $package, string $directory): void {

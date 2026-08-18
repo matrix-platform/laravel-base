@@ -246,7 +246,7 @@ class FileServiceTest extends FeatureTestCase {
 
     public function test_the_packaged_limits_are_declared_with_usable_types(): void {
         $this->assertIsInt(cfg('file.max-size'));
-        $this->assertIsArray(cfg('file.mime-patterns'));
+        $this->assertIsString(cfg('file.mime-patterns'));
     }
 
 }

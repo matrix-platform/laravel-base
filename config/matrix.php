@@ -31,6 +31,18 @@ return [
 
     'packages' => 'app base',
 
+    'resource-cfg' => [],
+
+    'resource-i18n' => [],
+
+    'resource-i18n-menu' => [],
+
+    'resource-i18n-model' => [],
+
+    'resource-i18n-options' => [],
+
+    'resource-i18n-template' => [],
+
     'vendor-model' => Vendor::class,
 
 ];

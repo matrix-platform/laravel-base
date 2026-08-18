@@ -16,7 +16,7 @@ class Channel {
     ) {}
 
     public function provider(string $name): Provider {
-        if (app(Resources::class)->getConfigBundle("{$this->name}/{$name}") === null) {
+        if (app(Resources::class)->getConfigBundle($name) === null) {
             error('invalid-message-provider');
         }
 

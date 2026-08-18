@@ -12,12 +12,10 @@ use MatrixPlatform\Models\MessageLog;
  */
 class MailerMailDriver implements Driver {
 
-    private const CHANNEL = 'mail';
-
     private const MAILER = 'matrix-smtp';
 
     public function send(MessageLog $log): string {
-        $bundle = self::CHANNEL . '/' . $log->provider;
+        $bundle = $log->provider;
         $sandbox = Sandbox::recipient($bundle);
         $to = $sandbox === null ? $log->receiver : $sandbox;
         $subject = $sandbox === null ? $log->subject : "{$log->subject} [{$log->receiver}]";

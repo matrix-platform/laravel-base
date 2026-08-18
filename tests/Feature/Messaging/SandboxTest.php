@@ -14,25 +14,25 @@ class SandboxTest extends FeatureTestCase {
     }
 
     public function test_a_provider_is_not_sandboxed_by_default(): void {
-        $this->assertNull(Sandbox::recipient('mail/gmail'));
-        $this->assertNull(Sandbox::recipient('mail/stub'));
+        $this->assertNull(Sandbox::recipient('gmail'));
+        $this->assertNull(Sandbox::recipient('stub'));
     }
 
     public function test_a_sandboxed_provider_reports_its_own_sink(): void {
-        $this->assertSame('sink@example.com', Sandbox::recipient('mail/sandboxed'));
+        $this->assertSame('sink@example.com', Sandbox::recipient('sandboxed'));
     }
 
     public function test_one_provider_being_sandboxed_does_not_sandbox_the_others(): void {
-        $this->assertSame('sink@example.com', Sandbox::recipient('mail/sandboxed'));
-        $this->assertNull(Sandbox::recipient('mail/unsandboxed'));
+        $this->assertSame('sink@example.com', Sandbox::recipient('sandboxed'));
+        $this->assertNull(Sandbox::recipient('unsandboxed'));
     }
 
     public function test_a_sandboxed_provider_without_a_sink_is_refused(): void {
-        $this->refuses('invalid-message-receiver', fn () => Sandbox::recipient('mail/blind'));
+        $this->refuses('invalid-message-receiver', fn () => Sandbox::recipient('blind'));
     }
 
     public function test_a_channel_the_package_does_not_ship_follows_the_same_convention(): void {
-        $this->assertNull(Sandbox::recipient('sms/twilio'));
+        $this->assertNull(Sandbox::recipient('twilio'));
     }
 
     public function test_the_response_records_where_the_message_actually_went(): void {

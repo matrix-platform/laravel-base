@@ -59,11 +59,16 @@ class PermissionTreeTest extends FeatureTestCase {
         $this->assertSame(['children' => [], 'id' => 'query', 'ranking' => 0, 'title' => 'Query'], json_decode(strval(json_encode($action)), true));
     }
 
-    public function test_the_production_menu_files_both_resources_under_authority(): void {
+    public function test_the_production_menu_files_every_resource_under_its_own_section(): void {
         $tree = $this->tree();
 
-        $this->assertSame(['authority'], $this->ids($tree));
+        $this->assertSame(['authority', 'setting', 'locale'], $this->ids($tree));
         $this->assertSame(['user', 'group'], $this->ids($this->pick($tree, 'authority')->children));
+        $this->assertSame(['resource/cfg'], $this->ids($this->pick($tree, 'setting')->children));
+        $this->assertSame(
+            ['resource/i18n', 'resource/i18n/menu', 'resource/i18n/options', 'resource/i18n/model', 'resource/i18n/template'],
+            $this->ids($this->pick($tree, 'locale')->children)
+        );
     }
 
     public function test_action_nodes_contribute_their_tags_to_the_owning_resource(): void {

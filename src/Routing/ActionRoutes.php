@@ -33,6 +33,13 @@ class ActionRoutes {
 
     /**
      * @param class-string $controller
+     */
+    public static function mount(string $prefix, string $controller, ?string $scope = null): void {
+        Route::prefix($prefix)->group(fn () => self::scan($controller, $scope));
+    }
+
+    /**
+     * @param class-string $controller
      * @return list<array{path: string, method: string, middleware: ?string}>
      */
     public static function resolve(string $controller, ?string $scope = null): array {

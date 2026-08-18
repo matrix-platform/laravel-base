@@ -17,7 +17,7 @@ class ProviderTest extends FeatureTestCase {
     public function test_a_shipped_provider_names_the_driver_that_carries_it(): void {
         $provider = $this->provider('gmail');
 
-        $this->assertSame('mail/gmail', $provider->bundle());
+        $this->assertSame('gmail', $provider->name);
         $this->assertInstanceOf(MailerMailDriver::class, $provider->driver());
     }
 

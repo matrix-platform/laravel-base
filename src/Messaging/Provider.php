@@ -11,15 +11,11 @@ class Provider {
         public readonly string $name
     ) {}
 
-    public function bundle(): string {
-        return "{$this->channel}/{$this->name}";
-    }
-
     /**
      * @return Driver<MessageLog>|null
      */
     public function driver(): ?Driver {
-        $class = cfg("{$this->bundle()}.driver");
+        $class = cfg("{$this->name}.driver");
 
         if ($class === null) {
             return null;

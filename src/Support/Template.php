@@ -8,8 +8,8 @@ class Template {
      * @param array<string, string> $vars
      * @return array<string, mixed>
      */
-    public static function render(string $channel, string $name, array $vars = [], ?string $locale = null): array {
-        $template = self::resolve($channel, $name, $locale);
+    public static function render(string $name, array $vars = [], ?string $locale = null): array {
+        $template = self::resolve($name, $locale);
 
         if ($template === null) {
             error('message-template-not-found');
@@ -21,8 +21,8 @@ class Template {
     /**
      * @return array<string, mixed>|null
      */
-    public static function resolve(string $channel, string $name, ?string $locale = null): ?array {
-        return app(Resources::class)->getI18nBundle("template/{$channel}/{$name}", $locale);
+    public static function resolve(string $name, ?string $locale = null): ?array {
+        return app(Resources::class)->getI18nBundle("template/{$name}", $locale);
     }
 
     /**

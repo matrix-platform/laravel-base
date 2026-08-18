@@ -8,6 +8,6 @@ return [
 
     'endpoint' => 'https://sms.example.test',
 
-    'accepted-status' => ['1', 'e'],
+    'accepted-status' => '1 e',
 
 ];

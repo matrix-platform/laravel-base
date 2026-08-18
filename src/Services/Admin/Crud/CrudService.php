@@ -12,6 +12,7 @@ use MatrixPlatform\Columns\ColumnResolver;
 use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Columns\Query\QueryPlan;
 use MatrixPlatform\Columns\Syntax\ColumnParser;
+use MatrixPlatform\Support\Actions;
 use MatrixPlatform\Support\AdminPermission;
 use MatrixPlatform\Support\Menus;
 use MatrixPlatform\Support\Subject;
@@ -336,17 +337,8 @@ abstract class CrudService {
      * @return array<string, mixed>
      */
     private function normalize(string $type, string $prefix): array {
-        $configured = cfg("actions.{$type}", []);
-        $action = is_array($configured) ? $configured : [];
-        $confirm = array_get_value($action, 'confirm');
+        $action = app(Actions::class)->define($type);
         $url = array_get_value($action, 'url');
-
-        $action['type'] = $type;
-        $action['title'] = i18n("actions.{$type}");
-
-        if (is_string($confirm)) {
-            $action['confirm'] = i18n($confirm);
-        }
 
         if (is_string($url)) {
             $action['url'] = str_replace('{prefix}', $prefix, $url);

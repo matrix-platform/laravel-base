@@ -2,6 +2,8 @@
 
 namespace MatrixPlatform\Support;
 
+use Illuminate\Support\Facades\DB;
+
 class Resources {
 
     /**
@@ -24,7 +26,29 @@ class Resources {
      */
     private array $bundles = [];
 
+    /**
+     * @var array<string, array<string, mixed>>|null
+     */
+    private ?array $overrides = null;
+
     public function __construct(private PackageRegistry $packages) {}
+
+    /**
+     * @return list<string>
+     */
+    public function bundleNames(string $directory): array {
+        $names = [];
+
+        foreach ($this->packages->paths() as $path) {
+            foreach (glob("{$path}/resources/{$directory}/*.php") ?: [] as $file) {
+                $names[basename($file, '.php')] = true;
+            }
+        }
+
+        ksort($names);
+
+        return array_map(strval(...), array_keys($names));
+    }
 
     public function config(string $token, mixed $default = null): mixed {
         [$name, $key] = $this->split($token);
@@ -32,11 +56,37 @@ class Resources {
         return array_get_value($this->getConfigBundle($name), $key, $default);
     }
 
+    public function forget(): void {
+        $this->bundles = [];
+        $this->overrides = null;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function getBundle(string $name): ?array {
+        if (!array_key_exists($name, $this->bundles)) {
+            $defaults = $this->merge($name);
+            $override = $this->getOverrides($name);
+
+            $this->bundles[$name] = $defaults === null || $override === null ? $defaults : self::combine($defaults, $override);
+        }
+
+        return $this->bundles[$name];
+    }
+
     /**
      * @return array<string, mixed>|null
      */
     public function getConfigBundle(string $name): ?array {
         return $this->getBundle("cfg/{$name}");
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function getDefaults(string $name): ?array {
+        return $this->merge($name);
     }
 
     /**
@@ -55,23 +105,28 @@ class Resources {
         return $this->getBundle("menu/{$name}");
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function getOverrides(string $name): ?array {
+        return array_get_value($this->overrides(), $name);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getStyleBundle(string $id): array {
+        $bundle = $this->getBundle("style/{$id}");
+
+        return $bundle === null ? [] : $bundle;
+    }
+
     public function translate(string $token, ?string $locale = null): string {
         [$name, $key] = $this->split($token);
 
         $value = array_get_value($this->getI18nBundle($name, $locale), $key, $token);
 
         return is_string($value) ? $value : $token;
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function getBundle(string $name): ?array {
-        if (!array_key_exists($name, $this->bundles)) {
-            $this->bundles[$name] = $this->merge($name);
-        }
-
-        return $this->bundles[$name];
     }
 
     /**
@@ -102,6 +157,25 @@ class Resources {
         }
 
         return $bundle;
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    private function overrides(): array {
+        if ($this->overrides === null) {
+            $this->overrides = [];
+
+            foreach (DB::table('base_resource_override')->get(['bundle', 'data']) as $row) {
+                $data = json_decode(strval($row->data), true);
+
+                if (is_array($data)) {
+                    $this->overrides[strval($row->bundle)] = $data;
+                }
+            }
+        }
+
+        return $this->overrides;
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Support;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Support\PackageRegistry;
@@ -19,6 +20,14 @@ class ResourcesTest extends FeatureTestCase {
         config()->set('matrix.packages', $order);
 
         return new Resources($packages);
+    }
+
+    private function overriding(string $bundle, mixed $data): void {
+        DB::table('base_resource_override')->insert([
+            'bundle' => $bundle,
+            'data' => is_string($data) ? $data : strval(json_encode($data)),
+            'create_time' => now()
+        ]);
     }
 
     public function test_first_package_in_the_config_list_wins(): void {
@@ -139,6 +148,131 @@ class ResourcesTest extends FeatureTestCase {
         $this->assertNull($resources->config('ghost.key'));
 
         File::deleteDirectory($path);
+    }
+
+
+    public function test_a_bundle_without_an_override_row_equals_its_defaults(): void {
+        $resources = $this->fixtures();
+
+        $this->assertSame($resources->getDefaults('cfg/demo'), $resources->getBundle('cfg/demo'));
+    }
+
+    public function test_an_override_replaces_only_the_keys_it_declares(): void {
+        $this->overriding('cfg/demo', ['shared' => 'from-override']);
+
+        $resources = $this->fixtures();
+
+        $this->assertSame('from-override', $resources->config('demo.shared'));
+        $this->assertSame('A', $resources->config('demo.only-in-a'));
+        $this->assertSame('from-a', array_get_value($resources->getDefaults('cfg/demo'), 'shared'));
+    }
+
+    public function test_an_override_keeps_the_type_it_was_stored_with(): void {
+        $this->overriding('cfg/demo', ['shared' => 600]);
+
+        $this->assertSame(600, $this->fixtures()->config('demo.shared'));
+    }
+
+    public function test_an_override_of_a_nested_value_merges_key_by_key(): void {
+        $this->overriding('cfg/demo', ['map' => ['icon' => 'overridden']]);
+
+        $map = $this->fixtures()->config('demo.map');
+
+        $this->assertSame(['icon' => 'overridden', 'severity' => 'b-severity'], $map);
+    }
+
+    public function test_an_override_cannot_conjure_a_bundle_that_has_no_defaults(): void {
+        $this->overriding('cfg/phantom', ['key' => 'value']);
+
+        $resources = $this->fixtures();
+
+        $this->assertNull($resources->getBundle('cfg/phantom'));
+        $this->assertNull($resources->config('phantom.key'));
+        $this->assertSame(['key' => 'value'], $resources->getOverrides('cfg/phantom'));
+    }
+
+    public function test_a_row_whose_data_is_not_an_object_is_treated_as_absent(): void {
+        $this->overriding('cfg/demo', '"not-an-object"');
+
+        $this->assertSame('from-a', $this->fixtures()->config('demo.shared'));
+    }
+
+    public function test_every_override_arrives_in_a_single_query(): void {
+        $this->overriding('cfg/demo', ['shared' => 'x']);
+        $this->overriding('cfg/only-in-b', ['key' => 'y']);
+
+        $resources = $this->fixtures();
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $resources->config('demo.shared');
+        $resources->config('only-in-b.key');
+        $resources->config('demo.only-in-a');
+
+        $queries = array_filter(DB::getQueryLog(), fn (array $query): bool => str_contains(strval($query['query']), 'base_resource_override'));
+
+        DB::disableQueryLog();
+
+        $this->assertCount(1, $queries);
+    }
+
+    public function test_forgetting_a_bundle_makes_the_next_read_see_the_new_override(): void {
+        $resources = $this->fixtures();
+
+        $this->assertSame('from-a', $resources->config('demo.shared'));
+
+        $this->overriding('cfg/demo', ['shared' => 'later']);
+        $resources->forget();
+
+        $this->assertSame('later', $resources->config('demo.shared'));
+    }
+
+    public function test_bundle_names_list_the_files_of_one_directory_only(): void {
+        $this->useResourceFixtures();
+
+        $names = app(Resources::class)->bundleNames('i18n/en');
+
+        $this->assertContains('widget', $names);
+        $this->assertContains('errors', $names);
+        $this->assertNotContains('options', $names);
+        $this->assertNotContains('template', $names);
+    }
+
+    public function test_bundle_names_merge_packages_without_repeating_a_name(): void {
+        $this->useResourceFixtures();
+
+        $names = app(Resources::class)->bundleNames('cfg');
+
+        $sorted = $names;
+
+        sort($sorted);
+
+        $this->assertSame(array_values(array_unique($names)), $names);
+        $this->assertSame(['system'], array_values(array_filter($names, fn (string $name): bool => $name === 'system')));
+        $this->assertContains('dotted', $names);
+        $this->assertSame($sorted, $names);
+    }
+
+    public function test_bundle_names_of_an_absent_directory_are_empty(): void {
+        $this->useResourceFixtures();
+
+        $this->assertSame([], app(Resources::class)->bundleNames('cfg/mail'));
+    }
+
+    public function test_a_style_bundle_declares_the_type_and_readonly_of_its_own_keys(): void {
+        $this->useResourceFixtures();
+
+        $schema = app(Resources::class)->getStyleBundle('cfg/gmail');
+
+        $this->assertSame(['type' => 'text', 'readonly' => true], $schema['driver']);
+        $this->assertSame('integer', $schema['port']['type']);
+    }
+
+    public function test_a_bundle_with_no_style_file_gets_an_empty_schema(): void {
+        $this->useResourceFixtures();
+
+        $this->assertSame([], app(Resources::class)->getStyleBundle('cfg/structured'));
     }
 
     private function packaged(string $path): Resources {

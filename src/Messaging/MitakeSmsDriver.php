@@ -11,14 +11,12 @@ use MatrixPlatform\Models\SmsLog;
  */
 class MitakeSmsDriver implements Driver {
 
-    private const CHANNEL = 'sms';
-
     private const NEWLINE = "\x06";
 
     private const PATH = '/api/mtk/SmSend?CharsetURL=UTF-8';
 
     public function send(MessageLog $log): string {
-        $bundle = self::CHANNEL . '/' . $log->provider;
+        $bundle = $log->provider;
         $endpoint = strval(cfg("{$bundle}.endpoint"));
 
         if ($endpoint === '') {
@@ -61,7 +59,7 @@ class MitakeSmsDriver implements Driver {
     private function accepted(string $bundle): array {
         $accepted = cfg("{$bundle}.accepted-status");
 
-        return is_array($accepted) ? array_values(array_map(strval(...), $accepted)) : [];
+        return tokenize(is_string($accepted) ? $accepted : null);
     }
 
     /**

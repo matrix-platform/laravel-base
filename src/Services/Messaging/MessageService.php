@@ -81,7 +81,7 @@ abstract class MessageService {
      * @return array<string, mixed>
      */
     private function compose(?string $template, array $vars, array $options): array {
-        $fields = $template === null ? [] : Template::render($this->channel, $template, $vars);
+        $fields = $template === null ? [] : Template::render($template, $vars);
 
         foreach (['subject', 'title', 'content', 'provider'] as $key) {
             if (isset($options[$key])) {

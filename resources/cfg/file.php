@@ -4,6 +4,6 @@ return [
 
     'max-size' => 0,
 
-    'mime-patterns' => [],
+    'mime-patterns' => '',
 
 ];

@@ -8,7 +8,7 @@ return [
 
     'endpoint' => 'https://sms.example.test',
 
-    'accepted-status' => ['1'],
+    'accepted-status' => '1',
 
     'sandbox' => true,
 

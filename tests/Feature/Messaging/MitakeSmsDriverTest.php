@@ -82,7 +82,7 @@ class MitakeSmsDriverTest extends FeatureTestCase {
     }
 
     public function test_every_delivery_state_the_vendor_documents_as_reached_is_accepted(): void {
-        $this->assertSame(['0', '1', '2', '4'], cfg('sms/mitake.accepted-status'));
+        $this->assertSame('0 1 2 4', cfg('mitake.accepted-status'));
     }
 
     public function test_a_message_the_vendor_reports_as_delivered_to_the_handset_is_not_a_failure(): void {

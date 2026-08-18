@@ -53,7 +53,7 @@ class MailerMailDriverTest extends FeatureTestCase {
 
         (new MailerMailDriver())->send($this->log());
 
-        $this->assertSame(cfg('mail/gmail.host'), config('mail.mailers.matrix-smtp.host'));
+        $this->assertSame(cfg('gmail.host'), config('mail.mailers.matrix-smtp.host'));
         $this->assertSame('smtp', config('mail.mailers.matrix-smtp.transport'));
     }
 

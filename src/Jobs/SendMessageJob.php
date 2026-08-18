@@ -24,13 +24,13 @@ class SendMessageJob implements ShouldQueue {
     }
 
     private static function nextDelay(Provider $provider): int {
-        $interval = (int) cfg("{$provider->bundle()}.interval", 0);
+        $interval = (int) cfg("{$provider->name}.interval", 0);
 
         if ($interval <= 0) {
             return 0;
         }
 
-        $key = "messaging:{$provider->bundle()}:next-send";
+        $key = "messaging:{$provider->name}:next-send";
         $now = now()->getTimestamp();
         $at = max((int) Cache::get($key, 0), $now);
 

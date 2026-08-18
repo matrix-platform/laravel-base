@@ -34,7 +34,7 @@ class MenusTest extends FeatureTestCase {
     }
 
     private function rendered(MenuNode $node): bool {
-        return $node->ranking !== null || $node->group || str_ends_with($node->path, '/{id}') || str_ends_with($node->path, '/new');
+        return $node->ranking !== null || $node->group || $node->tag === 'query' || str_ends_with($node->path, '/new');
     }
 
     public function test_a_listed_path_is_present(): void {
@@ -102,7 +102,7 @@ class MenusTest extends FeatureTestCase {
 
         $bundle = app(Resources::class)->getI18nBundle('menu/base');
 
-        $this->assertCount(8, $rendered);
+        $this->assertCount(22, $rendered);
         $this->assertSame($rendered, array_keys($bundle === null ? [] : $bundle));
     }
 
@@ -124,7 +124,7 @@ class MenusTest extends FeatureTestCase {
             $checked++;
         }
 
-        $this->assertSame(10, $checked);
+        $this->assertSame(22, $checked);
     }
 
     public function test_every_crud_action_has_a_menu_node(): void {

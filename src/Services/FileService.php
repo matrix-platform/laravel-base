@@ -142,7 +142,7 @@ class FileService {
     private function patterns(): array {
         $patterns = cfg('file.mime-patterns');
 
-        return is_array($patterns) ? array_values(array_filter($patterns, is_string(...))) : [];
+        return tokenize(is_string($patterns) ? $patterns : null);
     }
 
     private function store(UploadedFile $file, string $disk): string {
