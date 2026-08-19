@@ -8,6 +8,8 @@ return [
 
     'data-not-found' => 'Data not found',
 
+    'endpoint-not-found' => 'Endpoint does not exist',
+
     'file-too-large' => 'File exceeds the size limit',
 
     'invalid-captcha' => 'Invalid captcha',

@@ -15,6 +15,20 @@ use MatrixPlatform\Support\RollbackCallbacks;
 
 class AuthService {
 
+    private static function comparisonHash(?User $user): string {
+        if ($user !== null && $user->password !== null) {
+            return $user->password;
+        }
+
+        if (self::$placeholder === null) {
+            self::$placeholder = Hash::make((string) Str::uuid());
+        }
+
+        return self::$placeholder;
+    }
+
+    private static ?string $placeholder = null;
+
     /**
      * @return array{token: string, image: string}
      */
@@ -40,7 +54,9 @@ class AuthService {
             ->whereEnabled()
             ->first();
 
-        if ($user === null || $user->password === null || !Hash::check($password, $user->password)) {
+        $verified = Hash::check($password, self::comparisonHash($user));
+
+        if ($user === null || !$verified) {
             if ($user !== null) {
                 app(RollbackCallbacks::class)->register(fn () => $user->writeLog(UserLogType::LoginFailed));
             }
@@ -66,13 +82,15 @@ class AuthService {
         user()?->writeLog(UserLogType::Logout);
     }
 
-    public function passwd(User $user, string $current, string $password): void {
-        if ($user->password === null || !Hash::check($current, $user->password)) {
+    public function passwd(User $user, string $current, string $password, ?string $token): void {
+        if (!Hash::check($current, self::comparisonHash($user))) {
             error('invalid-password', 422);
         }
 
         $user->password = $password;
         $user->save();
+
+        $this->revoke($user, $token);
 
         $user->writeLog(UserLogType::ChangePassword);
     }
@@ -82,6 +100,20 @@ class AuthService {
      */
     public function profile(User $user): array {
         return ['nodes' => app(AdminPermission::class)->getMenuNodes(), 'profile' => $user->makeHidden('permissions')];
+    }
+
+    private function revoke(User $user, ?string $token): void {
+        $query = AuthToken::query()
+            ->where('type', IdentityType::User)
+            ->where('target_id', $user->id);
+
+        if ($token !== null) {
+            $query->where('token', '!=', $token);
+        }
+
+        foreach ($query->get(['id']) as $auth) {
+            $auth->delete();
+        }
     }
 
 }

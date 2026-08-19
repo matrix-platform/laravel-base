@@ -39,7 +39,13 @@ Route::middleware(['envelope-api', 'locale-api'])->group(function () {
                 ActionRoutes::mount('resource/i18n/template', TemplateResourceController::class);
             });
         });
+
+        ActionRoutes::fallback();
     });
 
-    Route::prefix(config('matrix.api-prefix'))->group(fn () => ActionRoutes::mount('common', CommonController::class));
+    Route::prefix(config('matrix.api-prefix'))->group(function () {
+        ActionRoutes::mount('common', CommonController::class);
+
+        ActionRoutes::fallback();
+    });
 });

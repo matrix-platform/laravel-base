@@ -2,8 +2,11 @@
 
 namespace Tests\Feature\Http\Controllers\Admin;
 
+use Illuminate\Contracts\Hashing\Hasher;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Testing\TestResponse;
+use MatrixPlatform\Models\AuthToken;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Models\UserLog;
 use MatrixPlatform\Models\UserLogType;
@@ -14,6 +17,56 @@ class AuthControllerTest extends FeatureTestCase {
 
     private const CODE = '13579';
     private const PASSWORD = 'secret-Passw0rd';
+
+    private function comparisons(callable $callback): int {
+        $inner = app(Hasher::class);
+
+        $spy = new class($inner) implements Hasher {
+
+            public int $checks = 0;
+
+            public function __construct(private Hasher $inner) {}
+
+            /**
+             * @param array<string, mixed> $options
+             */
+            public function check($value, $hashedValue, array $options = []): bool {
+                $this->checks++;
+
+                return $this->inner->check($value, $hashedValue, $options);
+            }
+
+            /**
+             * @return array<string, mixed>
+             */
+            public function info($hashedValue): array {
+                return $this->inner->info($hashedValue);
+            }
+
+            /**
+             * @param array<string, mixed> $options
+             */
+            public function make($value, array $options = []): string {
+                return $this->inner->make($value, $options);
+            }
+
+            /**
+             * @param array<string, mixed> $options
+             */
+            public function needsRehash($hashedValue, array $options = []): bool {
+                return $this->inner->needsRehash($hashedValue, $options);
+            }
+
+        };
+
+        Hash::swap($spy);
+
+        $callback();
+
+        Hash::swap($inner);
+
+        return $spy->checks;
+    }
 
     /**
      * @return TestResponse<JsonResponse>
@@ -201,6 +254,15 @@ class AuthControllerTest extends FeatureTestCase {
         $this->assertSame(0, UserLog::query()->where('type', UserLogType::Login)->count());
     }
 
+    public function test_every_failed_login_runs_exactly_one_password_comparison(): void {
+        $this->user();
+        $this->user(['username' => 'bob', 'password' => null]);
+
+        $this->assertSame(1, $this->comparisons(fn () => $this->login(username: 'nobody')));
+        $this->assertSame(1, $this->comparisons(fn () => $this->login(username: 'bob')));
+        $this->assertSame(1, $this->comparisons(fn () => $this->login(password: 'wrong-Passw0rd')));
+    }
+
     public function test_every_authentication_failure_answers_with_http_200(): void {
         $this->user();
 
@@ -256,6 +318,27 @@ class AuthControllerTest extends FeatureTestCase {
         $this->login(password: self::PASSWORD)->assertJson(['error' => 'invalid-username-or-password']);
         $this->login(password: 'another-Passw0rd')->assertJsonPath('success', true);
         $this->assertSame(1, UserLog::query()->where('user_id', $user->id)->where('type', UserLogType::ChangePassword)->count());
+    }
+
+    public function test_changing_the_password_ends_the_other_sessions_but_not_this_one(): void {
+        $user = $this->user();
+
+        $abandoned = strval($this->login()->json('data.token'));
+        $current = strval($this->login()->json('data.token'));
+
+        $this->withToken($current)
+            ->postJson('admin/auth/passwd', ['current' => self::PASSWORD, 'password' => 'another-Passw0rd'])
+            ->assertJsonPath('success', true);
+
+        $this->withToken($current)
+            ->postJson('admin/auth/profile')
+            ->assertJsonPath('success', true);
+
+        $this->withToken($abandoned)
+            ->postJson('admin/auth/profile')
+            ->assertJson(['success' => false, 'error' => 'invalid-token']);
+
+        $this->assertSame(1, AuthToken::query()->where('target_id', $user->id)->count());
     }
 
 }

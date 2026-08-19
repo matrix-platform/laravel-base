@@ -31,6 +31,10 @@ class ActionRoutes {
         }
     }
 
+    public static function fallback(): void {
+        Route::any('{endpoint}', fn () => error('endpoint-not-found', 404))->where('endpoint', '.*')->fallback();
+    }
+
     /**
      * @param class-string $controller
      */

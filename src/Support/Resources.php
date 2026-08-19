@@ -21,6 +21,10 @@ class Resources {
         return $base;
     }
 
+    private static function traverses(string $name): bool {
+        return in_array('..', explode('/', $name), true);
+    }
+
     /**
      * @var array<string, array<string, mixed>|null>
      */
@@ -37,6 +41,10 @@ class Resources {
      * @return list<string>
      */
     public function bundleNames(string $directory): array {
+        if (self::traverses($directory)) {
+            error('invalid-resource-token');
+        }
+
         $names = [];
 
         foreach ($this->packages->paths() as $path) {
@@ -146,6 +154,10 @@ class Resources {
      * @return array<string, mixed>|null
      */
     private function merge(string $name): ?array {
+        if (self::traverses($name)) {
+            error('invalid-resource-token');
+        }
+
         $bundle = null;
 
         foreach ($this->packages->paths() as $path) {

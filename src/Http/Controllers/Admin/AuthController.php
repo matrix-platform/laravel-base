@@ -56,7 +56,7 @@ class AuthController extends BaseController {
             'password' => ['required', 'different:current', 'regex:' . cfg('admin.password-pattern')]
         ]);
 
-        $this->service->passwd(actor()->requireUser(), $request->string('current')->value(), $request->string('password')->value());
+        $this->service->passwd(actor()->requireUser(), $request->string('current')->value(), $request->string('password')->value(), IdentityToken::from($request, IdentityType::User));
     }
 
     /**

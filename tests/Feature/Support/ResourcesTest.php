@@ -120,6 +120,31 @@ class ResourcesTest extends FeatureTestCase {
         $resources->config('nodot');
     }
 
+    public function test_every_read_method_refuses_a_name_that_climbs_out_of_the_resource_directory(): void {
+        $resources = $this->fixtures();
+
+        $this->refuses('invalid-resource-token', fn () => $resources->getBundle('../config/app'));
+        $this->refuses('invalid-resource-token', fn () => $resources->getConfigBundle('../config/app'));
+        $this->refuses('invalid-resource-token', fn () => $resources->getI18nBundle('../config/app'));
+        $this->refuses('invalid-resource-token', fn () => $resources->getMenuBundle('../config/app'));
+        $this->refuses('invalid-resource-token', fn () => $resources->getStyleBundle('../config/app'));
+        $this->refuses('invalid-resource-token', fn () => $resources->getDefaults('../config/app'));
+        $this->refuses('invalid-resource-token', fn () => $resources->bundleNames('../config'));
+    }
+
+    public function test_a_token_can_never_carry_a_traversing_bundle_name(): void {
+        $resources = $this->fixtures();
+
+        $this->assertNull($resources->config('../../../config/app.key'));
+        $this->assertSame('../../../config/app.key', $resources->translate('../../../config/app.key'));
+    }
+
+    public function test_a_traversing_name_never_reaches_the_file_system(): void {
+        $resources = $this->fixtures();
+
+        $this->refuses('invalid-resource-token', fn () => $resources->getBundle('../package-b/resources/cfg/only-in-b'));
+    }
+
     public function test_bundle_survives_the_file_being_deleted_after_the_first_read(): void {
         $path = $this->temporary();
         $file = "{$path}/resources/cfg/temp.php";

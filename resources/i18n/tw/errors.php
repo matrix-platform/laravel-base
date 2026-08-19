@@ -8,6 +8,8 @@ return [
 
     'data-not-found' => '查無資料',
 
+    'endpoint-not-found' => '端點不存在',
+
     'file-too-large' => '檔案大小超過限制',
 
     'invalid-captcha' => '驗證碼錯誤',
