@@ -5,6 +5,7 @@ namespace Tests\Feature\Support;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use MatrixPlatform\Exceptions\ServiceException;
+use MatrixPlatform\Models\ResourceOverride;
 use MatrixPlatform\Support\PackageRegistry;
 use MatrixPlatform\Support\Resources;
 use Tests\FeatureTestCase;
@@ -23,11 +24,12 @@ class ResourcesTest extends FeatureTestCase {
     }
 
     private function overriding(string $bundle, mixed $data): void {
-        DB::table('base_resource_override')->insert([
-            'bundle' => $bundle,
-            'data' => is_string($data) ? $data : strval(json_encode($data)),
-            'create_time' => now()
-        ]);
+        $override = new ResourceOverride();
+
+        $override->bundle = $bundle;
+        $override->data = $data;
+
+        $override->save();
     }
 
     public function test_first_package_in_the_config_list_wins(): void {
@@ -192,7 +194,7 @@ class ResourcesTest extends FeatureTestCase {
     }
 
     public function test_a_row_whose_data_is_not_an_object_is_treated_as_absent(): void {
-        $this->overriding('cfg/demo', '"not-an-object"');
+        $this->overriding('cfg/demo', 'not-an-object');
 
         $this->assertSame('from-a', $this->fixtures()->config('demo.shared'));
     }

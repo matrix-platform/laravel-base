@@ -3,6 +3,7 @@
 namespace Tests\Feature\Models\Casts;
 
 use Illuminate\Support\Facades\DB;
+use MatrixPlatform\Models\Casts\PermissionMap;
 use MatrixPlatform\Models\Group;
 use Tests\Factories\GroupFactory;
 use Tests\FeatureTestCase;
@@ -54,28 +55,21 @@ class PermissionMapTest extends FeatureTestCase {
         $this->assertSame('{}', $this->raw($group));
     }
 
-    public function test_an_unreadable_action_written_outside_the_cast_survives_until_the_next_save(): void {
-        $group = GroupFactory::new()->createOne();
+    public function test_a_value_stored_outside_the_cast_is_read_back_unchanged(): void {
+        $map = new PermissionMap();
 
-        DB::table('base_group')->where('id', $group->id)->update(['permissions' => '{"user": {"query": 1}}']);
-
-        $this->assertSame(['user' => ['query' => 1]], $group->refresh()->permissions);
-
-        $group->permissions = ['user' => ['query' => 1]];
-        $group->save();
-
-        $this->assertSame('{"user": {"query": true}}', $this->raw($group));
+        $this->assertSame(['user' => ['query' => 1]], $map->get(new Group(), 'permissions', '{"user": {"query": 1}}', []));
     }
 
-    public function test_normalising_a_stored_value_registers_as_a_change(): void {
-        $group = GroupFactory::new()->createOne();
+    public function test_a_stored_value_that_is_not_canonical_counts_as_a_change(): void {
+        $map = new PermissionMap();
+        $group = new Group();
 
-        DB::table('base_group')->where('id', $group->id)->update(['permissions' => '{"user": {"query": false}}']);
+        foreach (['{"user": {"query": false}}' => false, '{"user": {"query": 1}}' => true] as $stored => $assigned) {
+            $canonical = $map->set($group, 'permissions', ['user' => ['query' => $assigned]], []);
 
-        $group->refresh();
-        $group->permissions = ['user' => ['query' => false]];
-
-        $this->assertTrue($group->isDirty('permissions'));
+            $this->assertFalse($map->compare($group, 'permissions', strval($stored), array_get_value($canonical, 'permissions')));
+        }
     }
 
     public function test_an_unchanged_grant_registers_as_no_change(): void {

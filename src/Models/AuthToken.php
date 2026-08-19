@@ -36,8 +36,12 @@ class AuthToken extends BaseModel {
             ->where('token', $token)
             ->where('type', $type)
             ->whereNotExpired()
-            ->where('update_time', '>=', now()->subMinutes((int) cfg("{$type->bundle()}.token-idle-minutes")))
+            ->where('update_time', '>=', self::idleSince($type))
             ->first();
+    }
+
+    public static function idleSince(IdentityType $type): Carbon {
+        return now()->subMinutes(intval(cfg("{$type->bundle()}.token-idle-minutes")));
     }
 
     public static function issue(IdentityType $type, int $id): string {

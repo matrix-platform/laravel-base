@@ -3,7 +3,6 @@
 namespace Tests\Feature\Http\Controllers\Admin;
 
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Testing\TestResponse;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Models\UserLog;
@@ -16,14 +15,6 @@ class AuthControllerTest extends FeatureTestCase {
     private const CODE = '13579';
     private const PASSWORD = 'secret-Passw0rd';
 
-    private function captchaToken(): string {
-        $token = 'captcha-token';
-
-        Cache::put("captcha:{$token}", hash('sha256', self::CODE), 300);
-
-        return $token;
-    }
-
     /**
      * @return TestResponse<JsonResponse>
      */
@@ -31,7 +22,7 @@ class AuthControllerTest extends FeatureTestCase {
         return $this->postJson('admin/auth/login', [
             'username' => $username,
             'password' => $password,
-            'token' => $this->captchaToken(),
+            'token' => $this->captcha(self::CODE),
             'code' => $code
         ]);
     }

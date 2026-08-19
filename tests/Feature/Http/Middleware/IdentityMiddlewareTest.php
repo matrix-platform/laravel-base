@@ -3,7 +3,6 @@
 namespace Tests\Feature\Http\Middleware;
 
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use MatrixPlatform\Models\AuthToken;
 use MatrixPlatform\Models\IdentityType;
@@ -90,17 +89,7 @@ class IdentityMiddlewareTest extends FeatureTestCase {
     }
 
     private function updateCount(callable $callback): int {
-        $updates = 0;
-
-        DB::listen(function ($query) use (&$updates): void {
-            if (str_starts_with($query->sql, 'update "base_auth_token"')) {
-                $updates++;
-            }
-        });
-
-        $callback();
-
-        return $updates;
+        return $this->queryCount('update "base_auth_token"', $callback);
     }
 
     #[DataProvider('identities')]

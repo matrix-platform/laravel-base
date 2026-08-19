@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Models;
 
-use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\ManipulationType;
@@ -191,7 +190,11 @@ class BaseModelTest extends FeatureTestCase {
         $widget = Widget::forceCreate(['title' => 'alpha']);
         $widget = Widget::query()->whereKey($widget->getKey())->firstOrFail();
 
-        DB::table('stub_widget')->where('id', $widget->getKey())->update(['title' => 'beta']);
+        $other = Widget::query()->whereKey($widget->getKey())->firstOrFail();
+
+        $other->title = 'beta';
+
+        $other->save();
 
         $this->expectException(ServiceException::class);
         $this->expectExceptionMessage('data-conflicted');

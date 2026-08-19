@@ -5,8 +5,12 @@ namespace Tests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Testing\PendingCommand;
 use MatrixPlatform\Exceptions\ServiceException;
+use MatrixPlatform\Models\ResourceOverride;
 use MatrixPlatform\Support\Menus;
 use MatrixPlatform\Support\PackageRegistry;
 use MatrixPlatform\Support\ResourceGroup;
@@ -15,6 +19,24 @@ use MatrixPlatform\Support\Resources;
 class FeatureTestCase extends TestCase {
 
     use RefreshDatabase;
+
+    protected function artisanCommand(string $command): PendingCommand {
+        $pending = $this->artisan($command);
+
+        if (!$pending instanceof PendingCommand) {
+            $this->fail('artisan() did not return a pending command');
+        }
+
+        return $pending;
+    }
+
+    protected function captcha(string $code): string {
+        $token = 'captcha-token';
+
+        Cache::put("captcha:{$token}", hash('sha256', $code), 300);
+
+        return $token;
+    }
 
     protected function defineDatabaseMigrations(): void {
         $this->loadMigrationsFrom(__DIR__ . '/Stubs/migrations');
@@ -29,6 +51,20 @@ class FeatureTestCase extends TestCase {
         Event::listen(RequestHandled::class, fn () => $app->forgetScopedInstances());
     }
 
+    protected function queryCount(string $prefix, callable $callback): int {
+        $matched = 0;
+
+        DB::listen(function ($query) use ($prefix, &$matched): void {
+            if (str_starts_with($query->sql, $prefix)) {
+                $matched++;
+            }
+        });
+
+        $callback();
+
+        return $matched;
+    }
+
     protected function refuses(string $slug, callable $callback): void {
         try {
             $callback();
@@ -39,6 +75,20 @@ class FeatureTestCase extends TestCase {
         }
 
         $this->fail("expected the call to be refused with '{$slug}'");
+    }
+
+    /**
+     * @param array<string, mixed> $values
+     */
+    protected function useCfg(string $bundle, array $values): void {
+        $override = new ResourceOverride();
+
+        $override->bundle = "cfg/{$bundle}";
+        $override->data = $values;
+
+        $override->save();
+
+        app(Resources::class)->forget();
     }
 
     protected function useCfgFixtures(): void {

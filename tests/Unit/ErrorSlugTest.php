@@ -48,6 +48,23 @@ class ErrorSlugTest extends TestCase {
     /**
      * @param list<array{int, string, int}|string> $tokens
      */
+    private function invoked(array $tokens, int $index): bool {
+        for ($cursor = $index - 1; $cursor >= 0; $cursor--) {
+            $token = $tokens[$cursor];
+
+            if (is_array($token) && in_array($token[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+                continue;
+            }
+
+            return is_array($token) && in_array($token[0], [T_OBJECT_OPERATOR, T_NULLSAFE_OBJECT_OPERATOR, T_DOUBLE_COLON], true);
+        }
+
+        return false;
+    }
+
+    /**
+     * @param list<array{int, string, int}|string> $tokens
+     */
     private function literalArgument(array $tokens, int $index): ?string {
         $open = array_get_value($tokens, $index + 1);
         $argument = array_get_value($tokens, $index + 2);
@@ -81,7 +98,7 @@ class ErrorSlugTest extends TestCase {
             for ($index = 0; $index < $count; $index++) {
                 $token = $tokens[$index];
 
-                if (!is_array($token) || $token[0] !== T_STRING || $token[1] !== 'error') {
+                if (!is_array($token) || $token[0] !== T_STRING || $token[1] !== 'error' || $this->invoked($tokens, $index)) {
                     continue;
                 }
 

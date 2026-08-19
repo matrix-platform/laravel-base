@@ -33,6 +33,18 @@ class DispatchMessagesCommand extends Command {
         }
     }
 
+    private function deliverable(Channel $channel, string $name): ?Provider {
+        try {
+            $provider = $channel->provider($name);
+
+            return $provider->driver() === null ? null : $provider;
+        } catch (ServiceException $exception) {
+            $this->error("{$channel->name}/{$name}: {$exception->getError()}");
+
+            return null;
+        }
+    }
+
     private function dispatchDue(Channel $channel): void {
         $due = $channel->model::query()
             ->where('status', MessageStatus::Scheduled)
@@ -46,18 +58,6 @@ class DispatchMessagesCommand extends Command {
             if ($provider !== null) {
                 $this->dispatchLog($channel, $provider, intval($id));
             }
-        }
-    }
-
-    private function deliverable(Channel $channel, string $name): ?Provider {
-        try {
-            $provider = $channel->provider($name);
-
-            return $provider->driver() === null ? null : $provider;
-        } catch (ServiceException $exception) {
-            $this->error("{$channel->name}/{$name}: {$exception->getError()}");
-
-            return null;
         }
     }
 

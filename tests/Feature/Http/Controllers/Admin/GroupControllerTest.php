@@ -141,16 +141,6 @@ class GroupControllerTest extends FeatureTestCase {
         $this->assertSame($before, $this->logCount());
     }
 
-    public function test_a_value_of_a_different_type_is_written_through(): void {
-        $group = GroupFactory::new()->createOne(['title' => 'Editors']);
-
-        DB::table('base_group')->where('id', $group->id)->update(['permissions' => strval(json_encode(['user' => ['query' => 1]]))]);
-
-        $this->send("admin/group/{$group->id}/update", ['title' => 'Editors', 'permissions' => ['user' => ['query' => true]]]);
-
-        $this->assertSame(['user' => ['query' => true]], $group->refresh()->permissions);
-    }
-
     public function test_clearing_the_permissions_stores_an_empty_object(): void {
         $group = GroupFactory::new()->createOne(['title' => 'Editors', 'permissions' => ['user' => ['query' => true]]]);
 
@@ -289,9 +279,7 @@ class GroupControllerTest extends FeatureTestCase {
     }
 
     public function test_a_copy_carries_the_unfiltered_permissions(): void {
-        $group = GroupFactory::new()->createOne(['title' => 'Editors']);
-
-        DB::table('base_group')->where('id', $group->id)->update(['permissions' => strval(json_encode(['nowhere' => ['query' => true]]))]);
+        $group = GroupFactory::new()->createOne(['title' => 'Editors', 'permissions' => ['nowhere' => ['query' => true]]]);
 
         $copy = $group->refresh()->replicate();
 

@@ -23,13 +23,7 @@ class DispatchMessagesCommandTest extends FeatureTestCase {
     }
 
     private function dispatch(): PendingCommand {
-        $command = $this->artisan('messages:dispatch');
-
-        if (!$command instanceof PendingCommand) {
-            $this->fail('artisan() did not return a pending command');
-        }
-
-        return $command;
+        return $this->artisanCommand('messages:dispatch');
     }
 
     private function mail(MessageStatus $status, ?string $at = null, string $provider = 'stub'): MailLog {

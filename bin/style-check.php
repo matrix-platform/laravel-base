@@ -60,6 +60,54 @@ function check_class_blank_lines(array $lines): array {
  * @param list<array{int, string, int}|string> $tokens
  * @return list<array{int, string}>
  */
+function check_event_bypass(array $tokens): array {
+    $quiet = ['deleteQuietly', 'flushEventListeners', 'forceDeleteQuietly', 'pushQuietly', 'replicateQuietly', 'restoreQuietly', 'saveQuietly', 'touchQuietly', 'unsetEventDispatcher', 'updateQuietly', 'withoutEvents'];
+    $writes = ['decrement', 'increment', 'insert', 'insertGetId', 'insertOrIgnore', 'insertUsing', 'truncate', 'update', 'updateOrInsert', 'upsert'];
+    $sequence = significant_tokens($tokens);
+    $violations = [];
+    $total = count($sequence);
+
+    foreach ($sequence as $slot => $index) {
+        $token = $tokens[$index];
+
+        if (!is_array($token) || $token[0] !== T_STRING) {
+            continue;
+        }
+
+        if (in_array($token[1], $quiet, true)) {
+            $violations[] = [$token[2], "{$token[1]}() skips model events, see CLAUDE.md 7.7"];
+
+            continue;
+        }
+
+        if ($token[1] === 'delete') {
+            if (invoked_on_a_call($tokens, $sequence, $slot) && $tokens[$sequence[$slot + 1]] === '(' && $tokens[$sequence[$slot + 2]] === ')') {
+                $violations[] = [$token[2], 'delete() must be called on a model instance, not on a query, see CLAUDE.md 7.7'];
+            }
+
+            continue;
+        }
+
+        if ($token[1] !== 'table' || !database_facade($tokens, $sequence, $slot)) {
+            continue;
+        }
+
+        for ($cursor = $slot + 1; $cursor < $total && $tokens[$sequence[$cursor]] !== ';'; $cursor++) {
+            $call = $tokens[$sequence[$cursor]];
+
+            if (is_array($call) && $call[0] === T_STRING && in_array($call[1], $writes, true)) {
+                $violations[] = [$call[2], "DB::table() must not write ({$call[1]}), go through the model, see CLAUDE.md 7.9"];
+            }
+        }
+    }
+
+    return $violations;
+}
+
+/**
+ * @param list<array{int, string, int}|string> $tokens
+ * @return list<array{int, string}>
+ */
 function check_member_order(array $tokens): array {
     $violations = [];
     $previous = null;
@@ -184,18 +232,14 @@ function check_trailing_commas(array $lines, bool $comma): array {
 function collect_calls(array $tokens): array {
     $line = 1;
     $lines = [];
-    $sequence = [];
 
     foreach ($tokens as $index => $token) {
         $text = is_array($token) ? $token[1] : $token;
         $lines[$index] = $line;
         $line += substr_count($text, "\n");
-
-        if (!is_array($token) || !in_array($token[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
-            $sequence[] = $index;
-        }
     }
 
+    $sequence = significant_tokens($tokens);
     $calls = [];
     $total = count($sequence);
 
@@ -284,6 +328,12 @@ function collect_members(array $tokens): array {
             continue;
         }
 
+        if (is_array($token) && in_array($token[0], [T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES], true)) {
+            $depth++;
+
+            continue;
+        }
+
         if (!is_array($token)) {
             if ($token === '(') {
                 $paren++;
@@ -341,6 +391,28 @@ function collect_members(array $tokens): array {
 }
 
 /**
+ * @param list<array{int, string, int}|string> $tokens
+ * @param list<int> $sequence
+ */
+function database_facade(array $tokens, array $sequence, int $slot): bool {
+    $facade = receiver_before($tokens, $sequence, $slot, [T_DOUBLE_COLON]);
+
+    return is_array($facade) && ($facade[1] === 'DB' || str_ends_with($facade[1], '\\DB'));
+}
+
+/**
+ * @param list<array{int, string, int}|string> $tokens
+ * @param list<int> $sequence
+ */
+function invoked_on_a_call(array $tokens, array $sequence, int $slot): bool {
+    if ($slot + 2 >= count($sequence)) {
+        return false;
+    }
+
+    return receiver_before($tokens, $sequence, $slot, [T_OBJECT_OPERATOR, T_NULLSAFE_OBJECT_OPERATOR]) === ')';
+}
+
+/**
  * @param list<string> $lines
  */
 function previous_content(array $lines, int $index): ?string {
@@ -353,6 +425,22 @@ function previous_content(array $lines, int $index): ?string {
     }
 
     return null;
+}
+
+/**
+ * @param list<array{int, string, int}|string> $tokens
+ * @param list<int> $sequence
+ * @param list<int> $operators
+ * @return array{int, string, int}|string|null
+ */
+function receiver_before(array $tokens, array $sequence, int $slot, array $operators): array|string|null {
+    if ($slot < 2) {
+        return null;
+    }
+
+    $operator = $tokens[$sequence[$slot - 1]];
+
+    return is_array($operator) && in_array($operator[0], $operators, true) ? $tokens[$sequence[$slot - 2]] : null;
 }
 
 /**
@@ -418,6 +506,22 @@ function receiver_start(array $tokens, array $sequence, int $slot): int {
 }
 
 /**
+ * @param list<array{int, string, int}|string> $tokens
+ * @return list<int>
+ */
+function significant_tokens(array $tokens): array {
+    $sequence = [];
+
+    foreach ($tokens as $index => $token) {
+        if (!is_array($token) || !in_array($token[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+            $sequence[] = $index;
+        }
+    }
+
+    return $sequence;
+}
+
+/**
  * @param array{int, string, int}|string $token
  */
 function statement_opener(array|string $token): bool {
@@ -446,6 +550,7 @@ foreach ($targets as $target) {
             check_arrow_functions($tokens),
             check_null_coalescing($tokens),
             check_trailing_commas($lines, $comma),
+            str_starts_with($name, 'bin/') || str_starts_with($name, 'config/') || str_starts_with($name, 'resources/') ? [] : check_event_bypass($tokens),
             str_starts_with($name, 'src/') || str_starts_with($name, 'tests/') ? check_method_chains($tokens) : [],
             str_starts_with($name, 'tests/') ? [] : check_member_order($tokens)
         );

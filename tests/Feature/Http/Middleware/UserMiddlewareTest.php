@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Http\Middleware;
 
-use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Models\AuthToken;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
@@ -14,17 +13,7 @@ class UserMiddlewareTest extends FeatureTestCase {
     }
 
     private function updateCount(callable $callback): int {
-        $updates = 0;
-
-        DB::listen(function ($query) use (&$updates): void {
-            if (str_starts_with($query->sql, 'update "base_auth_token"')) {
-                $updates++;
-            }
-        });
-
-        $callback();
-
-        return $updates;
+        return $this->queryCount('update "base_auth_token"', $callback);
     }
 
     public function test_a_valid_token_reaches_the_endpoint(): void {

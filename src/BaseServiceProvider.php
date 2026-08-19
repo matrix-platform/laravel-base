@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use MatrixPlatform\Console\Commands\DispatchMessagesCommand;
+use MatrixPlatform\Console\Commands\PruneTokensCommand;
+use MatrixPlatform\Console\Commands\ResetUserPasswordCommand;
 use MatrixPlatform\Database\Schema\BaseBlueprint;
 use MatrixPlatform\Http\Middleware\EnvelopeMiddleware;
 use MatrixPlatform\Http\Middleware\LocaleMiddleware;
@@ -31,7 +33,7 @@ use MatrixPlatform\Support\RollbackCallbacks;
 class BaseServiceProvider extends ServiceProvider {
 
     public function boot(): void {
-        $this->commands([DispatchMessagesCommand::class]);
+        $this->commands([DispatchMessagesCommand::class, PruneTokensCommand::class, ResetUserPasswordCommand::class]);
 
         Event::listen(TransactionRolledBack::class, fn () => app(RollbackCallbacks::class)->run());
 
