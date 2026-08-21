@@ -19,7 +19,7 @@ class Channels {
             error('invalid-message-channel');
         }
 
-        return new Channel($name, $model);
+        return new Channel($name, $model, $this->queue($config));
     }
 
     /**
@@ -36,6 +36,19 @@ class Channels {
         $channels = config('matrix.messaging.channels');
 
         return is_array($channels) ? $channels : [];
+    }
+
+    /**
+     * @param array<array-key, mixed> $config
+     */
+    private function queue(array $config): string {
+        $queue = array_get_value($config, 'queue');
+
+        if (!is_string($queue) || $queue === '') {
+            error('invalid-message-channel');
+        }
+
+        return $queue;
     }
 
 }

@@ -23,7 +23,8 @@ class FileController extends BaseController {
 
         $file = $this->service->find($request->string('path')->value());
 
-        return Storage::disk($this->service->disk($file->privilege))->response($this->service->location($file), $file->name);
+        return Storage::disk($this->service->disk($file->privilege))
+            ->response($this->service->location($file), $file->name, ['Content-Type' => $file->mime_type === null ? 'application/octet-stream' : $file->mime_type]);
     }
 
     #[Action]

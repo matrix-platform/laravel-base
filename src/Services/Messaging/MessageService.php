@@ -18,53 +18,28 @@ abstract class MessageService {
 
     public function __construct(private Channels $channels) {}
 
-    public function cancel(int $reference): MessageLog {
-        $this->record('cancel', ['reference' => $reference]);
-
-        $log = $this->find($this->channels->get($this->channel), $reference);
-
-        if ($log->status === MessageStatus::Scheduled) {
-            $log->status = MessageStatus::Failed;
-            $log->error = 'cancelled';
-
-            $log->save();
-        }
-
-        return $log;
-    }
-
-    public function resend(int $reference, ?string $provider = null): MessageLog {
-        $this->record('resend', ['reference' => $reference, 'provider' => $provider]);
-
-        $channel = $this->channels->get($this->channel);
-        $log = $this->find($channel, $reference)->replicate();
-
-        if ($provider !== null) {
-            $log->provider = $provider;
-        }
-
-        $log->schedule_time = now();
-        $log->send_time = null;
-        $log->response = null;
-        $log->error = null;
-
-        return $this->enqueue($channel, $log);
-    }
-
     /**
      * @param array<string, string> $vars
      * @param array<string, string|null> $options
      */
     public function schedule(DateTimeInterface $at, string $to, ?string $template = null, array $vars = [], array $options = []): MessageLog {
-        return $this->submit('schedule', Carbon::instance($at), $to, $template, $vars, $options);
-    }
+        if ($to === '') {
+            error('invalid-message-receiver');
+        }
 
-    /**
-     * @param array<string, string> $vars
-     * @param array<string, string|null> $options
-     */
-    public function send(string $to, ?string $template = null, array $vars = [], array $options = []): MessageLog {
-        return $this->submit('send', now(), $to, $template, $vars, $options);
+        $when = Carbon::instance($at);
+        $rendered = $this->compose($template, $vars, $options);
+
+        $this->record([
+            'at' => $when->format('Y-m-d H:i:s'),
+            'to' => $to,
+            'template' => $template,
+            'vars' => $vars,
+            'options' => $options,
+            'rendered' => $rendered
+        ]);
+
+        return $this->store($when, $to, $template, $rendered);
     }
 
     /**
@@ -97,31 +72,25 @@ abstract class MessageService {
     }
 
     private function enqueue(Channel $channel, MessageLog $log): MessageLog {
-        $provider = $channel->provider($log->provider);
-        $ready = !$log->schedule_time->isFuture() && $provider->driver() !== null;
+        if ($channel->provider($log->provider)->driver() === null) {
+            error('message-provider-has-no-driver');
+        }
 
-        $log->status = $ready ? MessageStatus::Sending : MessageStatus::Scheduled;
-
+        $log->status = MessageStatus::Scheduled;
         $log->save();
 
-        if ($ready) {
-            SendMessageJob::dispatchThrottled($provider, $log->id);
+        if (!$log->schedule_time->isFuture()) {
+            SendMessageJob::dispatchFor($channel);
         }
 
         return $log;
     }
 
-    private function find(Channel $channel, int $reference): MessageLog {
-        return $channel->model::query()
-            ->whereKey($reference)
-            ->firstOrFail();
-    }
-
     /**
      * @param array<string, mixed> $context
      */
-    private function record(string $action, array $context): void {
-        Log::info("messaging.{$this->channel}.{$action}", array_merge(['channel' => $this->channel, 'action' => $action], $context));
+    private function record(array $context): void {
+        Log::info("messaging.{$this->channel}.schedule", array_merge(['channel' => $this->channel, 'action' => 'schedule'], $context));
     }
 
     /**
@@ -145,29 +114,6 @@ abstract class MessageService {
         }
 
         return $this->enqueue($channel, $log);
-    }
-
-    /**
-     * @param array<string, string> $vars
-     * @param array<string, string|null> $options
-     */
-    private function submit(string $action, Carbon $at, string $to, ?string $template, array $vars, array $options): MessageLog {
-        if ($to === '') {
-            error('invalid-message-receiver');
-        }
-
-        $rendered = $this->compose($template, $vars, $options);
-
-        $this->record($action, [
-            'at' => $at->format('Y-m-d H:i:s'),
-            'to' => $to,
-            'template' => $template,
-            'vars' => $vars,
-            'options' => $options,
-            'rendered' => $rendered
-        ]);
-
-        return $this->store($at, $to, $template, $rendered);
     }
 
 }

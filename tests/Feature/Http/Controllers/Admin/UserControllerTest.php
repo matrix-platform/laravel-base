@@ -3,17 +3,30 @@
 namespace Tests\Feature\Http\Controllers\Admin;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
 use MatrixPlatform\Models\User;
+use MatrixPlatform\Routing\ActionRoutes;
 use Tests\Factories\GroupFactory;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
+use Tests\Stubs\ExportableUserController;
 
 class UserControllerTest extends FeatureTestCase {
 
     private const ADMIN = 500;
     private const REGULAR = 5000;
+
+    /**
+     * @param Router $router
+     */
+    protected function defineRoutes($router): void {
+        $router->middleware(['envelope-api', 'user-api'])
+            ->prefix('admin')
+            ->group(fn () => Route::prefix('exportable-user')->group(fn () => ActionRoutes::scan(ExportableUserController::class)));
+    }
 
     /**
      * @param array<string, mixed> $overrides
@@ -37,6 +50,20 @@ class UserControllerTest extends FeatureTestCase {
      */
     private function send(string $token, string $uri, array $input = []): TestResponse {
         return $this->withToken($token)->postJson($uri, $input);
+    }
+
+    /**
+     * @return TestResponse<JsonResponse>
+     */
+    private function login(string $username, string $password): TestResponse {
+        $code = '13579';
+
+        return $this->postJson('admin/auth/login', [
+            'username' => $username,
+            'password' => $password,
+            'token' => $this->captcha($code),
+            'code' => $code
+        ]);
     }
 
     /**
@@ -128,6 +155,92 @@ class UserControllerTest extends FeatureTestCase {
         $this->send($token, "admin/user/{$id}")->assertJsonMissingPath('data.data.password');
     }
 
+    public function test_an_admin_cannot_create_an_account_with_a_weak_password(): void {
+        $token = $this->signIn(self::ADMIN);
+
+        $response = $this->send($token, 'admin/user/insert', $this->form(['password' => 'short']));
+
+        $response->assertJson(['code' => 422, 'error' => 'validation-failed']);
+        $response->assertJsonPath('fields.password', ['regex']);
+    }
+
+    public function test_an_admin_must_send_the_password_key_when_creating_an_account(): void {
+        $input = $this->form();
+
+        unset($input['password']);
+
+        $response = $this->send($this->signIn(self::ADMIN), 'admin/user/insert', $input);
+
+        $response->assertJson(['code' => 422, 'error' => 'validation-failed']);
+        $response->assertJsonPath('fields.password', ['present']);
+        $this->assertNull(User::query()->where('username', 'newbie')->first());
+    }
+
+    public function test_an_admin_cannot_replace_an_account_password_with_a_weak_one(): void {
+        UserFactory::new()->createOne(['id' => 6000, 'username' => 'managed-user']);
+
+        $token = $this->signIn(self::ADMIN);
+        $response = $this->send($token, 'admin/user/6000/update', $this->form([
+            'username' => 'managed-user',
+            'password' => 'short'
+        ]));
+
+        $response->assertJson(['code' => 422, 'error' => 'validation-failed']);
+        $response->assertJsonPath('fields.password', ['regex']);
+    }
+
+    public function test_an_admin_must_send_the_password_key_when_updating_an_account(): void {
+        $user = UserFactory::new()->createOne(['id' => 6000, 'username' => 'managed-user']);
+        $input = $this->form([
+            'username' => 'renamed-user',
+            'enable_time' => $user->enable_time?->format('Y-m-d H:i:s')
+        ]);
+
+        unset($input['password']);
+
+        $response = $this->send($this->signIn(self::ADMIN), 'admin/user/6000/update', $input);
+
+        $response->assertJson(['code' => 422, 'error' => 'validation-failed']);
+        $response->assertJsonPath('fields.password', ['present']);
+        $this->assertSame('managed-user', User::query()->findOrFail(6000)->username);
+    }
+
+    public function test_an_admin_replacing_a_password_revokes_the_account_sessions(): void {
+        $user = UserFactory::new()->createOne(['id' => 6000, 'username' => 'managed-user']);
+        $session = $user->createToken();
+
+        $token = $this->signIn(self::ADMIN);
+
+        $this->send($token, 'admin/user/6000/update', $this->form([
+            'username' => 'managed-user',
+            'password' => 'another-Passw0rd',
+            'enable_time' => $user->enable_time?->format('Y-m-d H:i:s')
+        ]))->assertJsonPath('success', true);
+
+        $this->withToken($session)
+            ->postJson('admin/auth/profile')
+            ->assertJson(['success' => false, 'error' => 'invalid-token']);
+    }
+
+    public function test_an_admin_leaving_a_password_blank_preserves_the_password_and_sessions(): void {
+        $user = UserFactory::new()->createOne(['id' => 6000, 'username' => 'managed-user']);
+        $session = $user->createToken();
+        $token = $this->signIn(self::ADMIN);
+
+        foreach ([null, ''] as $password) {
+            $this->send($token, 'admin/user/6000/update', $this->form([
+                'username' => 'managed-user',
+                'password' => $password,
+                'enable_time' => $user->enable_time?->format('Y-m-d H:i:s')
+            ]))->assertJsonPath('success', true);
+
+            $this->withToken($session)
+                ->postJson('admin/auth/profile')
+                ->assertJsonPath('data.profile.username', 'managed-user');
+            $this->login('managed-user', 'secret-Passw0rd')->assertJsonPath('success', true);
+        }
+    }
+
     public function test_the_account_form_carries_the_permissions_column(): void {
         $response = $this->send($this->signIn(self::ADMIN), 'admin/user/new');
 
@@ -164,6 +277,90 @@ class UserControllerTest extends FeatureTestCase {
         $token = $this->signIn(self::REGULAR, ['user' => ['query' => true]]);
 
         $this->send($token, 'admin/user')->assertJsonPath('success', true);
+    }
+
+    public function test_a_regular_user_only_sees_regular_accounts(): void {
+        UserFactory::new()->createOne(['id' => 600, 'username' => 'protected-admin']);
+        UserFactory::new()->createOne(['id' => 6000, 'username' => 'visible-regular']);
+
+        $token = $this->signIn(self::REGULAR, ['user' => ['query' => true]]);
+        $response = $this->send($token, 'admin/user');
+        $usernames = array_column($response->json('data.rows'), 'username');
+
+        $this->assertNotContains('protected-admin', $usernames);
+        $this->assertContains('visible-regular', $usernames);
+    }
+
+    public function test_a_regular_user_cannot_read_an_admin_account(): void {
+        UserFactory::new()->createOne(['id' => self::ADMIN, 'username' => 'protected-admin']);
+
+        $token = $this->signIn(self::REGULAR, ['user' => ['query' => true]]);
+
+        $this->send($token, 'admin/user/' . self::ADMIN)->assertJsonPath('error', 'data-not-found');
+    }
+
+    public function test_a_regular_user_cannot_update_or_delete_an_admin_account(): void {
+        UserFactory::new()->createOne(['id' => self::ADMIN, 'username' => 'protected-admin']);
+
+        $token = $this->signIn(self::REGULAR, ['user' => ['update' => true, 'delete' => true]]);
+
+        $this->send($token, 'admin/user/' . self::ADMIN . '/update', $this->form(['username' => 'compromised']))
+            ->assertJsonPath('error', 'data-not-found');
+        $this->send($token, 'admin/user/delete', ['id' => self::ADMIN])
+            ->assertJsonPath('error', 'data-not-found');
+
+        $root = $this->signIn(User::ROOT);
+
+        $this->send($root, 'admin/user/' . self::ADMIN)->assertJsonPath('data.data.username', 'protected-admin');
+    }
+
+    public function test_a_regular_user_cannot_copy_an_admin_account(): void {
+        $this->useMenuFixtures('authority');
+
+        UserFactory::new()->createOne(['id' => self::ADMIN, 'username' => 'protected-admin']);
+
+        $token = $this->signIn(self::REGULAR, ['user' => ['query' => true, 'insert' => true]]);
+
+        $this->send($token, 'admin/user/' . self::ADMIN . '/copy')->assertJsonPath('error', 'data-not-found');
+    }
+
+    public function test_a_regular_user_exports_no_admin_accounts(): void {
+        UserFactory::new()->createOne(['id' => self::ADMIN, 'username' => 'protected-admin']);
+        UserFactory::new()->createOne(['id' => 6000, 'username' => 'visible-regular']);
+
+        $token = $this->signIn(self::REGULAR, ['user' => ['query' => true]]);
+        $usernames = array_column($this->send($token, 'admin/exportable-user/export')->json('data.rows'), 'username');
+
+        $this->assertNotContains('protected-admin', $usernames);
+        $this->assertContains('visible-regular', $usernames);
+    }
+
+    public function test_a_regular_user_can_manage_another_regular_account_when_granted(): void {
+        UserFactory::new()->createOne(['id' => 6000, 'username' => 'visible-regular']);
+
+        $token = $this->signIn(self::REGULAR, ['user' => ['query' => true, 'update' => true, 'delete' => true]]);
+
+        $this->send($token, 'admin/user/6000')->assertJsonPath('data.data.username', 'visible-regular');
+        $this->send($token, 'admin/user/6000/update', $this->form(['username' => 'renamed-regular']))
+            ->assertJsonPath('success', true);
+        $this->send($token, 'admin/user/delete', ['id' => 6000])->assertJsonPath('success', true);
+        $this->send($token, 'admin/user/6000')->assertJsonPath('error', 'data-not-found');
+    }
+
+    public function test_an_admin_can_read_another_admin_account(): void {
+        UserFactory::new()->createOne(['id' => 600, 'username' => 'peer-admin']);
+
+        $token = $this->signIn(self::ADMIN);
+
+        $this->send($token, 'admin/user/600')->assertJsonPath('data.data.username', 'peer-admin');
+    }
+
+    public function test_root_can_read_an_admin_account(): void {
+        UserFactory::new()->createOne(['id' => self::ADMIN, 'username' => 'admin-account']);
+
+        $token = $this->signIn(User::ROOT);
+
+        $this->send($token, 'admin/user/' . self::ADMIN)->assertJsonPath('data.data.username', 'admin-account');
     }
 
     public function test_the_account_resource_offers_no_copy_export_or_sort(): void {

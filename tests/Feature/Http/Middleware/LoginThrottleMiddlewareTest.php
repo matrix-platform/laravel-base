@@ -19,6 +19,9 @@ class LoginThrottleMiddlewareTest extends FeatureTestCase {
 
             $router->middleware("login-throttle-api:{$bundle}")->post("probe/{$bundle}", fn () => ['ok' => true]);
         }
+
+        $router->middleware('login-throttle-api:admin')->post('probe/success', fn () => ['success' => true]);
+        $router->middleware('login-throttle-api:admin')->post('probe/failure', fn () => response()->json(['success' => false, 'code' => 422, 'error' => 'invalid-captcha']));
     }
 
     private function request(): Request {
@@ -60,6 +63,24 @@ class LoginThrottleMiddlewareTest extends FeatureTestCase {
         }
 
         $this->postJson('probe/admin')->assertStatus(429);
+    }
+
+    public function test_a_successful_response_is_not_counted_against_the_limit(): void {
+        $max = intval(cfg('admin.login-throttle-max'));
+
+        for ($attempt = 0; $attempt <= $max; $attempt++) {
+            $this->postJson('probe/success')->assertStatus(200);
+        }
+    }
+
+    public function test_a_failed_response_is_counted_against_the_limit(): void {
+        $max = intval(cfg('admin.login-throttle-max'));
+
+        for ($attempt = 0; $attempt < $max; $attempt++) {
+            $this->postJson('probe/failure')->assertStatus(200);
+        }
+
+        $this->postJson('probe/failure')->assertStatus(429);
     }
 
 }

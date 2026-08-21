@@ -8,6 +8,7 @@ use MatrixPlatform\Models\ManipulationType;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Support\Actor;
 use Tests\FeatureTestCase;
+use Tests\Stubs\Doodad;
 use Tests\Stubs\Gadget;
 use Tests\Stubs\Widget;
 
@@ -170,6 +171,22 @@ class BaseModelTest extends FeatureTestCase {
         $widget = Widget::forceCreate(['title' => 'alpha']);
 
         $this->assertSame('127.0.0.1', $widget->ip);
+    }
+
+    public function test_generators_refill_their_column_on_update(): void {
+        $doodad = Doodad::forceCreate(['title' => 'alpha']);
+
+        $this->assertNull($doodad->ip);
+
+        $doodad->setAttribute('title', 'beta');
+        $doodad->save();
+
+        $this->assertSame('stamped', $doodad->ip);
+
+        $doodad->setAttribute('title', 'gamma');
+        $doodad->save();
+
+        $this->assertSame('stamped.', $doodad->ip);
     }
 
     public function test_lock_succeeds_when_nothing_changed_underneath(): void {

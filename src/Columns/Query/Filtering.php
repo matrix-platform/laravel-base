@@ -99,13 +99,25 @@ class Filtering {
         };
     }
 
+    private function shaped(mixed $value): void {
+        if ($value !== null && !is_scalar($value)) {
+            error('invalid-filter-value', 422);
+        }
+    }
+
     /**
      * @param Builder<Model> $query
      * @param array<string, mixed> $filter
      */
     private function where(Builder $query, string $field, string $operator, array $filter): void {
         if ($operator === 'between') {
-            $this->between($query, $field, array_get_value($filter, 'from'), array_get_value($filter, 'to'));
+            $from = array_get_value($filter, 'from');
+            $to = array_get_value($filter, 'to');
+
+            $this->shaped($from);
+            $this->shaped($to);
+
+            $this->between($query, $field, $from, $to);
 
             return;
         }
@@ -113,10 +125,16 @@ class Filtering {
         $value = array_get_value($filter, 'value');
 
         if ($operator === 'in' || $operator === 'notIn') {
+            foreach (Arr::wrap($value) as $item) {
+                $this->shaped($item);
+            }
+
             $this->inside($query, $field, $operator, $value);
 
             return;
         }
+
+        $this->shaped($value);
 
         [$clause, $bindings] = match ($operator) {
             'eq' => ['= ?', [$value]],

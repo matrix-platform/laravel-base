@@ -22,7 +22,6 @@ class MessageStatusTest extends FeatureTestCase {
         $this->assertSame(1, MessageStatus::Scheduled->value);
         $this->assertSame(2, MessageStatus::Success->value);
         $this->assertSame(3, MessageStatus::Failed->value);
-        $this->assertSame(4, MessageStatus::Sending->value);
     }
 
     public function test_every_status_has_a_label_in_every_channel_bundle_and_locale(): void {

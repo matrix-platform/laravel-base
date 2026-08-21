@@ -19,7 +19,10 @@ class MemberDeclaration implements Declares {
             Definitions::primaryKey(),
             [
                 'username' => new Definition(ColumnType::Text),
-                'password' => new Definition(ColumnType::Text, Presentation::Password),
+                'password' => new Definition(ColumnType::Text, Presentation::Password, fn (): array => [
+                    'exclude_if:password,null',
+                    'regex:' . cfg('member.password-pattern')
+                ]),
                 'name' => new Definition(ColumnType::Text),
                 'mobile' => new Definition(ColumnType::Text),
                 'mail' => new Definition(ColumnType::Text),

@@ -69,6 +69,15 @@ class ResetUserPasswordCommandTest extends FeatureTestCase {
         $this->assertSame(0, $this->passwords());
     }
 
+    public function test_a_weak_password_fails_without_writing(): void {
+        $this->command('admin')
+            ->expectsQuestion('New password', 'short')
+            ->expectsOutputToContain('Password does not satisfy the configured policy')
+            ->assertExitCode(1);
+
+        $this->assertSame(0, $this->passwords());
+    }
+
     public function test_the_command_refuses_a_password_on_the_command_line(): void {
         try {
             $this->command('admin ' . self::PASSWORD)->run();
@@ -89,6 +98,25 @@ class ResetUserPasswordCommandTest extends FeatureTestCase {
             ->assertExitCode(1);
 
         $this->assertSame(0, $this->passwords());
+    }
+
+    public function test_resetting_a_password_revokes_existing_sessions(): void {
+        $this->command('admin')
+            ->expectsQuestion('New password', self::PASSWORD)
+            ->expectsQuestion('Retype new password', self::PASSWORD)
+            ->assertExitCode(0);
+
+        $token = strval($this->login('admin', self::PASSWORD)->json('data.token'));
+        $replacement = 'another-Passw0rd';
+
+        $this->command('admin')
+            ->expectsQuestion('New password', $replacement)
+            ->expectsQuestion('Retype new password', $replacement)
+            ->assertExitCode(0);
+
+        $this->withToken($token)
+            ->postJson('admin/auth/profile')
+            ->assertJson(['success' => false, 'error' => 'invalid-token']);
     }
 
 }

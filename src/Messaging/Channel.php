@@ -12,7 +12,8 @@ class Channel {
      */
     public function __construct(
         public readonly string $name,
-        public readonly string $model
+        public readonly string $model,
+        public readonly string $queue
     ) {}
 
     public function provider(string $name): Provider {

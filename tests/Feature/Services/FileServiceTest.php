@@ -113,6 +113,19 @@ class FileServiceTest extends FeatureTestCase {
         $this->assertSame(2, File::query()->count());
     }
 
+    public function test_a_reupload_after_the_disk_file_vanished_creates_a_new_record(): void {
+        $first = $this->service()->upload($this->blob('a.bin', 'same-content'));
+
+        Storage::disk('public')->delete("files/{$first->path}");
+
+        $second = $this->service()->upload($this->blob('a.bin', 'same-content'));
+
+        $this->assertNotSame($first->id, $second->id);
+        $this->assertNotSame($first->path, $second->path);
+
+        Storage::disk('public')->assertExists("files/{$second->path}");
+    }
+
     public function test_an_oversize_upload_is_refused_and_leaves_nothing_behind(): void {
         $this->refuses('file-too-large', fn () => $this->service()->upload($this->blob('big.bin', str_repeat('x', 2048)), File::PUBLIC, 1024));
 
@@ -152,14 +165,17 @@ class FileServiceTest extends FeatureTestCase {
     public function test_the_stored_path_carries_the_month_and_no_leading_slash(): void {
         $file = $this->service()->upload($this->blob('a.bin', 'content'));
 
-        $this->assertMatchesRegularExpression('#^' . date('Ym') . '/[A-Za-z0-9]{32}\.bin$#', $file->path);
+        $this->assertMatchesRegularExpression('#^' . date('Ym') . '/[A-Za-z0-9]{32}$#', $file->path);
         $this->assertSame($file->path, $this->reload($file)->path);
     }
 
-    public function test_a_file_without_an_extension_gets_no_trailing_dot(): void {
-        $file = $this->service()->upload($this->blob('README', 'content'));
+    public function test_the_stored_path_never_carries_the_extension_the_client_sent(): void {
+        $file = $this->service()->upload($this->blob('shell.php', 'content'));
 
         $this->assertMatchesRegularExpression('#^' . date('Ym') . '/[A-Za-z0-9]{32}$#', $file->path);
+        $this->assertSame('shell.php', $file->name);
+
+        Storage::disk('public')->assertExists("files/{$file->path}");
     }
 
     public function test_a_rollback_removes_the_file_that_was_just_written(): void {
@@ -175,7 +191,7 @@ class FileServiceTest extends FeatureTestCase {
 
     public function test_a_deduplicated_upload_registers_no_cleanup_for_the_file_it_reused(): void {
         $content = 'already-here';
-        $path = date('Ym') . '/' . Str::random(32) . '.bin';
+        $path = date('Ym') . '/' . Str::random(32);
 
         Storage::disk('public')->put("files/{$path}", $content);
 

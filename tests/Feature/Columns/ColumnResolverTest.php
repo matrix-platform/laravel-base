@@ -103,6 +103,24 @@ class ColumnResolverTest extends FeatureTestCase {
         $this->assertSame(['max:50'], $column->rule);
     }
 
+    public function test_a_declaration_rule_can_be_deferred_to_a_closure(): void {
+        $this->declare(['title' => new Definition(ColumnType::Text, null, fn (): array => ['max:' . cfg('admin.token-idle-minutes')])]);
+
+        $this->assertSame(['max:30'], $this->resolve('title')->rule);
+    }
+
+    public function test_a_column_rule_overrides_the_declaration_rule(): void {
+        $this->declare(['title' => new Definition(ColumnType::Text, null, ['max:50'])]);
+
+        $this->assertSame(['numeric'], $this->resolve(['name' => 'title', 'rule' => ['numeric']])->rule);
+    }
+
+    public function test_a_column_rule_keeps_a_deferred_declaration_rule_from_running(): void {
+        $this->declare(['title' => new Definition(ColumnType::Text, null, fn (): array => error('unreachable'))]);
+
+        $this->assertSame(['numeric'], $this->resolve(['name' => 'title', 'rule' => ['numeric']])->rule);
+    }
+
     public function test_the_dsl_overrides_the_declaration(): void {
         $this->declare(['title' => new Definition(ColumnType::Integer)]);
 

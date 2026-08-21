@@ -20,6 +20,8 @@ return [
 
     'invalid-column-expression' => '欄位運算式語法錯誤',
 
+    'invalid-filter-value' => '篩選值的格式不正確',
+
     'invalid-identity-model' => '身分 model 設定錯誤',
 
     'invalid-message-channel' => '訊息管道設定錯誤',

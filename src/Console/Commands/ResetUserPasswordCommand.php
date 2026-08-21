@@ -3,7 +3,9 @@
 namespace MatrixPlatform\Console\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Models\User;
+use MatrixPlatform\Services\Admin\PasswordService;
 
 class ResetUserPasswordCommand extends Command {
 
@@ -21,10 +23,16 @@ class ResetUserPasswordCommand extends Command {
             return self::FAILURE;
         }
 
-        $password = $this->secret('New password');
+        $password = strval($this->secret('New password'));
 
-        if ($password === null || $password === '') {
+        if ($password === '') {
             $this->error('No password supplied');
+
+            return self::FAILURE;
+        }
+
+        if (preg_match(strval(cfg('admin.password-pattern')), $password) !== 1) {
+            $this->error('Password does not satisfy the configured policy');
 
             return self::FAILURE;
         }
@@ -35,8 +43,7 @@ class ResetUserPasswordCommand extends Command {
             return self::FAILURE;
         }
 
-        $user->password = $password;
-        $user->save();
+        DB::transaction(fn () => app(PasswordService::class)->replace($user, $password));
 
         $this->info('Password updated successfully');
 

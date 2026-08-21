@@ -20,4 +20,12 @@ enum AdminLevel: int {
         };
     }
 
+    public function minimumManageableId(): int {
+        return match ($this) {
+            self::Root => User::ROOT,
+            self::Admin => User::ROOT + 1,
+            self::Regular => self::ADMIN_MAX_ID + 1
+        };
+    }
+
 }

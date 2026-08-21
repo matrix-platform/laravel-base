@@ -3,7 +3,6 @@
 namespace MatrixPlatform\Services\Admin;
 
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use MatrixPlatform\Models\AuthToken;
 use MatrixPlatform\Models\IdentityType;
@@ -15,19 +14,7 @@ use MatrixPlatform\Support\RollbackCallbacks;
 
 class AuthService {
 
-    private static function comparisonHash(?User $user): string {
-        if ($user !== null && $user->password !== null) {
-            return $user->password;
-        }
-
-        if (self::$placeholder === null) {
-            self::$placeholder = Hash::make((string) Str::uuid());
-        }
-
-        return self::$placeholder;
-    }
-
-    private static ?string $placeholder = null;
+    public function __construct(private PasswordService $passwords) {}
 
     /**
      * @return array{token: string, image: string}
@@ -45,7 +32,9 @@ class AuthService {
      * @return array{token: string}
      */
     public function login(string $username, string $password, string $token, string $code): array {
-        if (Cache::pull("captcha:{$token}") !== hash('sha256', $code)) {
+        $expected = Cache::pull("captcha:{$token}");
+
+        if (!is_string($expected) || !hash_equals($expected, hash('sha256', $code))) {
             error('invalid-captcha', 422);
         }
 
@@ -54,7 +43,7 @@ class AuthService {
             ->whereEnabled()
             ->first();
 
-        $verified = Hash::check($password, self::comparisonHash($user));
+        $verified = $this->passwords->verify($user, $password);
 
         if ($user === null || !$verified) {
             if ($user !== null) {
@@ -83,14 +72,11 @@ class AuthService {
     }
 
     public function passwd(User $user, string $current, string $password, ?string $token): void {
-        if (!Hash::check($current, self::comparisonHash($user))) {
+        if (!$this->passwords->verify($user, $current)) {
             error('invalid-password', 422);
         }
 
-        $user->password = $password;
-        $user->save();
-
-        $this->revoke($user, $token);
+        $this->passwords->replace($user, $password, $token);
 
         $user->writeLog(UserLogType::ChangePassword);
     }
@@ -100,20 +86,6 @@ class AuthService {
      */
     public function profile(User $user): array {
         return ['nodes' => app(AdminPermission::class)->getMenuNodes(), 'profile' => $user->makeHidden('permissions')];
-    }
-
-    private function revoke(User $user, ?string $token): void {
-        $query = AuthToken::query()
-            ->where('type', IdentityType::User)
-            ->where('target_id', $user->id);
-
-        if ($token !== null) {
-            $query->where('token', '!=', $token);
-        }
-
-        foreach ($query->get(['id']) as $auth) {
-            $auth->delete();
-        }
     }
 
 }

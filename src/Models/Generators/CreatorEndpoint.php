@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Request;
 class CreatorEndpoint implements Generates {
 
     public function generate(mixed $value, Model $model): mixed {
-        return Request::path();
+        return Request::ip() === null ? null : Request::path();
     }
 
 }

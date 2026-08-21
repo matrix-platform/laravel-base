@@ -19,6 +19,7 @@ return [
     'cfg/member' => 'Member',
     'cfg/member.login-throttle-max' => 'Login attempt limit',
     'cfg/member.login-throttle-window' => 'Login throttle window (minutes)',
+    'cfg/member.password-pattern' => 'Password pattern',
     'cfg/member.token-idle-minutes' => 'Token idle timeout (minutes)',
 
     'cfg/system' => 'System',
@@ -28,6 +29,7 @@ return [
     'cfg/vendor' => 'Vendor',
     'cfg/vendor.login-throttle-max' => 'Login attempt limit',
     'cfg/vendor.login-throttle-window' => 'Login throttle window (minutes)',
+    'cfg/vendor.password-pattern' => 'Password pattern',
     'cfg/vendor.token-idle-minutes' => 'Token idle timeout (minutes)',
 
     'cfg/gmail' => 'Gmail SMTP',

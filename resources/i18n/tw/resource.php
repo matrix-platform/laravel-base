@@ -19,6 +19,7 @@ return [
     'cfg/member' => '會員',
     'cfg/member.login-throttle-max' => '登入嘗試次數上限',
     'cfg/member.login-throttle-window' => '登入限制時間(分鐘)',
+    'cfg/member.password-pattern' => '密碼規則(正規表達式)',
     'cfg/member.token-idle-minutes' => '憑證閒置逾時(分鐘)',
 
     'cfg/system' => '系統',
@@ -28,6 +29,7 @@ return [
     'cfg/vendor' => '廠商',
     'cfg/vendor.login-throttle-max' => '登入嘗試次數上限',
     'cfg/vendor.login-throttle-window' => '登入限制時間(分鐘)',
+    'cfg/vendor.password-pattern' => '密碼規則(正規表達式)',
     'cfg/vendor.token-idle-minutes' => '憑證閒置逾時(分鐘)',
 
     'cfg/gmail' => 'Gmail SMTP',

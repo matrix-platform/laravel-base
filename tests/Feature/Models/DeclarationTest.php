@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Models;
 
+use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Validator;
 use MatrixPlatform\Attributes\Declared;
 use MatrixPlatform\Support\MetadataRegistry;
 use ReflectionClass;
@@ -59,6 +61,29 @@ class DeclarationTest extends FeatureTestCase {
             $this->assertNotNull($title, $model);
 
             $this->assertContains($title, Schema::getColumnListing((new $model())->getTable()), $model);
+        }
+    }
+
+    public function test_every_password_column_enforces_a_policy_and_stays_optional(): void {
+        foreach ($this->declared() as $model) {
+            $definitions = app(MetadataRegistry::class)->definitions($model);
+
+            $this->assertNotNull($definitions, $model);
+
+            if (!array_key_exists('password', $definitions)) {
+                continue;
+            }
+
+            $rule = $definitions['password']->rule;
+
+            $this->assertInstanceOf(Closure::class, $rule, $model);
+
+            $resolved = $rule();
+
+            $this->assertTrue(Validator::make(['password' => 'secret-Passw0rd'], ['password' => $resolved])->passes(), $model);
+            $this->assertFalse(Validator::make(['password' => 'short'], ['password' => $resolved])->passes(), $model);
+            $this->assertFalse(Validator::make([], ['password' => array_merge(['present'], $resolved)])->passes(), $model);
+            $this->assertTrue(Validator::make(['password' => null], ['password' => $resolved])->passes(), $model);
         }
     }
 

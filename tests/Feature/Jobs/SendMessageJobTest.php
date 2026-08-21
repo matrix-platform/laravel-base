@@ -3,13 +3,15 @@
 namespace Tests\Feature\Jobs;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
-use Illuminate\Support\Testing\Fakes\QueueFake;
+use Illuminate\Support\Sleep;
 use MatrixPlatform\Jobs\SendMessageJob;
-use MatrixPlatform\Messaging\Channels;
 use MatrixPlatform\Messaging\MessageStatus;
 use MatrixPlatform\Models\MailLog;
+use Mockery;
 use Tests\FeatureTestCase;
+use Tests\Stubs\FailDriver;
 use Tests\Stubs\OkDriver;
 
 class SendMessageJobTest extends FeatureTestCase {
@@ -17,35 +19,20 @@ class SendMessageJobTest extends FeatureTestCase {
     protected function setUp(): void {
         parent::setUp();
 
+        Queue::fake();
+
+        Sleep::fake();
+
         OkDriver::$level = null;
 
         $this->useMessagingFixtures();
     }
 
-    /**
-     * @return list<int>
-     */
-    private function delays(QueueFake $queue): array {
-        $pushed = array_get_value($queue->pushedJobs(), SendMessageJob::class, []);
-
-        return array_map(fn (array $entry) => intval($entry['job']->delay), is_array($pushed) ? array_values($pushed) : []);
+    private function execute(): void {
+        (new SendMessageJob('mail'))->handle();
     }
 
-    private function throttle(string $provider, int $times): void {
-        $resolved = app(Channels::class)->get('mail')->provider($provider);
-
-        foreach (range(1, $times) as $id) {
-            SendMessageJob::dispatchThrottled($resolved, $id);
-        }
-    }
-
-    private function execute(MailLog $log): MailLog {
-        (new SendMessageJob('mail', $log->id))->handle();
-
-        return $log->refresh();
-    }
-
-    private function stored(MessageStatus $status = MessageStatus::Sending, string $provider = 'stub'): MailLog {
+    private function stored(MessageStatus $status = MessageStatus::Scheduled, string $provider = 'stub', ?string $at = null): MailLog {
         $log = new MailLog();
 
         $log->provider = $provider;
@@ -53,7 +40,7 @@ class SendMessageJobTest extends FeatureTestCase {
         $log->receiver = 'alice@example.com';
         $log->subject = 'Hello';
         $log->content = 'Body';
-        $log->schedule_time = now();
+        $log->schedule_time = $at === null ? now()->subMinute() : now()->modify($at);
         $log->status = $status;
 
         $log->save();
@@ -61,8 +48,12 @@ class SendMessageJobTest extends FeatureTestCase {
         return $log;
     }
 
-    public function test_a_successful_send_records_the_response_and_the_time(): void {
-        $log = $this->execute($this->stored());
+    public function test_the_message_that_is_due_is_sent_and_recorded(): void {
+        $log = $this->stored();
+
+        $this->execute();
+
+        $log->refresh();
 
         $this->assertSame(MessageStatus::Success, $log->status);
         $this->assertSame('stub-message-id', $log->response);
@@ -70,122 +61,202 @@ class SendMessageJobTest extends FeatureTestCase {
         $this->assertNull($log->error);
     }
 
-    public function test_a_driver_that_blows_up_leaves_the_record_failed_rather_than_sending(): void {
-        $log = $this->execute($this->stored(MessageStatus::Sending, 'fail'));
+    public function test_the_earliest_schedule_time_goes_first_whatever_the_write_order(): void {
+        $late = $this->stored(MessageStatus::Scheduled, 'stub', '-1 minute');
+        $early = $this->stored(MessageStatus::Scheduled, 'stub', '-5 minutes');
+
+        $this->execute();
+
+        $this->assertSame(MessageStatus::Success, $early->refresh()->status);
+        $this->assertSame(MessageStatus::Scheduled, $late->refresh()->status);
+    }
+
+    public function test_only_one_message_goes_out_per_job(): void {
+        $first = $this->stored();
+        $second = $this->stored();
+
+        $this->execute();
+
+        $this->assertSame(MessageStatus::Success, $first->refresh()->status);
+        $this->assertSame(MessageStatus::Scheduled, $second->refresh()->status);
+    }
+
+    public function test_a_send_hands_the_work_to_a_successor(): void {
+        $this->stored();
+
+        $this->execute();
+
+        Queue::assertPushed(SendMessageJob::class, fn (SendMessageJob $job) => $job->channel === 'mail');
+    }
+
+    public function test_the_successor_that_finds_nothing_left_ends_the_chain(): void {
+        $this->stored();
+
+        $this->execute();
+        $this->execute();
+
+        Queue::assertPushed(SendMessageJob::class, 1);
+    }
+
+    public function test_a_job_with_nothing_to_do_ends_without_sending_or_handing_off(): void {
+        $this->execute();
+
+        $this->assertNull(OkDriver::$level);
+
+        Queue::assertNothingPushed();
+    }
+
+    public function test_a_message_scheduled_for_the_future_is_left_alone(): void {
+        $log = $this->stored(MessageStatus::Scheduled, 'stub', '+1 day');
+
+        $this->execute();
+
+        $this->assertSame(MessageStatus::Scheduled, $log->refresh()->status);
+        $this->assertNull(OkDriver::$level);
+    }
+
+    public function test_a_message_that_already_reached_a_terminal_state_is_left_alone(): void {
+        $log = $this->stored(MessageStatus::Success);
+
+        $this->execute();
+
+        $this->assertSame(MessageStatus::Success, $log->refresh()->status);
+        $this->assertNull($log->response);
+        $this->assertNull(OkDriver::$level);
+    }
+
+    public function test_a_driver_that_blows_up_leaves_the_record_failed(): void {
+        $log = $this->stored(MessageStatus::Scheduled, 'fail');
+
+        $this->execute();
+
+        $log->refresh();
 
         $this->assertSame(MessageStatus::Failed, $log->status);
         $this->assertSame('smtp exploded', $log->error);
     }
 
     public function test_a_refusal_records_the_error_slug_rather_than_the_message(): void {
-        $log = $this->execute($this->stored(MessageStatus::Sending, 'refusing'));
+        $log = $this->stored(MessageStatus::Scheduled, 'refusing');
+
+        $this->execute();
+
+        $log->refresh();
 
         $this->assertSame(MessageStatus::Failed, $log->status);
         $this->assertSame('invalid-message-receiver', $log->error);
     }
 
-    public function test_a_record_that_is_not_sending_is_left_untouched(): void {
-        $log = $this->execute($this->stored(MessageStatus::Success));
-
-        $this->assertSame(MessageStatus::Success, $log->status);
-        $this->assertNull($log->response);
-        $this->assertNull(OkDriver::$level);
-    }
-
     public function test_a_diagnosis_the_driver_wrote_is_not_overwritten_by_the_generic_slug(): void {
-        $log = $this->execute($this->stored(MessageStatus::Sending, 'diagnosing'));
+        $log = $this->stored(MessageStatus::Scheduled, 'diagnosing');
+
+        $this->execute();
+
+        $log->refresh();
 
         $this->assertSame(MessageStatus::Failed, $log->status);
         $this->assertSame('vendor-status-6', $log->error);
     }
 
-    public function test_a_provider_with_no_driver_fails_the_record_instead_of_stranding_it(): void {
-        $log = $this->execute($this->stored(MessageStatus::Sending, 'bare'));
+    public function test_a_failed_send_is_written_to_the_application_log(): void {
+        $spy = Log::spy();
 
-        $this->assertSame(MessageStatus::Failed, $log->status);
-        $this->assertSame('message-provider-has-no-driver', $log->error);
+        $log = $this->stored(MessageStatus::Scheduled, 'fail');
+
+        $this->execute();
+
+        $spy->shouldHaveReceived('error', ['messaging.mail.failed', Mockery::on(fn (array $context) => array_get_value($context, 'channel') === 'mail'
+            && array_get_value($context, 'provider') === 'fail'
+            && array_get_value($context, 'id') === $log->id
+            && array_get_value($context, 'code') === 'smtp exploded')]);
     }
 
-    public function test_a_provider_naming_a_class_that_is_not_a_driver_fails_the_record(): void {
-        $log = $this->execute($this->stored(MessageStatus::Sending, 'broken'));
+    public function test_a_provider_with_no_driver_fails_the_job_and_leaves_its_messages_waiting(): void {
+        $log = $this->stored(MessageStatus::Scheduled, 'bare');
 
-        $this->assertSame(MessageStatus::Failed, $log->status);
-        $this->assertSame('invalid-message-driver', $log->error);
+        $this->refuses('message-provider-has-no-driver', fn () => $this->execute());
+
+        $this->assertSame(MessageStatus::Scheduled, $log->refresh()->status);
+
+        Queue::assertNothingPushed();
     }
 
-    public function test_a_provider_whose_configuration_vanished_fails_the_record(): void {
-        $log = $this->execute($this->stored(MessageStatus::Sending, 'evaporated'));
+    public function test_a_provider_naming_a_class_that_is_not_a_driver_fails_the_job_and_leaves_its_messages_waiting(): void {
+        $log = $this->stored(MessageStatus::Scheduled, 'broken');
 
-        $this->assertSame(MessageStatus::Failed, $log->status);
-        $this->assertSame('invalid-message-provider', $log->error);
+        $this->refuses('invalid-message-driver', fn () => $this->execute());
+
+        $this->assertSame(MessageStatus::Scheduled, $log->refresh()->status);
+
+        Queue::assertNothingPushed();
     }
 
-    public function test_the_driver_runs_outside_the_transaction_that_claimed_the_record(): void {
+    public function test_a_provider_whose_configuration_vanished_fails_the_job_and_leaves_its_messages_waiting(): void {
+        $log = $this->stored(MessageStatus::Scheduled, 'evaporated');
+
+        $this->refuses('invalid-message-provider', fn () => $this->execute());
+
+        $this->assertSame(MessageStatus::Scheduled, $log->refresh()->status);
+
+        Queue::assertNothingPushed();
+    }
+
+    public function test_a_message_at_the_head_that_cannot_be_delivered_blocks_the_ones_behind_it(): void {
+        $bare = $this->stored(MessageStatus::Scheduled, 'bare');
+        $stub = $this->stored();
+
+        $this->refuses('message-provider-has-no-driver', fn () => $this->execute());
+
+        $this->assertSame(MessageStatus::Scheduled, $bare->refresh()->status);
+        $this->assertSame(MessageStatus::Scheduled, $stub->refresh()->status);
+    }
+
+    public function test_the_configured_interval_is_slept_off_before_handing_over(): void {
+        $this->stored(MessageStatus::Scheduled, 'throttled');
+
+        $this->execute();
+
+        Sleep::assertSequence([Sleep::for(60)->seconds()]);
+    }
+
+    public function test_a_provider_without_an_interval_does_not_sleep(): void {
+        $this->stored();
+
+        $this->execute();
+
+        Sleep::assertSleptTimes(0);
+    }
+
+    public function test_a_failed_send_is_paced_like_a_successful_one(): void {
+        $this->useCfg('throttled', ['driver' => FailDriver::class]);
+
+        $log = $this->stored(MessageStatus::Scheduled, 'throttled');
+
+        $this->execute();
+
+        $this->assertSame(MessageStatus::Failed, $log->refresh()->status);
+
+        Sleep::assertSequence([Sleep::for(60)->seconds()]);
+    }
+
+    public function test_two_providers_on_one_channel_are_paced_by_whichever_one_just_sent(): void {
+        $this->stored(MessageStatus::Scheduled, 'throttled', '-5 minutes');
+        $this->stored(MessageStatus::Scheduled, 'paced', '-1 minute');
+
+        $this->execute();
+        $this->execute();
+
+        Sleep::assertSequence([Sleep::for(60)->seconds(), Sleep::for(30)->seconds()]);
+    }
+
+    public function test_the_driver_runs_outside_any_transaction_the_job_opened(): void {
         $baseline = DB::transactionLevel();
 
-        $this->execute($this->stored());
+        $this->stored();
+
+        $this->execute();
 
         $this->assertSame($baseline, OkDriver::$level);
-    }
-
-    public function test_the_job_is_held_until_the_writing_transaction_commits(): void {
-        Queue::fake();
-
-        $this->throttle('stub', 1);
-
-        Queue::assertPushed(SendMessageJob::class, fn (SendMessageJob $job) => $job->afterCommit === true);
-    }
-
-    public function test_the_job_lands_on_the_configured_queue(): void {
-        Queue::fake();
-
-        config()->set('matrix.messaging.queue', 'messaging');
-
-        $this->throttle('stub', 1);
-
-        Queue::assertPushed(SendMessageJob::class, fn (SendMessageJob $job) => $job->queue === 'messaging');
-    }
-
-    public function test_a_zero_interval_means_no_delay(): void {
-        $queue = Queue::fake();
-
-        $this->throttle('instant', 2);
-
-        $this->assertSame([0, 0], $this->delays($queue));
-    }
-
-    public function test_consecutive_dispatches_are_spaced_by_the_configured_interval(): void {
-        $queue = Queue::fake();
-
-        $this->throttle('throttled', 3);
-
-        $this->assertSame([0, 60, 120], $this->delays($queue));
-    }
-
-    public function test_two_providers_on_one_channel_are_throttled_independently(): void {
-        $queue = Queue::fake();
-
-        $this->throttle('throttled', 2);
-        $this->throttle('paced', 2);
-
-        $this->assertSame([0, 60, 0, 30], $this->delays($queue));
-    }
-
-    public function test_a_pause_longer_than_the_old_cache_lifetime_does_not_reset_the_spacing(): void {
-        $queue = Queue::fake();
-
-        $this->throttle('throttled', 5);
-
-        $this->assertSame([0, 60, 120, 180, 240], $this->delays($queue));
-
-        $this->travel(241)->seconds();
-
-        $this->throttle('throttled', 1);
-
-        $spacing = $this->delays($queue);
-
-        $this->assertCount(6, $spacing);
-        $this->assertGreaterThan(0, end($spacing));
     }
 
 }

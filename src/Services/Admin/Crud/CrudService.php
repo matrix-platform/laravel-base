@@ -312,9 +312,7 @@ abstract class CrudService {
     protected function validated(mixed $input): array {
         $values = is_array($input) ? $input : [];
 
-        Validator::make($values, $this->rules())->validate();
-
-        return $values;
+        return Validator::make($values, $this->rules())->validate();
     }
 
     /**

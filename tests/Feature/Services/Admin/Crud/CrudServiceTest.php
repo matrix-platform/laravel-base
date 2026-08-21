@@ -198,7 +198,7 @@ class CrudServiceTest extends FeatureTestCase {
         $this->fail('the insert was expected to be rejected');
     }
 
-    public function test_a_readonly_column_takes_the_input_only_when_the_model_has_none(): void {
+    public function test_a_readonly_column_never_takes_the_input(): void {
         $id = (new InsertService(User::class))
             ->standalone(true)
             ->columns(['*username', '!disabled', '!group_id'])
@@ -207,7 +207,7 @@ class CrudServiceTest extends FeatureTestCase {
         $user = User::query()->findOrFail(intval($id));
 
         $this->assertFalse($user->disabled);
-        $this->assertSame(7, $user->group_id);
+        $this->assertNull($user->group_id);
     }
 
     public function test_a_readonly_column_does_not_have_to_be_sent(): void {

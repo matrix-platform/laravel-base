@@ -19,7 +19,10 @@ class UserDeclaration implements Declares {
             Definitions::primaryKey(),
             [
                 'username' => new Definition(ColumnType::Text),
-                'password' => new Definition(ColumnType::Text, Presentation::Password),
+                'password' => new Definition(ColumnType::Text, Presentation::Password, fn (): array => [
+                    'exclude_if:password,null',
+                    'regex:' . cfg('admin.password-pattern')
+                ]),
                 'group_id' => new Definition(ColumnType::Integer)
             ],
             Definitions::permissions(),

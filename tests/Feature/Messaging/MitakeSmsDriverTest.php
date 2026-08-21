@@ -28,7 +28,7 @@ class MitakeSmsDriverTest extends FeatureTestCase {
         $log->receiver = '0912345678';
         $log->content = 'Your code is 123456';
         $log->schedule_time = now();
-        $log->status = MessageStatus::Sending;
+        $log->status = MessageStatus::Scheduled;
 
         $log->save();
 

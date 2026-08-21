@@ -12,6 +12,8 @@ return [
 
     'user/{id}/update' => ['parent' => 'user', 'tag' => 'update'],
 
+    'user/{id}/copy' => ['parent' => 'user', 'tag' => 'insert'],
+
     'user/delete' => ['parent' => 'user', 'tag' => 'delete'],
 
     'user/insert' => ['parent' => 'user', 'tag' => 'insert'],

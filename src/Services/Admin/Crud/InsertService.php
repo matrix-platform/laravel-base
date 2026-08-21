@@ -16,7 +16,7 @@ class InsertService extends CrudService {
                 continue;
             }
 
-            if (!$column->readonly || $model->getAttribute($column->name) === null) {
+            if (!$column->readonly) {
                 $model->setAttribute($column->name, $values[$column->name]);
             }
         }

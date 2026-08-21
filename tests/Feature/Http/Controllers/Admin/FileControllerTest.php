@@ -82,6 +82,16 @@ class FileControllerTest extends FeatureTestCase {
         $this->assertStringContainsString('original.bin', strval($response->headers->get('content-disposition')));
     }
 
+    public function test_a_download_carries_the_stored_mime_type(): void {
+        $file = app(FileService::class)->upload(UploadedFile::fake()->createWithContent('report.csv', 'a,b'));
+
+        $response = $this->withToken($this->token())->post('admin/file/download', ['path' => $file->path]);
+
+        $response->assertOk();
+        $this->assertSame('text/csv', $file->mime_type);
+        $this->assertStringStartsWith('text/csv', strval($response->headers->get('content-type')));
+    }
+
     public function test_downloading_an_unknown_path_is_reported_as_missing_data(): void {
         $this->send($this->token(), 'admin/file/download', ['path' => 'nowhere/missing.bin'])->assertJson(['code' => 404, 'error' => 'data-not-found']);
     }

@@ -67,7 +67,7 @@ class FileService {
             ->where('usage', $usage)
             ->first();
 
-        if ($existing !== null) {
+        if ($existing !== null && Storage::disk($this->disk($existing->privilege))->exists($this->location($existing))) {
             return $existing;
         }
 
@@ -146,9 +146,7 @@ class FileService {
     }
 
     private function store(UploadedFile $file, string $disk): string {
-        $extension = strtolower($file->getClientOriginalExtension());
-        $name = Str::random(32);
-        $path = date('Ym') . '/' . ($extension === '' ? $name : "{$name}.{$extension}");
+        $path = date('Ym') . '/' . Str::random(32);
 
         Storage::disk($disk)->putFileAs(self::FOLDER, $file, $path);
 

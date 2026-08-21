@@ -22,10 +22,9 @@ return [
     'member-model' => Member::class,
 
     'messaging' => [
-        'queue' => 'default',
         'channels' => [
-            'mail' => ['model' => MailLog::class],
-            'sms' => ['model' => SmsLog::class],
+            'mail' => ['model' => MailLog::class, 'queue' => 'messaging-mail'],
+            'sms' => ['model' => SmsLog::class, 'queue' => 'messaging-sms'],
         ],
     ],
 

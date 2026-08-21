@@ -20,6 +20,19 @@ class ChannelsTest extends FeatureTestCase {
 
         $this->assertSame('mail', $channel->name);
         $this->assertSame(MailLog::class, $channel->model);
+        $this->assertSame('messaging-mail', $channel->queue);
+    }
+
+    public function test_a_channel_carries_the_queue_it_declares(): void {
+        config()->set('matrix.messaging.channels.mail.queue', 'somewhere-else');
+
+        $this->assertSame('somewhere-else', $this->channels()->get('mail')->queue);
+    }
+
+    public function test_a_channel_without_a_queue_is_refused(): void {
+        config()->set('matrix.messaging.channels.mail.queue', null);
+
+        $this->refuses('invalid-message-channel', fn () => $this->channels()->get('mail'));
     }
 
     public function test_every_configured_channel_is_listed(): void {
@@ -37,11 +50,11 @@ class ChannelsTest extends FeatureTestCase {
     }
 
     public function test_a_broken_channel_does_not_disable_the_others(): void {
-        config()->set('matrix.messaging.channels.pigeon', ['model' => Gizmo::class]);
+        config()->set('matrix.messaging.channels.pigeon', ['model' => Gizmo::class, 'queue' => 'pigeon-post']);
 
         $this->useMessagingFixtures();
 
-        $log = app(MailService::class)->send('alice@example.com', 'welcome', ['name' => 'Alice']);
+        $log = app(MailService::class)->schedule(now(), 'alice@example.com', 'welcome', ['name' => 'Alice']);
 
         $this->assertSame('alice@example.com', $log->receiver);
         $this->refuses('invalid-message-channel', fn () => $this->channels()->get('pigeon'));

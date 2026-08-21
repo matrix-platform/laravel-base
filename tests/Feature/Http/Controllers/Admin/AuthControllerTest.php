@@ -4,6 +4,7 @@ namespace Tests\Feature\Http\Controllers\Admin;
 
 use Illuminate\Contracts\Hashing\Hasher;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Testing\TestResponse;
 use MatrixPlatform\Models\AuthToken;
@@ -18,14 +19,14 @@ class AuthControllerTest extends FeatureTestCase {
     private const CODE = '13579';
     private const PASSWORD = 'secret-Passw0rd';
 
-    private function comparisons(callable $callback): int {
+    private function comparisons(callable $callback, ?bool $forcedResult = null): int {
         $inner = app(Hasher::class);
 
-        $spy = new class($inner) implements Hasher {
+        $spy = new class($inner, $forcedResult) implements Hasher {
 
             public int $checks = 0;
 
-            public function __construct(private Hasher $inner) {}
+            public function __construct(private Hasher $inner, private ?bool $forcedResult) {}
 
             /**
              * @param array<string, mixed> $options
@@ -33,7 +34,7 @@ class AuthControllerTest extends FeatureTestCase {
             public function check($value, $hashedValue, array $options = []): bool {
                 $this->checks++;
 
-                return $this->inner->check($value, $hashedValue, $options);
+                return $this->forcedResult === null ? $this->inner->check($value, $hashedValue, $options) : $this->forcedResult;
             }
 
             /**
@@ -85,6 +86,20 @@ class AuthControllerTest extends FeatureTestCase {
      */
     private function user(array $attributes = []): User {
         return UserFactory::new()->createOne(array_merge(['username' => 'alice', 'password' => self::PASSWORD], $attributes));
+    }
+
+    public function test_the_captcha_endpoint_returns_a_token_and_a_rendered_image(): void {
+        $prefix = 'data:image/png;base64,';
+
+        $response = $this->postJson('admin/auth/captcha');
+
+        $response->assertJsonStructure(['data' => ['token', 'image']]);
+
+        $image = strval($response->json('data.image'));
+
+        $this->assertNotNull(Cache::get('captcha:' . strval($response->json('data.token'))));
+        $this->assertStringStartsWith($prefix, $image);
+        $this->assertStringStartsWith("\x89PNG", strval(base64_decode(substr($image, strlen($prefix)), true)));
     }
 
     public function test_a_successful_login_returns_a_token_and_sets_the_cookie(): void {
@@ -254,6 +269,29 @@ class AuthControllerTest extends FeatureTestCase {
         $this->assertSame(0, UserLog::query()->where('type', UserLogType::Login)->count());
     }
 
+    public function test_a_user_without_a_password_hash_cannot_log_in_when_the_dummy_hash_matches(): void {
+        $user = $this->user(['password' => null]);
+
+        foreach ([null, ''] as $hash) {
+            $user
+                ->getConnection()
+                ->table($user->getTable())
+                ->where('id', $user->id)
+                ->update(['password' => $hash]);
+            $response = null;
+
+            $comparisons = $this->comparisons(function () use (&$response): void {
+                $response = $this->login();
+            }, true);
+
+            $this->assertSame(1, $comparisons);
+            $this->assertInstanceOf(TestResponse::class, $response);
+            $response->assertJson(['error' => 'invalid-username-or-password']);
+        }
+
+        $this->assertSame(0, UserLog::query()->where('type', UserLogType::Login)->count());
+    }
+
     public function test_every_failed_login_runs_exactly_one_password_comparison(): void {
         $this->user();
         $this->user(['username' => 'bob', 'password' => null]);
@@ -286,6 +324,19 @@ class AuthControllerTest extends FeatureTestCase {
         $response->assertJson(['code' => 429, 'error' => 'too-many-requests']);
     }
 
+    public function test_repeated_successes_are_not_rate_limited(): void {
+        $this->user();
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->login()->assertJsonPath('success', true);
+        }
+
+        $response = $this->login();
+
+        $response->assertJsonPath('success', true);
+        $response->assertJsonStructure(['data' => ['token']]);
+    }
+
     public function test_changing_the_password_requires_the_current_one(): void {
         $this->user();
 
@@ -296,6 +347,17 @@ class AuthControllerTest extends FeatureTestCase {
         $response->assertJson(['code' => 422, 'error' => 'invalid-password']);
     }
 
+    public function test_changing_the_password_requires_the_current_field_to_be_sent(): void {
+        $this->user();
+
+        $token = $this->login()->json('data.token');
+
+        $response = $this->withToken($token)->postJson('admin/auth/passwd', ['password' => 'another-Passw0rd']);
+
+        $response->assertJson(['code' => 422, 'error' => 'validation-failed']);
+        $response->assertJsonPath('fields.current', ['required']);
+    }
+
     public function test_a_weak_new_password_is_rejected(): void {
         $this->user();
 
@@ -304,6 +366,17 @@ class AuthControllerTest extends FeatureTestCase {
         $response = $this->withToken($token)->postJson('admin/auth/passwd', ['current' => self::PASSWORD, 'password' => 'short']);
 
         $response->assertJson(['code' => 422, 'error' => 'validation-failed']);
+    }
+
+    public function test_the_new_password_must_differ_from_the_current_one(): void {
+        $this->user();
+
+        $token = $this->login()->json('data.token');
+
+        $response = $this->withToken($token)->postJson('admin/auth/passwd', ['current' => self::PASSWORD, 'password' => self::PASSWORD]);
+
+        $response->assertJson(['code' => 422, 'error' => 'validation-failed']);
+        $response->assertJsonPath('fields.password', ['different']);
     }
 
     public function test_a_changed_password_replaces_the_old_one(): void {

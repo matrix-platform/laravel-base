@@ -2,6 +2,7 @@
 
 namespace MatrixPlatform\Columns;
 
+use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use MatrixPlatform\Columns\Declarations\Definition;
@@ -216,7 +217,9 @@ class ColumnResolver {
             return $column->rule;
         }
 
-        return $definition === null ? [] : $definition->rule;
+        $declared = $definition === null ? [] : $definition->rule;
+
+        return $declared instanceof Closure ? $declared() : $declared;
     }
 
     private function searchable(ParsedColumn $column): bool {

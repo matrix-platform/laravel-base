@@ -3,7 +3,18 @@
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="tests/bootstrap.php"
          cacheDirectory="build/phpunit"
-         colors="true">
+         colors="true"
+         beStrictAboutOutputDuringTests="true"
+         displayDetailsOnAllIssues="true"
+         failOnDeprecation="true"
+         failOnEmptyTestSuite="true"
+         failOnIncomplete="true"
+         failOnNotice="true"
+         failOnPhpunitDeprecation="true"
+         failOnPhpunitNotice="true"
+         failOnRisky="true"
+         failOnSkipped="true"
+         failOnWarning="true">
     <testsuites>
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
@@ -12,7 +23,9 @@
             <directory>tests/Feature</directory>
         </testsuite>
     </testsuites>
-    <source>
+    <source restrictNotices="true"
+            restrictWarnings="true"
+            ignoreIndirectDeprecations="true">
         <include>
             <directory>src</directory>
         </include>
@@ -25,5 +38,7 @@
         <env name="DB_DATABASE" value="laravel_base_test"/>
         <env name="DB_USERNAME" value="postgres"/>
         <env name="DB_PASSWORD" value=""/>
+        <env name="TEST_DATABASE_ALLOWED_HOSTS" value="127.0.0.1"/>
+        <env name="TESTBENCH_CONVERT_DEPRECATIONS_TO_EXCEPTIONS" value="true"/>
     </php>
 </phpunit>

@@ -7,6 +7,7 @@ use MatrixPlatform\Columns\ColumnResolver;
 use MatrixPlatform\Columns\Query\Filtering;
 use MatrixPlatform\Columns\Query\QueryPlan;
 use MatrixPlatform\Columns\Syntax\ColumnParser;
+use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
 use Tests\FeatureTestCase;
@@ -171,6 +172,42 @@ class FilteringTest extends FeatureTestCase {
         (new Filtering())->apply($query, $plan, 'alpha');
 
         $this->assertStringNotContainsString('where', $query->toSql());
+    }
+
+    public function test_a_scalar_operator_refuses_an_array_value(): void {
+        try {
+            $this->labels([['name' => 'label', 'op' => 'eq']], ['label' => ['op' => 'eq', 'value' => ['alpha']]]);
+        } catch (ServiceException $exception) {
+            $this->assertSame('invalid-filter-value', $exception->getError());
+            $this->assertSame(422, $exception->getCode());
+
+            return;
+        }
+
+        $this->fail('expected the filter to be refused');
+    }
+
+    public function test_contains_refuses_an_array_value_instead_of_matching_every_row(): void {
+        $this->trinkets();
+
+        $this->refuses('invalid-filter-value', fn () => $this->labels([['name' => 'label', 'op' => 'contains']], ['label' => ['op' => 'contains', 'value' => ['alpha']]]));
+    }
+
+    public function test_between_refuses_an_array_bound(): void {
+        $this->refuses('invalid-filter-value', fn () => $this->labels([['name' => 'label', 'op' => 'between']], ['label' => ['op' => 'between', 'from' => ['alpha'], 'to' => 'zeta']]));
+    }
+
+    public function test_in_refuses_a_list_that_carries_a_nested_array(): void {
+        $this->refuses('invalid-filter-value', fn () => $this->labels([['name' => 'label', 'op' => 'in']], ['label' => ['op' => 'in', 'value' => [['alpha']]]]));
+    }
+
+    public function test_in_still_accepts_a_null_inside_the_list(): void {
+        $this->trinkets();
+
+        $this->assertSame(
+            ['alpha'],
+            $this->labels([['name' => 'label', 'op' => 'in']], ['label' => ['op' => 'in', 'value' => [null, 'alpha']]])
+        );
     }
 
     public function test_contains_is_case_insensitive(): void {

@@ -20,6 +20,8 @@ return [
 
     'invalid-column-expression' => 'Invalid column expression',
 
+    'invalid-filter-value' => 'Filter value has an invalid format',
+
     'invalid-identity-model' => 'Configured identity model is invalid',
 
     'invalid-message-channel' => 'Invalid message channel configuration',

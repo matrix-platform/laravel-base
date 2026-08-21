@@ -16,6 +16,7 @@ class WidgetController extends CrudController {
 
 上面這個類別會生出十個端點、一份帶型別與驗證規則的欄位描述、以及一組可以逐項授權的權限點。
 
+
 ---
 
 ## 目錄
@@ -24,9 +25,11 @@ class WidgetController extends CrudController {
 - [安裝](#安裝) —— 從 `composer require` 到能登入
 - [五個必讀概念](#五個必讀概念)
 - [開一個自己的功能](#開一個自己的功能)
-- [參考](#參考) —— 端點、設定、指令、錯誤代碼、資料表
-- [給前端](#給前端)
-- [已知限制與取捨](#已知限制與取捨)
+- [前台身分（member / vendor）](#前台身分member--vendor) —— 套件只給零件
+- [訊息](#訊息) —— [送訊息](#送訊息)、[派送與 worker](#派送與-worker)、[自訂訊息通道](#自訂訊息通道)
+- [參考](#參考) —— [端點](#端點)、[設定鍵](#設定鍵)、[cfg 設定鍵](#cfg-設定鍵)、[主控台指令](#主控台指令)、[錯誤代碼](#錯誤代碼)、[資料表](#資料表)
+- [給前端](#給前端) —— [請求形狀](#請求形狀)、[回應形狀](#回應形狀)、[語系](#語系)
+- [已知限制與取捨](#已知限制與取捨) —— [安全](#安全)、[規模與效能](#規模與效能)、[資料生命週期](#資料生命週期)、[行為細節](#行為細節)
 - [從舊版升級](#從舊版升級)
 
 ---
@@ -40,7 +43,7 @@ class WidgetController extends CrudController {
 | **前台登入端點** | 套件出貨 `member-api` / `vendor-api` middleware 與 `AuthToken::issue()`,**但沒有任何前台登入 controller**。前台的登入流程、驗證碼策略、密碼規則由宿主決定 |
 | **API 文件產生器** | 不出貨 Swagger / OpenAPI。端點是 `#[Action]` 反射掛載的,要文件請從 attribute 反射產生,不要掃註解 |
 | **排程註冊** | 套件不呼叫 `Schedule::command()`。兩個需要週期執行的指令由宿主自己排 |
-| **cache / queue driver 的選擇** | 套件用 `Cache` 與 `Queue` 門面,不指定 driver。驗證碼、訊息節流、訊息派送對 driver 有要求（見[已知限制](#已知限制與取捨)) |
+| **cache / queue driver 的選擇** | 套件用 `Cache` 與 `Queue` 門面,不指定 driver。驗證碼要跨請求共用的 cache,訊息派送要每條 queue 恰好一個 worker（見[派送與 worker](#派送與-worker)） |
 | **匯入** | 匯出有,匯入沒有 |
 | **檔案清理** | `base_file` 與磁碟上的檔案永遠不會被自動刪除。去重讓一筆記錄可能被多處引用,套件答不出「誰可以刪」 |
 | **多資料庫支援** | 只支援 PostgreSQL,而且是硬性的（見下一節） |
@@ -57,9 +60,18 @@ class WidgetController extends CrudController {
 |---|---|---|
 | **PostgreSQL** | 主鍵與排序值來自兩個共用 sequence（`CREATE SEQUENCE` / `NEXTVAL`）、權限與稽核用 `jsonb`、`base_operator` 是 `CREATE OR REPLACE VIEW` | `php artisan migrate` 第一個 migration 的第一行就 SQL 語法錯誤 |
 | PHP 8.3+ | —— | composer 會擋 |
-| `ext-pdo_pgsql` | 上面那條的驅動,`composer.json` 沒有宣告它 | 連不上資料庫 |
+| Laravel 13.23+ | `composer.json` 宣告 `^13.23`,那也是 `--prefer-lowest` 實際跑過完整測試的版本;低於它的 13.x 沒有驗證過 | composer 會擋 |
+| `ext-pdo_pgsql` | 上面那條的驅動,由 `composer.json` 強制檢查 | composer 會擋 |
 | `ext-gd`，**且編譯時帶 FreeType** | 後台登入的驗證碼用 `imagettftext()` 畫字 | `admin/auth/captcha` 回 500,而登入**強制**要驗證碼 —— 完全登不進去 |
 | 一個**跨請求共用**的 cache store | 驗證碼答案寫在 cache,下一個請求才比對 | `CACHE_STORE=array` 的話每次登入都是 `invalid-captcha`。多台機器沒有共用 cache 會隨機失敗 |
+
+**驗證:**
+
+```bash
+php -r 'exit(function_exists("imagettftext") ? 0 : 1);' || echo 'GD 缺少 FreeType,後台將完全登不進去'
+```
+
+`composer.json` 只能要求 `ext-gd` 存在,擋不掉「有 GD 但沒有 FreeType」。這一條與 cache store 那一條都要到**第一次有人登入**才會爆,所以請把上面那行放進部署腳本或 CI —— 它回非零 exit code。
 
 ### 2. 安裝套件
 
@@ -100,10 +112,9 @@ return [
     'member-model' => Member::class,
 
     'messaging' => [
-        'queue' => 'default',
         'channels' => [
-            'mail' => ['model' => MailLog::class],
-            'sms' => ['model' => SmsLog::class],
+            'mail' => ['model' => MailLog::class, 'queue' => 'messaging-mail'],
+            'sms' => ['model' => SmsLog::class, 'queue' => 'messaging-sms'],
         ],
     ],
 
@@ -161,7 +172,7 @@ public function run(): void {
 php artisan matrix:passwd root@matrix
 ```
 
-指令會問兩次密碼。密碼規則來自 `cfg('admin.password-pattern')`,出貨值是「至少 8 碼、含英文與數字」。
+指令會問兩次密碼。密碼規則來自 `cfg('admin.password-pattern')`,出貨值是「至少 8 碼、含英文與數字」。同一規則也套用在登入後自行改密碼與後台使用者表單的非空密碼;重設成功會撤銷該帳號所有既有 session。
 
 **這是建立管理員的唯一官方入口。** 後台介面建出來的帳號一律是一般使用者 —— 因為 id 來自從 10000000 起跳的共用 sequence,而管理員等級是由 id 區間決定的。
 
@@ -193,6 +204,15 @@ Schedule::command('messages:dispatch')->everyMinute()->withoutOverlapping();
 ```
 
 `withoutOverlapping()` 不是裝飾:兩個 prune 行程同時跑會互相搶同一批列。
+
+訊息還需要 queue worker。mail 與 sms 各有自己的 queue,而**每條 queue 只能有一個 worker**:
+
+```
+php artisan queue:work --queue=messaging-mail
+php artisan queue:work --queue=messaging-sms
+```
+
+worker 會睡掉供應商的 `interval` 來節流,所以 `--timeout` 與 connection 的 `retry_after` 都必須大於最大的 `interval`。這三個數字沒對齊、或漏開一條 worker 的後果與訊號,見[派送與 worker](#派送與-worker)。
 
 ---
 
@@ -265,6 +285,8 @@ token 兩種帶法:`Authorization: Bearer {token}`,或登入時自動下的 `mat
 
 共用 sequence 從 10000000 起跳,所以**後台介面建出來的帳號一律是 Regular** —— 等級不可能被提權改掉,因為它不是一個欄位。管理員只能用 seeder 或手動指定 id 建立。
 
+帳號管理也遵守同一個階層:Root 可以管理所有帳號;Admin 可以管理 Admin 與 Regular,但看不到 Root;Regular 即使取得 `user` 權限,也只能管理其他 Regular。超出可管理範圍的帳號在清單中不會出現,讀取、更新與刪除則回 `data-not-found`;任何帳號都不能刪除自己。
+
 ### 5. 資源疊層:你的檔案覆蓋套件的
 
 設定、翻譯、選單都走同一套疊層。`config('matrix.packages')` 出貨 `'app base'`,`app` 就是你的 Laravel 專案,**排前面的覆蓋排後面的**。
@@ -281,6 +303,8 @@ token 兩種帶法:`Authorization: Bearer {token}`,或登入時自動下的 `mat
 | 訊息樣板 | `resources/i18n/{語系}/template/{name}.php` |
 
 bundle 一律**扁平**:只有一層 key,key 本身可以含點,取值時當字面看待,不做巢狀路徑解析。
+
+合併是**逐 key 遞迴**的（排前的覆蓋排後的、key 對 key）,所以覆蓋一個選單節點時,低優先層那個節點多出來的 key（`icon`、`tag` 之類）會滲進合併結果,沒辦法個別移除。要**整個移除**一個節點,把該 key 的值設成 `null` —— 節點消失、端點對所有人 403、群組離開權限樹。但移除節點只擋端點與**新**授權:**已經授出的權限仍然有效**,因為授權檢查讀的是 `base_user.permissions` / `base_group.permissions` 存的 JSON,不是選單樹。
 
 ---
 
@@ -407,7 +431,68 @@ return [
 ];
 ```
 
-**欄位標題找不到時的行為是「看起來正常但可能不對」** —— 先退到 `model/default.php` 的通用標籤（`create_time` 之類的共用欄位都在那裡),再退到字面 `{title}`。所以漏翻譯不一定看得出來。
+**欄位標題找不到時的行為是「看起來正常但可能不對」** —— 先退到 `model/default.php` 的通用標籤（`create_time` 之類的共用欄位都在那裡）,再退到字面 `{title}`。所以漏翻譯不一定看得出來。
+
+---
+
+## 前台身分（member / vendor）
+
+套件只提供零件,**整個流程歸你**:
+
+| 事實 | 說明 |
+|---|---|
+| **沒有登入端點** | 自己用 `AuthToken::issue()` + `IdentityToken::attach()` + `login-throttle-api:{bundle}` 組 |
+| **你的 member / vendor 資料表必須用 `primaryKey()`** | 用 `$table->id()` 會拿到 id = 1 的第一筆 —— 而 id 1 是 ROOT,稽核歸屬會靜默錯亂 |
+| 那兩張表也必須帶 `auditings()` 四個欄位 | 稽核軌跡與建立者推導都靠它們 |
+| 登出的語義、驗證碼生命週期、密碼規則 | 全部由你決定 |
+
+---
+
+## 訊息
+
+### 送訊息
+
+`MailService` 與 `SmsService` 的公開介面只有 `schedule()`:
+
+```php
+app(MailService::class)->schedule(now(), 'alice@example.com', 'welcome', ['name' => 'Alice']);
+app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' => '123456']);
+```
+
+參數是 `($at, $to, $template = null, $vars = [], $options = [])`,回傳寫進 `base_mail_log` / `base_sms_log` 的那一列。樣板檔案放 `resources/i18n/{語系}/template/{name}.php`。
+
+| 事實 | 說明 |
+|---|---|
+| 回傳的列是 `Scheduled`,不是已送出 | 真正的送出在 worker。`schedule()` 只負責寫列 + 通知有東西要送 |
+| `$at` 到期了才派工 | 未來時間只寫列,等 `messages:dispatch` 那一輪撈到 |
+| **樣板可以是 `null`,provider 不行** | 樣板要嘛自己指名 `provider`,要嘛 `$options` 給。都沒有就 `invalid-message-provider`;供應商沒設 `driver` 就 `message-provider-has-no-driver` |
+| `$options` 覆蓋樣板的渲染結果 | 只認 `provider`、`subject`、`title`、`content` 四個 key。值是 `null` **不算**覆蓋 |
+| mail 的寄件者是當下快照 | `sender` 寫入時從 `cfg('{provider}.from-address')` 取,之後改設定不影響已排程的訊息 |
+| **取消與重送要自己做** | 套件不提供。取消 = 把 `Scheduled` 的列改成 `Failed`;重送 = 用同樣的參數再 `schedule()` 一次 |
+
+### 派送與 worker
+
+| 事實 | 說明 |
+|---|---|
+| **一個發送工作只送一封,節奏由 worker 的序列性決定** | 工作的單位是 channel。它撈這個 channel 最前面一筆（`schedule_time` 再 `id`）、送出、睡掉該供應商的 `interval`、然後派下一個工作接手;撈不到就結束,不派後繼。sleep 佔住的是那條 queue 唯一的 worker,所以兩次送出之間一定隔了 `interval`,不管佇列裡有幾個工作 —— 套件不記錄「上次幾點送的」,沒有任何節流狀態。`messages:dispatch` 只是鏈條斷掉時的安全網（`EXISTS` 檢查,有東西在等就派一個工作） |
+| **每條 queue 最多一個 worker** | 節流靠的是 worker 的序列性,所以多開一個 worker 就是速率翻倍。內建的 mail 與 sms 各有自己的 queue(`messaging-mail`／`messaging-sms`),要開兩個 worker;**漏開一條就是那條 channel 全部停在 `Scheduled`**,而 `messages:dispatch` 每分鐘照樣回成功。套件不偵測 worker 存活 —— 那歸行程監管（systemd／supervisor／Horizon）,你為了跑 `queue:work` 本來就需要它們 |
+| **`interval` < `--timeout` < `retry_after`** | 套件無法幫你算這三個數字:工作在派送時只知道 channel,還不知道會送到哪個供應商。`--timeout`（預設 60）要大於「最大的 `interval` + 單筆送出耗時」,connection 的 `retry_after` 要再大於它 |
+| **同一個 channel 嚴格 FIFO** | 送出順序就是 `schedule_time` 的順序,不分供應商。所以一個供應商的 `interval` 也會延後排在它後面的其他供應商的訊息 |
+| **隊頭送不出去會卡住整個 channel** | 排程時 `schedule()` 就會擋掉沒有 driver 的供應商,所以這只發生在「排程之後設定才壞掉」:`driver` 被拿掉、改成不是 driver 的類別、或 cfg bundle 消失。工作會失敗（進 `failed_jobs`）、不動任何記錄,而那一筆還在隊頭 —— 後面的訊息（包含其他供應商的）都送不出去。排程每分鐘再派一次,所以壞多久就累積多少筆 `failed_jobs`。要隔離就給那個供應商自己的 channel（也就是自己的 queue 與 worker） |
+| **設定壞掉的失敗只在 `failed_jobs` 看得到** | `ServiceException::report()` 回 `false`,所以那種例外不進 Laravel 的 exception handler,Sentry 那類收不到 |
+| **送出失敗會寫一筆 `Log::error`** | 這裡說的是 driver 真的被呼叫之後才失敗:記錄標成 `Failed`,鏈條照樣往下走。事件名 `messaging.{channel}.failed`,context 帶 channel、provider、訊息 id 與寫進 `error` 欄位的內容。`error` 可能含供應商回應（`response` 欄位本來就存完整回應）,log 的保存政策要照這個前提設 |
+| **worker 硬掉在送出中間會重送** | 送出成功但寫回失敗、或行程被 SIGKILL／OOM 砍在 driver 呼叫途中時,那一列還是 `Scheduled`,下一個工作會再送一次。優雅重啟（SIGTERM）不受影響,Laravel 會讓當前工作跑完。套件選的是「寧可重送也不漏送」,而且**沒有重試次數上限** |
+| queue connection 設成 `sync` | 送出會變成同步執行,`interval` 照樣生效（在同一個行程裡睡）,但鏈條會變成遞迴呼叫 |
+
+### 自訂訊息通道
+
+| 事實 | 說明 |
+|---|---|
+| 註冊點是 `config/matrix.php` 的 `messaging.channels`,**但那是巢狀 key** | 宣告 `messaging` 會整個取代掉內建的 mail / sms |
+| **每個 channel 都必須宣告 `queue`** | 沒宣告就是 `invalid-message-channel`,那個 channel 完全不能用。加一個 channel 就是加一條 queue 加一個 worker |
+| 每個供應商還要一份 `resources/cfg/{provider}.php` | **`driver` 是必填** —— 沒有它 `schedule()` 當場回 `message-provider-has-no-driver`。其餘的鍵照 [cfg 設定鍵](#cfg-設定鍵)裡 `gmail` 與 `mitake` 兩組的形狀寫 |
+| **供應商與樣板名稱要跨 channel 唯一** | —— |
+| 樣板必須指名 `provider` | 否則 `schedule()` 當場回 `invalid-message-provider` |
 
 ---
 
@@ -486,7 +571,7 @@ return [
 | `matrix.file-public-disk` | `'public'` | 公開檔案的 disk |
 | `matrix.locales` | `'tw en'` | 允許的語系,對應 `resources/i18n/{語系}/` |
 | `matrix.member-model` | `Member::class` | 會員 model,宿主可換成自己的 |
-| `matrix.messaging` | 見範本 | queue 名稱與 channel 註冊。**巢狀 key,宣告就整份取代** |
+| `matrix.messaging` | 見範本 | channel 註冊。每個 channel 都要有 `model` 與 `queue`。**巢狀 key,宣告就整份取代** |
 | `matrix.packages` | `'app base'` | 資源疊層順序 |
 | `matrix.resource-cfg` | `[]` | 資源後台開放編輯的 cfg bundle 白名單,**空 = 全部不開放** |
 | `matrix.resource-i18n` | `[]` | 同上,一般翻譯 |
@@ -498,13 +583,58 @@ return [
 
 白名單只擋非 ROOT。ROOT 不受它限制。
 
+### cfg 設定鍵
+
+可以在資源後台線上編輯,也可以在自己的 `resources/cfg/{bundle}.php` 覆蓋。
+
+| 鍵 | 出貨值 | 說明 |
+|---|---|---|
+| `admin.captcha-ttl` | `300` | 驗證碼有效秒數 |
+| `admin.login-throttle-max` | `5` | 每個窗口容許的登入失敗次數 |
+| `admin.login-throttle-window` | `1` | 節流窗口(分鐘) |
+| `admin.password-pattern` | `'/^(?=.*\d)(?=.*[a-zA-Z]).{8,}$/'` | 自助改密碼、`matrix:passwd` 與使用者表單共用的密碼規則 |
+| `admin.token-idle-minutes` | `30` | 後台 token 閒置多久失效 |
+| `member.login-throttle-max` | `5` | 同上,前台會員 |
+| `member.login-throttle-window` | `1` | 同上,前台會員 |
+| `member.password-pattern` | `'/^(?=.*\d)(?=.*[a-zA-Z]).{8,}$/'` | 同上,前台會員 |
+| `member.token-idle-minutes` | `30` | 同上,前台會員 |
+| `vendor.login-throttle-max` | `5` | 同上,廠商 |
+| `vendor.login-throttle-window` | `1` | 同上,廠商 |
+| `vendor.password-pattern` | `'/^(?=.*\d)(?=.*[a-zA-Z]).{8,}$/'` | 同上,廠商 |
+| `vendor.token-idle-minutes` | `30` | 同上,廠商 |
+| `gmail.driver` | `MailerMailDriver::class` | 這個供應商用哪個 driver 送,**必填** |
+| `gmail.host` | `'smtp.gmail.com'` | SMTP 主機 |
+| `gmail.port` | `587` | SMTP 連接埠 |
+| `gmail.encryption` | `'tls'` | `ssl` 走 `smtps`,其餘走 `smtp` |
+| `gmail.username` | `''` | SMTP 帳號 |
+| `gmail.password` | `''` | SMTP 密碼 |
+| `gmail.from-address` | `''` | 寄件者位址,寫入 `base_mail_log.sender` 時快照 |
+| `gmail.from-name` | `''` | 寄件者顯示名稱 |
+| `gmail.interval` | `1` | 同一個供應商兩次送出之間的最短秒數,worker 用 sleep 實現 |
+| `gmail.sandbox` | `false` | 開啟後所有訊息改寄到 `sandbox-recipient` |
+| `gmail.sandbox-recipient` | `''` | 沙箱收件者。`sandbox` 開著而這裡是空的就 `invalid-message-receiver` |
+| `mitake.driver` | `MitakeSmsDriver::class` | 同 `gmail.driver` |
+| `mitake.endpoint` | `'https://smsapi.mitake.com.tw/'` | API 端點,空字串就 `invalid-message-provider` |
+| `mitake.username` | `''` | API 帳號 |
+| `mitake.password` | `''` | API 密碼 |
+| `mitake.accepted-status` | `'0 1 2 4'` | 視為送出成功的 `statuscode`,空白分隔。不在名單內就 `message-refused-by-provider` |
+| `mitake.interval` | `1` | 同 `gmail.interval` |
+| `mitake.sandbox` | `false` | 同 `gmail.sandbox` |
+| `mitake.sandbox-recipient` | `''` | 同 `gmail.sandbox-recipient` |
+| `file.max-size` | `0` | 上傳大小上限,**0 = 不限制** |
+| `file.mime-patterns` | `''` | 型別白名單(正則,空白 = 不檢查) |
+| `system.date-format` | `'Y-m-d'` | 日期顯示格式 |
+| `system.datetime-format` | `'Y-m-d H:i:s'` | 日期時間顯示格式 |
+
+`gmail` 與 `mitake` 是出貨的供應商 bundle。加一個供應商就是加一份 `resources/cfg/{名稱}.php`,鍵的形狀照上面兩組。
+
 ### 主控台指令
 
 | 指令 | 作用 |
 |---|---|
 | `matrix:passwd` | 設定後台帳號密碼,建立管理員的唯一官方入口 |
 | `matrix:prune-tokens` | 刪掉已經不能用來認證的 token,`--limit` 控制每批筆數（預設 1000） |
-| `messages:dispatch` | 把到期的郵件 / 簡訊推進佇列 |
+| `messages:dispatch` | 為每個有待送訊息的 channel 派送一個發送工作;任一 channel 設定壞掉就回非零 exit code |
 
 ### 錯誤代碼
 
@@ -519,6 +649,7 @@ return [
 | `invalid-cascade-relation` | 連動關聯必須是 hasOne、hasMany 或其 morph 形式 |
 | `invalid-column-condition` | 欄位條件語法錯誤 |
 | `invalid-column-expression` | 欄位運算式語法錯誤 |
+| `invalid-filter-value` | 篩選值的格式不正確 |
 | `invalid-identity-model` | 身分 model 設定錯誤 |
 | `invalid-message-channel` | 訊息管道設定錯誤 |
 | `invalid-message-content` | 訊息內容不得為空 |
@@ -544,28 +675,6 @@ return [
 | `unknown-package` | 套件未註冊 |
 | `validation-failed` | 輸入資料有誤 |
 
-### cfg 設定鍵
-
-可以在資源後台線上編輯,也可以在自己的 `resources/cfg/{bundle}.php` 覆蓋。
-
-| 鍵 | 出貨值 | 說明 |
-|---|---|---|
-| `admin.captcha-ttl` | `300` | 驗證碼有效秒數 |
-| `admin.login-throttle-max` | `5` | 每個窗口容許的登入失敗次數 |
-| `admin.login-throttle-window` | `1` | 節流窗口(分鐘) |
-| `admin.password-pattern` | `'/^(?=.*\d)(?=.*[a-zA-Z]).{8,}$/'` | 後台密碼規則 |
-| `admin.token-idle-minutes` | `30` | 後台 token 閒置多久失效 |
-| `member.login-throttle-max` | `5` | 同上,前台會員 |
-| `member.login-throttle-window` | `1` | 同上,前台會員 |
-| `member.token-idle-minutes` | `30` | 同上,前台會員 |
-| `vendor.login-throttle-max` | `5` | 同上,廠商 |
-| `vendor.login-throttle-window` | `1` | 同上,廠商 |
-| `vendor.token-idle-minutes` | `30` | 同上,廠商 |
-| `file.max-size` | `0` | 上傳大小上限,**0 = 不限制** |
-| `file.mime-patterns` | `''` | 型別白名單(正則,空白 = 不檢查) |
-| `system.date-format` | `'Y-m-d'` | 日期顯示格式 |
-| `system.datetime-format` | `'Y-m-d H:i:s'` | 日期時間顯示格式 |
-
 ### 資料表
 
 | 資料表 | 內容 |
@@ -587,6 +696,7 @@ return [
 | `base_vendor` | 廠商 |
 | `base_vendor_log` | 廠商行為紀錄 |
 | `base_operator` | **檢視表**,把 user / member / vendor 併成一份「操作者」清單,給宿主查 `creator_id` 用。唯讀,不要對它寫入 |
+
 ---
 
 ## 給前端
@@ -653,9 +763,10 @@ return [
 | **登入節流的鍵是「IP + 帳號」** —— 同一個 IP 換帳號就換一份配額,擋不住拿一組密碼掃一堆帳號 | 要擋就在應用層之外做（WAF / 反向代理） |
 | **`base_auth_token.token` 是明文** | 資料庫外洩等於所有人的登入狀態外洩,備份與存取控制要照這個等級處理 |
 | **cookie 的 `secure` 跟隨 `config('session.secure')`** | 生產環境務必設成 true,否則 token 會在明文連線上傳 |
-| **上傳不檢查型別**（`cfg('file.mime-patterns')` 出貨空白 = 全部放行）**,而且沿用使用者送來的副檔名** | 要限制就設 `mime-patterns`（正則,空白分隔,**不能含逗號或分號** —— 那是分隔字元） |
+| **上傳不檢查型別**（`cfg('file.mime-patterns')` 出貨空白 = 全部放行） | 要限制就設 `mime-patterns`（正則,空白分隔,**不能含逗號或分號** —— 那是分隔字元） |
+| **上傳不沿用使用者送來的副檔名** | 磁碟上是 `年月/32 碼隨機名`,沒有副檔名,所以放在公開 disk 也不會被 web server 當程式執行。下載的 Content-Type 取自 `base_file.mime_type`,檔名取自 `base_file.name`（原始檔名,含副檔名）,使用者端無感 |
 | **上傳不限制大小**（`cfg('file.max-size')` 出貨 `0`）。真正的上限是 PHP 的 `upload_max_filesize` / `post_max_size` | 兩層都要調。只調 cfg 沒用,只調 ini 的話使用者會拿到 422 而不是 `file-too-large` |
-| 檔案的 `privilege` 決定存哪個 disk（`0` 公開 / `1` 私有）。下載一律走 `admin/file/download`,**要登入** | 公開 disk 若做了 `storage:link`,那些檔案就有公開 URL —— 這是 disk 設定的結果,不是套件的存取控制 |
+| 檔案的 `privilege` 決定存哪個 disk（`0` 公開 / `1` 私有）。下載一律走 `admin/file/download`,**要登入** | 公開 disk 若做了 `storage:link`,那些檔案就有公開 URL —— 這是 disk 設定的結果,不是套件的存取控制。另外「要登入」**只是登入** —— `admin/file/*` 掛的是 `user-api`,沒有 `permission-api`,所以**選單權限完全為空的管理員**也能下載 / 改名任何 path 的檔案。要更細的檔案授權,自己在該路由前加 middleware |
 | **前台沒有任何檔案端點** | 前台要上傳就自己呼叫 `FileService::upload()`,並自己決定權限與限制 |
 | **欄位 DSL 是開發者輸入**,識別字會被插值進 SQL | 絕對不要把使用者輸入拼進 `$lists` / `$updates` |
 | **權限白名單只覆蓋 CRUD 的寫入路徑**。`replicate()`、`setRawAttributes()`、query builder 的 `update()` 都繞得過去 | 白名單防的是請求輸入,不是程式碼 |
@@ -680,65 +791,69 @@ return [
 |---|---|
 | **`matrix:prune-tokens` 只清 `base_auth_token`** | 另外六張只增不減的表要自己來:`base_manipulation_log`、`base_user_log`、`base_member_log`、`base_vendor_log`、`base_mail_log`、`base_sms_log` |
 | 前四張只有 `create_time`（沒有 `update_time`）;後兩張兩個都有 | 清理判準只能用 `create_time` |
-| **`base_mail_log` / `base_sms_log` 只能刪終端狀態**（成功 / 失敗） | `Scheduled` 是還沒送出的排程,刪掉等於取消一封信;`Sending` 可能是卡住的記錄,刪掉等於把問題藏起來 |
+| **`base_mail_log` / `base_sms_log` 只能刪終端狀態**（成功 / 失敗） | `Scheduled` 是還沒送出的排程,刪掉等於取消一封信 |
 | **`base_file` 不要用時間清** | 刪列不刪磁碟檔會漏儲存空間,而去重讓一筆記錄可能被多處引用 —— 套件答不出「誰可以刪」 |
 | **調大 `token-idle-minutes` 不會復活已經被清掉的 token** | 要調大就先調、再跑 prune |
 | `token-idle-minutes` 的 `min:1` 驗證**只擋資源後台** | 自己在 `resources/cfg/admin.php` 寫 `0` 不受檢查,結果是全員登出、prune 清空整張表 |
-| **訊息節流不是原子的** | 兩個 worker 同時檢查會同時通過。要修需要 `Cache::lock()`,而 `array` driver 做不到 |
 
 ### 行為細節
+
+#### 請求與交易
 
 | 事實 | 說明 |
 |---|---|
 | **每個 `#[Action]` 都要有選單節點** | 漏一個,那個端點對所有人 403,包含 ROOT |
 | **每一個 action 都跑在一個交易裡** | `BaseController::callAction()` 用 `DB::transaction()` 包住整個動作。要在 rollback 之後仍然執行的副作用（寄信、打第三方、刪檔）請註冊到 `RollbackCallbacks`,不要直接做 |
-| **後台建立的帳號沒填「啟用時間」就登不進來** | 登入要求 `enable_time` 非 null 且已到,而表單沒有把它設成必填。症狀是「帳號或密碼錯誤」,看不出真正原因 |
-| **樂觀鎖要自己呼叫** | `BaseModel::lock()` 會重讀該列並逐欄比對,值被別人改過就回 `data-conflicted`。CRUD 引擎不會自動幫你呼叫 |
 | **`#[Action]` 會沿繼承鏈繼承** | 覆寫 action 不需要重新宣告 attribute |
-| **編輯使用者一定要送 `password`** | 不送會被清空（更新是全量覆寫） |
+| **篩選值的格式會驗證** | op 要的是單一值卻送陣列(`eq` / `contains` / `between` 的 from、to 等)、`in` / `notIn` 的清單裡有陣列,一律回 422 `invalid-filter-value`。以前這幾種格式有的靜默回**全量**、有的靠 binding 攤平湊出一個結果。欄位或 op 不被允許仍是靜默忽略（行為不變）,`in` 清單裡的 null 也照舊（合法 SQL,永不匹配） |
+| **`get` / `update` / `delete` 會自動加上父層條件** | 巢狀資源不會誤動別人家的資料 |
+| **樂觀鎖要自己呼叫** | `BaseModel::lock()` 會重讀該列並逐欄比對,值被別人改過就回 `data-conflicted`。CRUD 引擎不會自動幫你呼叫 |
+| **`AdminPermission` 在信封範圍外解析會靜默失敗** | 在 web 路由、console、queue job 裡解析它,`ServiceException` 不會被回報 |
+
+#### 權限與帳號
+
+| 事實 | 說明 |
+|---|---|
 | **權限樹只認四個動作** | `query` / `insert` / `update` / `delete`。選單節點上寫別的 `tag`（例如 `system`）不會變成可勾選的權限項目 |
 | **手寫進資料庫的權限,形狀錯了會被靜默丟掉** | 存進去的形狀必須是 `{"路徑": {"動作": true}}`。值不是 true 的項目在下一次寫入時就消失,而且不會有任何錯誤 |
-| **jsonb 欄位會宣稱自己可排序** | 引擎沒有把 Json 型別排除在排序之外。對它排序不會壞,但結果沒有意義 |
 | **權限的寫入是「範圍內修訂」** | 編輯者只能授出自己有的權限,也洗不掉自己碰不到的;白名單以外的權限（例如維運用 SQL 寫的）會被保留 |
 | **`guard` 是疊加的,套件先、宿主後** | 宿主看到的是已經過濾的值,而且無法覆蓋套件自己的 guard（例如「不能刪自己」） |
+| **`user` 的 `copy` 與 `export` 同受等級範圍約束** | 與 `get` / `update` / `delete` 一樣,管不到的帳號一律 `data-not-found`、匯不出來。`copy` 只要宿主加選單節點就開啟,`export` 還要子類化把 `$exportable` 翻成 true;`sort` 對 `user` 不可用（`base_user` 沒有 `ranking` 欄位）。`group` 不受等級範圍約束 |
+| **`password` 的 key 一定要送,值可以留空** | 完全不送 key 會回 422 `present`(更新是全量覆寫,漏送等於前端壞了)。送 `null` 或空字串則不寫入 —— 編輯保留原密碼與 session,新增建出沒有密碼、登不進來的帳號。只有非空值才必須符合 `admin.password-pattern`,編輯成功後撤銷該帳號全部 session |
+| **預先雜湊的值當密碼會被原樣存進去** | 政策只有 `admin.password-pattern` 一道,而 bcrypt hash 通過它(60 碼、含英文與數字)。`hashed` cast 對已雜湊的值不再雜湊,所以前端若先雜湊再送,該帳號之後得拿 hash 字串當密碼才能登入,而且沒有任何錯誤訊息 |
+| **`whereActive()` 把 `enable_time` 為 NULL 的列一律當成未啟用** | 對 `user` 的表徵是「後台建的帳號沒填啟用時間就登不進來」（`enable_time` 要非 null 且已到,而表單沒把它設成必填,症狀是「帳號或密碼錯誤」,看不出真正原因）;對 `base_menu` 的表徵是 `api/common/menu`（匿名端點）**靜默回空選單** —— 沒有報錯路徑,debug 起來毫無線索 |
+
+#### 複製、匯出與排序
+
+| 事實 | 說明 |
+|---|---|
 | **複製會沿用來源的 `ranking`** | 除非那個資源開了 `$sortable`,否則不會自我修復 |
 | 複製時 `$generators` 管的欄位（建立時間、建立者等）**重新產生**,不照抄 | —— |
 | **級聯複製只接受 `hasOne` / `hasMany` 及其 morph 形式** | `belongsToMany` 不支援 |
-| **`get` / `update` / `delete` 會自動加上父層條件** | 巢狀資源不會誤動別人家的資料 |
 | **匯出明寫 `'id'` 匯不出主鍵** | 要主鍵請寫 `'key=id'` |
 | **`$exports = []` 是「沒有欄位」,不是「退回清單欄位」** | —— |
 | **`$hidden` 只對 root model 的欄位有效** | join 進來的別名不受它保護 |
 | **匯出回應的 `columns[]` 不含 `op` / `sortable` / `options`** | 前端要知道能篩什麼,必須先呼叫清單端點 |
+| **`base_city_area.ranking` 與 `base_ranking` 序列不同量級** | 後台第一次拖曳排序就會把整組重編 |
+| **jsonb 欄位會宣稱自己可排序** | 引擎沒有把 Json 型別排除在排序之外。對它排序不會壞,但結果沒有意義 |
+
+#### 資料寫入與稽核
+
+| 事實 | 說明 |
+|---|---|
+| **上傳是內容去重的** | `hash` + `size` + `privilege` + `usage` 相同就是同一筆,回傳既有紀錄,`name` 保留**第一次**上傳的檔名。磁碟上的檔案被外部刪掉時不會命中去重,會重新寫一份新紀錄 |
+| **對套件的 model 下批次 `delete()` / `update()` 會靜默失去稽核** | query builder 的批次操作不觸發 model 事件。要稽核就取出實例逐筆處理 |
+| **稽核紀錄的 `after` 是 accessor 之後的值** | 你掛在可追蹤欄位上的 accessor 從此決定稽核內容 |
+| **`Operator` 掛在檢視表上** | 唯讀,不要對它 `save()` |
+
+#### 選單與回應契約
+
+| 事實 | 說明 |
+|---|---|
 | 麵包屑的 `label` 在多層資源下可能與直覺不同,`title` 三層都正確 | 照舊版行為,已用測試釘住 |
 | **`context.{父層}_id` 是字串**,而 `rows` 裡的 id 是整數 | 前端比對時要注意型別 |
 | **`getMenuNodes()` 的每個節點一定有 `group` 與 `tag`**（可能是 `false` / `null`） | 舊版是沒有就不輸出。用 `empty()` 判斷不受影響 |
 | **`base_menu` 的迴圈與孤兒節點會被靜默丟掉** | 資料完整性由你負責,不會有錯誤訊息 |
-| **`base_city_area.ranking` 與 `base_ranking` 序列不同量級** | 後台第一次拖曳排序就會把整組重編 |
-| **`Operator` 掛在檢視表上** | 唯讀,不要對它 `save()` |
-| **`AdminPermission` 在信封範圍外解析會靜默失敗** | 在 web 路由、console、queue job 裡解析它,`ServiceException` 不會被回報 |
-| **對套件的 model 下批次 `delete()` / `update()` 會靜默失去稽核** | query builder 的批次操作不觸發 model 事件。要稽核就取出實例逐筆處理 |
-| **稽核紀錄的 `after` 是 accessor 之後的值** | 你掛在可追蹤欄位上的 accessor 從此決定稽核內容 |
-
-### 前台身分（member / vendor）
-
-套件只提供零件,**整個流程歸你**:
-
-| 事實 | 說明 |
-|---|---|
-| **沒有登入端點** | 自己用 `AuthToken::issue()` + `IdentityToken::attach()` + `login-throttle-api:{bundle}` 組 |
-| **你的 member / vendor 資料表必須用 `primaryKey()`** | 用 `$table->id()` 會拿到 id = 1 的第一筆 —— 而 id 1 是 ROOT,稽核歸屬會靜默錯亂 |
-| 那兩張表也必須帶 `auditings()` 四個欄位 | 稽核軌跡與建立者推導都靠它們 |
-| 登出的語義、驗證碼生命週期、密碼規則 | 全部由你決定 |
-
-### 自訂訊息通道
-
-| 事實 | 說明 |
-|---|---|
-| 註冊點是 `config/matrix.php` 的 `messaging.channels`,**但那是巢狀 key** | 宣告 `messaging` 會整個取代掉內建的 mail / sms |
-| 每個供應商還要一份 `resources/cfg/{provider}.php` | 裡面放 `driver` / 連線設定 / `interval` / `sandbox` |
-| **供應商與樣板名稱要跨 channel 唯一** | —— |
-| 樣板必須指名 `provider` | 否則 `send()` 當場回 `invalid-message-provider` |
-| `messages:dispatch` 需要排程器,派送需要 queue worker | queue connection 設成 `sync` 的話節流的延遲會失效 |
 
 ---
 
@@ -755,3 +870,4 @@ return [
 | **匯出的 `columns[].type`** | 舊版是一個混合欄位,新版拆成 `type` + `presentation` |
 | **驗證錯誤的鍵名** | 舊版是 `errors`,新版統一成 `error`（slug）+ `fields`（欄位明細） |
 | **匯入沒有出貨** | 舊版的匯入功能在新版不存在 |
+| **上傳的儲存 path 不再帶副檔名** | 舊資料不用動（既有帶副檔名的 path 照樣找得到、下載得到）。若有程式直接從 `base_file.path` 解析副檔名,改讀 `mime_type` 或 `name` |

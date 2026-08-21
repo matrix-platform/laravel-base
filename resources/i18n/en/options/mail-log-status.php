@@ -8,6 +8,4 @@ return [
 
     '3' => 'Failed',
 
-    '4' => 'Sending',
-
 ];

@@ -25,20 +25,27 @@
     "require": {
         "php": "^8.3",
         "ext-gd": "*",
-        "illuminate/support": "^13.0",
-        "james-heinrich/getid3": "^1.9"
+        "ext-pdo_pgsql": "*",
+        "james-heinrich/getid3": "^1.9",
+        "laravel/framework": "^13.23"
     },
     "require-dev": {
         "fakerphp/faker": "^1.24",
         "friendsofphp/php-cs-fixer": "^3.87",
-        "larastan/larastan": "^3.7",
-        "orchestra/testbench": "^11.1",
+        "larastan/larastan": "^3.10",
+        "orchestra/testbench": "^11.2",
+        "phpstan/phpstan": "^2.2.8",
         "phpunit/phpunit": "^12.5"
     },
     "config": {
         "sort-packages": true
     },
     "scripts": {
+        "coverage": [
+            "@putenv XDEBUG_MODE=coverage",
+            "phpunit --coverage-clover build/coverage/clover.xml",
+            "@php bin/coverage-check.php"
+        ],
         "format": "php-cs-fixer fix",
         "lint": [
             "php-cs-fixer fix --dry-run --diff",

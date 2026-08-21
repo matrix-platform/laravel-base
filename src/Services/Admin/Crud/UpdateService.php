@@ -13,7 +13,7 @@ class UpdateService extends CrudService {
         $before = $model->toArray();
 
         foreach ($this->local() as $column) {
-            if (!$column->readonly) {
+            if (!$column->readonly && array_key_exists($column->name, $values)) {
                 $model->setAttribute($column->name, $values[$column->name]);
             }
         }
