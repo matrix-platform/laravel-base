@@ -532,8 +532,8 @@ function statement_opener(array|string $token): bool {
     return in_array($token, ['=', ';', '{', '}'], true);
 }
 
-$root = dirname(__DIR__);
-$targets = ['bin', 'config', 'database', 'resources', 'routes', 'src', 'tests'];
+$root = rtrim(array_key_exists(1, $argv) ? $argv[1] : (string) getcwd(), '/');
+$targets = ['app', 'bin', 'config', 'database', 'resources', 'routes', 'src', 'tests'];
 $violations = [];
 
 foreach ($targets as $target) {
@@ -551,7 +551,7 @@ foreach ($targets as $target) {
             check_null_coalescing($tokens),
             check_trailing_commas($lines, $comma),
             str_starts_with($name, 'bin/') || str_starts_with($name, 'config/') || str_starts_with($name, 'resources/') ? [] : check_event_bypass($tokens),
-            str_starts_with($name, 'src/') || str_starts_with($name, 'tests/') ? check_method_chains($tokens) : [],
+            str_starts_with($name, 'app/') || str_starts_with($name, 'src/') || str_starts_with($name, 'tests/') ? check_method_chains($tokens) : [],
             str_starts_with($name, 'tests/') ? [] : check_member_order($tokens)
         );
 

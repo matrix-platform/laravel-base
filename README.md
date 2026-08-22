@@ -29,6 +29,7 @@ class WidgetController extends CrudController {
 - [訊息](#訊息) —— [送訊息](#送訊息)、[派送與 worker](#派送與-worker)、[自訂訊息通道](#自訂訊息通道)
 - [參考](#參考) —— [端點](#端點)、[設定鍵](#設定鍵)、[cfg 設定鍵](#cfg-設定鍵)、[主控台指令](#主控台指令)、[錯誤代碼](#錯誤代碼)、[資料表](#資料表)
 - [給前端](#給前端) —— [請求形狀](#請求形狀)、[回應形狀](#回應形狀)、[語系](#語系)
+- [沿用套件的 lint](#沿用套件的-lint) —— 選用,共用同一套風格檢查
 - [已知限制與取捨](#已知限制與取捨) —— [安全](#安全)、[規模與效能](#規模與效能)、[資料生命週期](#資料生命週期)、[行為細節](#行為細節)
 - [從舊版升級](#從舊版升級)
 
@@ -746,6 +747,85 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 ### 語系
 
 送 `Matrix-Locale: en` header。值必須在 `matrix.locales` 裡,否則退回應用程式的預設語系。
+
+---
+
+## 沿用套件的 lint
+
+**選用。** 前提是你的 app 也照套件那套風格公約寫:`<?php //>` 開頭、class 主體前後空一行、成員字母序、禁 `??`、禁 `saveQuietly` 一類繞過 model 事件的寫法。不打算全套照用就不要接 —— 這些檢查沒有開關。（違規訊息會引用 `CLAUDE.md`,那是套件自己的風格公約文件,沒隨套件出貨,規則摘要見本節末的表格。）
+
+套件的 `require-dev` 不會遞移到你的專案,工具要自己裝:
+
+```bash
+composer require --dev friendsofphp/php-cs-fixer larastan/larastan
+```
+
+### 1. `composer.json`
+
+```json
+"scripts": {
+    "format": "php-cs-fixer fix",
+    "lint": [
+        "php-cs-fixer fix --dry-run --diff",
+        "@php vendor/matrix-platform/laravel-base/bin/style-check.php"
+    ],
+    "stan": "phpstan analyse --memory-limit=1G"
+}
+```
+
+`style-check.php` 不傳參數時檢查當前工作目錄,而 composer script 的 cwd 就是 `composer.json` 所在的目錄,所以不用給路徑。要檢查別的目錄就傳第一個參數:`@php vendor/.../bin/style-check.php packages/foo`。
+
+### 2. `.php-cs-fixer.php`
+
+finder 指你自己的目錄,rules 引用套件那一份:
+
+```php
+<?php //>
+
+$finder = PhpCsFixer\Finder::create()
+    ->in([__DIR__ . '/app', __DIR__ . '/config', __DIR__ . '/database', __DIR__ . '/resources', __DIR__ . '/routes', __DIR__ . '/tests'])
+    ->name('*.php')
+    ->notPath('#(^|/)menu/[^/]+\.php$#');
+
+return (new PhpCsFixer\Config())
+    ->setFinder($finder)
+    ->setIndent('    ')
+    ->setLineEnding("\n")
+    ->setRiskyAllowed(false)
+    ->setRules(require __DIR__ . '/vendor/matrix-platform/laravel-base/.php-cs-fixer.rules.php');
+```
+
+`notPath` 那行不要省。選單 bundle（`menu/*.php`,含 `resources/i18n/*/menu/*.php`）的縮排跟著選單層次走,`array_indentation` 會把它拉平。
+
+### 3. `phpstan.neon`
+
+這裡沒有共用檔:套件的設定只有 `level: 8` 一個參數,抄一行比多一層 include 划算。
+
+```neon
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 8
+    paths:
+        - app
+        - tests
+    tmpDir: build/phpstan
+```
+
+### style-check 檢查什麼
+
+腳本掃 `app`、`bin`、`config`、`database`、`resources`、`routes`、`src`、`tests`,不存在的目錄跳過,所以套件與宿主共用同一份預設。規則按路徑前綴分派:
+
+| 檢查 | 生效範圍 |
+|---|---|
+| `<?php //>` 開頭、class 主體前後空行、`fn` 後空一格、禁 `??` 與 `??=` | 全部 |
+| 多行陣列的尾逗號 | `config/`、`resources/` 要加,其餘不加 |
+| 方法鏈超過兩個 `->` 要逐行展開 | `app/`、`src/`、`tests/` |
+| 類別成員字母序 | 除 `tests/` 之外全部 |
+| 禁用繞過 model 事件的寫法 | 除 `bin/`、`config/`、`resources/` 之外全部 |
+
+程式碼放在這幾個目錄之外（例如模組化的 `modules/`）就完全不會被掃到,前綴對不上的部分也會靜默跳過對應檢查 —— 沒有警告。
 
 ---
 
