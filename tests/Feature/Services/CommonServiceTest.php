@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Services;
 
+use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Models\City;
 use MatrixPlatform\Models\CityArea;
 use MatrixPlatform\Models\Menu;
@@ -179,9 +180,13 @@ class CommonServiceTest extends FeatureTestCase {
 
         $orphan = $this->node('orphan', 200);
 
+        DB::statement('ALTER TABLE base_menu DISABLE TRIGGER ALL');
+
         $orphan->parent_id = 9999999;
 
         $orphan->save();
+
+        DB::statement('ALTER TABLE base_menu ENABLE TRIGGER ALL');
 
         $this->assertSame(['root'], data_get($this->service()->menu(null), '*.title'));
     }

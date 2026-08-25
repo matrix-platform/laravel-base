@@ -12,6 +12,7 @@ use MatrixPlatform\Models\User;
 use MatrixPlatform\Services\Admin\Crud\ExportService;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
+use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
 use Tests\Stubs\CountingOptions;
 use Tests\Stubs\StubDeclaration;
@@ -23,11 +24,7 @@ class ExportServiceTest extends FeatureTestCase {
     protected function setUp(): void {
         parent::setUp();
 
-        $user = new User();
-
-        $user->id = User::ROOT;
-
-        actor()->setUser($user);
+        actor()->setUser(UserFactory::new()->createOne(['id' => User::ROOT]));
 
         $this->declare([]);
 

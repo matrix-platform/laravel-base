@@ -12,6 +12,7 @@ use MatrixPlatform\Models\UserLogType;
 use MatrixPlatform\Services\Admin\Crud\CopyService;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
+use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
 use Tests\Stubs\StubDeclaration;
 use Tests\Stubs\Trinket;
@@ -22,11 +23,7 @@ class CopyServiceTest extends FeatureTestCase {
     protected function setUp(): void {
         parent::setUp();
 
-        $user = new User();
-
-        $user->id = User::ROOT;
-
-        actor()->setUser($user);
+        actor()->setUser(UserFactory::new()->createOne(['id' => User::ROOT]));
 
         app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
         app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'widget')));

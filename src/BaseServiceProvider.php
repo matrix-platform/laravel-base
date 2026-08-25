@@ -2,15 +2,13 @@
 
 namespace MatrixPlatform;
 
+use Illuminate\Console\Command;
 use Illuminate\Database\Events\TransactionRolledBack;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
-use MatrixPlatform\Console\Commands\DispatchMessagesCommand;
-use MatrixPlatform\Console\Commands\PruneTokensCommand;
-use MatrixPlatform\Console\Commands\ResetUserPasswordCommand;
 use MatrixPlatform\Database\Schema\BaseBlueprint;
 use MatrixPlatform\Http\Middleware\EnvelopeMiddleware;
 use MatrixPlatform\Http\Middleware\LocaleMiddleware;
@@ -33,7 +31,9 @@ use MatrixPlatform\Support\RollbackCallbacks;
 class BaseServiceProvider extends ServiceProvider {
 
     public function boot(): void {
-        $this->commands([DispatchMessagesCommand::class, PruneTokensCommand::class, ResetUserPasswordCommand::class]);
+        if ($this->app->runningInConsole()) {
+            $this->commands($this->discoverCommands());
+        }
 
         Event::listen(TransactionRolledBack::class, fn () => app(RollbackCallbacks::class)->run());
 
@@ -68,6 +68,21 @@ class BaseServiceProvider extends ServiceProvider {
         $this->app->singleton(MetadataRegistry::class);
         $this->app->singleton(PackageRegistry::class);
         $this->app->singleton(Resources::class);
+    }
+
+    /** @return array<class-string<Command>> */
+    private function discoverCommands(): array {
+        $commands = [];
+
+        foreach (glob(__DIR__ . '/Console/Commands/*.php') ?: [] as $file) {
+            $class = 'MatrixPlatform\\Console\\Commands\\' . basename($file, '.php');
+
+            if (is_subclass_of($class, Command::class)) {
+                $commands[] = $class;
+            }
+        }
+
+        return $commands;
     }
 
 }

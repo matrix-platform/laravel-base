@@ -27,6 +27,8 @@ return new class extends Migration {
             $table->text('ip')->nullable();
             $table->text('user_agent')->nullable();
             $table->auditings(false);
+
+            $table->foreign('member_id')->references('id')->on('base_member');
         });
 
         Schema::create('base_vendor', function (BaseBlueprint $table) {
@@ -50,6 +52,8 @@ return new class extends Migration {
             $table->text('ip')->nullable();
             $table->text('user_agent')->nullable();
             $table->auditings(false);
+
+            $table->foreign('vendor_id')->references('id')->on('base_vendor');
         });
     }
 

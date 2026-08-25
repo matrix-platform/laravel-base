@@ -22,6 +22,8 @@ return new class extends Migration {
             $table->text('post_code');
             $table->ranking();
             $table->auditings();
+
+            $table->foreign('city_id')->references('id')->on('base_city');
         });
 
         Schema::create('base_menu', function (BaseBlueprint $table) {
@@ -32,6 +34,10 @@ return new class extends Migration {
             $table->schedules();
             $table->ranking();
             $table->auditings();
+        });
+
+        Schema::table('base_menu', function (BaseBlueprint $table) {
+            $table->foreign('parent_id')->references('id')->on('base_menu');
         });
 
         DB::statement('CREATE OR REPLACE VIEW base_operator AS

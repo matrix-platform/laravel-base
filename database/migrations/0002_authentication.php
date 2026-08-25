@@ -34,6 +34,8 @@ return new class extends Migration {
             $table->schedules();
             $table->boolean('disabled');
             $table->auditings();
+
+            $table->foreign('group_id')->references('id')->on('base_group');
         });
 
         Schema::create('base_user_log', function (BaseBlueprint $table) {
@@ -44,6 +46,8 @@ return new class extends Migration {
             $table->text('ip')->nullable();
             $table->text('user_agent')->nullable();
             $table->auditings(false);
+
+            $table->foreign('user_id')->references('id')->on('base_user');
         });
     }
 

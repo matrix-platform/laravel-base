@@ -17,6 +17,9 @@ use MatrixPlatform\Models\SmsLog;
 use MatrixPlatform\Models\UserLog;
 use MatrixPlatform\Models\UserLogType;
 use MatrixPlatform\Models\VendorLog;
+use Tests\Factories\MemberFactory;
+use Tests\Factories\UserFactory;
+use Tests\Factories\VendorFactory;
 use Tests\FeatureTestCase;
 
 class PruneTokensCommandTest extends FeatureTestCase {
@@ -86,6 +89,10 @@ class PruneTokensCommandTest extends FeatureTestCase {
         $manipulation->data_id = 1;
 
         $manipulation->save();
+
+        UserFactory::new()->createOne(['id' => 1]);
+        MemberFactory::new()->createOne(['id' => 1]);
+        VendorFactory::new()->createOne(['id' => 1]);
 
         $user = new UserLog();
 
