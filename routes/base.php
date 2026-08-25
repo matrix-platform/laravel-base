@@ -13,6 +13,7 @@ use MatrixPlatform\Http\Controllers\Admin\OptionsResourceController;
 use MatrixPlatform\Http\Controllers\Admin\TemplateResourceController;
 use MatrixPlatform\Http\Controllers\Admin\UserController;
 use MatrixPlatform\Http\Controllers\CommonController;
+use MatrixPlatform\Http\Controllers\PreferenceController;
 use MatrixPlatform\Routing\ActionRoutes;
 
 Route::middleware(['envelope-api', 'locale-api'])->group(function () {
@@ -27,6 +28,7 @@ Route::middleware(['envelope-api', 'locale-api'])->group(function () {
 
         Route::middleware('user-api')->group(function () {
             ActionRoutes::mount('file', FileController::class);
+            ActionRoutes::mount('user/preference', PreferenceController::class);
 
             Route::middleware('permission-api')->group(function () {
                 ActionRoutes::mount('user', UserController::class);
@@ -45,6 +47,14 @@ Route::middleware(['envelope-api', 'locale-api'])->group(function () {
 
     Route::prefix(config('matrix.api-prefix'))->group(function () {
         ActionRoutes::mount('common', CommonController::class);
+
+        Route::middleware('member-api')->group(fn () => ActionRoutes::mount('member/preference', PreferenceController::class));
+
+        ActionRoutes::fallback();
+    });
+
+    Route::prefix(config('matrix.vendor-api-prefix'))->group(function () {
+        Route::middleware('vendor-api')->group(fn () => ActionRoutes::mount('preference', PreferenceController::class));
 
         ActionRoutes::fallback();
     });

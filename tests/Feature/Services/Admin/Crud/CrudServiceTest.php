@@ -16,7 +16,6 @@ use MatrixPlatform\Services\Admin\Crud\UpdateService;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
 use stdClass;
-use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
 use Tests\Stubs\Gizmo;
 use Tests\Stubs\StubDeclaration;
@@ -28,7 +27,7 @@ class CrudServiceTest extends FeatureTestCase {
     protected function setUp(): void {
         parent::setUp();
 
-        actor()->setUser(UserFactory::new()->createOne(['id' => User::ROOT]));
+        $this->actAsRoot();
 
         app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
         app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'widget')));

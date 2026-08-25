@@ -503,7 +503,7 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 
 ### 端點
 
-全部是 `POST`。路徑省略前綴（`admin` 與 `api` 分別來自 `matrix.admin-api-prefix` 與 `matrix.api-prefix`）。
+全部是 `POST`。路徑省略前綴（`admin`、`api` 與 `vendor` 分別來自 `matrix.admin-api-prefix`、`matrix.api-prefix` 與 `matrix.vendor-api-prefix`）。
 
 | 方法 | 路徑 | 需要 |
 |---|---|---|
@@ -526,6 +526,8 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | POST | `admin/user/export` | 授權 |
 | POST | `admin/user/sort` | 授權 |
 | POST | `admin/user/sort/save` | 授權 |
+| POST | `admin/user/preference/get` | 登入 |
+| POST | `admin/user/preference/save` | 登入 |
 | POST | `admin/group` | 授權 |
 | POST | `admin/group/new` | 授權 |
 | POST | `admin/group/insert` | 授權 |
@@ -556,6 +558,10 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | POST | `admin/resource/i18n/template/update` | 授權 |
 | POST | `api/common/city` | 匿名 |
 | POST | `api/common/menu` | 匿名 |
+| POST | `api/member/preference/get` | 登入 |
+| POST | `api/member/preference/save` | 登入 |
+| POST | `vendor/preference/get` | 登入 |
+| POST | `vendor/preference/save` | 登入 |
 
 「授權」= 登入 + 該選單節點的權限。`user` / `group` 的 `export`、`copy`、`sort` 端點存在但**套件出貨的選單沒有對應節點**,所以預設對所有人 403 —— 那三個動作在套件自己的兩個 controller 上是關閉的。
 
@@ -580,6 +586,7 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | `matrix.resource-i18n-model` | `[]` | 同上,欄位標題 |
 | `matrix.resource-i18n-options` | `[]` | 同上,下拉選項 |
 | `matrix.resource-i18n-template` | `[]` | 同上,訊息樣板 |
+| `matrix.vendor-api-prefix` | `'vendor'` | 廠商路由前綴 |
 | `matrix.vendor-model` | `Vendor::class` | 廠商 model |
 
 白名單只擋非 ROOT。ROOT 不受它限制。
@@ -652,6 +659,7 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | `invalid-column-expression` | 欄位運算式語法錯誤 |
 | `invalid-filter-value` | 篩選值的格式不正確 |
 | `invalid-identity-model` | 身分 model 設定錯誤 |
+| `invalid-identity-type` | 不支援此身分類型 |
 | `invalid-message-channel` | 訊息管道設定錯誤 |
 | `invalid-message-content` | 訊息內容不得為空 |
 | `invalid-message-driver` | 訊息傳送器設定錯誤 |
@@ -690,6 +698,7 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | `base_member` | 前台會員 |
 | `base_member_log` | 會員行為紀錄 |
 | `base_menu` | 可線上維護的選單資料 |
+| `base_preference` | 各身分（user / member / vendor）各自一筆的個人化偏好,內容由前端決定 |
 | `base_resource_override` | 資源後台線上編輯的覆蓋值 |
 | `base_sms_log` | 簡訊佇列與寄送結果 |
 | `base_user` | 後台帳號 |

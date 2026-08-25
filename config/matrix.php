@@ -42,6 +42,8 @@ return [
 
     'resource-i18n-template' => [],
 
+    'vendor-api-prefix' => 'vendor',
+
     'vendor-model' => Vendor::class,
 
 ];

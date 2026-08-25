@@ -24,6 +24,8 @@ return [
 
     'invalid-identity-model' => 'Configured identity model is invalid',
 
+    'invalid-identity-type' => 'Identity type is not supported',
+
     'invalid-message-channel' => 'Invalid message channel configuration',
 
     'invalid-message-content' => 'Message content must not be empty',

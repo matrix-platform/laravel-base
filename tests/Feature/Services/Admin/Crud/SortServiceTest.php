@@ -6,11 +6,9 @@ use Illuminate\Database\Eloquent\Builder;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\ManipulationType;
-use MatrixPlatform\Models\User;
 use MatrixPlatform\Services\Admin\Crud\SortService;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
-use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
 use Tests\Stubs\StubDeclaration;
 use Tests\Stubs\Trinket;
@@ -21,7 +19,7 @@ class SortServiceTest extends FeatureTestCase {
     protected function setUp(): void {
         parent::setUp();
 
-        actor()->setUser(UserFactory::new()->createOne(['id' => User::ROOT]));
+        $this->actAsRoot();
 
         app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
         app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'widget')));

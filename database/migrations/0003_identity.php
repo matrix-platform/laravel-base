@@ -55,9 +55,20 @@ return new class extends Migration {
 
             $table->foreign('vendor_id')->references('id')->on('base_vendor');
         });
+
+        Schema::create('base_preference', function (BaseBlueprint $table) {
+            $table->primaryKey();
+            $table->text('identity_type');
+            $table->integer('identity_id');
+            $table->jsonb('data');
+            $table->auditings();
+
+            $table->unique(['identity_type', 'identity_id']);
+        });
     }
 
     public function down(): void {
+        Schema::dropIfExists('base_preference');
         Schema::dropIfExists('base_vendor_log');
         Schema::dropIfExists('base_vendor');
         Schema::dropIfExists('base_member_log');

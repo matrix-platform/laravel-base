@@ -19,6 +19,16 @@ class Actor {
         return $this->member;
     }
 
+    public function requireCurrent(): Model {
+        $current = $this->current();
+
+        if ($current === null) {
+            error('invalid-token', 401);
+        }
+
+        return $current;
+    }
+
     public function requireUser(): User {
         if ($this->user === null) {
             error('invalid-token', 401);

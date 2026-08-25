@@ -11,14 +11,20 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Testing\PendingCommand;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\ResourceOverride;
+use MatrixPlatform\Models\User;
 use MatrixPlatform\Support\Menus;
 use MatrixPlatform\Support\PackageRegistry;
 use MatrixPlatform\Support\ResourceGroup;
 use MatrixPlatform\Support\Resources;
+use Tests\Factories\UserFactory;
 
 class FeatureTestCase extends TestCase {
 
     use RefreshDatabase;
+
+    protected function actAsRoot(): void {
+        actor()->setUser(UserFactory::new()->createOne(['id' => User::ROOT]));
+    }
 
     protected function artisanCommand(string $command): PendingCommand {
         $pending = $this->artisan($command);

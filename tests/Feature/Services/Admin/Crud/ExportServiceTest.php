@@ -8,11 +8,9 @@ use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Options\Option;
 use MatrixPlatform\Columns\Options\StaticOptions;
 use MatrixPlatform\Exceptions\ServiceException;
-use MatrixPlatform\Models\User;
 use MatrixPlatform\Services\Admin\Crud\ExportService;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
-use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
 use Tests\Stubs\CountingOptions;
 use Tests\Stubs\StubDeclaration;
@@ -24,7 +22,7 @@ class ExportServiceTest extends FeatureTestCase {
     protected function setUp(): void {
         parent::setUp();
 
-        actor()->setUser(UserFactory::new()->createOne(['id' => User::ROOT]));
+        $this->actAsRoot();
 
         $this->declare([]);
 

@@ -24,6 +24,8 @@ return [
 
     'invalid-identity-model' => '身分 model 設定錯誤',
 
+    'invalid-identity-type' => '不支援此身分類型',
+
     'invalid-message-channel' => '訊息管道設定錯誤',
 
     'invalid-message-content' => '訊息內容不得為空',
