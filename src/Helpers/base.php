@@ -21,12 +21,19 @@ function cfg(string $token, mixed $default = null): mixed {
     return app(Resources::class)->config($token, $default);
 }
 
-function error(string $error, int $code = 500): never {
-    throw new ServiceException($error, $code);
+/**
+ * @param array<string, mixed> $extra
+ */
+function error(string $error, int $code = 500, array $extra = []): never {
+    throw new ServiceException($error, $code, $extra);
 }
 
 function i18n(string $token, ?string $locale = null): string {
     return app(Resources::class)->translate($token, $locale);
+}
+
+function invalid(string $field, string $error): never {
+    error('validation-failed', 422, ['fields' => [$field => [$error]]]);
 }
 
 function member(): ?Model {

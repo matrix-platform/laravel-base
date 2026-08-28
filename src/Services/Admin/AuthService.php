@@ -35,7 +35,7 @@ class AuthService {
         $expected = Cache::pull("captcha:{$token}");
 
         if (!is_string($expected) || !hash_equals($expected, hash('sha256', $code))) {
-            error('invalid-captcha', 422);
+            invalid('code', 'invalid-captcha');
         }
 
         $user = User::query()
@@ -50,7 +50,7 @@ class AuthService {
                 app(RollbackCallbacks::class)->register(fn () => $user->writeLog(UserLogType::LoginFailed));
             }
 
-            error('invalid-username-or-password', 422);
+            invalid('password', 'invalid-username-or-password');
         }
 
         $user->writeLog(UserLogType::Login);
@@ -73,7 +73,7 @@ class AuthService {
 
     public function passwd(User $user, string $current, string $password, ?string $token): void {
         if (!$this->passwords->verify($user, $current)) {
-            error('invalid-password', 422);
+            invalid('current', 'invalid-password');
         }
 
         $this->passwords->replace($user, $password, $token);

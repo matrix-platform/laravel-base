@@ -15,6 +15,11 @@ class StubController extends BaseController {
         error('data-conflicted', 409);
     }
 
+    #[Action]
+    public function boomWithFields(): never {
+        error('invalid-password', 422, ['fields' => ['current' => ['invalid-password']]]);
+    }
+
     #[Action(middleware: 'throttle:1,1')]
     public function limited(): string {
         return 'limited';

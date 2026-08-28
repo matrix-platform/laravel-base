@@ -12,8 +12,6 @@ return [
 
     'file-too-large' => 'File exceeds the size limit',
 
-    'invalid-captcha' => 'Invalid captcha',
-
     'invalid-cascade-relation' => 'Cascade relation must be a hasOne, hasMany or their morph form',
 
     'invalid-column-condition' => 'Invalid column condition',
@@ -40,15 +38,11 @@ return [
 
     'invalid-parent-relation' => 'Parent relation must be a belongsTo',
 
-    'invalid-password' => 'Invalid password',
-
     'invalid-resource-token' => 'Invalid resource token',
 
     'invalid-sort-order' => 'Sort order does not match the data',
 
     'invalid-token' => 'Invalid or expired token',
-
-    'invalid-username-or-password' => 'Invalid username or password',
 
     'message-provider-has-no-driver' => 'Message provider has no driver configured',
 

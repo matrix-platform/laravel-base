@@ -26,4 +26,16 @@ class ServiceExceptionTest extends TestCase {
         $this->assertSame('data-not-found', $exception->getMessage());
     }
 
+    public function test_extra_defaults_to_empty(): void {
+        $exception = new ServiceException('data-not-found');
+
+        $this->assertSame([], $exception->getExtra());
+    }
+
+    public function test_accepts_extra_payload(): void {
+        $exception = new ServiceException('invalid-password', 422, ['fields' => ['current' => ['invalid-password']]]);
+
+        $this->assertSame(['fields' => ['current' => ['invalid-password']]], $exception->getExtra());
+    }
+
 }

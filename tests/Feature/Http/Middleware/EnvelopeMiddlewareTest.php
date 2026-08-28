@@ -23,6 +23,18 @@ class EnvelopeMiddlewareTest extends FeatureTestCase {
         $response->assertJson(['success' => false, 'code' => 409, 'error' => 'data-conflicted']);
     }
 
+    public function test_a_service_exception_can_carry_field_information(): void {
+        $response = $this->postJson('boom-with-fields');
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => false,
+            'code' => 422,
+            'error' => 'invalid-password',
+            'fields' => ['current' => ['invalid-password']]
+        ]);
+    }
+
     public function test_a_missing_model_becomes_a_404_envelope(): void {
         $response = $this->postJson('missing');
 

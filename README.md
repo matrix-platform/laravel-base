@@ -653,7 +653,6 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | `data-not-found` | 查無資料 |
 | `endpoint-not-found` | 端點不存在 |
 | `file-too-large` | 檔案大小超過限制 |
-| `invalid-captcha` | 驗證碼錯誤 |
 | `invalid-cascade-relation` | 連動關聯必須是 hasOne、hasMany 或其 morph 形式 |
 | `invalid-column-condition` | 欄位條件語法錯誤 |
 | `invalid-column-expression` | 欄位運算式語法錯誤 |
@@ -667,11 +666,9 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | `invalid-message-receiver` | 收件對象不得為空 |
 | `invalid-mime-type` | 不接受這種檔案類型 |
 | `invalid-parent-relation` | 上層關聯必須是 belongsTo |
-| `invalid-password` | 密碼錯誤 |
 | `invalid-resource-token` | 資源代碼格式錯誤 |
 | `invalid-sort-order` | 排序內容與資料不符 |
 | `invalid-token` | 登入憑證無效或已過期 |
-| `invalid-username-or-password` | 帳號或密碼錯誤 |
 | `message-provider-has-no-driver` | 訊息供應商未設定傳送器 |
 | `message-refused-by-provider` | 訊息被供應商拒絕 |
 | `message-template-not-found` | 查無訊息樣板 |

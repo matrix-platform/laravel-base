@@ -29,7 +29,7 @@ class EnvelopeMiddleware {
         return match (true) {
             $exception instanceof ValidationException => $this->json(422, 'validation-failed', ['fields' => $this->fields($exception)]),
             $exception instanceof ModelNotFoundException => $this->json(404, 'data-not-found'),
-            $exception instanceof ServiceException => $this->json($exception->getCode(), $exception->getError()),
+            $exception instanceof ServiceException => $this->json($exception->getCode(), $exception->getError(), $exception->getExtra()),
             $exception instanceof HttpExceptionInterface => $this->json($exception->getStatusCode(), $exception->getStatusCode() === 429 ? 'too-many-requests' : 'request-failed'),
             default => $this->json(500, 'server-error')
         };

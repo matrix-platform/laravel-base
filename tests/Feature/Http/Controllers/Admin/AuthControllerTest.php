@@ -217,7 +217,7 @@ class AuthControllerTest extends FeatureTestCase {
     public function test_a_captcha_token_is_burned_even_when_the_answer_is_wrong(): void {
         $this->user();
 
-        $this->login(code: '00000')->assertJson(['error' => 'invalid-captcha']);
+        $this->login(code: '00000')->assertJson(['error' => 'validation-failed']);
 
         $response = $this->postJson('admin/auth/login', [
             'username' => 'alice',
@@ -226,13 +226,13 @@ class AuthControllerTest extends FeatureTestCase {
             'code' => self::CODE
         ]);
 
-        $response->assertJson(['success' => false, 'error' => 'invalid-captcha']);
+        $response->assertJson(['success' => false, 'error' => 'validation-failed']);
     }
 
     public function test_a_wrong_password_is_logged_after_the_rollback(): void {
         $user = $this->user();
 
-        $this->login(password: 'wrong-Passw0rd')->assertJson(['code' => 422, 'error' => 'invalid-username-or-password']);
+        $this->login(password: 'wrong-Passw0rd')->assertJson(['code' => 422, 'error' => 'validation-failed']);
 
         $this->assertSame(1, UserLog::query()->where('user_id', $user->id)->where('type', UserLogType::LoginFailed)->count());
     }
@@ -242,38 +242,38 @@ class AuthControllerTest extends FeatureTestCase {
 
         $response = $this->login(username: 'nobody');
 
-        $response->assertJson(['code' => 422, 'error' => 'invalid-username-or-password']);
+        $response->assertJson(['code' => 422, 'error' => 'validation-failed']);
         $this->assertSame(0, UserLog::query()->count());
     }
 
     public function test_a_user_that_was_never_activated_cannot_log_in(): void {
         $this->user(['enable_time' => null]);
 
-        $this->login()->assertJson(['error' => 'invalid-username-or-password']);
+        $this->login()->assertJson(['error' => 'validation-failed']);
     }
 
     public function test_a_user_whose_activation_is_still_in_the_future_cannot_log_in(): void {
         $this->user(['enable_time' => now()->addDay()]);
 
-        $this->login()->assertJson(['error' => 'invalid-username-or-password']);
+        $this->login()->assertJson(['error' => 'validation-failed']);
     }
 
     public function test_a_disabled_user_cannot_log_in(): void {
         $this->user(['disabled' => true]);
 
-        $this->login()->assertJson(['error' => 'invalid-username-or-password']);
+        $this->login()->assertJson(['error' => 'validation-failed']);
     }
 
     public function test_a_user_past_its_disable_time_cannot_log_in(): void {
         $this->user(['disable_time' => now()->subDay()]);
 
-        $this->login()->assertJson(['error' => 'invalid-username-or-password']);
+        $this->login()->assertJson(['error' => 'validation-failed']);
     }
 
     public function test_a_user_without_a_password_cannot_log_in(): void {
         $this->user(['password' => null]);
 
-        $this->login()->assertJson(['error' => 'invalid-username-or-password']);
+        $this->login()->assertJson(['error' => 'validation-failed']);
         $this->assertSame(0, UserLog::query()->where('type', UserLogType::Login)->count());
     }
 
@@ -294,7 +294,7 @@ class AuthControllerTest extends FeatureTestCase {
 
             $this->assertSame(1, $comparisons);
             $this->assertInstanceOf(TestResponse::class, $response);
-            $response->assertJson(['error' => 'invalid-username-or-password']);
+            $response->assertJson(['error' => 'validation-failed']);
         }
 
         $this->assertSame(0, UserLog::query()->where('type', UserLogType::Login)->count());
@@ -352,7 +352,7 @@ class AuthControllerTest extends FeatureTestCase {
 
         $response = $this->withToken($token)->postJson('admin/auth/passwd', ['current' => 'wrong-Passw0rd', 'password' => 'another-Passw0rd']);
 
-        $response->assertJson(['code' => 422, 'error' => 'invalid-password']);
+        $response->assertJson(['code' => 422, 'error' => 'validation-failed']);
     }
 
     public function test_changing_the_password_requires_the_current_field_to_be_sent(): void {
@@ -396,7 +396,7 @@ class AuthControllerTest extends FeatureTestCase {
             ->postJson('admin/auth/passwd', ['current' => self::PASSWORD, 'password' => 'another-Passw0rd'])
             ->assertJsonPath('success', true);
 
-        $this->login(password: self::PASSWORD)->assertJson(['error' => 'invalid-username-or-password']);
+        $this->login(password: self::PASSWORD)->assertJson(['error' => 'validation-failed']);
         $this->login(password: 'another-Passw0rd')->assertJsonPath('success', true);
         $this->assertSame(1, UserLog::query()->where('user_id', $user->id)->where('type', UserLogType::ChangePassword)->count());
     }

@@ -22,6 +22,16 @@ class HelpersTest extends TestCase {
         error('permission-denied', 403);
     }
 
+    public function test_invalid_throws_a_422_validation_failed_exception_reporting_the_field(): void {
+        try {
+            invalid('current', 'invalid-password');
+        } catch (ServiceException $exception) {
+            $this->assertSame('validation-failed', $exception->getError());
+            $this->assertSame(422, $exception->getCode());
+            $this->assertSame(['fields' => ['current' => ['invalid-password']]], $exception->getExtra());
+        }
+    }
+
     public function test_array_get_value_returns_value_when_key_exists(): void {
         $this->assertSame('v', array_get_value(['k' => 'v'], 'k'));
     }
