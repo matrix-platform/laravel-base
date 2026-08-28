@@ -203,7 +203,15 @@ class AuthControllerTest extends FeatureTestCase {
 
         $this->withToken($token)
             ->postJson('admin/auth/profile')
-            ->assertJson(['code' => 401, 'error' => 'invalid-token']);
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.profile', null);
+    }
+
+    public function test_the_profile_endpoint_returns_an_empty_result_without_a_token(): void {
+        $this->postJson('admin/auth/profile')
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.profile', null)
+            ->assertJsonPath('data.nodes', []);
     }
 
     public function test_a_captcha_token_is_burned_even_when_the_answer_is_wrong(): void {
@@ -409,7 +417,8 @@ class AuthControllerTest extends FeatureTestCase {
 
         $this->withToken($abandoned)
             ->postJson('admin/auth/profile')
-            ->assertJson(['success' => false, 'error' => 'invalid-token']);
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.profile', null);
 
         $this->assertSame(1, AuthToken::query()->where('target_id', $user->id)->count());
     }

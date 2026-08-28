@@ -218,7 +218,7 @@ class UserControllerTest extends FeatureTestCase {
         ]))->assertJsonPath('success', true);
 
         $this->withToken($session)
-            ->postJson('admin/auth/profile')
+            ->postJson('admin/auth/logout')
             ->assertJson(['success' => false, 'error' => 'invalid-token']);
     }
 

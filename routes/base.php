@@ -24,6 +24,8 @@ Route::middleware(['envelope-api', 'locale-api'])->group(function () {
             ActionRoutes::scan(AuthController::class, 'anonymous');
 
             Route::middleware('user-api')->group(fn () => ActionRoutes::scan(AuthController::class));
+
+            Route::middleware('user-aware-api')->group(fn () => ActionRoutes::scan(AuthController::class, 'user-aware'));
         });
 
         Route::middleware('user-api')->group(function () {

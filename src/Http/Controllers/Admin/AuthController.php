@@ -60,11 +60,11 @@ class AuthController extends BaseController {
     }
 
     /**
-     * @return array{nodes: array<string, array<string, mixed>>, profile: User}
+     * @return array{nodes: array<string, array<string, mixed>>, profile: ?User}
      */
-    #[Action]
+    #[Action(scope: 'user-aware')]
     public function profile(): array {
-        return $this->service->profile(actor()->requireUser());
+        return $this->service->profile(actor()->user());
     }
 
 }

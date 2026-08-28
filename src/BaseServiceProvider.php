@@ -18,6 +18,7 @@ use MatrixPlatform\Http\Middleware\LoginThrottleMiddleware;
 use MatrixPlatform\Http\Middleware\MemberAwareMiddleware;
 use MatrixPlatform\Http\Middleware\MemberMiddleware;
 use MatrixPlatform\Http\Middleware\PermissionMiddleware;
+use MatrixPlatform\Http\Middleware\UserAwareMiddleware;
 use MatrixPlatform\Http\Middleware\UserMiddleware;
 use MatrixPlatform\Http\Middleware\VendorMiddleware;
 use MatrixPlatform\Messaging\Channels;
@@ -50,6 +51,7 @@ class BaseServiceProvider extends ServiceProvider {
         Route::aliasMiddleware('member-aware-api', MemberAwareMiddleware::class);
         Route::aliasMiddleware('permission-api', PermissionMiddleware::class);
         Route::aliasMiddleware('user-api', UserMiddleware::class);
+        Route::aliasMiddleware('user-aware-api', UserAwareMiddleware::class);
         Route::aliasMiddleware('vendor-api', VendorMiddleware::class);
 
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');

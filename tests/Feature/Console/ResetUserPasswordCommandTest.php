@@ -115,7 +115,7 @@ class ResetUserPasswordCommandTest extends FeatureTestCase {
             ->assertExitCode(0);
 
         $this->withToken($token)
-            ->postJson('admin/auth/profile')
+            ->postJson('admin/auth/logout')
             ->assertJson(['success' => false, 'error' => 'invalid-token']);
     }
 

@@ -23,7 +23,7 @@ class UserMiddlewareTest extends FeatureTestCase {
     }
 
     public function test_an_unknown_token_is_refused_with_a_200_envelope(): void {
-        $response = $this->withToken('nonsense')->postJson('admin/auth/profile');
+        $response = $this->withToken('nonsense')->postJson('admin/auth/logout');
 
         $response->assertStatus(200);
         $response->assertJson(['success' => false, 'code' => 401, 'error' => 'invalid-token']);
@@ -35,7 +35,7 @@ class UserMiddlewareTest extends FeatureTestCase {
         AuthToken::query()->where('token', $token)->update(['expire_time' => now()->subMinute()]);
 
         $this->withToken($token)
-            ->postJson('admin/auth/profile')
+            ->postJson('admin/auth/logout')
             ->assertJson(['code' => 401]);
     }
 
@@ -47,7 +47,7 @@ class UserMiddlewareTest extends FeatureTestCase {
         $user->save();
 
         $this->withToken($token)
-            ->postJson('admin/auth/profile')
+            ->postJson('admin/auth/logout')
             ->assertJson(['code' => 401]);
     }
 
@@ -109,7 +109,7 @@ class UserMiddlewareTest extends FeatureTestCase {
         $this->travel(31)->minutes();
 
         $this->withToken($token)
-            ->postJson('admin/auth/profile')
+            ->postJson('admin/auth/logout')
             ->assertJson(['code' => 401, 'error' => 'invalid-token']);
     }
 
