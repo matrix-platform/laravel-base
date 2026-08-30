@@ -13,6 +13,8 @@ return [
 
     'api-prefix' => 'api',
 
+    'drive-disk' => 'local',
+
     'file-private-disk' => 'local',
 
     'file-public-disk' => 'public',

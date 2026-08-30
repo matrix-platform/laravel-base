@@ -8,6 +8,8 @@ return [
 
     'data-not-found' => '查無資料',
 
+    'drive-anchor-immutable' => 'home 目錄與群組目錄不能被搬移或丟進垃圾桶',
+
     'endpoint-not-found' => '端點不存在',
 
     'file-too-large' => '檔案大小超過限制',
@@ -36,6 +38,8 @@ return [
 
     'invalid-mime-type' => '不接受這種檔案類型',
 
+    'invalid-move-target' => '無法移動到該目的地',
+
     'invalid-parent-relation' => '上層關聯必須是 belongsTo',
 
     'invalid-resource-token' => '資源代碼格式錯誤',
@@ -49,6 +53,8 @@ return [
     'message-refused-by-provider' => '訊息被供應商拒絕',
 
     'message-template-not-found' => '查無訊息樣板',
+
+    'name-already-exists' => '這個名稱在此位置已經存在',
 
     'permission-denied' => '權限不足',
 

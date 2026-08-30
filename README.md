@@ -516,6 +516,20 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | POST | `admin/file/upload` | 登入 |
 | POST | `admin/file/download` | 登入 |
 | POST | `admin/file/update` | 登入 |
+| POST | `admin/drive/root` | 登入 |
+| POST | `admin/drive/home` | 登入 |
+| POST | `admin/drive/group` | 登入 |
+| POST | `admin/drive/{id}` | 登入 |
+| POST | `admin/drive/{id}/children` | 登入 |
+| POST | `admin/drive/{id}/folder` | 登入 |
+| POST | `admin/drive/{id}/upload` | 登入 |
+| POST | `admin/drive/{id}/download` | 登入 |
+| POST | `admin/drive/{id}/rename` | 登入 |
+| POST | `admin/drive/{id}/move` | 登入 |
+| POST | `admin/drive/{id}/path` | 登入 |
+| POST | `admin/drive/{id}/delete` | 登入 |
+| POST | `admin/drive/trashed` | 登入 |
+| POST | `admin/drive/{id}/restore` | 登入 |
 | POST | `admin/user` | 授權 |
 | POST | `admin/user/new` | 授權 |
 | POST | `admin/user/insert` | 授權 |
@@ -574,6 +588,7 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | `matrix.admin-api-prefix` | `'admin'` | 後台路由前綴 |
 | `matrix.admin-menus` | `'base'` | 要載入哪些選單 bundle,空白分隔,排前面的覆蓋排後面的 |
 | `matrix.api-prefix` | `'api'` | 前台路由前綴 |
+| `matrix.drive-disk` | `'local'` | 雲端硬碟實體檔案的 disk,獨立於 `file-*-disk`,永遠不對外公開,只透過 `drive/{id}/download` 讀取 |
 | `matrix.file-private-disk` | `'local'` | 非公開檔案的 disk |
 | `matrix.file-public-disk` | `'public'` | 公開檔案的 disk |
 | `matrix.locales` | `'tw en'` | 允許的語系,對應 `resources/i18n/{語系}/` |
@@ -631,6 +646,8 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | `mitake.sandbox-recipient` | `''` | 同 `gmail.sandbox-recipient` |
 | `file.max-size` | `0` | 上傳大小上限,**0 = 不限制** |
 | `file.mime-patterns` | `''` | 型別白名單(正則,空白 = 不檢查) |
+| `drive.deduplicate` | `true` | 開啟後,雲端硬碟上傳內容雜湊相同的檔案會共用同一份實體檔案,不重複寫入 |
+| `drive.trash-default-days` | `30` | `drive/trashed` 預設只列出這幾天內的垃圾桶項目,可用 `days`/`all` 參數放寬,不影響 `restore` |
 | `system.date-format` | `'Y-m-d'` | 日期顯示格式 |
 | `system.datetime-format` | `'Y-m-d H:i:s'` | 日期時間顯示格式 |
 
@@ -651,6 +668,7 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | `actor-already-assigned` | 身分已設定，不可重複指派 |
 | `data-conflicted` | 資料已被修改 |
 | `data-not-found` | 查無資料 |
+| `drive-anchor-immutable` | home 目錄與群組目錄不能被搬移或丟進垃圾桶 |
 | `endpoint-not-found` | 端點不存在 |
 | `file-too-large` | 檔案大小超過限制 |
 | `invalid-cascade-relation` | 連動關聯必須是 hasOne、hasMany 或其 morph 形式 |
@@ -665,6 +683,7 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | `invalid-message-provider` | 訊息供應商設定錯誤 |
 | `invalid-message-receiver` | 收件對象不得為空 |
 | `invalid-mime-type` | 不接受這種檔案類型 |
+| `invalid-move-target` | 無法移動到該目的地 |
 | `invalid-parent-relation` | 上層關聯必須是 belongsTo |
 | `invalid-resource-token` | 資源代碼格式錯誤 |
 | `invalid-sort-order` | 排序內容與資料不符 |
@@ -672,6 +691,7 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | `message-provider-has-no-driver` | 訊息供應商未設定傳送器 |
 | `message-refused-by-provider` | 訊息被供應商拒絕 |
 | `message-template-not-found` | 查無訊息樣板 |
+| `name-already-exists` | 這個名稱在此位置已經存在 |
 | `permission-denied` | 權限不足 |
 | `request-failed` | 請求無法處理 |
 | `server-error` | 系統發生錯誤 |
@@ -688,6 +708,7 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | `base_auth_token` | 各身分的登入 token |
 | `base_city` | 縣市 |
 | `base_city_area` | 行政區 |
+| `base_drive_node` | 雲端硬碟節點(資料夾與檔案共用同一張表);root/home/群組三個固定區域,軟刪除、無永久刪除 |
 | `base_file` | 上傳檔案(含去重雜湊與媒體資訊) |
 | `base_group` | 後台群組 |
 | `base_mail_log` | 郵件佇列與寄送結果 |
@@ -854,6 +875,9 @@ parameters:
 | **上傳不限制大小**（`cfg('file.max-size')` 出貨 `0`）。真正的上限是 PHP 的 `upload_max_filesize` / `post_max_size` | 兩層都要調。只調 cfg 沒用,只調 ini 的話使用者會拿到 422 而不是 `file-too-large` |
 | 檔案的 `privilege` 決定存哪個 disk（`0` 公開 / `1` 私有）。下載一律走 `admin/file/download`,**要登入** | 公開 disk 若做了 `storage:link`,那些檔案就有公開 URL —— 這是 disk 設定的結果,不是套件的存取控制。另外「要登入」**只是登入** —— `admin/file/*` 掛的是 `user-api`,沒有 `permission-api`,所以**選單權限完全為空的管理員**也能下載 / 改名任何 path 的檔案。要更細的檔案授權,自己在該路由前加 middleware |
 | **前台沒有任何檔案端點** | 前台要上傳就自己呼叫 `FileService::upload()`,並自己決定權限與限制 |
+| **雲端硬碟(`drive/*`)上傳不檢查型別或大小**,沒有等同 `file.max-size` / `file.mime-patterns` 的設定 | 要限制就自己在 `DriveService::upload()` 前面加檢查 |
+| **`drive/*` 沒有選單節點,只掛 `user-api`**(比照 `admin/auth/passwd`、`admin/file/*`)——任何登入的後台 User 都能呼叫,不需要選單授權 | 節點層級的 owner/群組存取完全交給 `DrivePermissionService` 這一層把關,不是靠選單權限 |
+| **`drive/{id}/delete` 只軟刪除目標本身,不遞迴子項目**;但被刪節點底下**沒被動到**的子孫會變成整體不可操作——`DrivePermissionService::allowed()` 往上爬錨點時遇到已軟刪除的祖先就直接判定沒有權限,**`User::ROOT` 也不例外** | 這是刻意的設計:不用遞迴刪除/還原,單純靠「祖先鏈斷在已軟刪除的節點」讓整個子樹自然變成不可操作;`restore()` 也只還原目標本身,把祖先救回來,子孫的可操作性就自動恢復。**但「看不看得到」是另一回事**——`drive/trashed` 跟 `drive/{id}/path` 用的是 `visible()`,爬的時候會穿過軟刪除的祖先繼續找,所以子孫依然會出現在垃圾桶列表、路徑依然查得到,只是在祖先還原之前 `restore()` 會報 `permission-denied` |
 | **欄位 DSL 是開發者輸入**,識別字會被插值進 SQL | 絕對不要把使用者輸入拼進 `$lists` / `$updates` |
 | **權限白名單只覆蓋 CRUD 的寫入路徑**。`replicate()`、`setRawAttributes()`、query builder 的 `update()` 都繞得過去 | 白名單防的是請求輸入,不是程式碼 |
 | **訊息樣板的變數會原樣進入 HTML,不逸出** | 把使用者輸入當變數傳進去之前自己逸出。開放樣板編輯 = 把那個人當成信任的 HTML 作者 |
@@ -879,6 +903,7 @@ parameters:
 | 前四張只有 `create_time`（沒有 `update_time`）;後兩張兩個都有 | 清理判準只能用 `create_time` |
 | **`base_mail_log` / `base_sms_log` 只能刪終端狀態**（成功 / 失敗） | `Scheduled` 是還沒送出的排程,刪掉等於取消一封信 |
 | **`base_file` 不要用時間清** | 刪列不刪磁碟檔會漏儲存空間,而去重讓一筆記錄可能被多處引用 —— 套件答不出「誰可以刪」 |
+| **`base_drive_node` 完全沒有永久刪除**——`drive/{id}/delete` 只是軟刪除(`deleted_at`),node 與實體檔案永遠不會真的消失 | 這是刻意的決定,不是漏做垃圾清除;資料庫與磁碟用量只會隨使用量增加,規劃容量時要算進去 |
 | **調大 `token-idle-minutes` 不會復活已經被清掉的 token** | 要調大就先調、再跑 prune |
 | `token-idle-minutes` 的 `min:1` 驗證**只擋資源後台** | 自己在 `resources/cfg/admin.php` 寫 `0` 不受檢查,結果是全員登出、prune 清空整張表 |
 
@@ -931,6 +956,7 @@ parameters:
 | **對套件的 model 下批次 `delete()` / `update()` 會靜默失去稽核** | query builder 的批次操作不觸發 model 事件。要稽核就取出實例逐筆處理 |
 | **稽核紀錄的 `after` 是 accessor 之後的值** | 你掛在可追蹤欄位上的 accessor 從此決定稽核內容 |
 | **`Operator` 掛在檢視表上** | 唯讀,不要對它 `save()` |
+| **`base_drive_node` 沒有 `deleter_id` 欄位** | API 回應的 `deleted_by` 是即時查 `base_manipulation_log`(`data_type`/`data_id` 對上該節點、`type = Deleted` 的最新一筆)反查出來的,只在 `deleted_at` 非空時才查一次;未刪除的節點固定回 `null`,不打這張表 |
 
 #### 選單與回應契約
 

@@ -8,6 +8,8 @@ return [
 
     'data-not-found' => 'Data not found',
 
+    'drive-anchor-immutable' => 'Home and group directories cannot be moved or trashed',
+
     'endpoint-not-found' => 'Endpoint does not exist',
 
     'file-too-large' => 'File exceeds the size limit',
@@ -36,6 +38,8 @@ return [
 
     'invalid-mime-type' => 'File type is not accepted',
 
+    'invalid-move-target' => 'Cannot move into that destination',
+
     'invalid-parent-relation' => 'Parent relation must be a belongsTo',
 
     'invalid-resource-token' => 'Invalid resource token',
@@ -49,6 +53,8 @@ return [
     'message-refused-by-provider' => 'The provider refused the message',
 
     'message-template-not-found' => 'Message template not found',
+
+    'name-already-exists' => 'That name is already used in this location',
 
     'permission-denied' => 'Permission denied',
 

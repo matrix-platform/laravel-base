@@ -27,6 +27,10 @@ abstract class BaseModel extends Model {
             static::created(fn (BaseModel $model) => $model->traceCreated());
             static::deleted(fn (BaseModel $model) => $model->traceDeleted());
             static::updated(fn (BaseModel $model) => $model->traceUpdated());
+
+            if (method_exists(static::class, 'restored')) {
+                static::restored(fn (BaseModel $model) => $model->traceRestored());
+            }
         }
     }
 
@@ -160,6 +164,10 @@ abstract class BaseModel extends Model {
 
     private function traceDeleted(): void {
         $this->trace(ManipulationType::Deleted, $this->getTraceables($this->getOriginal()), null);
+    }
+
+    private function traceRestored(): void {
+        $this->trace(ManipulationType::Restored, null, $this->decoded($this->getTraceables($this->getAttributes())));
     }
 
     private function traceUpdated(): void {

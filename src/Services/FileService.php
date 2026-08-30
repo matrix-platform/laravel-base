@@ -2,7 +2,6 @@
 
 namespace MatrixPlatform\Services;
 
-use getID3;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Storage;
@@ -98,42 +97,11 @@ class FileService {
     }
 
     private function measure(File $record, string $path): void {
-        match (strtok(strval($record->mime_type), '/')) {
-            'image' => $this->measureImage($record, $path),
-            'audio', 'video' => $this->measureMedia($record, $path),
-            default => null
-        };
-    }
+        $measured = app(MediaMeasurer::class)->measure($record->mime_type, $path);
 
-    private function measureImage(File $record, string $path): void {
-        $info = getimagesize($path);
-
-        if ($info === false) {
-            return;
-        }
-
-        $record->width = $info[0];
-        $record->height = $info[1];
-    }
-
-    private function measureMedia(File $record, string $path): void {
-        $id3 = new getID3();
-
-        $id3->option_tags_process = false;
-
-        $info = $id3->analyze($path);
-        $width = data_get($info, 'video.resolution_x');
-        $height = data_get($info, 'video.resolution_y');
-        $seconds = array_get_value($info, 'playtime_seconds');
-
-        if (is_numeric($width) && is_numeric($height)) {
-            $record->width = intval($width);
-            $record->height = intval($height);
-        }
-
-        if (is_numeric($seconds)) {
-            $record->seconds = intval($seconds);
-        }
+        $record->width = $measured['width'];
+        $record->height = $measured['height'];
+        $record->seconds = $measured['seconds'];
     }
 
     /**

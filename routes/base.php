@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use MatrixPlatform\Http\Controllers\Admin\AuthController;
 use MatrixPlatform\Http\Controllers\Admin\CfgResourceController;
+use MatrixPlatform\Http\Controllers\Admin\DriveController;
 use MatrixPlatform\Http\Controllers\Admin\FileController;
 use MatrixPlatform\Http\Controllers\Admin\GroupController;
 use MatrixPlatform\Http\Controllers\Admin\I18nController;
@@ -29,11 +30,11 @@ Route::middleware(['envelope-api', 'locale-api'])->group(function () {
         });
 
         Route::middleware('user-api')->group(function () {
+            ActionRoutes::mount('drive', DriveController::class);
             ActionRoutes::mount('file', FileController::class);
             ActionRoutes::mount('user/preference', PreferenceController::class);
 
             Route::middleware('permission-api')->group(function () {
-                ActionRoutes::mount('user', UserController::class);
                 ActionRoutes::mount('group', GroupController::class);
                 ActionRoutes::mount('resource/cfg', CfgResourceController::class);
                 ActionRoutes::mount('resource/i18n', I18nResourceController::class);
@@ -41,6 +42,7 @@ Route::middleware(['envelope-api', 'locale-api'])->group(function () {
                 ActionRoutes::mount('resource/i18n/model', ModelResourceController::class);
                 ActionRoutes::mount('resource/i18n/options', OptionsResourceController::class);
                 ActionRoutes::mount('resource/i18n/template', TemplateResourceController::class);
+                ActionRoutes::mount('user', UserController::class);
             });
         });
 
