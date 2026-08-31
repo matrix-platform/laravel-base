@@ -27,6 +27,11 @@ class QueryPlan {
     private array $joins = [];
 
     /**
+     * @var array<string, array{field: string, qualifier: string}>
+     */
+    private array $translatable = [];
+
+    /**
      * @param list<Column> $columns
      */
     public function __construct(private Model $root, private array $columns) {
@@ -46,14 +51,22 @@ class QueryPlan {
     public function complete(): Builder {
         $query = $this->root->query();
 
-        if ($this->joins === []) {
+        if ($this->joins === [] && $this->translatable === []) {
             return $query;
         }
 
         $selects = ["{$this->table()}.*"];
 
         foreach ($this->columns as $column) {
-            if (!$column->virtual && $column->expression->path !== []) {
+            if ($column->virtual) {
+                continue;
+            }
+
+            if ($column->translatable && $column->expression->path !== []) {
+                array_push($selects, ...$this->translatedSelects($column));
+            }
+
+            if ($column->expression->path !== [] || $column->translatable) {
                 $selects[] = new Raw("{$this->fields[$column->name]} as {$column->name}");
             }
         }
@@ -77,9 +90,15 @@ class QueryPlan {
         $selects = ["{$this->table()}.id"];
 
         foreach ($this->columns as $column) {
-            if (!$column->virtual) {
-                $selects[] = new Raw("{$this->fields[$column->name]} as {$column->name}");
+            if ($column->virtual) {
+                continue;
             }
+
+            if (array_key_exists($column->name, $this->translatable)) {
+                array_push($selects, ...$this->translatedSelects($column));
+            }
+
+            $selects[] = new Raw("{$this->fields[$column->name]} as {$column->name}");
         }
 
         $this->apply($query);
@@ -151,10 +170,20 @@ class QueryPlan {
             $qualifier = $alias === '' ? $this->table() : $alias;
 
             if ($expression->aggregate === null) {
-                $field = $this->wrap($qualifier, strval($expression->field));
-                $this->fields[$column->name] = $expression->function === null ? $field : "{$expression->function}({$field})";
+                if ($column->translatable) {
+                    $qualified = $this->wrap($qualifier, "{$expression->field}__" . app()->getLocale());
+                    $this->translatable[$column->name] = ['field' => strval($expression->field), 'qualifier' => $qualifier];
+                } else {
+                    $qualified = $this->wrap($qualifier, strval($expression->field));
+                }
+
+                $this->fields[$column->name] = $expression->function === null ? $qualified : "{$expression->function}({$qualified})";
 
                 continue;
+            }
+
+            if ($column->translatable) {
+                error('invalid-column-expression');
             }
 
             if (!array_key_exists($alias, $structure)) {
@@ -251,6 +280,21 @@ class QueryPlan {
         }
 
         return [$sub, $top];
+    }
+
+    /**
+     * @return list<Raw>
+     */
+    private function translatedSelects(Column $column): array {
+        ['field' => $field, 'qualifier' => $qualifier] = $this->translatable[$column->name];
+
+        $selects = [];
+
+        foreach (locales() as $locale) {
+            $selects[] = new Raw("{$this->wrap($qualifier, "{$field}__{$locale}")} as {$column->name}__{$locale}");
+        }
+
+        return $selects;
     }
 
     private function wrap(string $qualifier, string $field): string {

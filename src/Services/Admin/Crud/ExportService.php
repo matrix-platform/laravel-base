@@ -25,6 +25,11 @@ class ExportService extends CrudService {
     private array $filterColumns = [];
 
     /**
+     * @var list<string>|null
+     */
+    private ?array $locales = null;
+
+    /**
      * @var array<string, array<string, string>>
      */
     private array $options = [];
@@ -45,6 +50,7 @@ class ExportService extends CrudService {
      */
     public function export(mixed $input): array {
         $outputs = $this->visible();
+        $fields = $this->fields($outputs);
 
         $this->columns($this->filterColumns);
         $this->attach($this->model);
@@ -70,11 +76,12 @@ class ExportService extends CrudService {
 
             $data = [];
 
-            foreach ($outputs as $column) {
-                $raw = $row->getAttribute($column->name);
+            foreach ($fields as $field) {
+                $column = $field['column'];
+                $raw = $row->getAttribute($field['name']);
                 $override = array_get_value($this->cells, $column->name);
 
-                $data[$column->name] = $override instanceof Closure ? $this->text($override($raw, $row)) : $this->format($raw, $column);
+                $data[$field['name']] = $override instanceof Closure ? $this->text($override($raw, $row)) : $this->format($raw, $column);
             }
 
             $rows[] = $data;
@@ -82,7 +89,7 @@ class ExportService extends CrudService {
 
         return [
             'title' => $this->heading(),
-            'columns' => array_map(fn (Column $column): array => $this->shape($column), $outputs),
+            'columns' => array_map(fn (array $field): array => [...$this->shape($field['column']), 'name' => $field['name']], $fields),
             'rows' => $rows
         ];
     }
@@ -97,12 +104,43 @@ class ExportService extends CrudService {
     }
 
     /**
+     * @param list<string>|null $locales
+     */
+    public function locales(?array $locales): static {
+        $this->locales = $locales;
+
+        return $this;
+    }
+
+    /**
      * @param list<string> $sorting
      */
     public function sorting(array $sorting): static {
         $this->sorting = $sorting;
 
         return $this;
+    }
+
+    /**
+     * @param list<Column> $outputs
+     * @return list<array{name: string, column: Column}>
+     */
+    private function fields(array $outputs): array {
+        $fields = [];
+
+        foreach ($outputs as $column) {
+            if ($column->translatable && $this->locales !== null) {
+                foreach ($this->translated($column, $this->locales) as $key) {
+                    $fields[] = ['name' => $key, 'column' => $column];
+                }
+
+                continue;
+            }
+
+            $fields[] = ['name' => $column->name, 'column' => $column];
+        }
+
+        return $fields;
     }
 
     /**

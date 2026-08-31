@@ -11,7 +11,7 @@ class CommonController extends BaseController {
     public function __construct(private CommonService $service) {}
 
     /**
-     * @return list<array{id: int, title: string, areas: list<array{id: int, title: string, post_code: string}>}>
+     * @return list<array{id: int, title: ?string, areas: list<array{id: int, title: ?string, post_code: string}>}>
      */
     #[Action]
     public function city(): array {

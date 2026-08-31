@@ -5,6 +5,7 @@ namespace MatrixPlatform\Support;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use MatrixPlatform\Columns\Declarations\Definition;
 
 class Subject {
 
@@ -69,7 +70,11 @@ class Subject {
     }
 
     public function title(Model $model): ?string {
-        $value = $model->getAttribute($this->metadata($model)->title);
+        $field = $this->metadata($model)->title;
+        $definitions = $this->registry->definitions($model::class);
+        $definition = $definitions === null ? null : array_get_value($definitions, $field);
+        $translatable = $definition instanceof Definition && $definition->translatable;
+        $value = $model->getAttribute($translatable ? "{$field}__" . app()->getLocale() : $field);
 
         return is_scalar($value) ? strval($value) : null;
     }

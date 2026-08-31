@@ -8,29 +8,28 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use MatrixPlatform\Models\DriveNode;
 use MatrixPlatform\Models\DriveNodeType;
 use MatrixPlatform\Models\Group;
 use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\ManipulationType;
 use MatrixPlatform\Models\User;
+use MatrixPlatform\Services\FileStorage;
 use MatrixPlatform\Services\MediaMeasurer;
 use MatrixPlatform\Support\RollbackCallbacks;
+use MatrixPlatform\Support\Subject;
 
 class DriveService {
 
     private const FOLDER = 'drive/';
 
-    public function __construct(private DrivePermissionService $permission) {}
+    public function __construct(private DrivePermissionService $permission, private Subject $subject) {}
 
     /**
      * @return Collection<int, DriveNode>
      */
     public function children(DriveNode $folder, User $user): Collection {
-        if (!$this->permission->allowed($folder, $user)) {
-            error('permission-denied', 403);
-        }
+        $this->requireAllowed($folder, $user);
 
         return DriveNode::query()
             ->where('parent_id', $folder->id)
@@ -40,9 +39,7 @@ class DriveService {
     }
 
     public function createFolder(DriveNode $parent, string $name, User $user): DriveNode {
-        if (!$this->permission->allowed($parent, $user)) {
-            error('permission-denied', 403);
-        }
+        $this->requireAllowed($parent, $user);
 
         if ($this->exists($parent->id, $name)) {
             error('name-already-exists');
@@ -64,13 +61,9 @@ class DriveService {
             return null;
         }
 
-        return ManipulationLog::query()
-            ->where('data_type', $node->getTable())
-            ->where('data_id', $node->id)
-            ->where('type', ManipulationType::Deleted)
-            ->latest('id')
-            ->first()
-            ?->creator_id;
+        $map = $this->deletedByMany(new Collection([$node]));
+
+        return array_key_exists($node->id, $map) ? $map[$node->id] : null;
     }
 
     /**
@@ -117,7 +110,8 @@ class DriveService {
         }
 
         return $this->findOrCreateAnchor($user->group_id, function () use ($user): string {
-            $title = Group::query()->find($user->group_id)?->title;
+            $group = Group::query()->find($user->group_id);
+            $title = $group === null ? null : $this->subject->title($group);
 
             return $title === null ? "group-{$user->group_id}" : $title;
         });
@@ -128,7 +122,7 @@ class DriveService {
     }
 
     public function location(DriveNode $node): string {
-        return self::FOLDER . $node->path;
+        return app(FileStorage::class)->location(self::FOLDER, $node->path);
     }
 
     public function move(DriveNode $node, DriveNode $newParent, User $user): void {
@@ -136,9 +130,8 @@ class DriveService {
             error('drive-anchor-immutable');
         }
 
-        if (!$this->permission->allowed($node, $user) || !$this->permission->allowed($newParent, $user)) {
-            error('permission-denied', 403);
-        }
+        $this->requireAllowed($node, $user);
+        $this->requireAllowed($newParent, $user);
 
         if ($newParent->id === $node->id || $this->isDescendant($newParent, $node)) {
             error('invalid-move-target');
@@ -157,24 +150,17 @@ class DriveService {
      * @return Collection<int, DriveNode>
      */
     public function path(DriveNode $node, User $user): Collection {
-        if (!$this->permission->visible($node, $user)) {
+        $ancestors = $this->permission->ancestors($node, $user);
+
+        if ($ancestors === null) {
             error('permission-denied', 403);
-        }
-
-        $ancestors = [];
-        $current = $node;
-
-        while (($current = $this->permission->parent($current)) !== null) {
-            array_unshift($ancestors, $current);
         }
 
         return new Collection($ancestors);
     }
 
     public function rename(DriveNode $node, string $name, ?string $description, User $user): void {
-        if (!$this->permission->allowed($node, $user)) {
-            error('permission-denied', 403);
-        }
+        $this->requireAllowed($node, $user);
 
         if ($name !== $node->name && $node->parent_id !== null && $this->exists($node->parent_id, $name)) {
             error('name-already-exists');
@@ -187,9 +173,7 @@ class DriveService {
     }
 
     public function restore(DriveNode $node, User $user): void {
-        if (!$this->permission->allowed($node, $user)) {
-            error('permission-denied', 403);
-        }
+        $this->requireAllowed($node, $user);
 
         if ($node->parent_id !== null && $this->exists($node->parent_id, $node->name)) {
             error('name-already-exists');
@@ -207,9 +191,7 @@ class DriveService {
             error('drive-anchor-immutable');
         }
 
-        if (!$this->permission->allowed($node, $user)) {
-            error('permission-denied', 403);
-        }
+        $this->requireAllowed($node, $user);
 
         $node->delete();
     }
@@ -229,16 +211,9 @@ class DriveService {
     }
 
     public function upload(DriveNode $parent, UploadedFile $file, User $user): DriveNode {
-        if (!$this->permission->allowed($parent, $user)) {
-            error('permission-denied', 403);
-        }
+        $this->requireAllowed($parent, $user);
 
-        $hash = hash_file('sha256', $file->getPathname());
-
-        if ($hash === false) {
-            error('request-failed');
-        }
-
+        $hash = app(FileStorage::class)->hash($file);
         $size = $file->getSize();
         $disk = $this->disk();
         $existing = (bool) cfg('drive.deduplicate') ? $this->duplicate($hash, $size) : null;
@@ -246,7 +221,7 @@ class DriveService {
         if ($existing !== null && Storage::disk($disk)->exists($this->location($existing))) {
             $path = $existing->path;
         } else {
-            $path = $this->store($file, $disk);
+            $path = app(FileStorage::class)->store($file, $disk, self::FOLDER);
 
             app(RollbackCallbacks::class)->register(fn () => Storage::disk($disk)->delete(self::FOLDER . $path));
         }
@@ -332,12 +307,10 @@ class DriveService {
         return false;
     }
 
-    private function store(UploadedFile $file, string $disk): string {
-        $path = date('Ym') . '/' . Str::random(32);
-
-        Storage::disk($disk)->putFileAs(self::FOLDER, $file, $path);
-
-        return $path;
+    private function requireAllowed(DriveNode $node, User $user): void {
+        if (!$this->permission->allowed($node, $user)) {
+            error('permission-denied', 403);
+        }
     }
 
     private function uniqueName(DriveNode $parent, string $name): string {

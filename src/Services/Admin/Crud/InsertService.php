@@ -12,6 +12,12 @@ class InsertService extends CrudService {
         $values = $this->validated($input);
 
         foreach ($this->local() as $column) {
+            if (!$column->readonly && $column->translatable) {
+                $this->assignTranslated($model, $column, $values);
+
+                continue;
+            }
+
             if (!array_key_exists($column->name, $values)) {
                 continue;
             }

@@ -10,7 +10,8 @@ class GuardedGroupController extends GroupController {
 
     protected function onUpdate(UpdateService $service): UpdateService {
         return parent::onUpdate($service)->guard(function (Model $model): void {
-            $model->setAttribute('title', strtoupper(strval($model->getAttribute('title'))));
+            $model->setAttribute('title__tw', strtoupper(strval($model->getAttribute('title__tw'))));
+            $model->setAttribute('title__en', strtoupper(strval($model->getAttribute('title__en'))));
         });
     }
 

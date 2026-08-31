@@ -11,6 +11,7 @@ use Illuminate\Support\ServiceProvider;
 use MatrixPlatform\Console\Commands\DispatchMessagesCommand;
 use MatrixPlatform\Console\Commands\PruneTokensCommand;
 use MatrixPlatform\Console\Commands\ResetUserPasswordCommand;
+use MatrixPlatform\Console\Commands\SyncTranslatableCommand;
 use MatrixPlatform\Database\Schema\BaseBlueprint;
 use MatrixPlatform\Http\Middleware\EnvelopeMiddleware;
 use MatrixPlatform\Http\Middleware\LocaleMiddleware;
@@ -35,7 +36,7 @@ class BaseServiceProvider extends ServiceProvider {
 
     public function boot(): void {
         if ($this->app->runningInConsole()) {
-            $this->commands([DispatchMessagesCommand::class, PruneTokensCommand::class, ResetUserPasswordCommand::class]);
+            $this->commands([DispatchMessagesCommand::class, PruneTokensCommand::class, ResetUserPasswordCommand::class, SyncTranslatableCommand::class]);
         }
 
         Event::listen(TransactionRolledBack::class, fn () => app(RollbackCallbacks::class)->run());

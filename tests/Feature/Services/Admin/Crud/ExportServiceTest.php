@@ -3,7 +3,6 @@
 namespace Tests\Feature\Services\Admin\Crud;
 
 use Illuminate\Database\Eloquent\Builder;
-use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Options\Option;
 use MatrixPlatform\Columns\Options\StaticOptions;
@@ -144,7 +143,7 @@ class ExportServiceTest extends FeatureTestCase {
     }
 
     public function test_a_boolean_column_becomes_a_translated_word(): void {
-        $this->declare(['title' => new Definition(ColumnType::Boolean)]);
+        $this->declare(['title' => Definition::boolean()]);
 
         Widget::forceCreate(['title' => '1']);
         Widget::forceCreate(['title' => '0']);
@@ -442,6 +441,62 @@ class ExportServiceTest extends FeatureTestCase {
         $this->widget('Alpha');
 
         $this->assertSame('widget', $this->exported(['title'])['title']);
+    }
+
+    public function test_translatable_export_defaults_to_the_current_locale(): void {
+        $this->declare(['translated' => Definition::text(translatable: true)]);
+
+        Widget::forceCreate(['translated__tw' => 'Alpha', 'translated__en' => 'Beta']);
+
+        $exported = $this->exported(['translated']);
+
+        $this->assertSame(['translated'], array_column($exported['columns'], 'name'));
+        $this->assertSame([['translated' => 'Beta']], $exported['rows']);
+    }
+
+    public function test_locales_expands_a_translatable_column_into_one_field_per_locale(): void {
+        $this->declare(['translated' => Definition::text(translatable: true)]);
+
+        Widget::forceCreate(['translated__tw' => 'Alpha', 'translated__en' => 'Beta']);
+
+        $exported = (new ExportService(Widget::class))
+            ->standalone(true)
+            ->columns(['translated'])
+            ->locales(['tw', 'en'])
+            ->export([]);
+
+        $this->assertSame(['translated__tw', 'translated__en'], array_column($exported['columns'], 'name'));
+        $this->assertSame([['translated__tw' => 'Alpha', 'translated__en' => 'Beta']], $exported['rows']);
+    }
+
+    public function test_locales_can_expand_a_single_locale_only(): void {
+        $this->declare(['translated' => Definition::text(translatable: true)]);
+
+        Widget::forceCreate(['translated__tw' => 'Alpha', 'translated__en' => 'Beta']);
+
+        $exported = (new ExportService(Widget::class))
+            ->standalone(true)
+            ->columns(['translated'])
+            ->locales(['en'])
+            ->export([]);
+
+        $this->assertSame(['translated__en'], array_column($exported['columns'], 'name'));
+        $this->assertSame([['translated__en' => 'Beta']], $exported['rows']);
+    }
+
+    public function test_a_cell_override_registered_once_applies_to_every_expanded_locale(): void {
+        $this->declare(['translated' => Definition::text(translatable: true)]);
+
+        Widget::forceCreate(['translated__tw' => 'Alpha', 'translated__en' => 'Beta']);
+
+        $rows = (new ExportService(Widget::class))
+            ->standalone(true)
+            ->columns(['translated'])
+            ->locales(['tw', 'en'])
+            ->cell('translated', fn (mixed $raw): string => "[{$raw}]")
+            ->export([])['rows'];
+
+        $this->assertSame([['translated__tw' => '[Alpha]', 'translated__en' => '[Beta]']], $rows);
     }
 
 }

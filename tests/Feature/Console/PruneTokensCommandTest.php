@@ -124,6 +124,7 @@ class PruneTokensCommandTest extends FeatureTestCase {
         $mail->content = 'Body';
         $mail->schedule_time = now();
         $mail->status = MessageStatus::Success;
+        $mail->locale = 'en';
 
         $mail->save();
 
@@ -134,6 +135,7 @@ class PruneTokensCommandTest extends FeatureTestCase {
         $sms->content = 'Body';
         $sms->schedule_time = now();
         $sms->status = MessageStatus::Success;
+        $sms->locale = 'en';
 
         $sms->save();
 

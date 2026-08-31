@@ -51,11 +51,13 @@ class ColumnResolver {
             $presentation,
             $column->readonly,
             $silent ? $column->remark : $this->label($root, $column, $column->remark, ':remark'),
-            $column->required,
+            $column->required || ($definition !== null && $definition->required),
             $this->rule($column, $definition),
             $this->sortable($column, $type, $presentation),
             $silent ? $this->fallback($column) : $this->title($root, $column),
+            $definition === null ? false : $definition->translatable,
             $type,
+            $definition !== null && $definition->unique,
             $column->virtual
         );
     }

@@ -4,7 +4,7 @@ return [
 
     'icon' => 'fa-solid fa-up-down',
 
-    'severity' => 'secondary',
+    'severity' => 'default',
 
     'navigate' => true,
 

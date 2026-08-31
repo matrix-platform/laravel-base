@@ -78,7 +78,7 @@ class UserControllerTest extends FeatureTestCase {
     }
 
     public function test_the_listing_joins_the_group_title_and_labels_the_boolean(): void {
-        $group = GroupFactory::new()->createOne(['title' => 'Editors']);
+        $group = GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors']);
 
         UserFactory::new()->createOne(['username' => 'zoe', 'group_id' => $group->id, 'disabled' => true]);
 

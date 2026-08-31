@@ -2,7 +2,6 @@
 
 namespace MatrixPlatform\Models\Declarations;
 
-use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Columns\Declarations\Declares;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Declarations\Definitions;
@@ -17,11 +16,11 @@ class MemberLogDeclaration implements Declares {
         return array_merge(
             Definitions::primaryKey(),
             [
-                'member_id' => new Definition(ColumnType::Integer),
-                'type' => new Definition(ColumnType::Text),
-                'content' => new Definition(ColumnType::Json),
-                'ip' => new Definition(ColumnType::Text),
-                'user_agent' => new Definition(ColumnType::Text)
+                'member_id' => Definition::integer(),
+                'type' => Definition::text(),
+                'content' => Definition::json(),
+                'ip' => Definition::text(),
+                'user_agent' => Definition::text()
             ],
             Definitions::auditings(false)
         );

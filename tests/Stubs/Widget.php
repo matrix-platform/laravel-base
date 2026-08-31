@@ -18,6 +18,8 @@ use MatrixPlatform\Models\Generators\CreatorAddress;
  * @property ?string $ip
  * @property ?int $trinket_id
  * @property ?array<string, mixed> $payload
+ * @property ?string $translated__tw
+ * @property ?string $translated__en
  * @property int $ranking
  * @property ?Carbon $enable_time
  * @property ?Carbon $disable_time

@@ -92,7 +92,7 @@ class GroupControllerTest extends FeatureTestCase {
         $response->assertJsonPath('data.columns.2.options.0.id', 'authority');
 
         $this->assertSame(array_keys($response->json('data.columns.1')), array_keys($response->json('data.columns.2')));
-        $this->assertCount(14, $response->json('data.columns.2'));
+        $this->assertCount(15, $response->json('data.columns.2'));
     }
 
     public function test_the_new_payload_carries_an_empty_permission_object(): void {
@@ -112,16 +112,33 @@ class GroupControllerTest extends FeatureTestCase {
     }
 
     public function test_inserting_writes_a_non_empty_map(): void {
-        $this->send('admin/group/insert', ['title' => 'Editors', 'permissions' => ['user' => ['query' => true, 'update' => true]]]);
+        $this->send('admin/group/insert', ['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => ['user' => ['query' => true, 'update' => true]]]);
 
-        $group = Group::query()->where('title', 'Editors')->firstOrFail();
+        $group = Group::query()->where('title__tw', 'Editors')->firstOrFail();
 
         $this->assertNotSame([], $group->permissions);
         $this->assertSame(['user' => ['query' => true, 'update' => true]], $group->permissions);
     }
 
+    public function test_inserting_a_duplicate_title_is_rejected_as_a_validation_failure(): void {
+        GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors']);
+
+        $response = $this->send('admin/group/insert', ['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => null]);
+
+        $response->assertJsonPath('fields.title__tw', ['unique']);
+        $response->assertJsonPath('fields.title__en', ['unique']);
+        $this->assertSame(1, Group::query()->count());
+    }
+
+    public function test_updating_a_group_with_its_own_unchanged_title_is_not_treated_as_a_duplicate(): void {
+        $group = GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors']);
+
+        $this->send("admin/group/{$group->id}/update", ['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => null])
+            ->assertJsonPath('success', true);
+    }
+
     public function test_replaying_the_get_payload_leaves_the_permissions_untouched(): void {
-        $group = GroupFactory::new()->createOne(['title' => 'Editors', 'permissions' => ['user' => ['query' => true]]]);
+        $group = GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => ['user' => ['query' => true]]]);
         $data = $this->send("admin/group/{$group->id}")->json('data.data');
 
         $this->send("admin/group/{$group->id}/update", is_array($data) ? $data : [])->assertJsonPath('success', true);
@@ -130,68 +147,68 @@ class GroupControllerTest extends FeatureTestCase {
     }
 
     public function test_a_reordered_but_equal_update_writes_no_log(): void {
-        $group = GroupFactory::new()->createOne(['title' => 'Editors']);
+        $group = GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors']);
 
-        $this->send("admin/group/{$group->id}/update", ['title' => 'Editors', 'permissions' => ['group' => ['query' => true], 'user' => ['query' => true]]]);
+        $this->send("admin/group/{$group->id}/update", ['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => ['group' => ['query' => true], 'user' => ['query' => true]]]);
 
         $before = $this->logCount();
 
-        $this->send("admin/group/{$group->id}/update", ['title' => 'Editors', 'permissions' => ['group' => ['query' => true], 'user' => ['query' => true]]]);
+        $this->send("admin/group/{$group->id}/update", ['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => ['group' => ['query' => true], 'user' => ['query' => true]]]);
 
         $this->assertSame($before, $this->logCount());
     }
 
     public function test_clearing_the_permissions_stores_an_empty_object(): void {
-        $group = GroupFactory::new()->createOne(['title' => 'Editors', 'permissions' => ['user' => ['query' => true]]]);
+        $group = GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => ['user' => ['query' => true]]]);
 
-        $this->send("admin/group/{$group->id}/update", ['title' => 'Editors', 'permissions' => null]);
+        $this->send("admin/group/{$group->id}/update", ['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => null]);
 
         $this->assertSame('{}', $this->raw($group));
         $this->assertStringContainsString('"permissions":{}', strval($this->send("admin/group/{$group->id}")->getContent()));
     }
 
     public function test_an_unknown_path_an_unknown_action_and_a_false_value_are_all_dropped(): void {
-        $this->send('admin/group/insert', ['title' => 'Editors', 'permissions' => [
+        $this->send('admin/group/insert', ['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => [
             'nowhere' => ['query' => true],
             'authority' => ['query' => true],
             'user' => ['export' => true, 'delete' => false, 'query' => true]
         ]]);
 
-        $group = Group::query()->where('title', 'Editors')->firstOrFail();
+        $group = Group::query()->where('title__tw', 'Editors')->firstOrFail();
 
         $this->assertSame(['user' => ['query' => true]], $group->permissions);
     }
 
     public function test_a_resource_with_no_grantable_action_is_dropped(): void {
         $this->useMenuFixtures('authority');
-        $this->send('admin/guarded-group/insert', ['title' => 'Editors', 'permissions' => [
+        $this->send('admin/guarded-group/insert', ['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => [
             'console' => ['system' => true],
             'preference' => ['user' => true],
             'report' => ['export' => true],
             'user' => ['query' => true]
         ]]);
 
-        $group = Group::query()->where('title', 'Editors')->firstOrFail();
+        $group = Group::query()->where('title__tw', 'Editors')->firstOrFail();
 
         $this->assertSame(['user' => ['query' => true]], $group->permissions);
     }
 
     public function test_a_host_guard_does_not_replace_the_whitelist(): void {
-        $group = GroupFactory::new()->createOne(['title' => 'Editors']);
+        $group = GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors']);
 
-        $this->send("admin/guarded-group/{$group->id}/update", ['title' => 'Editors', 'permissions' => ['nowhere' => ['query' => true], 'user' => ['query' => true]]]);
+        $this->send("admin/guarded-group/{$group->id}/update", ['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => ['nowhere' => ['query' => true], 'user' => ['query' => true]]]);
 
         $group->refresh();
 
-        $this->assertSame('EDITORS', $group->title);
+        $this->assertSame('EDITORS', $group->title__en);
         $this->assertSame(['user' => ['query' => true]], $group->permissions);
     }
 
     public function test_an_editor_cannot_grant_a_permission_it_does_not_hold(): void {
-        $group = GroupFactory::new()->createOne(['title' => 'Editors']);
+        $group = GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors']);
 
         $this->editor(['group' => ['update' => true], 'user' => ['query' => true]], "admin/group/{$group->id}/update", [
-            'title' => 'Editors',
+            'title__tw' => 'Editors', 'title__en' => 'Editors',
             'permissions' => ['user' => ['query' => true, 'insert' => true]]
         ])->assertJsonPath('success', true);
 
@@ -199,10 +216,10 @@ class GroupControllerTest extends FeatureTestCase {
     }
 
     public function test_an_editor_cannot_wipe_a_permission_it_cannot_reach(): void {
-        $group = GroupFactory::new()->createOne(['title' => 'Editors', 'permissions' => ['user' => ['delete' => true]]]);
+        $group = GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => ['user' => ['delete' => true]]]);
 
         $this->editor(['group' => ['update' => true], 'user' => ['query' => true]], "admin/group/{$group->id}/update", [
-            'title' => 'Editors',
+            'title__tw' => 'Editors', 'title__en' => 'Editors',
             'permissions' => ['user' => ['query' => true]]
         ])->assertJsonPath('success', true);
 
@@ -210,10 +227,10 @@ class GroupControllerTest extends FeatureTestCase {
     }
 
     public function test_an_editor_can_revoke_a_permission_it_holds(): void {
-        $group = GroupFactory::new()->createOne(['title' => 'Editors', 'permissions' => ['user' => ['query' => true, 'delete' => true]]]);
+        $group = GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => ['user' => ['query' => true, 'delete' => true]]]);
 
         $this->editor(['group' => ['update' => true], 'user' => ['query' => true]], "admin/group/{$group->id}/update", [
-            'title' => 'Editors',
+            'title__tw' => 'Editors', 'title__en' => 'Editors',
             'permissions' => []
         ])->assertJsonPath('success', true);
 
@@ -221,10 +238,10 @@ class GroupControllerTest extends FeatureTestCase {
     }
 
     public function test_root_may_grant_anything_on_the_tree(): void {
-        $group = GroupFactory::new()->createOne(['title' => 'Editors']);
+        $group = GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors']);
 
         $this->send("admin/group/{$group->id}/update", [
-            'title' => 'Editors',
+            'title__tw' => 'Editors', 'title__en' => 'Editors',
             'permissions' => ['user' => ['query' => true, 'delete' => true, 'insert' => true, 'update' => true]]
         ]);
 
@@ -232,34 +249,34 @@ class GroupControllerTest extends FeatureTestCase {
     }
 
     public function test_a_grant_made_by_another_editor_survives_a_later_edit(): void {
-        $group = GroupFactory::new()->createOne(['title' => 'Editors']);
+        $group = GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors']);
 
         $first = ['group' => ['update' => true], 'user' => ['query' => true, 'delete' => true, 'insert' => true]];
         $second = ['group' => ['update' => true, 'query' => true, 'delete' => true], 'user' => ['insert' => true]];
 
-        $this->editor($first, "admin/group/{$group->id}/update", ['title' => 'Editors', 'permissions' => ['user' => ['query' => true]]], 5001);
+        $this->editor($first, "admin/group/{$group->id}/update", ['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => ['user' => ['query' => true]]], 5001);
 
         $this->assertSame(['query' => true], $this->actions($group, 'user'));
 
-        $this->editor($second, "admin/group/{$group->id}/update", ['title' => 'Editors', 'permissions' => ['group' => ['query' => true]]], 5002);
+        $this->editor($second, "admin/group/{$group->id}/update", ['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => ['group' => ['query' => true]]], 5002);
 
         $this->assertSame(['query' => true], $this->actions($group, 'user'));
         $this->assertSame(['query' => true], $this->actions($group, 'group'));
     }
 
     public function test_a_group_created_without_permissions_still_gets_an_empty_object(): void {
-        $this->send('admin/group/insert', ['title' => 'Empty', 'permissions' => null]);
+        $this->send('admin/group/insert', ['title__tw' => 'Empty', 'title__en' => 'Empty', 'permissions' => null]);
 
-        $this->assertSame('{}', $this->raw(Group::query()->where('title', 'Empty')->firstOrFail()));
+        $this->assertSame('{}', $this->raw(Group::query()->where('title__tw', 'Empty')->firstOrFail()));
     }
 
     public function test_the_permissions_field_is_required_to_be_present_and_an_array(): void {
-        $this->send('admin/group/insert', ['title' => 'Editors'])->assertJsonPath('fields.permissions', ['present']);
-        $this->send('admin/group/insert', ['title' => 'Editors', 'permissions' => 'nope'])->assertJsonPath('fields.permissions', ['array']);
+        $this->send('admin/group/insert', ['title__tw' => 'Editors', 'title__en' => 'Editors'])->assertJsonPath('fields.permissions', ['present']);
+        $this->send('admin/group/insert', ['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => 'nope'])->assertJsonPath('fields.permissions', ['array']);
     }
 
     public function test_the_listing_does_not_project_the_permissions(): void {
-        GroupFactory::new()->createOne(['title' => 'Editors']);
+        GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors']);
 
         $response = $this->send('admin/group');
 
@@ -268,9 +285,9 @@ class GroupControllerTest extends FeatureTestCase {
     }
 
     public function test_the_permission_change_lands_in_the_audit_trail(): void {
-        $group = GroupFactory::new()->createOne(['title' => 'Editors', 'permissions' => ['user' => ['query' => true]]]);
+        $group = GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => ['user' => ['query' => true]]]);
 
-        $this->send("admin/group/{$group->id}/update", ['title' => 'Editors', 'permissions' => ['user' => ['query' => true, 'delete' => true]]]);
+        $this->send("admin/group/{$group->id}/update", ['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => ['user' => ['query' => true, 'delete' => true]]]);
 
         $log = ManipulationLog::query()->orderByDesc('id')->firstOrFail();
 
@@ -279,11 +296,12 @@ class GroupControllerTest extends FeatureTestCase {
     }
 
     public function test_a_copy_carries_the_unfiltered_permissions(): void {
-        $group = GroupFactory::new()->createOne(['title' => 'Editors', 'permissions' => ['nowhere' => ['query' => true]]]);
+        $group = GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => ['nowhere' => ['query' => true]]]);
 
         $copy = $group->refresh()->replicate();
 
-        $copy->setAttribute('title', 'Copied');
+        $copy->setAttribute('title__tw', 'Copied');
+        $copy->setAttribute('title__en', 'Copied');
         $copy->save();
 
         $this->assertSame(['nowhere' => ['query' => true]], $copy->refresh()->permissions);

@@ -17,7 +17,8 @@ class GroupFactory extends Factory {
      */
     public function definition(): array {
         return [
-            'title' => $this->faker->unique()->word()
+            'title__tw' => $this->faker->unique()->word(),
+            'title__en' => $this->faker->unique()->word()
         ];
     }
 

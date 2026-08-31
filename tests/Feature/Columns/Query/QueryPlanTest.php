@@ -4,12 +4,14 @@ namespace Tests\Feature\Columns\Query;
 
 use Illuminate\Database\Eloquent\Model;
 use MatrixPlatform\Columns\ColumnResolver;
+use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Query\QueryPlan;
 use MatrixPlatform\Columns\Syntax\ColumnParser;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
 use Tests\FeatureTestCase;
+use Tests\Stubs\Gadget;
 use Tests\Stubs\StubDeclaration;
 use Tests\Stubs\Trinket;
 use Tests\Stubs\Widget;
@@ -21,6 +23,15 @@ class QueryPlanTest extends FeatureTestCase {
 
         app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
         app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label')));
+    }
+
+    /**
+     * @param array<string, Definition> $definitions
+     */
+    private function declareTranslatable(string $model, array $definitions): void {
+        $metadata = $model === Widget::class ? new Metadata('widget') : new Metadata('gadget');
+
+        app(MetadataRegistry::class)->register($model, new StubDeclaration($metadata, $definitions));
     }
 
     /**
@@ -326,6 +337,88 @@ class QueryPlanTest extends FeatureTestCase {
 
         $this->assertStringContainsString('FILTER (WHERE trinkets.label = ?)', $query->toSql());
         $this->assertSame(["a b;c'"], $query->getBindings());
+    }
+
+    public function test_a_translatable_column_expands_into_three_selects_in_the_projection(): void {
+        $this->declareTranslatable(Widget::class, ['translated' => Definition::text(translatable: true)]);
+
+        $sql = $this->plan(['translated'])
+            ->projection()
+            ->toSql();
+
+        $this->assertSame(
+            'select "stub_widget"."id", "stub_widget"."translated__tw" as translated__tw, '
+                . '"stub_widget"."translated__en" as translated__en, '
+                . '"stub_widget"."translated__en" as translated from "stub_widget"',
+            $sql
+        );
+    }
+
+    public function test_complete_adds_a_collapsed_alias_for_a_local_translatable_column_even_without_joins(): void {
+        $this->declareTranslatable(Widget::class, ['translated' => Definition::text(translatable: true)]);
+
+        $sql = $this->plan(['translated'])
+            ->complete()
+            ->toSql();
+
+        $this->assertSame('select "stub_widget".*, "stub_widget"."translated__en" as translated from "stub_widget"', $sql);
+    }
+
+    public function test_a_translatable_column_reached_through_a_relation_uses_the_join_alias_as_qualifier(): void {
+        $this->declareTranslatable(Gadget::class, ['translated' => Definition::text(translatable: true)]);
+
+        $sql = $this->plan(['gadget.translated'], new Trinket())
+            ->complete()
+            ->toSql();
+
+        $this->assertSame(
+            'select "stub_trinket".*, "gadget"."translated__tw" as gadget_translated__tw, '
+                . '"gadget"."translated__en" as gadget_translated__en, '
+                . '"gadget"."translated__en" as gadget_translated from "stub_trinket" '
+                . 'left join "stub_gadget" as "gadget" on "gadget"."id" = "stub_trinket"."gadget_id"',
+            $sql
+        );
+    }
+
+    public function test_translatable_combined_with_an_aggregate_is_rejected(): void {
+        $this->declareTranslatable(Gadget::class, ['translated' => Definition::text(translatable: true)]);
+
+        $this->assertRejects(['sum(gadget.translated)'], new Trinket());
+    }
+
+    public function test_the_collapsed_value_follows_the_current_locale(): void {
+        $this->declareTranslatable(Widget::class, ['translated' => Definition::text(translatable: true)]);
+
+        Widget::forceCreate(['translated__tw' => 'Alpha', 'translated__en' => 'Beta']);
+
+        app()->setLocale('tw');
+        $tw = $this->plan(['translated'])
+            ->projection()
+            ->firstOrFail();
+
+        app()->setLocale('en');
+        $en = $this->plan(['translated'])
+            ->projection()
+            ->firstOrFail();
+
+        $this->assertSame('Alpha', $tw->getAttribute('translated'));
+        $this->assertSame('Beta', $en->getAttribute('translated'));
+    }
+
+    public function test_a_missing_locale_value_collapses_to_null_not_an_empty_string(): void {
+        $this->declareTranslatable(Widget::class, ['translated' => Definition::text(translatable: true)]);
+
+        Widget::forceCreate(['translated__tw' => 'Alpha']);
+
+        app()->setLocale('en');
+
+        $row = $this->plan(['translated'])
+            ->projection()
+            ->firstOrFail();
+
+        $this->assertNull($row->getAttribute('translated'));
+        $this->assertNull($row->getAttribute('translated__en'));
+        $this->assertSame('Alpha', $row->getAttribute('translated__tw'));
     }
 
 }

@@ -36,6 +36,15 @@ function invalid(string $field, string $error): never {
     error('validation-failed', 422, ['fields' => [$field => [$error]]]);
 }
 
+/**
+ * @return list<string>
+ */
+function locales(): array {
+    $locales = config('matrix.locales');
+
+    return tokenize(is_string($locales) ? $locales : null);
+}
+
 function member(): ?Model {
     return actor()->member();
 }

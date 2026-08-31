@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use MatrixPlatform\Attributes\Declared;
+use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Support\MetadataRegistry;
 use ReflectionClass;
 use Tests\FeatureTestCase;
@@ -44,7 +45,12 @@ class DeclarationTest extends FeatureTestCase {
 
             $this->assertNotNull($definitions, $model);
 
-            $declared = array_keys($definitions);
+            $declared = [];
+
+            foreach ($definitions as $field => $definition) {
+                array_push($declared, ...$this->columnsFor($field, $definition));
+            }
+
             $columns = Schema::getColumnListing((new $model())->getTable());
 
             sort($declared);
@@ -60,8 +66,31 @@ class DeclarationTest extends FeatureTestCase {
 
             $this->assertNotNull($title, $model);
 
-            $this->assertContains($title, Schema::getColumnListing((new $model())->getTable()), $model);
+            $definitions = app(MetadataRegistry::class)->definitions($model);
+
+            $this->assertNotNull($definitions, $model);
+
+            $definition = array_get_value($definitions, $title);
+
+            $this->assertInstanceOf(Definition::class, $definition, $model);
+
+            $columns = Schema::getColumnListing((new $model())->getTable());
+
+            foreach ($this->columnsFor($title, $definition) as $column) {
+                $this->assertContains($column, $columns, $model);
+            }
         }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function columnsFor(string $field, Definition $definition): array {
+        if (!$definition->translatable) {
+            return [$field];
+        }
+
+        return array_map(fn (string $locale): string => "{$field}__{$locale}", locales());
     }
 
     public function test_every_password_column_enforces_a_policy_and_stays_optional(): void {

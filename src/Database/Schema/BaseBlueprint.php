@@ -32,4 +32,14 @@ class BaseBlueprint extends Blueprint {
         $this->timestamp('disable_time')->nullable();
     }
 
+    public function translatable(string $name, string $type = 'text', bool $unique = false, mixed ...$args): void {
+        foreach (locales() as $locale) {
+            $column = $this->{$type}("{$name}__{$locale}", ...$args)->nullable();
+
+            if ($unique) {
+                $column->unique();
+            }
+        }
+    }
+
 }

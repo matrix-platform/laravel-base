@@ -42,6 +42,7 @@ class SendMessageJobTest extends FeatureTestCase {
         $log->content = 'Body';
         $log->schedule_time = $at === null ? now()->subMinute() : now()->modify($at);
         $log->status = $status;
+        $log->locale = 'en';
 
         $log->save();
 

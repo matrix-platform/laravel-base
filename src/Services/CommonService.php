@@ -4,11 +4,14 @@ namespace MatrixPlatform\Services;
 
 use MatrixPlatform\Models\City;
 use MatrixPlatform\Models\Menu;
+use MatrixPlatform\Support\Subject;
 
 class CommonService {
 
+    public function __construct(private Subject $subject) {}
+
     /**
-     * @return list<array{id: int, title: string, areas: list<array{id: int, title: string, post_code: string}>}>
+     * @return list<array{id: int, title: ?string, areas: list<array{id: int, title: ?string, post_code: string}>}>
      */
     public function city(): array {
         $cities = City::query()
@@ -18,7 +21,7 @@ class CommonService {
         $payload = [];
 
         foreach ($cities as $city) {
-            $payload[] = ['id' => $city->id, 'title' => $city->title, 'areas' => $this->areas($city)];
+            $payload[] = ['id' => $city->id, 'title' => $this->subject->title($city), 'areas' => $this->areas($city)];
         }
 
         return $payload;
@@ -42,13 +45,13 @@ class CommonService {
     }
 
     /**
-     * @return list<array{id: int, title: string, post_code: string}>
+     * @return list<array{id: int, title: ?string, post_code: string}>
      */
     private function areas(City $city): array {
         $payload = [];
 
         foreach ($city->areas as $area) {
-            $payload[] = ['id' => $area->id, 'title' => $area->title, 'post_code' => $area->post_code];
+            $payload[] = ['id' => $area->id, 'title' => $this->subject->title($area), 'post_code' => $area->post_code];
         }
 
         return $payload;
@@ -63,7 +66,7 @@ class CommonService {
 
         foreach ($nodes as $node) {
             if ($node->parent_id === $parent) {
-                $branch[] = ['id' => $node->id, 'title' => $node->title, 'data' => $node->data, 'children' => $this->branch($nodes, $node->id)];
+                $branch[] = ['id' => $node->id, 'title' => $this->subject->title($node), 'data' => $node->data, 'children' => $this->branch($nodes, $node->id)];
             }
         }
 

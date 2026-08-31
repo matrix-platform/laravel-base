@@ -10,7 +10,7 @@ return new class extends Migration {
     public function up(): void {
         Schema::create('base_city', function (BaseBlueprint $table) {
             $table->primaryKey();
-            $table->text('title');
+            $table->translatable('title');
             $table->ranking();
             $table->auditings();
         });
@@ -18,7 +18,7 @@ return new class extends Migration {
         Schema::create('base_city_area', function (BaseBlueprint $table) {
             $table->primaryKey();
             $table->integer('city_id');
-            $table->text('title');
+            $table->translatable('title');
             $table->text('post_code');
             $table->ranking();
             $table->auditings();
@@ -29,7 +29,7 @@ return new class extends Migration {
         Schema::create('base_menu', function (BaseBlueprint $table) {
             $table->primaryKey();
             $table->integer('parent_id')->nullable();
-            $table->text('title')->nullable();
+            $table->translatable('title');
             $table->jsonb('data')->nullable();
             $table->schedules();
             $table->ranking();

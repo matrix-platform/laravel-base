@@ -14,7 +14,7 @@ class CityAreaTest extends FeatureTestCase {
         $area = new CityArea();
 
         $area->city_id = $city->id;
-        $area->title = $title;
+        $area->title__en = $title;
         $area->post_code = $postCode;
         $area->ranking = $ranking;
 
@@ -26,7 +26,7 @@ class CityAreaTest extends FeatureTestCase {
     private function city(string $title, int $ranking): City {
         $city = new City();
 
-        $city->title = $title;
+        $city->title__en = $title;
         $city->ranking = $ranking;
 
         $city->save();
@@ -36,7 +36,7 @@ class CityAreaTest extends FeatureTestCase {
 
     public function test_the_table_carries_the_declared_columns(): void {
         $this->assertSame(
-            ['id', 'city_id', 'title', 'post_code', 'ranking', 'creator_id', 'create_time', 'updater_id', 'update_time'],
+            ['id', 'city_id', 'title__tw', 'title__en', 'post_code', 'ranking', 'creator_id', 'create_time', 'updater_id', 'update_time'],
             Schema::getColumnListing('base_city_area')
         );
     }
@@ -48,7 +48,7 @@ class CityAreaTest extends FeatureTestCase {
 
         $this->assertNotNull($owner);
         $this->assertSame($taipei->id, $owner->id);
-        $this->assertSame('Taipei', $owner->title);
+        $this->assertSame('Taipei', $owner->title__en);
     }
 
     public function test_the_declared_metadata_nests_an_area_under_its_city(): void {

@@ -38,4 +38,16 @@ class HelpersTest extends FeatureTestCase {
         $this->assertSame($vendor, vendor());
     }
 
+    public function test_locales_tokenizes_the_configured_locale_list(): void {
+        config(['matrix.locales' => 'tw en']);
+
+        $this->assertSame(['tw', 'en'], locales());
+    }
+
+    public function test_locales_returns_an_empty_list_when_the_config_is_not_a_string(): void {
+        config(['matrix.locales' => null]);
+
+        $this->assertSame([], locales());
+    }
+
 }

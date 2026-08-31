@@ -11,6 +11,7 @@ use MatrixPlatform\Models\ManipulationType;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Services\Admin\DrivePermissionService;
 use MatrixPlatform\Services\Admin\DriveService;
+use MatrixPlatform\Support\Subject;
 use Tests\Factories\GroupFactory;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
@@ -34,7 +35,7 @@ class DriveServiceTest extends FeatureTestCase {
     }
 
     private function service(): DriveService {
-        return new DriveService(new DrivePermissionService());
+        return new DriveService(new DrivePermissionService(), app(Subject::class));
     }
 
     private function tone(): UploadedFile {

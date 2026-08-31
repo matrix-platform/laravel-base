@@ -76,7 +76,7 @@ class DrivePermissionServiceTest extends FeatureTestCase {
     public function test_a_group_member_may_access_the_group_anchor_and_its_descendants(): void {
         $group = GroupFactory::new()->createOne();
         $member = $this->user($group->id);
-        $groupFolder = $this->anchor($group->id, $group->title);
+        $groupFolder = $this->anchor($group->id, strval($group->title__en));
         $shared = $this->child($groupFolder, 'shared.csv');
 
         $this->assertTrue($this->service()->allowed($shared, $member));
@@ -85,7 +85,7 @@ class DrivePermissionServiceTest extends FeatureTestCase {
     public function test_someone_outside_the_group_may_not_access_the_group_anchor(): void {
         $group = GroupFactory::new()->createOne();
         $outsider = $this->user();
-        $groupFolder = $this->anchor($group->id, $group->title);
+        $groupFolder = $this->anchor($group->id, strval($group->title__en));
 
         $this->assertFalse($this->service()->allowed($groupFolder, $outsider));
     }

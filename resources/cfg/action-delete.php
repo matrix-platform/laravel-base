@@ -4,7 +4,7 @@ return [
 
     'icon' => 'fa-solid fa-trash-can',
 
-    'severity' => 'danger',
+    'severity' => 'error',
 
     'confirm' => 'actions.delete-confirm',
 

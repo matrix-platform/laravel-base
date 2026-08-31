@@ -38,6 +38,7 @@ class DispatchMessagesCommandTest extends FeatureTestCase {
         $log->content = 'Body';
         $log->schedule_time = $at === null ? now()->subMinute() : now()->modify($at);
         $log->status = $status;
+        $log->locale = 'en';
 
         $log->save();
 
@@ -52,6 +53,7 @@ class DispatchMessagesCommandTest extends FeatureTestCase {
         $log->content = 'Your code is 123456';
         $log->schedule_time = now()->subMinute();
         $log->status = MessageStatus::Scheduled;
+        $log->locale = 'en';
 
         $log->save();
 

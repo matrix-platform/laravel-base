@@ -20,6 +20,7 @@ return new class extends Migration {
             $table->text('response')->nullable();
             $table->text('error')->nullable();
             $table->text('ip')->nullable();
+            $table->text('locale');
             $table->integer('status');
             $table->auditings();
             $table->index(['status', 'schedule_time']);
@@ -36,6 +37,7 @@ return new class extends Migration {
             $table->text('response')->nullable();
             $table->text('error')->nullable();
             $table->text('ip')->nullable();
+            $table->text('locale');
             $table->integer('status');
             $table->auditings();
             $table->index(['status', 'schedule_time']);

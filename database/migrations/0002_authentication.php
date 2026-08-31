@@ -20,7 +20,7 @@ return new class extends Migration {
 
         Schema::create('base_group', function (BaseBlueprint $table) {
             $table->primaryKey();
-            $table->text('title')->unique();
+            $table->translatable('title', unique: true);
             $table->jsonb('permissions')->nullable();
             $table->auditings();
         });

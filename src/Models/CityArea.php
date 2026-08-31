@@ -10,7 +10,8 @@ use MatrixPlatform\Models\Declarations\CityAreaDeclaration;
 /**
  * @property int $id
  * @property int $city_id
- * @property string $title
+ * @property ?string $title__tw
+ * @property ?string $title__en
  * @property string $post_code
  * @property int $ranking
  * @property ?int $creator_id

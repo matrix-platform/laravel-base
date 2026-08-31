@@ -9,7 +9,8 @@ use MatrixPlatform\Models\Declarations\MenuDeclaration;
 /**
  * @property int $id
  * @property ?int $parent_id
- * @property ?string $title
+ * @property ?string $title__tw
+ * @property ?string $title__en
  * @property ?array<string, mixed> $data
  * @property ?Carbon $enable_time
  * @property ?Carbon $disable_time

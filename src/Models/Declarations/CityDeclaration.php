@@ -2,7 +2,6 @@
 
 namespace MatrixPlatform\Models\Declarations;
 
-use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Columns\Declarations\Declares;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Declarations\Definitions;
@@ -16,7 +15,7 @@ class CityDeclaration implements Declares {
     public function definitions(): array {
         return array_merge(
             Definitions::primaryKey(),
-            ['title' => new Definition(ColumnType::Text)],
+            Definitions::title(),
             Definitions::ranking(),
             Definitions::auditings()
         );

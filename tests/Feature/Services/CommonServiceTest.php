@@ -15,7 +15,7 @@ class CommonServiceTest extends FeatureTestCase {
         $area = new CityArea();
 
         $area->city_id = $city->id;
-        $area->title = $title;
+        $area->title__en = $title;
         $area->post_code = $postCode;
         $area->ranking = $ranking;
 
@@ -37,7 +37,7 @@ class CommonServiceTest extends FeatureTestCase {
     private function city(string $title, int $ranking): City {
         $city = new City();
 
-        $city->title = $title;
+        $city->title__en = $title;
         $city->ranking = $ranking;
 
         $city->save();
@@ -48,7 +48,7 @@ class CommonServiceTest extends FeatureTestCase {
     private function node(string $title, int $ranking): Menu {
         $menu = new Menu();
 
-        $menu->title = $title;
+        $menu->title__en = $title;
         $menu->ranking = $ranking;
         $menu->enable_time = now()->subDay();
 

@@ -11,7 +11,7 @@ class MenuTest extends FeatureTestCase {
 
     public function test_the_table_carries_the_declared_columns(): void {
         $this->assertSame(
-            ['id', 'parent_id', 'title', 'data', 'enable_time', 'disable_time', 'ranking', 'creator_id', 'create_time', 'updater_id', 'update_time'],
+            ['id', 'parent_id', 'title__tw', 'title__en', 'data', 'enable_time', 'disable_time', 'ranking', 'creator_id', 'create_time', 'updater_id', 'update_time'],
             Schema::getColumnListing('base_menu')
         );
     }
@@ -23,7 +23,7 @@ class MenuTest extends FeatureTestCase {
     public function test_the_data_column_reads_back_as_an_array(): void {
         $menu = new Menu();
 
-        $menu->title = 'dashboard';
+        $menu->title__en = 'dashboard';
         $menu->data = ['icon' => 'star', 'badge' => 3];
         $menu->ranking = 100;
 
@@ -39,7 +39,7 @@ class MenuTest extends FeatureTestCase {
     public function test_the_schedule_columns_read_back_as_dates(): void {
         $created = new Menu();
 
-        $created->title = 'dashboard';
+        $created->title__en = 'dashboard';
         $created->enable_time = Carbon::parse('2026-01-02 03:04:05');
         $created->disable_time = Carbon::parse('2026-02-03 04:05:06');
         $created->ranking = 100;

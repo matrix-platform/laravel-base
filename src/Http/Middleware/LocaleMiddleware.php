@@ -17,9 +17,7 @@ class LocaleMiddleware {
      * @param string|list<string|null>|null $header
      */
     private function resolve(string|array|null $header): string {
-        $locales = config('matrix.locales');
-
-        if (is_string($header) && in_array($header, tokenize(is_string($locales) ? $locales : null), true)) {
+        if (is_string($header) && in_array($header, locales(), true)) {
             return $header;
         }
 

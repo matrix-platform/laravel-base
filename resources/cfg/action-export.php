@@ -4,7 +4,7 @@ return [
 
     'icon' => 'fa-solid fa-file-export',
 
-    'severity' => 'secondary',
+    'severity' => 'default',
 
     'url' => '{prefix}/export',
 

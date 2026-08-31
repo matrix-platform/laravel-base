@@ -59,7 +59,7 @@ class MetadataRegistryTest extends TestCase {
         $registry = new MetadataRegistry();
 
         $registry->register(Widget::class, new StubDeclaration(new Metadata('widget'), [
-            'ranking' => new Definition(ColumnType::Integer)
+            'ranking' => Definition::integer()
         ]));
 
         $definitions = $registry->definitions(Widget::class);

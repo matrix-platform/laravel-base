@@ -50,7 +50,7 @@ class ColumnResolverTest extends FeatureTestCase {
     }
 
     public function test_a_declared_class_string_provider_is_resolved_to_an_instance(): void {
-        $this->declare(['title' => new Definition(ColumnType::Json, 'permissions', [], PermissionTree::class)]);
+        $this->declare(['title' => Definition::json('permissions', [], PermissionTree::class)]);
 
         $column = $this->resolve('title');
 
@@ -89,13 +89,13 @@ class ColumnResolverTest extends FeatureTestCase {
     }
 
     public function test_a_declaration_wins_over_the_cast(): void {
-        $this->declare(['title' => new Definition(ColumnType::Integer)]);
+        $this->declare(['title' => Definition::integer()]);
 
         $this->assertSame(ColumnType::Integer, $this->resolve('title')->type);
     }
 
     public function test_a_declaration_carries_presentation_and_rule(): void {
-        $this->declare(['title' => new Definition(ColumnType::Text, Presentation::Password, ['max:50'])]);
+        $this->declare(['title' => Definition::text(Presentation::Password, ['max:50'])]);
 
         $column = $this->resolve('title');
 
@@ -104,31 +104,31 @@ class ColumnResolverTest extends FeatureTestCase {
     }
 
     public function test_a_declaration_rule_can_be_deferred_to_a_closure(): void {
-        $this->declare(['title' => new Definition(ColumnType::Text, null, fn (): array => ['max:' . cfg('admin.token-idle-minutes')])]);
+        $this->declare(['title' => Definition::text(null, fn (): array => ['max:' . cfg('admin.token-idle-minutes')])]);
 
         $this->assertSame(['max:30'], $this->resolve('title')->rule);
     }
 
     public function test_a_column_rule_overrides_the_declaration_rule(): void {
-        $this->declare(['title' => new Definition(ColumnType::Text, null, ['max:50'])]);
+        $this->declare(['title' => Definition::text(null, ['max:50'])]);
 
         $this->assertSame(['numeric'], $this->resolve(['name' => 'title', 'rule' => ['numeric']])->rule);
     }
 
     public function test_a_column_rule_keeps_a_deferred_declaration_rule_from_running(): void {
-        $this->declare(['title' => new Definition(ColumnType::Text, null, fn (): array => error('unreachable'))]);
+        $this->declare(['title' => Definition::text(null, fn (): array => error('unreachable'))]);
 
         $this->assertSame(['numeric'], $this->resolve(['name' => 'title', 'rule' => ['numeric']])->rule);
     }
 
     public function test_the_dsl_overrides_the_declaration(): void {
-        $this->declare(['title' => new Definition(ColumnType::Integer)]);
+        $this->declare(['title' => Definition::integer()]);
 
         $this->assertSame(ColumnType::Boolean, $this->resolve('title:boolean')->type);
     }
 
     public function test_view_flags_are_never_inherited_from_the_declaration(): void {
-        $this->declare(['title' => new Definition(ColumnType::Text)]);
+        $this->declare(['title' => Definition::text()]);
 
         $column = $this->resolve('title');
 
@@ -139,7 +139,7 @@ class ColumnResolverTest extends FeatureTestCase {
 
     public function test_an_aggregate_wins_over_the_declaration(): void {
         app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label'), [
-            'ranking' => new Definition(ColumnType::Integer)
+            'ranking' => Definition::integer()
         ]));
 
         $this->assertSame(ColumnType::Float, $this->resolve('avg(trinkets.ranking)')->type);
@@ -147,7 +147,7 @@ class ColumnResolverTest extends FeatureTestCase {
 
     public function test_an_expression_reads_the_declaration_of_the_terminal_model(): void {
         app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label'), [
-            'ranking' => new Definition(ColumnType::Integer)
+            'ranking' => Definition::integer()
         ]));
 
         $this->assertSame(ColumnType::Integer, $this->resolve('trinkets.ranking')->type);
@@ -176,7 +176,7 @@ class ColumnResolverTest extends FeatureTestCase {
     public function test_an_uncast_integer_column_needs_a_declaration(): void {
         $this->assertSame(ColumnType::Text, $this->resolve('ranking')->type);
 
-        $this->declare(['ranking' => new Definition(ColumnType::Integer)]);
+        $this->declare(['ranking' => Definition::integer()]);
 
         $this->assertSame(ColumnType::Integer, $this->resolve('ranking')->type);
     }

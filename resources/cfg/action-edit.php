@@ -4,7 +4,7 @@ return [
 
     'icon' => 'fa-solid fa-pen-to-square',
 
-    'severity' => 'secondary',
+    'severity' => 'default',
 
     'navigate' => true,
 

@@ -5,7 +5,6 @@ namespace MatrixPlatform\Http\Controllers\Admin;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use MatrixPlatform\Attributes\Action;
 use MatrixPlatform\Http\Controllers\BaseController;
 use MatrixPlatform\Services\FileService;
@@ -23,8 +22,7 @@ class FileController extends BaseController {
 
         $file = $this->service->find($request->string('path')->value());
 
-        return Storage::disk($this->service->disk($file->privilege))
-            ->response($this->service->location($file), $file->name, ['Content-Type' => $file->mime_type === null ? 'application/octet-stream' : $file->mime_type]);
+        return $this->stream($this->service->disk($file->privilege), $this->service->location($file), $file->name, $file->mime_type);
     }
 
     #[Action]
@@ -35,7 +33,7 @@ class FileController extends BaseController {
             'description' => ['nullable', 'string']
         ]);
 
-        $this->service->update($request->string('path')->value(), $request->string('name')->value(), $this->optional($request, 'description'));
+        $this->service->update($request->string('path')->value(), $request->string('name')->value(), $this->optionalString($request, 'description'));
 
         return response()->json(['success' => true]);
     }
@@ -57,11 +55,7 @@ class FileController extends BaseController {
             error('validation-failed', 422);
         }
 
-        return ['path' => $this->service->upload($file, $request->integer('privilege'), null, null, $this->optional($request, 'usage'))->path];
-    }
-
-    private function optional(Request $request, string $key): ?string {
-        return $request->filled($key) ? $request->string($key)->value() : null;
+        return ['path' => $this->service->upload($file, $request->integer('privilege'), null, null, $this->optionalString($request, 'usage'))->path];
     }
 
 }

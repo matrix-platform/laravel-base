@@ -9,7 +9,8 @@ use MatrixPlatform\Models\Declarations\CityDeclaration;
 
 /**
  * @property int $id
- * @property string $title
+ * @property ?string $title__tw
+ * @property ?string $title__en
  * @property int $ranking
  * @property ?int $creator_id
  * @property Carbon $create_time

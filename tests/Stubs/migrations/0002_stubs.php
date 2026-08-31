@@ -14,6 +14,7 @@ return new class extends Migration {
             $table->text('ip')->nullable();
             $table->integer('trinket_id')->nullable();
             $table->jsonb('payload')->nullable();
+            $table->translatable('translated');
             $table->ranking();
             $table->schedules();
             $table->auditings();
@@ -40,6 +41,7 @@ return new class extends Migration {
         Schema::create('stub_gadget', function (BaseBlueprint $table) {
             $table->primaryKey();
             $table->text('title')->nullable();
+            $table->translatable('translated');
             $table->auditings();
         });
     }

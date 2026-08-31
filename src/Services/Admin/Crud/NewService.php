@@ -2,8 +2,6 @@
 
 namespace MatrixPlatform\Services\Admin\Crud;
 
-use MatrixPlatform\Columns\Column;
-
 class NewService extends CrudService {
 
     /**
@@ -29,7 +27,7 @@ class NewService extends CrudService {
         $this->attach($model);
 
         $parents = $this->subject->parents($model, $model);
-        $blank = array_fill_keys(array_map(fn (Column $column): string => $column->name, $this->local()), null);
+        $blank = array_fill_keys($this->names($this->local()), null);
 
         return [
             'title' => $this->title(),

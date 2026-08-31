@@ -2,7 +2,6 @@
 
 namespace MatrixPlatform\Models\Declarations;
 
-use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Columns\Declarations\Declares;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Declarations\Definitions;
@@ -17,8 +16,8 @@ class OperatorDeclaration implements Declares {
         return array_merge(
             Definitions::primaryKey(),
             [
-                'type' => new Definition(ColumnType::Text),
-                'username' => new Definition(ColumnType::Text)
+                'type' => Definition::text(),
+                'username' => Definition::text()
             ]
         );
     }

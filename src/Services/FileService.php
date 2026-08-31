@@ -5,7 +5,6 @@ namespace MatrixPlatform\Services;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use MatrixPlatform\Models\File;
 use MatrixPlatform\Support\RollbackCallbacks;
 
@@ -22,7 +21,7 @@ class FileService {
     }
 
     public function location(File $file): string {
-        return self::FOLDER . $file->path;
+        return app(FileStorage::class)->location(self::FOLDER, $file->path);
     }
 
     public function update(string $path, string $name, ?string $description): File {
@@ -53,11 +52,7 @@ class FileService {
             error('file-too-large');
         }
 
-        $hash = hash_file('sha256', $file->getPathname());
-
-        if ($hash === false) {
-            error('request-failed');
-        }
+        $hash = app(FileStorage::class)->hash($file);
 
         $existing = File::query()
             ->where('hash', $hash)
@@ -71,7 +66,7 @@ class FileService {
         }
 
         $disk = $this->disk($privilege);
-        $path = $this->store($file, $disk);
+        $path = app(FileStorage::class)->store($file, $disk, self::FOLDER);
 
         app(RollbackCallbacks::class)->register(fn () => Storage::disk($disk)->delete(self::FOLDER . $path));
 
@@ -111,14 +106,6 @@ class FileService {
         $patterns = cfg('file.mime-patterns');
 
         return tokenize(is_string($patterns) ? $patterns : null);
-    }
-
-    private function store(UploadedFile $file, string $disk): string {
-        $path = date('Ym') . '/' . Str::random(32);
-
-        Storage::disk($disk)->putFileAs(self::FOLDER, $file, $path);
-
-        return $path;
     }
 
 }

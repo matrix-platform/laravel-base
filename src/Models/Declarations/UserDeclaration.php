@@ -2,7 +2,6 @@
 
 namespace MatrixPlatform\Models\Declarations;
 
-use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Columns\Declarations\Declares;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Declarations\Definitions;
@@ -18,16 +17,13 @@ class UserDeclaration implements Declares {
         return array_merge(
             Definitions::primaryKey(),
             [
-                'username' => new Definition(ColumnType::Text),
-                'password' => new Definition(ColumnType::Text, Presentation::Password, fn (): array => [
-                    'exclude_if:password,null',
-                    'regex:' . cfg('admin.password-pattern')
-                ]),
-                'group_id' => new Definition(ColumnType::Integer)
+                'username' => Definition::text(),
+                'password' => Definition::text(Presentation::Password, fn (): array => ['exclude_if:password,null', 'regex:' . cfg('admin.password-pattern')]),
+                'group_id' => Definition::integer()
             ],
             Definitions::permissions(),
             Definitions::schedules(),
-            ['disabled' => new Definition(ColumnType::Boolean)],
+            ['disabled' => Definition::boolean()],
             Definitions::auditings()
         );
     }

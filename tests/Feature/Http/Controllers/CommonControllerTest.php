@@ -22,7 +22,7 @@ class CommonControllerTest extends FeatureTestCase {
     private function node(string $title, int $ranking): Menu {
         $menu = new Menu();
 
-        $menu->title = $title;
+        $menu->title__en = $title;
         $menu->ranking = $ranking;
         $menu->enable_time = now()->subDay();
 
@@ -34,7 +34,7 @@ class CommonControllerTest extends FeatureTestCase {
     public function test_the_city_endpoint_answers_without_any_identity(): void {
         $taipei = new City();
 
-        $taipei->title = 'Taipei';
+        $taipei->title__en = 'Taipei';
         $taipei->ranking = 100;
 
         $taipei->save();
@@ -42,7 +42,7 @@ class CommonControllerTest extends FeatureTestCase {
         $area = new CityArea();
 
         $area->city_id = $taipei->id;
-        $area->title = 'Daan';
+        $area->title__en = 'Daan';
         $area->post_code = '106';
         $area->ranking = 100;
 

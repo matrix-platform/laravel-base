@@ -2,8 +2,6 @@
 
 namespace MatrixPlatform\Services\Admin\Crud;
 
-use MatrixPlatform\Columns\Column;
-
 class GetService extends CrudService {
 
     /**
@@ -29,7 +27,7 @@ class GetService extends CrudService {
         $this->inspect($model);
 
         $parents = $this->subject->parents($model, $model);
-        $names = array_map(fn (Column $column): string => $column->name, $this->columns);
+        $names = $this->names($this->columns);
 
         return [
             'title' => $this->title(),

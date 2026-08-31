@@ -26,7 +26,9 @@ class Column {
         public readonly array $rule,
         public readonly bool $sortable,
         public readonly string $title,
+        public readonly bool $translatable,
         public readonly ColumnType $type,
+        public readonly bool $unique,
         public readonly bool $virtual
     ) {}
 

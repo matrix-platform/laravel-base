@@ -357,8 +357,8 @@ class WidgetDeclaration implements Declares {
         return array_merge(
             Definitions::primaryKey(),
             [
-                'title' => new Definition(ColumnType::Text),
-                'category_id' => new Definition(ColumnType::Integer)
+                'title' => Definition::text(),
+                'category_id' => Definition::integer()
             ],
             Definitions::schedules(),
             Definitions::auditings()
@@ -659,6 +659,7 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 |---|---|
 | `matrix:passwd` | 設定後台帳號密碼,建立管理員的唯一官方入口 |
 | `matrix:prune-tokens` | 刪掉已經不能用來認證的 token,`--limit` 控制每批筆數（預設 1000） |
+| `matrix:sync-translatable` | 掃描所有套件、所有 Model 的 translatable 欄位,幫缺少目前設定語言的欄位補上實體欄位（皆為 nullable,不回填） |
 | `messages:dispatch` | 為每個有待送訊息的 channel 派送一個發送工作;任一 channel 設定壞掉就回非零 exit code |
 
 ### 錯誤代碼

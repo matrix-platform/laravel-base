@@ -32,7 +32,7 @@ class AdminPermissionTest extends FeatureTestCase {
      * @param array<string, array<string, bool>> $permissions
      */
     private function grantGroup(int $id, array $permissions): void {
-        Group::forceCreate(['id' => $id, 'title' => "group-{$id}", 'permissions' => $permissions]);
+        Group::forceCreate(['id' => $id, 'title__tw' => "group-{$id}", 'title__en' => "group-{$id}", 'permissions' => $permissions]);
     }
 
     /**

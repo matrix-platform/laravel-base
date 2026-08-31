@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOneOrMany;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Unique;
 use MatrixPlatform\Columns\Column;
 use MatrixPlatform\Columns\ColumnResolver;
 use MatrixPlatform\Columns\Presentation;
@@ -111,6 +113,17 @@ abstract class CrudService {
         return $this;
     }
 
+    /**
+     * @param array<string, mixed> $values
+     */
+    protected function assignTranslated(Model $model, Column $column, array $values): void {
+        foreach ($this->translated($column) as $key) {
+            if (array_key_exists($key, $values)) {
+                $model->setAttribute($key, $values[$key]);
+            }
+        }
+    }
+
     protected function attach(Model $model): void {
         $foreign = $this->foreign();
 
@@ -192,6 +205,24 @@ abstract class CrudService {
     }
 
     /**
+     * @param list<Column> $columns
+     * @return list<string>
+     */
+    protected function names(array $columns): array {
+        $names = [];
+
+        foreach ($columns as $column) {
+            $names[] = $column->name;
+
+            if ($column->translatable) {
+                array_push($names, ...$this->translated($column));
+            }
+        }
+
+        return $names;
+    }
+
+    /**
      * @param list<Operation> $operations
      * @return list<array<string, mixed>>
      */
@@ -254,9 +285,9 @@ abstract class CrudService {
     }
 
     /**
-     * @return array<string, list<string>>
+     * @return array<string, list<string|Unique>>
      */
-    protected function rules(): array {
+    protected function rules(int|string|null $ignoreId = null): array {
         $rules = [];
 
         foreach ($this->local() as $column) {
@@ -266,8 +297,11 @@ abstract class CrudService {
 
             $rule = $column->rule === [] ? [$column->type->rule()] : $column->rule;
             $prefix = $column->required ? ['required'] : ['present', 'nullable'];
+            $keys = $column->translatable ? $this->translated($column) : [$column->name];
 
-            $rules[$column->name] = [...$prefix, ...$rule];
+            foreach ($keys as $key) {
+                $rules[$key] = $column->unique ? [...$prefix, ...$rule, $this->uniqueRule($key, $ignoreId)] : [...$prefix, ...$rule];
+            }
         }
 
         return $rules;
@@ -280,6 +314,7 @@ abstract class CrudService {
         return [
             'name' => $column->name,
             'title' => $column->title,
+            'translatable' => $column->translatable,
             'type' => $column->type->value,
             'presentation' => $column->presentation instanceof Presentation ? $column->presentation->value : $column->presentation
         ];
@@ -307,12 +342,20 @@ abstract class CrudService {
     }
 
     /**
+     * @param list<string>|null $locales
+     * @return list<string>
+     */
+    protected function translated(Column $column, ?array $locales = null): array {
+        return array_map(fn (string $locale): string => "{$column->name}__{$locale}", $locales === null ? locales() : $locales);
+    }
+
+    /**
      * @return array<string, mixed>
      */
-    protected function validated(mixed $input): array {
+    protected function validated(mixed $input, int|string|null $ignoreId = null): array {
         $values = is_array($input) ? $input : [];
 
-        return Validator::make($values, $this->rules())->validate();
+        return Validator::make($values, $this->rules($ignoreId))->validate();
     }
 
     /**
@@ -388,6 +431,12 @@ abstract class CrudService {
      */
     private function resolve(string|array $column): Column {
         return $this->resolver->resolve((new ColumnParser())->parse($column), $this->model);
+    }
+
+    private function uniqueRule(string $field, int|string|null $ignoreId): Unique {
+        $rule = Rule::unique($this->model->getTable(), $field);
+
+        return $ignoreId === null ? $rule : $rule->ignore($ignoreId);
     }
 
 }

@@ -4,7 +4,6 @@ namespace MatrixPlatform\Http\Controllers\Admin;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use MatrixPlatform\Attributes\Action;
 use MatrixPlatform\Http\Controllers\BaseController;
 use MatrixPlatform\Models\DriveNode;
@@ -50,8 +49,7 @@ class DriveController extends BaseController {
             error('data-not-found', 404);
         }
 
-        return Storage::disk($this->service->disk())
-            ->response($this->service->location($node), $node->name, ['Content-Type' => $node->mime_type === null ? 'application/octet-stream' : $node->mime_type]);
+        return $this->stream($this->service->disk(), $this->service->location($node), $node->name, $node->mime_type);
     }
 
     /**
@@ -114,10 +112,12 @@ class DriveController extends BaseController {
      */
     #[Action('{id}/path')]
     public function path(Request $request): array {
+        $ancestors = $this->service->path($this->node($request, withTrashed: true), actor()->requireUser());
+        $deletedBy = $this->service->deletedByMany($ancestors);
         $payload = [];
 
-        foreach ($this->service->path($this->node($request, withTrashed: true), actor()->requireUser()) as $ancestor) {
-            $payload[] = $this->present($ancestor);
+        foreach ($ancestors as $ancestor) {
+            $payload[] = $this->present($ancestor, $deletedBy);
         }
 
         return $payload;
@@ -202,10 +202,6 @@ class DriveController extends BaseController {
         return $request->filled($key) ? $request->integer($key) : null;
     }
 
-    private function optionalString(Request $request, string $key): ?string {
-        return $request->filled($key) ? $request->string($key)->value() : null;
-    }
-
     /**
      * @param array<int, int> $deletedByMap
      * @return array<string, mixed>
@@ -225,7 +221,7 @@ class DriveController extends BaseController {
             'create_time' => $node->create_time,
             'update_time' => $node->update_time,
             'deleted_at' => $node->deleted_at,
-            'deleted_by' => $deletedByMap === null ? $this->service->deletedBy($node) : ($deletedByMap[$node->id] ?? null)
+            'deleted_by' => $deletedByMap === null ? $this->service->deletedBy($node) : (array_key_exists($node->id, $deletedByMap) ? $deletedByMap[$node->id] : null)
         ];
     }
 

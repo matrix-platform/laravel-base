@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Support;
 
+use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
@@ -80,6 +81,20 @@ class SubjectTest extends FeatureTestCase {
         $trinket = Trinket::forceCreate(['label' => 'labelled']);
 
         $this->assertSame('labelled', $this->subject()->title($trinket));
+    }
+
+    public function test_the_title_collapses_a_translatable_declared_column_to_the_current_locale(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget', 'translated'), [
+            'translated' => Definition::text(translatable: true)
+        ]));
+
+        $widget = Widget::forceCreate(['translated__tw' => 'Alpha', 'translated__en' => 'Beta']);
+
+        app()->setLocale('tw');
+        $this->assertSame('Alpha', $this->subject()->title($widget));
+
+        app()->setLocale('en');
+        $this->assertSame('Beta', $this->subject()->title($widget));
     }
 
     public function test_the_parents_chain_is_resolved_from_the_source(): void {

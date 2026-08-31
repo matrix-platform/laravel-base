@@ -13,7 +13,7 @@ class CityTest extends FeatureTestCase {
         $area = new CityArea();
 
         $area->city_id = $city->id;
-        $area->title = $title;
+        $area->title__en = $title;
         $area->post_code = $postCode;
         $area->ranking = $ranking;
 
@@ -25,7 +25,7 @@ class CityTest extends FeatureTestCase {
     private function city(string $title, int $ranking): City {
         $city = new City();
 
-        $city->title = $title;
+        $city->title__en = $title;
         $city->ranking = $ranking;
 
         $city->save();
@@ -35,7 +35,7 @@ class CityTest extends FeatureTestCase {
 
     public function test_the_table_carries_the_declared_columns(): void {
         $this->assertSame(
-            ['id', 'title', 'ranking', 'creator_id', 'create_time', 'updater_id', 'update_time'],
+            ['id', 'title__tw', 'title__en', 'ranking', 'creator_id', 'create_time', 'updater_id', 'update_time'],
             Schema::getColumnListing('base_city')
         );
     }
@@ -47,7 +47,7 @@ class CityTest extends FeatureTestCase {
         $this->area($taipei, 'Daan', '106', 100);
         $this->area($kaohsiung, 'Cijin', '805', 100);
 
-        $this->assertSame(['Daan'], $taipei->areas()->pluck('title')->all());
+        $this->assertSame(['Daan'], $taipei->areas()->pluck('title__en')->all());
     }
 
     public function test_the_relation_orders_the_areas_by_ranking(): void {
@@ -57,7 +57,7 @@ class CityTest extends FeatureTestCase {
         $this->area($city, 'Datong', '103', 200);
         $this->area($city, 'Zhongzheng', '100', 100);
 
-        $this->assertSame(['Zhongzheng', 'Datong', 'Daan'], $city->areas()->pluck('title')->all());
+        $this->assertSame(['Zhongzheng', 'Datong', 'Daan'], $city->areas()->pluck('title__en')->all());
     }
 
 }

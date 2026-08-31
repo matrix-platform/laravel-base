@@ -108,6 +108,7 @@ abstract class MessageService {
         $log->content = strval(array_get_value($rendered, 'content'));
         $log->template = $template;
         $log->schedule_time = $at;
+        $log->locale = app()->getLocale();
 
         foreach ($this->attributes($rendered, $provider) as $key => $value) {
             $log->setAttribute($key, $value);

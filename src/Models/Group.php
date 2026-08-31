@@ -9,7 +9,8 @@ use MatrixPlatform\Models\Declarations\GroupDeclaration;
 
 /**
  * @property int $id
- * @property string $title
+ * @property ?string $title__tw
+ * @property ?string $title__en
  * @property-read array<string, array<string, bool>> $permissions
  * @property-write array<string, mixed>|object|null $permissions
  * @property ?int $creator_id

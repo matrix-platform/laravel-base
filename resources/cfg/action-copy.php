@@ -4,7 +4,7 @@ return [
 
     'icon' => 'fa-solid fa-copy',
 
-    'severity' => 'secondary',
+    'severity' => 'default',
 
     'confirm' => 'actions.copy-confirm',
 

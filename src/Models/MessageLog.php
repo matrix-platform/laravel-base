@@ -17,6 +17,7 @@ use MatrixPlatform\Models\Generators\CreatorAddress;
  * @property ?string $response
  * @property ?string $error
  * @property ?string $ip
+ * @property string $locale
  * @property MessageStatus $status
  * @property ?int $creator_id
  * @property Carbon $create_time

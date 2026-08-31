@@ -2,7 +2,6 @@
 
 namespace MatrixPlatform\Models\Declarations;
 
-use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Columns\Declarations\Declares;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Declarations\Definitions;
@@ -19,16 +18,17 @@ class SmsLogDeclaration implements Declares {
         return array_merge(
             Definitions::primaryKey(),
             [
-                'provider' => new Definition(ColumnType::Text),
-                'receiver' => new Definition(ColumnType::Text),
-                'content' => new Definition(ColumnType::Text),
-                'template' => new Definition(ColumnType::Text),
-                'schedule_time' => new Definition(ColumnType::DateTime),
-                'send_time' => new Definition(ColumnType::DateTime),
-                'response' => new Definition(ColumnType::Text),
-                'error' => new Definition(ColumnType::Text),
-                'ip' => new Definition(ColumnType::Text),
-                'status' => new Definition(ColumnType::Integer, Presentation::Select, [], new BundleOptions('sms-log-status'))
+                'provider' => Definition::text(),
+                'receiver' => Definition::text(),
+                'content' => Definition::text(),
+                'template' => Definition::text(),
+                'schedule_time' => Definition::dateTime(),
+                'send_time' => Definition::dateTime(),
+                'response' => Definition::text(),
+                'error' => Definition::text(),
+                'ip' => Definition::text(),
+                'locale' => Definition::text(),
+                'status' => Definition::integer(Presentation::Select, [], new BundleOptions('sms-log-status'))
             ],
             Definitions::auditings()
         );

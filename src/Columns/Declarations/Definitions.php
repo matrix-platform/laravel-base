@@ -2,7 +2,6 @@
 
 namespace MatrixPlatform\Columns\Declarations;
 
-use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Support\PermissionTree;
 
 class Definitions {
@@ -12,8 +11,8 @@ class Definitions {
      */
     public static function auditings(bool $updated = true): array {
         $definitions = [
-            'creator_id' => new Definition(ColumnType::Integer),
-            'create_time' => new Definition(ColumnType::DateTime)
+            'creator_id' => Definition::integer(),
+            'create_time' => Definition::dateTime()
         ];
 
         if (!$updated) {
@@ -21,8 +20,8 @@ class Definitions {
         }
 
         return array_merge($definitions, [
-            'updater_id' => new Definition(ColumnType::Integer),
-            'update_time' => new Definition(ColumnType::DateTime)
+            'updater_id' => Definition::integer(),
+            'update_time' => Definition::dateTime()
         ]);
     }
 
@@ -30,21 +29,21 @@ class Definitions {
      * @return array<string, Definition>
      */
     public static function permissions(): array {
-        return ['permissions' => new Definition(ColumnType::Json, 'permissions', [], PermissionTree::class)];
+        return ['permissions' => Definition::json('permissions', [], PermissionTree::class)];
     }
 
     /**
      * @return array<string, Definition>
      */
     public static function primaryKey(): array {
-        return ['id' => new Definition(ColumnType::Integer)];
+        return ['id' => Definition::integer()];
     }
 
     /**
      * @return array<string, Definition>
      */
     public static function ranking(): array {
-        return ['ranking' => new Definition(ColumnType::Integer)];
+        return ['ranking' => Definition::integer()];
     }
 
     /**
@@ -52,9 +51,16 @@ class Definitions {
      */
     public static function schedules(): array {
         return [
-            'enable_time' => new Definition(ColumnType::DateTime),
-            'disable_time' => new Definition(ColumnType::DateTime)
+            'enable_time' => Definition::dateTime(),
+            'disable_time' => Definition::dateTime()
         ];
+    }
+
+    /**
+     * @return array<string, Definition>
+     */
+    public static function title(bool $unique = false): array {
+        return ['title' => Definition::text(translatable: true, required: true, unique: $unique)];
     }
 
 }
