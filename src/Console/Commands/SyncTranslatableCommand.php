@@ -19,14 +19,14 @@ class SyncTranslatableCommand extends Command {
         'app/Models' => 'App\\Models'
     ];
 
+    protected $description = 'Add the missing per-locale entity columns for every translatable field';
+
+    protected $signature = 'matrix:sync-translatable';
+
     /**
      * @var array<string, array<string, string>>
      */
     private array $columns = [];
-
-    protected $description = 'Add the missing per-locale entity columns for every translatable field';
-
-    protected $signature = 'matrix:sync-translatable';
 
     public function handle(): int {
         $this->columns = [];

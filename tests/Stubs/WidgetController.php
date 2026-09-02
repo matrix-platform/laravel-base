@@ -24,7 +24,7 @@ class WidgetController extends CrudController {
 
     protected string $model = Widget::class;
 
-    protected bool $sortable = true;
+    protected ?bool $sortable = true;
 
     protected array $sorting = ['-ranking'];
 

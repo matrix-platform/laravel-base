@@ -14,8 +14,4 @@ class GadgetController extends CrudController {
 
     protected bool $standalone = true;
 
-    protected array $updates = [
-        'title'
-    ];
-
 }

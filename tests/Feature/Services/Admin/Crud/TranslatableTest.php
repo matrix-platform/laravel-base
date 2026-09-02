@@ -127,8 +127,8 @@ class TranslatableTest extends FeatureTestCase {
     public function test_the_column_shape_reports_whether_a_column_is_translatable(): void {
         $columns = (new ListService(Widget::class))->standalone(true)->columns(['title', 'translated'])->list([])['columns'];
 
-        $this->assertFalse($columns[1]['translatable']);
-        $this->assertTrue($columns[2]['translatable']);
+        $this->assertFalse($columns[0]['translatable']);
+        $this->assertTrue($columns[1]['translatable']);
     }
 
     public function test_list_rows_carry_the_collapsed_value_alongside_every_locale(): void {

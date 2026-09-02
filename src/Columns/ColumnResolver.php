@@ -241,7 +241,7 @@ class ColumnResolver {
             return $column->sortable;
         }
 
-        return $presentation !== Presentation::Hidden && $type !== ColumnType::Boolean;
+        return $presentation !== Presentation::Hidden && $type !== ColumnType::Boolean && $type !== ColumnType::Json;
     }
 
     /**

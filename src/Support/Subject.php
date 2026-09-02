@@ -15,6 +15,13 @@ class Subject {
         return $this->metadata($model)->alias;
     }
 
+    /**
+     * @return BelongsTo<Model, Model>|null
+     */
+    public function belongsTo(Model $model, string $name): ?BelongsTo {
+        return $this->guarded($model, $name);
+    }
+
     public function foreign(Model $model): ?string {
         $relation = $this->parent($model);
 
@@ -79,6 +86,15 @@ class Subject {
         return is_scalar($value) ? strval($value) : null;
     }
 
+    /**
+     * @return BelongsTo<Model, Model>|null
+     */
+    private function guarded(Model $model, string $name): ?BelongsTo {
+        $relation = $model->isRelation($name) ? $model->{$name}() : null;
+
+        return $relation instanceof BelongsTo && !$relation instanceof MorphTo ? $relation : null;
+    }
+
     private function metadata(Model $model): Metadata {
         $metadata = $this->registry->of($model::class);
 
@@ -124,9 +140,9 @@ class Subject {
      * @return BelongsTo<Model, Model>
      */
     private function relation(Model $model, string $name): BelongsTo {
-        $relation = $model->isRelation($name) ? $model->{$name}() : null;
+        $relation = $this->guarded($model, $name);
 
-        if (!$relation instanceof BelongsTo || $relation instanceof MorphTo) {
+        if ($relation === null) {
             error('invalid-parent-relation');
         }
 

@@ -41,6 +41,8 @@ return new class extends Migration {
         Schema::create('stub_gadget', function (BaseBlueprint $table) {
             $table->primaryKey();
             $table->text('title')->nullable();
+            $table->integer('widget_id')->nullable();
+            $table->jsonb('attachments')->nullable();
             $table->translatable('translated');
             $table->auditings();
         });

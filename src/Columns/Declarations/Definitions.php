@@ -28,6 +28,13 @@ class Definitions {
     /**
      * @return array<string, Definition>
      */
+    public static function disabled(): array {
+        return ['disabled' => Definition::boolean()];
+    }
+
+    /**
+     * @return array<string, Definition>
+     */
     public static function permissions(): array {
         return ['permissions' => Definition::json('permissions', [], PermissionTree::class)];
     }

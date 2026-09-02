@@ -5,8 +5,19 @@ namespace MatrixPlatform\Services\Admin\Crud;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
+use MatrixPlatform\Support\MetadataRegistry;
 
 class SortService extends CrudService {
+
+    private string $ranking;
+
+    public function __construct(string $model) {
+        parent::__construct($model);
+
+        $metadata = app(MetadataRegistry::class)->of($model);
+
+        $this->ranking = $metadata !== null && $metadata->ranking !== null ? $metadata->ranking : 'ranking';
+    }
 
     /**
      * @return array{rows: list<array<string, mixed>>}
@@ -18,7 +29,7 @@ class SortService extends CrudService {
             $rows[] = [
                 'id' => $model->getKey(),
                 'title' => $this->subject->title($model),
-                'ranking' => $model->getAttribute('ranking')
+                'ranking' => $model->getAttribute($this->ranking)
             ];
         }
 
@@ -47,12 +58,12 @@ class SortService extends CrudService {
             error('invalid-sort-order');
         }
 
-        $rankings = Ranking::reassign(array_map(fn (string $id): int => intval($models[$id]->getAttribute('ranking')), $order));
+        $rankings = Ranking::reassign(array_map(fn (string $id): int => intval($models[$id]->getAttribute($this->ranking)), $order));
 
         foreach ($order as $index => $id) {
             $model = $models[$id];
 
-            $model->setAttribute('ranking', $rankings[$index]);
+            $model->setAttribute($this->ranking, $rankings[$index]);
 
             $this->inspect($model);
 
@@ -67,7 +78,7 @@ class SortService extends CrudService {
      */
     private function ordered(): Collection {
         return $this->plain()
-            ->orderBy('ranking')
+            ->orderBy($this->ranking)
             ->orderBy('id')
             ->get();
     }

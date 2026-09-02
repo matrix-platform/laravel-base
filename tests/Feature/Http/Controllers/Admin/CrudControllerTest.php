@@ -5,6 +5,8 @@ namespace Tests\Feature\Http\Controllers\Admin;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
+use MatrixPlatform\Columns\Declarations\Definition;
+use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Routing\ActionRoutes;
@@ -46,7 +48,7 @@ class CrudControllerTest extends FeatureTestCase {
 
         app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
         app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'widget')));
-        app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget')));
+        app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget'), ['title' => Definition::text()]));
 
         $this->token = UserFactory::new()->createOne(['id' => User::ROOT])->createToken();
     }
@@ -81,8 +83,7 @@ class CrudControllerTest extends FeatureTestCase {
         $response->assertJsonPath('data.rows.0.trinkets_count', 1);
         $response->assertJsonPath('data.rows.0.actions', ['edit', 'delete']);
         $response->assertJsonPath('data.pagination', ['page' => 1, 'size' => 10, 'total' => 1]);
-        $response->assertJsonPath('data.columns.0.name', 'id');
-        $response->assertJsonPath('data.columns.0.presentation', 'hidden');
+        $response->assertJsonPath('data.columns.0.name', 'title');
         $response->assertJsonPath('data.actions.page.0.type', 'new');
         $response->assertJsonPath('data.actions.row.0.type', 'edit');
     }
@@ -100,7 +101,7 @@ class CrudControllerTest extends FeatureTestCase {
 
         $response = $this->admin('admin/widget');
 
-        $this->assertSame('widget/{id}/trinket', $response->json('data.columns.2.path'));
+        $this->assertSame('widget/{id}/trinket', $response->json('data.columns.1.path'));
     }
 
     public function test_an_aggregate_column_has_no_path_when_the_menu_lacks_it(): void {
@@ -109,7 +110,7 @@ class CrudControllerTest extends FeatureTestCase {
 
         $response = $this->admin('admin/widget');
 
-        $this->assertNull($response->json('data.columns.2.path'));
+        $this->assertNull($response->json('data.columns.1.path'));
     }
 
     public function test_the_default_sorting_is_applied(): void {
@@ -125,6 +126,92 @@ class CrudControllerTest extends FeatureTestCase {
         $response = $this->admin('admin/widget');
 
         $this->assertSame(['Beta', 'Alpha'], array_column($response->json('data.rows'), 'title'));
+    }
+
+    public function test_the_default_sorting_falls_back_to_id_without_a_declared_ranking(): void {
+        Gadget::forceCreate(['id' => 2, 'title' => 'Beta']);
+        Gadget::forceCreate(['id' => 1, 'title' => 'Alpha']);
+
+        $response = $this->admin('admin/gadget');
+
+        $this->assertSame(['Alpha', 'Beta'], array_column($response->json('data.rows'), 'title'));
+    }
+
+    public function test_the_default_sorting_can_follow_a_differently_named_ranking_field(): void {
+        app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'widget', ranking: 'amount')));
+
+        $widget = $this->widget('Alpha');
+        Trinket::forceCreate(['label' => 'first', 'widget_id' => $widget->id, 'amount' => 20]);
+        Trinket::forceCreate(['label' => 'second', 'widget_id' => $widget->id, 'amount' => 10]);
+
+        $response = $this->admin("admin/widget/{$widget->id}/trinket");
+
+        $this->assertSame(['second', 'first'], array_column($response->json('data.rows'), 'label'));
+    }
+
+    public function test_a_nested_trinket_row_carries_its_widget_foreign_key(): void {
+        $widget = $this->widget('Alpha');
+        Trinket::forceCreate(['label' => 'mine', 'widget_id' => $widget->id]);
+
+        $response = $this->admin("admin/widget/{$widget->id}/trinket");
+
+        $this->assertSame($widget->id, $response->json('data.rows.0.widget_id'));
+    }
+
+    public function test_updates_derive_from_the_declared_definitions_when_not_overridden(): void {
+        app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget', ranking: 'ranking'), [
+            'id' => Definition::integer(),
+            'title' => Definition::text(),
+            'ranking' => Definition::integer(),
+            'creator_id' => Definition::integer(),
+            'create_time' => Definition::dateTime()
+        ]));
+
+        $this->admin('admin/gadget/insert', ['title' => 'Created'])->assertJsonPath('success', true);
+
+        $names = array_column($this->admin('admin/gadget/new')->json('data.columns'), 'name');
+
+        $this->assertSame(['title'], $names);
+    }
+
+    public function test_listing_derives_from_updates_but_excludes_sensitive_or_custom_columns(): void {
+        app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget'), [
+            'id' => Definition::integer(),
+            'title' => Definition::text(),
+            'attachments' => Definition::json(),
+            'permissions' => Definition::json('permissions'),
+            'password' => Definition::text(Presentation::Password),
+            'creator_id' => Definition::integer(),
+            'create_time' => Definition::dateTime()
+        ]));
+
+        $listNames = array_column($this->admin('admin/gadget')->json('data.columns'), 'name');
+        $newNames = array_column($this->admin('admin/gadget/new')->json('data.columns'), 'name');
+
+        $this->assertSame(['title', 'attachments'], $listNames);
+        $this->assertSame(['title', 'attachments', 'permissions', 'password'], $newNames);
+    }
+
+    public function test_the_auto_derived_listing_joins_a_foreign_key_into_its_related_title(): void {
+        $widget = $this->widget('Alpha');
+
+        app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget'), [
+            'id' => Definition::integer(),
+            'title' => Definition::text(),
+            'widget_id' => Definition::integer(),
+            'creator_id' => Definition::integer(),
+            'create_time' => Definition::dateTime()
+        ]));
+
+        Gadget::forceCreate(['title' => 'Beta', 'widget_id' => $widget->id]);
+
+        $listResponse = $this->admin('admin/gadget');
+        $listNames = array_column($listResponse->json('data.columns'), 'name');
+        $newNames = array_column($this->admin('admin/gadget/new')->json('data.columns'), 'name');
+
+        $this->assertSame(['title', 'widget_title'], $listNames);
+        $this->assertSame(['title', 'widget_id'], $newNames);
+        $this->assertSame('Alpha', $listResponse->json('data.rows.0.widget_title'));
     }
 
     public function test_the_page_size_defaults_to_ten_and_zero_means_everything(): void {

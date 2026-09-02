@@ -372,7 +372,7 @@ class WidgetDeclaration implements Declares {
 }
 ```
 
-`Metadata` 的第一個參數是 **alias,它必須等於選單節點的路徑前綴**;第二個是「這一列叫什麼」的欄位（麵包屑與排序頁會用）。第三個參數可以指定父層關聯,巢狀資源才需要。
+`Metadata` 的第一個參數是 **alias,它必須等於選單節點的路徑前綴**;第二個是「這一列叫什麼」的欄位（麵包屑與排序頁會用）。第三個參數可以指定父層關聯,巢狀資源才需要。第四個參數 `ranking` 可指定排序用的欄位名稱,`CrudController` 會用它推導預設的 `$sorting`/`$sortable`;第五、六個參數 `enable`/`disable` 標記上下架時間欄位,目前只是宣告能力,尚無消費端。
 
 沒有 `#[Declared]` 的 model 一進 CRUD 端點就是 `undeclared-model`。
 
@@ -763,12 +763,17 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 
 ### 回應形狀
 
-清單回應含 `columns`（欄位描述）、`rows`、`pagination`、`actions`、`title`、麵包屑等。`columns[]` 每一項的兩個維度要分開讀:
+清單回應含 `columns`（欄位描述）、`rows`、`pagination`、`actions`、`title`、麵包屑等。`columns[]` 每一項的三個維度要分開讀:
 
 - `type` 是**資料型別**（`text` / `integer` / `float` / `boolean` / `date` / `datetime` / `json`）—— 決定驗證與比較。
-- `presentation` 是**呈現方式**（`plain` / `hidden` / `select` / `multiSelect` / `password` / `count`）—— 決定畫面怎麼畫。
+- `presentation` 是**呈現方式**（`plain` / `hidden` / `select` / `multi-select` / `password` / `count` / `switch`）—— 決定畫面怎麼畫。宣告時給的字串若不是這七個,會**原樣送給前端**,那是自訂呈現方式的出口。
+- `writable` 是**這一欄送回來會不會被寫入**。
 
-一個「有選項的整數欄位」是 `type: integer` + `presentation: select`,兩個維度都完整。
+一個「有選項的整數欄位」是 `type: integer` + `presentation: select`,三個維度都完整。
+
+**不可寫有三種原因:`readonly` 宣告、`virtual`(`+` 前綴)、以及跨關聯或聚合欄位(`group.title`、`count(orders)`)。** 只有第一種在 `columns[]` 上另有 `readonly` 鍵看得出來,所以**前端要看 `writable`,不要看 `readonly`** —— 否則後兩種會畫出一顆改了完全沒效果的輸入框,而使用者會看到「已儲存」。
+
+`writable: false` 的欄位不在 `present` 驗證的範圍內,送不送都可以;`writable: true` 的**每一個都必須出現在 body 裡**,那與上面「更新是全量覆寫」是同一件事的兩面。
 
 **action 的 `url` 不含前綴。** 回應給的是 `widget/{id}/update` 這種相對路徑,前端要自己接上 `admin/`。
 

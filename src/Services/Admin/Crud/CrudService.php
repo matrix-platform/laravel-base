@@ -38,10 +38,6 @@ abstract class CrudService {
      */
     protected array $params = [];
 
-    private ?QueryPlan $plan = null;
-
-    private ColumnResolver $resolver;
-
     /**
      * @var list<Closure>
      */
@@ -51,6 +47,10 @@ abstract class CrudService {
 
     protected Subject $subject;
 
+    private ?QueryPlan $plan = null;
+
+    private ColumnResolver $resolver;
+
     /**
      * @param class-string<Model> $model
      */
@@ -58,7 +58,6 @@ abstract class CrudService {
         $this->model = new $model();
         $this->resolver = app(ColumnResolver::class);
         $this->subject = app(Subject::class);
-        $this->columns = [$this->resolve(['name' => 'id', 'type' => 'hidden', 'readonly' => true, 'virtual' => true])];
     }
 
     /**
@@ -188,6 +187,10 @@ abstract class CrudService {
         return $this->prepared($this->plan()->complete());
     }
 
+    protected function foreign(): ?string {
+        return $this->standalone ? null : $this->subject->foreign($this->model);
+    }
+
     /**
      * @param array<string, mixed>|Model|null $context
      */
@@ -201,7 +204,7 @@ abstract class CrudService {
      * @return list<Column>
      */
     protected function local(): array {
-        return array_values(array_filter($this->columns, fn (Column $column): bool => !$column->virtual && $column->expression->path === []));
+        return array_values(array_filter($this->columns, fn (Column $column): bool => $this->isLocal($column)));
     }
 
     /**
@@ -254,7 +257,8 @@ abstract class CrudService {
             'readonly' => $column->readonly,
             'required' => $column->required,
             'rule' => $column->rule,
-            'sortable' => $column->sortable
+            'sortable' => $column->sortable,
+            'writable' => $this->writable($column)
         ], $columns);
     }
 
@@ -267,7 +271,7 @@ abstract class CrudService {
 
     protected function plan(): QueryPlan {
         if ($this->plan === null) {
-            $this->plan = new QueryPlan($this->model, $this->columns);
+            $this->plan = new QueryPlan($this->model, $this->columns, $this->foreign());
         }
 
         return $this->plan;
@@ -291,7 +295,7 @@ abstract class CrudService {
         $rules = [];
 
         foreach ($this->local() as $column) {
-            if ($column->readonly) {
+            if (!$this->writable($column)) {
                 continue;
             }
 
@@ -366,12 +370,16 @@ abstract class CrudService {
         return array_map(fn (string|Operation $operation): Operation => $operation instanceof Operation ? $operation : new Operation($operation), $operations);
     }
 
-    private function foreign(): ?string {
-        return $this->standalone ? null : $this->subject->foreign($this->model);
+    protected function writable(Column $column): bool {
+        return $this->isLocal($column) && !$column->readonly;
     }
 
     private function has(string $name): bool {
         return in_array($name, array_column($this->columns, 'name'), true);
+    }
+
+    private function isLocal(Column $column): bool {
+        return !$column->virtual && $column->expression->path === [];
     }
 
     /**

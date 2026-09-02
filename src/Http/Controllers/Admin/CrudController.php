@@ -5,7 +5,11 @@ namespace MatrixPlatform\Http\Controllers\Admin;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
+use Illuminate\Support\Arr;
 use MatrixPlatform\Attributes\Action;
+use MatrixPlatform\Columns\Declarations\Definition;
+use MatrixPlatform\Columns\Declarations\Definitions;
+use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Http\Controllers\BaseController;
 use MatrixPlatform\Services\Admin\Crud\CopyService;
 use MatrixPlatform\Services\Admin\Crud\CrudService;
@@ -17,6 +21,8 @@ use MatrixPlatform\Services\Admin\Crud\ListService;
 use MatrixPlatform\Services\Admin\Crud\NewService;
 use MatrixPlatform\Services\Admin\Crud\SortService;
 use MatrixPlatform\Services\Admin\Crud\UpdateService;
+use MatrixPlatform\Support\MetadataRegistry;
+use MatrixPlatform\Support\Subject;
 
 abstract class CrudController extends BaseController {
 
@@ -42,7 +48,7 @@ abstract class CrudController extends BaseController {
      */
     protected string $model;
 
-    protected bool $sortable = false;
+    protected ?bool $sortable = null;
 
     /**
      * @var list<string>
@@ -55,6 +61,8 @@ abstract class CrudController extends BaseController {
      * @var list<string|array<string, mixed>>
      */
     protected array $updates = [];
+
+    private ?Model $instance = null;
 
     /**
      * @return array<string, mixed>
@@ -152,11 +160,11 @@ abstract class CrudController extends BaseController {
         return $service
             ->columns($this->exporting())
             ->filterColumns($this->listing())
-            ->sorting($this->sorting);
+            ->sorting($this->sorting());
     }
 
     protected function onGet(GetService $service): GetService {
-        return $service->columns($this->updates);
+        return $service->columns($this->updates());
     }
 
     protected function onInsert(InsertService $service): InsertService {
@@ -164,7 +172,7 @@ abstract class CrudController extends BaseController {
     }
 
     protected function onList(ListService $service): ListService {
-        return $service->columns($this->listing())->sorting($this->sorting);
+        return $service->columns($this->listing())->sorting($this->sorting());
     }
 
     protected function onNew(NewService $service): NewService {
@@ -176,7 +184,28 @@ abstract class CrudController extends BaseController {
     }
 
     protected function onUpdate(UpdateService $service): UpdateService {
-        return $service->columns($this->updates);
+        return $service->columns($this->updates());
+    }
+
+    private function complex(Definition $definition): bool {
+        return is_string($definition->presentation) || in_array($definition->presentation, [Presentation::Hidden, Presentation::Password], true);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function derived(): array {
+        $definitions = app(MetadataRegistry::class)->definitions($this->model);
+
+        if ($definitions === null) {
+            return [];
+        }
+
+        $foreign = app(Subject::class)->foreign($this->instance());
+        $reserved = [...array_keys(Definitions::primaryKey()), ...array_keys(Definitions::auditings())];
+        $excluded = Arr::whereNotNull([...$reserved, $this->ranking(), $foreign]);
+
+        return array_values(array_diff(array_keys($definitions), $excluded));
     }
 
     /**
@@ -190,18 +219,62 @@ abstract class CrudController extends BaseController {
      * @return list<string|array<string, mixed>>
      */
     private function forming(): array {
-        return $this->inserts === null ? $this->updates : $this->inserts;
+        return $this->inserts === null ? $this->updates() : $this->inserts;
     }
 
     private function identifier(Request $request): string {
         return strval($request->route('id'));
     }
 
+    private function instance(): Model {
+        if ($this->instance === null) {
+            $model = $this->model;
+            $this->instance = new $model();
+        }
+
+        return $this->instance;
+    }
+
+    private function joined(string $name): string {
+        if (!str_ends_with($name, '_id')) {
+            return $name;
+        }
+
+        $relation = substr($name, 0, -3);
+        $related = app(Subject::class)->belongsTo($this->instance(), $relation);
+
+        if ($related === null) {
+            return $name;
+        }
+
+        $metadata = app(MetadataRegistry::class)->of($related->getRelated()::class);
+
+        return $metadata === null ? $name : "{$relation}.{$metadata->title}";
+    }
+
     /**
      * @return list<string|array<string, mixed>>
      */
     private function listing(): array {
-        return $this->lists === null ? $this->updates : $this->lists;
+        if ($this->lists !== null) {
+            return $this->lists;
+        }
+
+        if ($this->updates !== []) {
+            return $this->updates;
+        }
+
+        $found = app(MetadataRegistry::class)->definitions($this->model);
+        $definitions = $found === null ? [] : $found;
+        $names = [];
+
+        foreach ($this->derived() as $name) {
+            if (!$this->complex($definitions[$name])) {
+                $names[] = $this->joined($name);
+            }
+        }
+
+        return $names;
     }
 
     /**
@@ -215,12 +288,50 @@ abstract class CrudController extends BaseController {
         return $service->standalone($this->standalone)->params($route instanceof Route ? $route->parameters() : []);
     }
 
+    private function ranking(): ?string {
+        return app(MetadataRegistry::class)->of($this->model)?->ranking;
+    }
+
+    private function sortable(): bool {
+        if ($this->sortable !== null) {
+            return $this->sortable;
+        }
+
+        $ranking = $this->ranking();
+
+        return $ranking !== null && ($this->sorting === [] || $this->sorting === [$ranking]);
+    }
+
     private function sorter(Request $request): SortService {
-        if (!$this->sortable) {
+        if (!$this->sortable()) {
             error('data-not-found', 404);
         }
 
         return $this->onSort($this->prepare(new SortService($this->model), $request));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function sorting(): array {
+        if ($this->sorting !== []) {
+            return $this->sorting;
+        }
+
+        $ranking = $this->ranking();
+
+        return $ranking === null ? ['id'] : [$ranking];
+    }
+
+    /**
+     * @return list<string|array<string, mixed>>
+     */
+    private function updates(): array {
+        if ($this->updates !== []) {
+            return $this->updates;
+        }
+
+        return $this->derived();
     }
 
 }

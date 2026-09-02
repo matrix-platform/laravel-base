@@ -15,9 +15,9 @@ class Operator extends BaseModel {
 
     const TRACEABLE = false;
 
-    protected $table = 'base_operator';
-
     public $timestamps = false;
+
+    protected $table = 'base_operator';
 
     /**
      * @return array<string, string>

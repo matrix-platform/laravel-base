@@ -375,12 +375,19 @@ function collect_members(array $tokens): array {
             } elseif ($token[0] === T_FUNCTION) {
                 $awaiting = match (true) {
                     in_array(T_STATIC, $modifiers, true) => 1,
-                    in_array(T_PRIVATE, $modifiers, true) => 5,
-                    in_array(T_PROTECTED, $modifiers, true) => 4,
-                    default => 3
+                    in_array(T_PRIVATE, $modifiers, true) => 7,
+                    in_array(T_PROTECTED, $modifiers, true) => 6,
+                    default => 5
                 };
             } elseif ($token[0] === T_VARIABLE && $paren === 0 && $modifiers !== []) {
-                $members[] = ['name' => substr($token[1], 1), 'rank' => 2, 'line' => $token[2]];
+                $rank = match (true) {
+                    in_array(T_STATIC, $modifiers, true) => 1,
+                    in_array(T_PRIVATE, $modifiers, true) => 4,
+                    in_array(T_PROTECTED, $modifiers, true) => 3,
+                    default => 2
+                };
+
+                $members[] = ['name' => substr($token[1], 1), 'rank' => $rank, 'line' => $token[2]];
             }
         }
 

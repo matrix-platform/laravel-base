@@ -19,7 +19,7 @@ class TrinketController extends CrudController {
 
     protected string $model = Trinket::class;
 
-    protected bool $sortable = true;
+    protected ?bool $sortable = true;
 
     protected array $updates = [
         '*label',

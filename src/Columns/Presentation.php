@@ -10,5 +10,6 @@ enum Presentation: string {
     case Password = 'password';
     case Plain = 'plain';
     case Select = 'select';
+    case Switch = 'switch';
 
 }

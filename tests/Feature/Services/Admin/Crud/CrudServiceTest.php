@@ -75,15 +75,28 @@ class CrudServiceTest extends FeatureTestCase {
         $this->assertCount(2, $rows);
     }
 
-    public function test_the_identifier_column_leads_the_payload_and_is_inert(): void {
-        $columns = (new ListService(Widget::class))->standalone(true)->columns(['title'])->list([])['columns'];
+    public function test_the_identifier_value_reaches_the_row_without_appearing_in_the_payload(): void {
+        $widget = $this->widgets();
 
-        $this->assertSame('id', $columns[0]['name']);
-        $this->assertSame('integer', $columns[0]['type']);
-        $this->assertSame('hidden', $columns[0]['presentation']);
-        $this->assertTrue($columns[0]['readonly']);
-        $this->assertNull($columns[0]['op']);
-        $this->assertFalse($columns[0]['sortable']);
+        $result = (new ListService(Widget::class))
+            ->standalone(true)
+            ->columns(['title'])
+            ->list([]);
+
+        $this->assertNotContains('id', array_column($result['columns'], 'name'));
+        $this->assertSame($widget->id, $result['rows'][0]['id']);
+    }
+
+    public function test_the_identifier_value_reaches_a_single_record_without_appearing_in_the_payload(): void {
+        $widget = $this->widgets();
+
+        $result = (new GetService(Widget::class))
+            ->standalone(true)
+            ->columns(['title'])
+            ->get($widget->id);
+
+        $this->assertNotContains('id', array_column($result['columns'], 'name'));
+        $this->assertSame($widget->id, $result['data']['id']);
     }
 
     public function test_a_repeated_column_name_keeps_only_the_first_definition(): void {
@@ -98,7 +111,20 @@ class CrudServiceTest extends FeatureTestCase {
         $this->assertTrue($titles[0]['required']);
     }
 
-    public function test_an_explicit_identifier_column_cannot_overwrite_the_key(): void {
+    public function test_the_identifier_key_stays_protected_unless_declared_as_a_column(): void {
+        $widget = $this->widgets();
+
+        (new UpdateService(Widget::class))
+            ->standalone(true)
+            ->columns(['*title'])
+            ->update($widget->id, ['title' => 'renamed', 'id' => 999999]);
+
+        $this->assertTrue(Widget::query()->whereKey($widget->id)->exists());
+        $this->assertFalse(Widget::query()->whereKey(999999)->exists());
+        $this->assertSame('renamed', Widget::query()->sole()->title);
+    }
+
+    public function test_an_explicit_identifier_column_can_overwrite_the_key(): void {
         $widget = $this->widgets();
 
         (new UpdateService(Widget::class))
@@ -106,8 +132,8 @@ class CrudServiceTest extends FeatureTestCase {
             ->columns(['*title', 'id'])
             ->update($widget->id, ['title' => 'renamed', 'id' => 999999]);
 
-        $this->assertTrue(Widget::query()->whereKey($widget->id)->exists());
-        $this->assertFalse(Widget::query()->whereKey(999999)->exists());
+        $this->assertFalse(Widget::query()->whereKey($widget->id)->exists());
+        $this->assertTrue(Widget::query()->whereKey(999999)->exists());
         $this->assertSame('renamed', Widget::query()->sole()->title);
     }
 
@@ -123,15 +149,15 @@ class CrudServiceTest extends FeatureTestCase {
 
         $this->assertSame([
             'name', 'title', 'translatable', 'type', 'presentation', 'group', 'op', 'options',
-            'path', 'placeholder', 'remark', 'readonly', 'required', 'rule', 'sortable'
-        ], array_keys($columns[1]));
+            'path', 'placeholder', 'remark', 'readonly', 'required', 'rule', 'sortable', 'writable'
+        ], array_keys($columns[0]));
     }
 
     public function test_options_are_resolved_against_the_record(): void {
         $widget = $this->widgets();
 
         $columns = (new ListService(Trinket::class))->standalone(true)->columns(['widget_id'])->list([])['columns'];
-        $options = $columns[1]['options'];
+        $options = $columns[0]['options'];
 
         $this->assertIsArray($options);
         $this->assertSame($widget->id, $options[0]->id);

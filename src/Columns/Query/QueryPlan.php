@@ -34,7 +34,7 @@ class QueryPlan {
     /**
      * @param list<Column> $columns
      */
-    public function __construct(private Model $root, private array $columns) {
+    public function __construct(private Model $root, private array $columns, private ?string $required = null) {
         $this->build();
     }
 
@@ -88,6 +88,10 @@ class QueryPlan {
     public function projection(): Builder {
         $query = $this->root->query();
         $selects = ["{$this->table()}.id"];
+
+        if ($this->required !== null) {
+            $selects[] = "{$this->table()}.{$this->required}";
+        }
 
         foreach ($this->columns as $column) {
             if ($column->virtual) {
