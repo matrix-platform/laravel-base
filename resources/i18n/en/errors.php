@@ -14,6 +14,8 @@ return [
 
     'file-too-large' => 'File exceeds the size limit',
 
+    'invalid-arrange-order' => 'Arrange selection does not match the data',
+
     'invalid-cascade-relation' => 'Cascade relation must be a hasOne, hasMany or their morph form',
 
     'invalid-column-condition' => 'Invalid column condition',

@@ -11,6 +11,7 @@ use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Declarations\Definitions;
 use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Http\Controllers\BaseController;
+use MatrixPlatform\Services\Admin\Crud\ArrangeService;
 use MatrixPlatform\Services\Admin\Crud\CopyService;
 use MatrixPlatform\Services\Admin\Crud\CrudService;
 use MatrixPlatform\Services\Admin\Crud\DeleteService;
@@ -25,6 +26,8 @@ use MatrixPlatform\Support\MetadataRegistry;
 use MatrixPlatform\Support\Subject;
 
 abstract class CrudController extends BaseController {
+
+    protected ?bool $arrangeable = null;
 
     protected bool $exportable = false;
 
@@ -63,6 +66,22 @@ abstract class CrudController extends BaseController {
     protected array $updates = [];
 
     private ?Model $instance = null;
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[Action]
+    public function arrange(Request $request): array {
+        return $this->arranger($request)->items();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[Action('arrange/save')]
+    public function arrangeSave(Request $request): array {
+        return $this->arranger($request)->save($request->all());
+    }
 
     /**
      * @return array<string, mixed>
@@ -148,6 +167,10 @@ abstract class CrudController extends BaseController {
         return $this->onUpdate($this->prepare(new UpdateService($this->model), $request))->update($this->identifier($request), $request->all());
     }
 
+    protected function onArrange(ArrangeService $service): ArrangeService {
+        return $service->rankable($this->sortable());
+    }
+
     protected function onCopy(CopyService $service): CopyService {
         return $service;
     }
@@ -185,6 +208,24 @@ abstract class CrudController extends BaseController {
 
     protected function onUpdate(UpdateService $service): UpdateService {
         return $service->columns($this->updates());
+    }
+
+    private function arrangeable(): bool {
+        if ($this->arrangeable !== null) {
+            return $this->arrangeable;
+        }
+
+        $metadata = app(MetadataRegistry::class)->of($this->model);
+
+        return $metadata !== null && $metadata->enable !== null && $metadata->disable !== null;
+    }
+
+    private function arranger(Request $request): ArrangeService {
+        if (!$this->arrangeable()) {
+            error('data-not-found', 404);
+        }
+
+        return $this->onArrange($this->prepare(new ArrangeService($this->model), $request));
     }
 
     private function complex(Definition $definition): bool {

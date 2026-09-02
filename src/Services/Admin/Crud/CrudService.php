@@ -4,6 +4,7 @@ namespace MatrixPlatform\Services\Admin\Crud;
 
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOneOrMany;
 use Illuminate\Support\Facades\Validator;
@@ -201,6 +202,20 @@ abstract class CrudService {
     }
 
     /**
+     * @param Collection<int, Model> $models
+     * @return array<string, Model>
+     */
+    protected function keyed(Collection $models): array {
+        $keyed = [];
+
+        foreach ($models as $model) {
+            $keyed[strval($model->getKey())] = $model;
+        }
+
+        return $keyed;
+    }
+
+    /**
      * @return list<Column>
      */
     protected function local(): array {
@@ -286,6 +301,15 @@ abstract class CrudService {
      */
     protected function projection(): Builder {
         return $this->prepared($this->plan()->projection());
+    }
+
+    /**
+     * @param array<string, Model> $models
+     * @param list<string> $order
+     * @return list<int>
+     */
+    protected function reassignRankings(array $models, string $field, array $order): array {
+        return Ranking::reassign(array_map(fn (string $id): int => intval($models[$id]->getAttribute($field)), $order));
     }
 
     /**

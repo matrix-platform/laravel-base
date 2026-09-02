@@ -2,6 +2,10 @@
 
 return [
 
+    'arrange' => '上下架',
+
+    'cancel' => '取消',
+
     'copy' => '複製',
 
     'copy-confirm' => '確定要複製嗎？',

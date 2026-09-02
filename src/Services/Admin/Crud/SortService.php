@@ -42,11 +42,7 @@ class SortService extends CrudService {
     public function sort(mixed $input): array {
         $values = is_array($input) ? $input : [];
         $order = array_values(array_map(fn (mixed $id): string => strval($id), Arr::wrap(array_get_value($values, 'order'))));
-        $models = [];
-
-        foreach ($this->ordered() as $model) {
-            $models[strval($model->getKey())] = $model;
-        }
+        $models = $this->keyed($this->ordered());
 
         $given = $order;
         $expected = array_map(fn (int|string $key): string => strval($key), array_keys($models));
@@ -58,7 +54,7 @@ class SortService extends CrudService {
             error('invalid-sort-order');
         }
 
-        $rankings = Ranking::reassign(array_map(fn (string $id): int => intval($models[$id]->getAttribute($this->ranking)), $order));
+        $rankings = $this->reassignRankings($models, $this->ranking, $order);
 
         foreach ($order as $index => $id) {
             $model = $models[$id];

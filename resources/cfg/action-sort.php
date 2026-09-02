@@ -6,8 +6,6 @@ return [
 
     'severity' => 'default',
 
-    'navigate' => true,
-
     'url' => '{prefix}/sort',
 
 ];

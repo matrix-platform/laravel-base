@@ -540,6 +540,8 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | POST | `admin/user/export` | 授權 |
 | POST | `admin/user/sort` | 授權 |
 | POST | `admin/user/sort/save` | 授權 |
+| POST | `admin/user/arrange` | 授權 |
+| POST | `admin/user/arrange/save` | 授權 |
 | POST | `admin/user/preference/get` | 登入 |
 | POST | `admin/user/preference/save` | 登入 |
 | POST | `admin/group` | 授權 |
@@ -552,6 +554,8 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | POST | `admin/group/export` | 授權 |
 | POST | `admin/group/sort` | 授權 |
 | POST | `admin/group/sort/save` | 授權 |
+| POST | `admin/group/arrange` | 授權 |
+| POST | `admin/group/arrange/save` | 授權 |
 | POST | `admin/resource/cfg` | 授權 |
 | POST | `admin/resource/cfg/get` | 授權 |
 | POST | `admin/resource/cfg/update` | 授權 |
@@ -672,6 +676,7 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | `drive-anchor-immutable` | home 目錄與群組目錄不能被搬移或丟進垃圾桶 |
 | `endpoint-not-found` | 端點不存在 |
 | `file-too-large` | 檔案大小超過限制 |
+| `invalid-arrange-order` | 上下架選擇與資料不符 |
 | `invalid-cascade-relation` | 連動關聯必須是 hasOne、hasMany 或其 morph 形式 |
 | `invalid-column-condition` | 欄位條件語法錯誤 |
 | `invalid-column-expression` | 欄位運算式語法錯誤 |

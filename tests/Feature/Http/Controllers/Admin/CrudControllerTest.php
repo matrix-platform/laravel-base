@@ -232,8 +232,8 @@ class CrudControllerTest extends FeatureTestCase {
         $response->assertJsonPath('data.title', 'Widget');
         $response->assertJsonPath('data.subtitle', 'Alpha');
         $response->assertJsonPath('data.data.title', 'Alpha');
-        $response->assertJsonPath('data.actions.0.type', 'update');
-        $response->assertJsonPath('data.actions.0.url', 'widget/{id}/update');
+        $response->assertJsonPath('data.actions.1.type', 'update');
+        $response->assertJsonPath('data.actions.1.url', 'widget/{id}/update');
     }
 
     public function test_the_new_response_fills_every_column_with_null(): void {
@@ -242,7 +242,7 @@ class CrudControllerTest extends FeatureTestCase {
         $response->assertJsonPath('data.title', 'New Widget');
         $response->assertJsonPath('data.data.title', null);
         $response->assertJsonPath('data.data.secret', null);
-        $response->assertJsonPath('data.actions.0.type', 'insert');
+        $response->assertJsonPath('data.actions.1.type', 'insert');
     }
 
     public function test_insert_creates_the_row_and_writes_an_audit_entry(): void {
@@ -531,8 +531,56 @@ class CrudControllerTest extends FeatureTestCase {
 
         $this->assertSame('Sort', $sort['title']);
         $this->assertSame('widget/{widget_id}/trinket/sort', $sort['url']);
-        $this->assertTrue($sort['navigate']);
         $this->assertArrayNotHasKey('confirm', $sort);
+    }
+
+    public function test_the_arrange_listing_reports_the_enabled_state_and_sortable_flag(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget', enable: 'enable_time', disable: 'disable_time')));
+
+        $alpha = $this->widget('Alpha');
+        $alpha->enable_time = now()->subDay();
+        $alpha->save();
+
+        $this->widget('Beta');
+
+        $response = $this->admin('admin/widget/arrange');
+        $rows = $response->json('data.rows');
+
+        $this->assertSame(['Alpha', 'Beta'], array_column($rows, 'title'));
+        $this->assertSame([true, false], array_column($rows, 'enabled'));
+        $this->assertTrue($response->json('data.sortable'));
+    }
+
+    public function test_arrange_save_enables_the_requested_rows_and_disables_the_rest(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget', enable: 'enable_time', disable: 'disable_time')));
+
+        $alpha = $this->widget('Alpha');
+        $alpha->enable_time = now()->subDay();
+        $alpha->save();
+
+        $beta = $this->widget('Beta');
+
+        $response = $this->admin('admin/widget/arrange/save', ['enabled' => [$beta->id]]);
+
+        $response->assertJsonPath('success', true);
+        $this->assertNotNull($alpha->refresh()->disable_time);
+        $this->assertNotNull($beta->refresh()->enable_time);
+        $this->assertNull($beta->refresh()->disable_time);
+    }
+
+    public function test_arrange_save_does_not_require_every_row_to_be_named(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget', enable: 'enable_time', disable: 'disable_time')));
+
+        $alpha = $this->widget('Alpha');
+
+        $this->widget('Beta');
+
+        $this->admin('admin/widget/arrange/save', ['enabled' => [$alpha->id]])->assertJsonPath('success', true);
+    }
+
+    public function test_both_arrange_endpoints_are_hidden_when_the_resource_is_not_arrangeable(): void {
+        $this->admin('admin/gizmo/arrange')->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
+        $this->admin('admin/gizmo/arrange/save', ['enabled' => []])->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
     }
 
     public function test_export_returns_the_declared_columns_only(): void {

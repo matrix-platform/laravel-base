@@ -7,7 +7,7 @@ class GetService extends CrudService {
     /**
      * @var list<string|Operation>
      */
-    private array $actions = ['update'];
+    private array $actions = ['cancel', 'update'];
 
     /**
      * @param list<string|Operation> $actions

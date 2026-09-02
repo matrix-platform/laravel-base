@@ -2,6 +2,10 @@
 
 return [
 
+    'arrange' => 'Arrange',
+
+    'cancel' => 'Cancel',
+
     'copy' => 'Copy',
 
     'copy-confirm' => 'Are you sure you want to copy?',
