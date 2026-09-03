@@ -3,7 +3,6 @@
 return [
 
     'column-name' => 'Name',
-    'column-overrides' => 'Overrides',
 
     'cfg/admin' => 'User',
     'cfg/admin.captcha-ttl' => 'Captcha lifetime (seconds)',

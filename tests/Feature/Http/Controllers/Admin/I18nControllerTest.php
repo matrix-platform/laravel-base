@@ -14,15 +14,15 @@ class I18nControllerTest extends FeatureTestCase {
     }
 
     public function test_a_bundle_is_readable_without_a_session(): void {
-        $this->postJson('admin/i18n/get', ['name' => 'errors'])
+        $this->postJson('admin/i18n/get', ['name' => 'widget'])
             ->assertOk()
-            ->assertJsonPath('data.data-not-found', 'Data not found');
+            ->assertJsonPath('data.hello', 'Hello');
     }
 
     public function test_a_nested_bundle_name_is_reachable(): void {
-        $this->postJson('admin/i18n/get', ['name' => 'menu/base'])
+        $this->postJson('admin/i18n/get', ['name' => 'menu/resource'])
             ->assertOk()
-            ->assertJsonPath('data.system', 'System');
+            ->assertJsonPath('data.mail-setting', 'Mail settings');
     }
 
     public function test_a_name_that_climbs_out_of_the_resource_directory_is_rejected(): void {

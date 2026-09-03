@@ -224,6 +224,8 @@ class DriveServiceTest extends FeatureTestCase {
     }
 
     public function test_upload_deduplicates_identical_content_when_enabled(): void {
+        $this->useCfg('drive', ['deduplicate' => true]);
+
         $service = $this->service();
         $root = $service->root();
         $owner = $this->user();
@@ -335,7 +337,9 @@ class DriveServiceTest extends FeatureTestCase {
         $this->assertNotNull($log);
     }
 
-    public function test_trashed_defaults_to_the_last_thirty_days(): void {
+    public function test_trashed_defaults_to_the_configured_day_window(): void {
+        $this->useCfg('drive', ['trash-default-days' => 10]);
+
         $service = $this->service();
         $root = $service->root();
         $owner = $this->user();
@@ -345,7 +349,7 @@ class DriveServiceTest extends FeatureTestCase {
         $service->trash($recent, $owner);
         $service->trash($old, $owner);
 
-        $this->backdate($old, 45);
+        $this->backdate($old, 20);
 
         $names = $service
             ->trashed($owner, null, false)

@@ -18,6 +18,8 @@ class ResetUserPasswordCommandTest extends FeatureTestCase {
     protected function setUp(): void {
         parent::setUp();
 
+        $this->useCfg('admin', ['password-pattern' => '/^(?=.*\d)(?=.*[a-zA-Z]).{8,}$/']);
+
         (new UserSeeder())->run();
     }
 

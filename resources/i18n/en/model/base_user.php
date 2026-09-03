@@ -12,6 +12,10 @@ return [
 
     'disabled' => 'Disabled',
 
+    'enable_time' => 'Enable Time',
+
+    'disable_time' => 'Disable Time',
+
     'permissions' => 'Permissions',
 
 ];

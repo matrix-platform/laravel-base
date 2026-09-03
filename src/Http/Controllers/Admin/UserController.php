@@ -20,28 +20,10 @@ use MatrixPlatform\Support\PermissionTree;
 
 class UserController extends CrudController {
 
-    protected ?array $lists = [
-        'username',
-        'group.title',
-        'disabled',
-        'enable_time',
-        'disable_time'
-    ];
-
     protected string $model = User::class;
 
     protected array $sorting = [
         'username'
-    ];
-
-    protected array $updates = [
-        '*username',
-        'password',
-        'group_id',
-        'disabled',
-        'enable_time',
-        'disable_time',
-        ['name' => 'permissions', 'sortable' => false]
     ];
 
     /**

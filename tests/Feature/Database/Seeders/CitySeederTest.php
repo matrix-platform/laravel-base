@@ -42,6 +42,9 @@ class CitySeederTest extends FeatureTestCase {
     public function test_the_seeder_pins_the_identifiers_it_ships(): void {
         $this->assertSame([1, 23], [intval(DB::table('base_city')->min('id')), intval(DB::table('base_city')->max('id'))]);
         $this->assertSame([1000, 9830], [intval(DB::table('base_city_area')->min('id')), intval(DB::table('base_city_area')->max('id'))]);
+    }
+
+    public function test_every_area_ranks_by_its_own_identifier(): void {
         $this->assertSame(371, DB::table('base_city_area')->whereColumn('id', 'ranking')->count());
     }
 

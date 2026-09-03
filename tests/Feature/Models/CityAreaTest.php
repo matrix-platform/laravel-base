@@ -35,7 +35,7 @@ class CityAreaTest extends FeatureTestCase {
     }
 
     public function test_the_table_carries_the_declared_columns(): void {
-        $this->assertSame(
+        $this->assertEqualsCanonicalizing(
             ['id', 'city_id', 'title__tw', 'title__en', 'post_code', 'ranking', 'creator_id', 'create_time', 'updater_id', 'update_time'],
             Schema::getColumnListing('base_city_area')
         );

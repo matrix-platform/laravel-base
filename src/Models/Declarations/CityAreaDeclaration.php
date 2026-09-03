@@ -24,7 +24,7 @@ class CityAreaDeclaration implements Declares {
     }
 
     public function metadata(): Metadata {
-        return new Metadata('area', 'title', 'city');
+        return new Metadata('area', 'title', 'city', ranking: 'ranking');
     }
 
 }

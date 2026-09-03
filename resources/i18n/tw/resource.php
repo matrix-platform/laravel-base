@@ -3,7 +3,6 @@
 return [
 
     'column-name' => '名稱',
-    'column-overrides' => '已覆寫數',
 
     'cfg/admin' => '帳號',
     'cfg/admin.captcha-ttl' => '驗證碼有效秒數',

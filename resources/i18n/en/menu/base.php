@@ -2,6 +2,18 @@
 
 return [
 
+    'basic' => 'Basic Data',
+
+        'city' => 'Cities',
+
+            'city/{id}' => 'City',
+            'city/new' => 'New City',
+
+            'city/{city_id}/area' => 'Districts',
+
+                'city/{city_id}/area/{id}' => 'District',
+                'city/{city_id}/area/new' => 'New District',
+
     'system' => 'System',
 
         'authority' => 'Authority',
@@ -20,28 +32,28 @@ return [
 
             'resource/cfg' => 'General',
 
-                'resource/cfg/get' => 'Edit setting',
+                'resource/cfg/{id}' => 'Edit setting',
 
         'locale' => 'Languages',
 
             'resource/i18n' => 'Messages',
 
-                'resource/i18n/get' => 'Edit messages',
+                'resource/i18n/{id}' => 'Edit messages',
 
             'resource/i18n/menu' => 'Menus',
 
-                'resource/i18n/menu/get' => 'Edit menu labels',
+                'resource/i18n/menu/{id}' => 'Edit menu labels',
 
             'resource/i18n/options' => 'Options',
 
-                'resource/i18n/options/get' => 'Edit option labels',
+                'resource/i18n/options/{id}' => 'Edit option labels',
 
             'resource/i18n/model' => 'Tables',
 
-                'resource/i18n/model/get' => 'Edit table labels',
+                'resource/i18n/model/{id}' => 'Edit table labels',
 
             'resource/i18n/template' => 'Message templates',
 
-                'resource/i18n/template/get' => 'Edit template',
+                'resource/i18n/template/{id}' => 'Edit template',
 
 ];

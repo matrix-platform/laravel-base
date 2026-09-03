@@ -133,7 +133,7 @@ abstract class CrudService {
     }
 
     /**
-     * @param list<Model> $items
+     * @param list<Model|null> $items
      * @return list<array<string, mixed>>
      */
     protected function breadcrumbs(array $items, ?Model $context): array {
@@ -244,8 +244,16 @@ abstract class CrudService {
      * @param list<Operation> $operations
      * @return list<array<string, mixed>>
      */
-    protected function operations(array $operations, string $prefix): array {
+    protected function normalized(array $operations, string $prefix): array {
         return array_map(fn (Operation $operation): array => $this->normalize($operation->type, $prefix), $operations);
+    }
+
+    /**
+     * @param list<Operation> $operations
+     * @return list<array<string, mixed>>
+     */
+    protected function operations(array $operations, string $prefix): array {
+        return $this->normalized($this->permitted($operations, $prefix), $prefix);
     }
 
     /**
@@ -275,6 +283,14 @@ abstract class CrudService {
             'sortable' => $column->sortable,
             'writable' => $this->writable($column)
         ], $columns);
+    }
+
+    /**
+     * @param list<string|Operation> $operations
+     * @return list<Operation>
+     */
+    protected function permitted(array $operations, string $prefix): array {
+        return array_values(array_filter($this->wrap($operations), fn (Operation $operation): bool => $this->allowed($operation->type, $prefix)));
     }
 
     /**
@@ -398,6 +414,12 @@ abstract class CrudService {
         return $this->isLocal($column) && !$column->readonly;
     }
 
+    private function allowed(string $type, string $prefix): bool {
+        $url = $this->resolvedUrl(app(Actions::class)->define($type), $prefix);
+
+        return $url !== null && app(AdminPermission::class)->reaches($url);
+    }
+
     private function has(string $name): bool {
         return in_array($name, array_column($this->columns, 'name'), true);
     }
@@ -411,10 +433,10 @@ abstract class CrudService {
      */
     private function normalize(string $type, string $prefix): array {
         $action = app(Actions::class)->define($type);
-        $url = array_get_value($action, 'url');
+        $url = $this->resolvedUrl($action, $prefix);
 
-        if (is_string($url)) {
-            $action['url'] = str_replace('{prefix}', $prefix, $url);
+        if ($url !== null) {
+            $action['url'] = $url;
         }
 
         return $action;
@@ -463,6 +485,15 @@ abstract class CrudService {
      */
     private function resolve(string|array $column): Column {
         return $this->resolver->resolve((new ColumnParser())->parse($column), $this->model);
+    }
+
+    /**
+     * @param array<string, mixed> $action
+     */
+    private function resolvedUrl(array $action, string $prefix): ?string {
+        $url = array_get_value($action, 'url');
+
+        return is_string($url) ? str_replace('{prefix}', $prefix, $url) : null;
     }
 
     private function uniqueRule(string $field, int|string|null $ignoreId): Unique {

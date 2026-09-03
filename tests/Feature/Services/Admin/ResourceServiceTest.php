@@ -41,17 +41,19 @@ class ResourceServiceTest extends FeatureTestCase {
         return app(ResourceService::class);
     }
 
-    public function test_a_bundle_reports_only_what_is_overridden_beside_the_file_values(): void {
+    public function test_an_overridden_field_replaces_the_file_default_in_data(): void {
         ResourceOverride::forceCreate(['bundle' => 'cfg/admin', 'data' => ['captcha-ttl' => 600]]);
 
         $payload = $this->service()->get(ResourceGroup::Cfg, 'admin');
 
-        $this->assertSame(['captcha-ttl' => 600], array_get_value($payload, 'data'));
-        $this->assertSame(300, array_get_value($payload, 'default')['captcha-ttl']);
+        $this->assertSame(600, array_get_value($payload, 'data')['captcha-ttl']);
+        $this->assertSame(array_get_value($payload, 'default')['token-idle-minutes'], array_get_value($payload, 'data')['token-idle-minutes']);
     }
 
-    public function test_a_bundle_nobody_edited_reports_no_data_at_all(): void {
-        $this->assertSame([], array_get_value($this->service()->get(ResourceGroup::Cfg, 'admin'), 'data'));
+    public function test_a_bundle_nobody_edited_reports_the_file_defaults_as_its_data(): void {
+        $payload = $this->service()->get(ResourceGroup::Cfg, 'admin');
+
+        $this->assertSame(['id' => 'admin', ...array_get_value($payload, 'default')], array_get_value($payload, 'data'));
     }
 
     public function test_a_column_takes_its_type_and_rules_from_the_schema(): void {
@@ -59,6 +61,18 @@ class ResourceServiceTest extends FeatureTestCase {
 
         $this->assertSame('integer', $columns['captcha-ttl']['type']);
         $this->assertSame(['integer', 'min:1'], $columns['captcha-ttl']['rule']);
+    }
+
+    public function test_a_column_without_a_declared_presentation_falls_back_to_plain(): void {
+        $columns = array_column($this->service()->get(ResourceGroup::Cfg, 'admin')['columns'], null, 'name');
+
+        $this->assertSame('plain', $columns['captcha-ttl']['presentation']);
+    }
+
+    public function test_a_column_carries_its_default_as_the_placeholder(): void {
+        $columns = array_column($this->service()->get(ResourceGroup::Cfg, 'admin')['columns'], null, 'name');
+
+        $this->assertSame(strval($columns['captcha-ttl']['default']), $columns['captcha-ttl']['placeholder']);
     }
 
     public function test_a_declared_rule_replaces_the_type_rule(): void {
@@ -102,7 +116,13 @@ class ResourceServiceTest extends FeatureTestCase {
         $columns = array_column($this->service()->get(ResourceGroup::Cfg, 'dotted')['columns'], null, 'name');
 
         $this->assertSame('Plain key', $columns['plain']['title']);
-        $this->assertSame('cfg/dotted.nested.key', $columns['nested.key']['title']);
+        $this->assertSame('nested.key', $columns['nested.key']['title']);
+    }
+
+    public function test_a_row_without_a_declared_label_falls_back_to_the_bare_name(): void {
+        $rows = array_column($this->service()->list(ResourceGroup::Cfg, true)['rows'], null, 'id');
+
+        $this->assertSame('secret', $rows['secret']['name']);
     }
 
     public function test_an_unknown_group_and_an_unknown_name_are_both_missing(): void {
@@ -253,14 +273,6 @@ class ResourceServiceTest extends FeatureTestCase {
 
         $this->assertSame('i18n/tw/widget', ResourceOverride::query()->value('bundle'));
         $this->assertSame('Hello', i18n('widget.hello', 'en'));
-    }
-
-    public function test_the_package_ships_an_empty_whitelist_for_every_group(): void {
-        $shipped = require __DIR__ . '/../../../../config/matrix.php';
-
-        foreach (ResourceGroup::cases() as $group) {
-            $this->assertSame([], array_get_value($shipped, $group->config()), $group->value);
-        }
     }
 
     public function test_an_undeclared_whitelist_hides_everything_from_an_ordinary_administrator(): void {

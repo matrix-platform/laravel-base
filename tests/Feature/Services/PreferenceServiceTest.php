@@ -7,6 +7,7 @@ use Tests\Factories\MemberFactory;
 use Tests\Factories\UserFactory;
 use Tests\Factories\VendorFactory;
 use Tests\FeatureTestCase;
+use Tests\Stubs\Widget;
 
 class PreferenceServiceTest extends FeatureTestCase {
 
@@ -55,6 +56,10 @@ class PreferenceServiceTest extends FeatureTestCase {
         $payload = $this->service()->save($user, ['theme' => 'dark'], true);
 
         $this->assertSame(['theme' => 'dark'], $payload);
+    }
+
+    public function test_an_identity_of_an_unsupported_model_type_is_rejected(): void {
+        $this->refuses('invalid-identity-type', fn () => $this->service()->get(new Widget()));
     }
 
     public function test_each_identity_type_keeps_its_own_preferences_even_with_the_same_id(): void {

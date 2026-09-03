@@ -120,13 +120,16 @@ class DispatchMessagesCommandTest extends FeatureTestCase {
     }
 
     public function test_the_shipped_channels_are_served_by_a_queue_each(): void {
+        config()->set('matrix.messaging.channels.mail.queue', 'queue-mail');
+        config()->set('matrix.messaging.channels.sms.queue', 'queue-sms');
+
         $this->mail();
         $this->sms();
 
         $this->dispatch()->assertSuccessful();
 
-        Queue::assertPushed(SendMessageJob::class, fn (SendMessageJob $job) => $job->channel === 'mail' && $job->queue === 'messaging-mail');
-        Queue::assertPushed(SendMessageJob::class, fn (SendMessageJob $job) => $job->channel === 'sms' && $job->queue === 'messaging-sms');
+        Queue::assertPushed(SendMessageJob::class, fn (SendMessageJob $job) => $job->channel === 'mail' && $job->queue === 'queue-mail');
+        Queue::assertPushed(SendMessageJob::class, fn (SendMessageJob $job) => $job->channel === 'sms' && $job->queue === 'queue-sms');
     }
 
     public function test_a_broken_channel_fails_the_command_and_the_others_still_go_out(): void {

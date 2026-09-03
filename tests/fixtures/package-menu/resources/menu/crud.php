@@ -22,7 +22,11 @@ return [
 
     'widget/sort/save' => ['parent' => 'widget', 'tag' => 'update'],
 
-    'widget/{widget_id}/trinket' => ['parent' => 'widget/{id}', 'group' => true, 'tag' => 'query'],
+    'widget/arrange' => ['parent' => 'widget', 'tag' => 'update'],
+
+    'widget/arrange/save' => ['parent' => 'widget', 'tag' => 'update'],
+
+    'widget/{widget_id}/trinket' => ['parent' => 'widget', 'group' => true, 'tag' => 'query'],
 
     'widget/{widget_id}/trinket/{id}' => ['parent' => 'widget/{widget_id}/trinket', 'tag' => 'query'],
 
@@ -41,6 +45,10 @@ return [
     'widget/{widget_id}/trinket/sort' => ['parent' => 'widget/{widget_id}/trinket', 'tag' => 'update'],
 
     'widget/{widget_id}/trinket/sort/save' => ['parent' => 'widget/{widget_id}/trinket', 'tag' => 'update'],
+
+    'widget/{widget_id}/trinket/arrange' => ['parent' => 'widget/{widget_id}/trinket', 'tag' => 'update'],
+
+    'widget/{widget_id}/trinket/arrange/save' => ['parent' => 'widget/{widget_id}/trinket', 'tag' => 'update'],
 
     'gadget' => ['ranking' => 300, 'parent' => null, 'group' => true, 'tag' => 'query'],
 

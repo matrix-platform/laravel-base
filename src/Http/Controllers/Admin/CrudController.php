@@ -3,6 +3,7 @@
 namespace MatrixPlatform\Http\Controllers\Admin;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Arr;
@@ -24,6 +25,9 @@ use MatrixPlatform\Services\Admin\Crud\SortService;
 use MatrixPlatform\Services\Admin\Crud\UpdateService;
 use MatrixPlatform\Support\MetadataRegistry;
 use MatrixPlatform\Support\Subject;
+use ReflectionClass;
+use ReflectionMethod;
+use ReflectionNamedType;
 
 abstract class CrudController extends BaseController {
 
@@ -66,6 +70,11 @@ abstract class CrudController extends BaseController {
     protected array $updates = [];
 
     private ?Model $instance = null;
+
+    /**
+     * @var list<string>|null
+     */
+    private ?array $relations = null;
 
     /**
      * @return array<string, mixed>
@@ -276,6 +285,16 @@ abstract class CrudController extends BaseController {
         return $this->instance;
     }
 
+    private function isHasManyAccessor(ReflectionMethod $method): bool {
+        $type = $method->getReturnType();
+
+        return $method->getDeclaringClass()->getName() === $this->model
+            && $method->getNumberOfParameters() === 0
+            && $type instanceof ReflectionNamedType
+            && !$type->isBuiltin()
+            && is_a($type->getName(), HasMany::class, true);
+    }
+
     private function joined(string $name): string {
         if (!str_ends_with($name, '_id')) {
             return $name;
@@ -315,7 +334,7 @@ abstract class CrudController extends BaseController {
             }
         }
 
-        return $names;
+        return [...$names, ...$this->relations()];
     }
 
     /**
@@ -331,6 +350,25 @@ abstract class CrudController extends BaseController {
 
     private function ranking(): ?string {
         return app(MetadataRegistry::class)->of($this->model)?->ranking;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function relations(): array {
+        if ($this->relations !== null) {
+            return $this->relations;
+        }
+
+        $names = [];
+
+        foreach ((new ReflectionClass($this->model))->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
+            if ($this->isHasManyAccessor($method)) {
+                $names[] = "count({$method->getName()})";
+            }
+        }
+
+        return $this->relations = $names;
     }
 
     private function sortable(): bool {

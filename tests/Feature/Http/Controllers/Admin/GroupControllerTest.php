@@ -82,17 +82,18 @@ class GroupControllerTest extends FeatureTestCase {
     }
 
     public function test_the_new_payload_carries_a_permissions_column_shaped_like_the_others(): void {
-        $response = $this->send('admin/group/new');
+        $columns = $this->send('admin/group/new')->json('data.columns');
+        $permissions = $this->columnByName($columns, 'permissions');
+        $other = $this->columnByName($columns, 'title');
 
-        $response->assertJsonPath('data.columns.2.name', 'permissions');
-        $response->assertJsonPath('data.columns.2.presentation', 'permissions');
-        $response->assertJsonPath('data.columns.2.type', 'json');
-        $response->assertJsonPath('data.columns.2.title', 'Permissions');
-        $response->assertJsonPath('data.columns.2.sortable', false);
-        $response->assertJsonPath('data.columns.2.options.0.id', 'authority');
+        $this->assertSame('permissions', $permissions['presentation']);
+        $this->assertSame('json', $permissions['type']);
+        $this->assertNotSame('permissions', $permissions['title']);
+        $this->assertFalse($permissions['sortable']);
+        $this->assertNotEmpty($permissions['options']);
 
-        $this->assertSame(array_keys($response->json('data.columns.1')), array_keys($response->json('data.columns.2')));
-        $this->assertCount(15, $response->json('data.columns.2'));
+        $this->assertSame(array_keys($other), array_keys($permissions));
+        $this->assertCount(16, $permissions);
     }
 
     public function test_the_new_payload_carries_an_empty_permission_object(): void {
@@ -279,9 +280,10 @@ class GroupControllerTest extends FeatureTestCase {
         GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors']);
 
         $response = $this->send('admin/group');
+        $title = $this->columnByName($response->json('data.columns'), 'title');
 
         $response->assertJsonMissingPath('data.rows.0.permissions');
-        $response->assertJsonPath('data.columns.1.required', true);
+        $this->assertTrue($title['required']);
     }
 
     public function test_the_permission_change_lands_in_the_audit_trail(): void {

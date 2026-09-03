@@ -25,7 +25,7 @@ class MenuDeclaration implements Declares {
     }
 
     public function metadata(): Metadata {
-        return new Metadata('menu');
+        return new Metadata('menu', ranking: 'ranking', enable: 'enable_time', disable: 'disable_time');
     }
 
 }

@@ -22,6 +22,10 @@ return [
 
     'widget/sort/save' => 'Save Widget Order',
 
+    'widget/arrange' => 'Arrange Widgets',
+
+    'widget/arrange/save' => 'Save Widget Arrangement',
+
     'widget/{widget_id}/trinket' => 'Trinkets',
 
     'widget/{widget_id}/trinket/{id}' => 'Trinket',
@@ -41,6 +45,10 @@ return [
     'widget/{widget_id}/trinket/sort' => 'Sort Trinkets',
 
     'widget/{widget_id}/trinket/sort/save' => 'Save Trinket Order',
+
+    'widget/{widget_id}/trinket/arrange' => 'Arrange Trinkets',
+
+    'widget/{widget_id}/trinket/arrange/save' => 'Save Trinket Arrangement',
 
     'gadget' => 'Gadgets',
 

@@ -34,6 +34,10 @@ class Subject {
         return is_string($replaced) ? $replaced : null;
     }
 
+    public function key(string $prefix): string {
+        return strval(preg_replace('/\/\{[^}]+\}\//', '-', $prefix));
+    }
+
     /**
      * @param array<string, mixed>|Model $source
      * @return list<Model>

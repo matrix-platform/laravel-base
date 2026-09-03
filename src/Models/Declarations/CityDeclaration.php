@@ -22,7 +22,7 @@ class CityDeclaration implements Declares {
     }
 
     public function metadata(): Metadata {
-        return new Metadata('city');
+        return new Metadata('city', ranking: 'ranking');
     }
 
 }

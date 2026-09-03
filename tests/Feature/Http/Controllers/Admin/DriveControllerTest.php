@@ -77,6 +77,13 @@ class DriveControllerTest extends FeatureTestCase {
         $this->assertSame('hello', $download->streamedContent());
     }
 
+    public function test_downloading_a_folder_reports_not_found(): void {
+        $root = $this->send('admin/drive/root')->json('data.id');
+        $folder = $this->send("admin/drive/{$root}/folder", ['name' => 'folder'])->json('data.id');
+
+        $this->send("admin/drive/{$folder}/download")->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
+    }
+
     public function test_a_deleted_node_can_be_restored(): void {
         $root = $this->send('admin/drive/root')->json('data.id');
         $folder = $this->send("admin/drive/{$root}/folder", ['name' => 'folder'])->json('data.id');

@@ -17,13 +17,13 @@ class UserDeclaration implements Declares {
         return array_merge(
             Definitions::primaryKey(),
             [
-                'username' => Definition::text(),
+                'username' => Definition::text(required: true, unique: true),
                 'password' => Definition::text(Presentation::Password, fn (): array => ['exclude_if:password,null', 'regex:' . cfg('admin.password-pattern')]),
                 'group_id' => Definition::integer()
             ],
-            Definitions::permissions(),
+            Definitions::disabled(),
             Definitions::schedules(),
-            ['disabled' => Definition::boolean()],
+            Definitions::permissions(),
             Definitions::auditings()
         );
     }

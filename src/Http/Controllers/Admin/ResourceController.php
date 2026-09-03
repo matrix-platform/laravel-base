@@ -18,7 +18,7 @@ abstract class ResourceController extends BaseController {
     /**
      * @return array<string, mixed>
      */
-    #[Action]
+    #[Action('{id}')]
     public function get(Request $request): array {
         return $this->service->prefix($this->prefix())->get($this->group, $this->allowed($request));
     }
@@ -34,17 +34,13 @@ abstract class ResourceController extends BaseController {
     /**
      * @return array<string, mixed>
      */
-    #[Action]
+    #[Action('{id}/update')]
     public function update(Request $request): array {
-        return $this->service->prefix($this->prefix())->update($this->group, $this->allowed($request), $request->input('data'));
+        return $this->service->prefix($this->prefix())->update($this->group, $this->allowed($request), $request->all());
     }
 
     private function allowed(Request $request): string {
-        $request->validate([
-            'name' => ['required', 'string']
-        ]);
-
-        $name = $request->string('name')->value();
+        $name = strval($request->route('id'));
 
         if (!$this->unrestricted() && !$this->service->whitelisted($this->group, $name)) {
             error('data-not-found', 404);

@@ -13,6 +13,8 @@ use MatrixPlatform\Support\Resources;
 
 class ResourceService {
 
+    private bool $pinned = false;
+
     private string $prefix = 'resource';
 
     public function __construct(private Resources $resources, private Actions $actions) {}
@@ -27,7 +29,7 @@ class ResourceService {
         $relative = $this->relative($group, $name);
         $defaults = $this->defaults($relative);
 
-        return $this->payload($id, $relative, $defaults, $this->columns($id, $defaults));
+        return $this->payload($id, $name, $relative, $defaults, $this->columns($id, $defaults));
     }
 
     /**
@@ -46,17 +48,22 @@ class ResourceService {
             'title' => $this->heading(),
             'breadcrumbs' => $this->breadcrumbs(),
             'columns' => [
-                ['name' => 'name', 'title' => i18n('resource.column-name'), 'type' => 'text'],
-                ['name' => 'overrides', 'title' => i18n('resource.column-overrides'), 'type' => 'integer']
+                ['name' => 'name', 'title' => i18n('resource.column-name'), 'type' => 'text']
             ],
             'sorting' => [],
             'pagination' => ['page' => 1, 'size' => max(1, count($rows)), 'total' => count($rows)],
             'rows' => $rows,
             'actions' => [
                 'page' => [],
-                'row' => [$this->action('edit', 'get')]
+                'row' => [$this->action('edit', '{id}')]
             ]
         ];
+    }
+
+    public function pinned(bool $pinned = true): static {
+        $this->pinned = $pinned;
+
+        return $this;
     }
 
     public function prefix(string $prefix): static {
@@ -95,7 +102,7 @@ class ResourceService {
 
         $this->save($relative, $record, $override);
 
-        return $this->payload($id, $relative, $defaults, $columns);
+        return $this->payload($id, $name, $relative, $defaults, $columns);
     }
 
     public function whitelisted(ResourceGroup $group, string $name): bool {
@@ -177,12 +184,13 @@ class ResourceService {
 
             $columns[] = [
                 'name' => strval($key),
-                'title' => $this->title("{$id}.{$key}"),
+                'title' => $this->title("{$id}.{$key}", strval($key)),
                 'type' => $type->value,
-                'presentation' => is_string($presentation) ? $presentation : null,
+                'presentation' => is_string($presentation) ? $presentation : 'plain',
                 'readonly' => array_get_value($meta, 'readonly') === true,
                 'rule' => is_array($rule) ? array_map(strval(...), array_values($rule)) : [$type->rule()],
-                'default' => $value
+                'default' => $value,
+                'placeholder' => strval($value)
             ];
         }
 
@@ -220,18 +228,26 @@ class ResourceService {
      * @param list<array<string, mixed>> $columns
      * @return array<string, mixed>
      */
-    private function payload(string $id, string $relative, array $defaults, array $columns): array {
+    private function payload(string $id, string $name, string $relative, array $defaults, array $columns): array {
         $override = $this->resources->getOverrides($relative);
+        $override = $override === null ? [] : $override;
+        $data = ['id' => $name];
+
+        foreach ($columns as $column) {
+            $key = strval($column['name']);
+
+            $data[$key] = array_key_exists($key, $override) ? $override[$key] : $column['default'];
+        }
 
         return [
             'title' => $this->heading(),
-            'subtitle' => $this->title($id),
+            'subtitle' => $this->title($id, $name),
             'breadcrumbs' => $this->breadcrumbs(),
             'id' => $id,
             'columns' => $columns,
-            'data' => array_intersect_key($override === null ? [] : $override, $defaults),
+            'data' => $data,
             'default' => $defaults,
-            'actions' => [$this->action('update', 'update')]
+            'actions' => [$this->action('update', $this->pinned ? 'update' : '{id}/update')]
         ];
     }
 
@@ -243,12 +259,9 @@ class ResourceService {
      * @return array<string, mixed>
      */
     private function row(ResourceGroup $group, string $name): array {
-        $override = $this->resources->getOverrides($this->relative($group, $name));
-
         return [
             'id' => $name,
-            'name' => $this->title($this->identify($group, $name)),
-            'overrides' => $override === null ? 0 : count($override),
+            'name' => $this->title($this->identify($group, $name), $name),
             'actions' => ['edit']
         ];
     }
@@ -271,10 +284,10 @@ class ResourceService {
         $this->resources->forget();
     }
 
-    private function title(string $token): string {
+    private function title(string $token, string $fallback): string {
         $label = i18n("resource.{$token}");
 
-        return $label === "resource.{$token}" ? $token : $label;
+        return $label === "resource.{$token}" ? $fallback : $label;
     }
 
     /**

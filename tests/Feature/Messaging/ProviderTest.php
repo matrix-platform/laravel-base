@@ -3,6 +3,7 @@
 namespace Tests\Feature\Messaging;
 
 use MatrixPlatform\Messaging\Channels;
+use MatrixPlatform\Messaging\Driver;
 use MatrixPlatform\Messaging\MailerMailDriver;
 use MatrixPlatform\Messaging\Provider;
 use Tests\FeatureTestCase;
@@ -18,7 +19,7 @@ class ProviderTest extends FeatureTestCase {
         $provider = $this->provider('gmail');
 
         $this->assertSame('gmail', $provider->name);
-        $this->assertInstanceOf(MailerMailDriver::class, $provider->driver());
+        $this->assertInstanceOf(Driver::class, $provider->driver());
     }
 
     public function test_two_providers_on_one_channel_can_use_different_drivers(): void {

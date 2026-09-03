@@ -87,10 +87,23 @@ class UserControllerTest extends FeatureTestCase {
 
         $this->assertSame('Editors', $rows['zoe']);
 
-        $response->assertJsonPath('data.columns.3.name', 'disabled');
-        $response->assertJsonPath('data.columns.3.presentation', 'select');
-        $response->assertJsonPath('data.columns.3.options.0.id', 1);
-        $response->assertJsonPath('data.columns.3.options.0.title', 'Yes');
+        $disabled = $this->columnByName($response->json('data.columns'), 'disabled');
+        $titles = array_column($disabled['options'], 'title', 'id');
+
+        $this->assertSame('select', $disabled['presentation']);
+        $this->assertArrayHasKey(1, $titles);
+        $this->assertArrayHasKey(0, $titles);
+        $this->assertNotSame($titles[1], $titles[0]);
+    }
+
+    public function test_the_new_form_titles_group_id_options_with_the_groups_translated_title(): void {
+        $group = GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors']);
+
+        $columns = $this->send($this->signIn(User::ROOT), 'admin/user/new')->json('data.columns');
+        $groupId = $this->columnByName($columns, 'group_id');
+
+        $this->assertSame($group->id, $groupId['options'][0]['id']);
+        $this->assertSame('Editors', $groupId['options'][0]['title']);
     }
 
     public function test_an_admin_never_sees_the_root_account(): void {
@@ -243,11 +256,11 @@ class UserControllerTest extends FeatureTestCase {
 
     public function test_the_account_form_carries_the_permissions_column(): void {
         $response = $this->send($this->signIn(self::ADMIN), 'admin/user/new');
+        $permissions = $this->columnByName($response->json('data.columns'), 'permissions');
 
-        $response->assertJsonPath('data.columns.7.name', 'permissions');
-        $response->assertJsonPath('data.columns.7.presentation', 'permissions');
-        $response->assertJsonPath('data.columns.7.sortable', false);
-        $response->assertJsonPath('data.columns.7.options.0.id', 'authority');
+        $this->assertSame('permissions', $permissions['presentation']);
+        $this->assertFalse($permissions['sortable']);
+        $this->assertNotEmpty($permissions['options']);
 
         $this->assertStringContainsString('"permissions":{}', strval($response->getContent()));
     }
@@ -277,6 +290,12 @@ class UserControllerTest extends FeatureTestCase {
         $token = $this->signIn(self::REGULAR, ['user' => ['query' => true]]);
 
         $this->send($token, 'admin/user')->assertJsonPath('success', true);
+    }
+
+    public function test_a_regular_user_without_further_grants_sees_no_page_actions(): void {
+        $token = $this->signIn(self::REGULAR, ['user' => ['query' => true]]);
+
+        $this->send($token, 'admin/user')->assertJsonPath('data.actions.page', []);
     }
 
     public function test_a_regular_user_only_sees_regular_accounts(): void {

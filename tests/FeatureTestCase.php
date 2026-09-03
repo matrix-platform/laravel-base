@@ -44,6 +44,20 @@ class FeatureTestCase extends TestCase {
         return $token;
     }
 
+    /**
+     * @param list<array<string, mixed>> $columns
+     * @return array<string, mixed>
+     */
+    protected function columnByName(array $columns, string $name): array {
+        foreach ($columns as $column) {
+            if ($column['name'] === $name) {
+                return $column;
+            }
+        }
+
+        $this->fail("missing column {$name}");
+    }
+
     protected function defineDatabaseMigrations(): void {
         $this->loadMigrationsFrom(__DIR__ . '/Stubs/migrations');
     }

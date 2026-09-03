@@ -12,6 +12,10 @@ return [
 
     'disabled' => '停用',
 
+    'enable_time' => '啟用時間',
+
+    'disable_time' => '停用時間',
+
     'permissions' => '權限',
 
 ];

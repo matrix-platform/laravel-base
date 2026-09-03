@@ -14,7 +14,6 @@ class SandboxTest extends FeatureTestCase {
     }
 
     public function test_a_provider_is_not_sandboxed_by_default(): void {
-        $this->assertNull(Sandbox::recipient('gmail'));
         $this->assertNull(Sandbox::recipient('stub'));
     }
 

@@ -60,6 +60,12 @@ class AdminPermission {
         return !$this->denied($path, $tag);
     }
 
+    public function reaches(string $path): bool {
+        $menu = $this->menus->node($path);
+
+        return $menu !== null && $this->reachable($menu);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -93,6 +99,10 @@ class AdminPermission {
         return is_array($node) && array_get_value($node, $tag) === true;
     }
 
+    private function reachable(MenuNode $menu): bool {
+        return !$this->denied($menu->group ? $menu->path : $menu->parent, $menu->tag);
+    }
+
     private function resolve(): ?MenuNode {
         $configured = config('matrix.admin-api-prefix');
         $route = request()->route();
@@ -105,11 +115,7 @@ class AdminPermission {
 
         $menu = $this->menus->node(substr($uri, strlen($prefix)));
 
-        if ($menu === null) {
-            return null;
-        }
-
-        return $this->denied($menu->group ? $menu->path : $menu->parent, $menu->tag) ? null : $menu;
+        return $menu !== null && $this->reachable($menu) ? $menu : null;
     }
 
 }

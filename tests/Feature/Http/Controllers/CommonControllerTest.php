@@ -5,9 +5,20 @@ namespace Tests\Feature\Http\Controllers;
 use MatrixPlatform\Models\City;
 use MatrixPlatform\Models\CityArea;
 use MatrixPlatform\Models\Menu;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\FeatureTestCase;
 
 class CommonControllerTest extends FeatureTestCase {
+
+    /**
+     * @return array<string, array{mixed}>
+     */
+    public static function invalidParents(): array {
+        return [
+            'a non-integer string' => ['not-a-number'],
+            'an array' => [['an-array']]
+        ];
+    }
 
     private function child(Menu $parent, string $title, int $ranking): Menu {
         $menu = $this->node($title, $ranking);
@@ -92,17 +103,11 @@ class CommonControllerTest extends FeatureTestCase {
         $this->assertNull($response->json('data.1'));
     }
 
-    public function test_a_non_integer_parent_is_rejected_as_a_validation_failure(): void {
-        $response = $this->postJson('api/common/menu', ['parent' => 'not-a-number']);
+    #[DataProvider('invalidParents')]
+    public function test_an_invalid_parent_is_rejected_as_a_validation_failure(mixed $parent): void {
+        $response = $this->postJson('api/common/menu', ['parent' => $parent]);
 
         $response->assertJson(['success' => false, 'code' => 422, 'error' => 'validation-failed']);
-    }
-
-    public function test_a_refused_request_comes_back_inside_the_error_envelope(): void {
-        $response = $this->postJson('api/common/menu', ['parent' => ['an-array']]);
-
-        $response->assertJsonStructure(['success', 'code', 'error', 'message']);
-        $this->assertFalse($response->json('success'));
     }
 
     public function test_the_error_message_follows_the_requested_locale(): void {

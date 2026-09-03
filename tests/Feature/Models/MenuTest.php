@@ -10,7 +10,7 @@ use Tests\FeatureTestCase;
 class MenuTest extends FeatureTestCase {
 
     public function test_the_table_carries_the_declared_columns(): void {
-        $this->assertSame(
+        $this->assertEqualsCanonicalizing(
             ['id', 'parent_id', 'title__tw', 'title__en', 'data', 'enable_time', 'disable_time', 'ranking', 'creator_id', 'create_time', 'updater_id', 'update_time'],
             Schema::getColumnListing('base_menu')
         );

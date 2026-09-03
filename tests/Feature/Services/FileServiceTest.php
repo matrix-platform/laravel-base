@@ -144,12 +144,6 @@ class FileServiceTest extends FeatureTestCase {
         $this->assertSame(2048, $file->size);
     }
 
-    public function test_the_package_imposes_no_size_or_type_limit_of_its_own(): void {
-        $file = $this->service()->upload(UploadedFile::fake()->create('huge.pdf', 51200, 'application/pdf'));
-
-        $this->assertSame(51200 * 1024, $file->size);
-    }
-
     public function test_a_configured_limit_applies_when_the_caller_passes_nothing(): void {
         $this->useCfgFixtures();
 

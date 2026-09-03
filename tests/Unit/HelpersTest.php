@@ -29,7 +29,11 @@ class HelpersTest extends TestCase {
             $this->assertSame('validation-failed', $exception->getError());
             $this->assertSame(422, $exception->getCode());
             $this->assertSame(['fields' => ['current' => ['invalid-password']]], $exception->getExtra());
+
+            return;
         }
+
+        $this->fail('expected invalid() to throw a ServiceException');
     }
 
     public function test_array_get_value_returns_value_when_key_exists(): void {

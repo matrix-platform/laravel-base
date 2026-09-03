@@ -16,6 +16,8 @@ class ChannelsTest extends FeatureTestCase {
     }
 
     public function test_a_configured_channel_resolves_to_its_log_model(): void {
+        config()->set('matrix.messaging.channels.mail', ['model' => MailLog::class, 'queue' => 'messaging-mail']);
+
         $channel = $this->channels()->get('mail');
 
         $this->assertSame('mail', $channel->name);
@@ -36,7 +38,9 @@ class ChannelsTest extends FeatureTestCase {
     }
 
     public function test_every_configured_channel_is_listed(): void {
-        $this->assertSame(['mail', 'sms'], $this->channels()->names());
+        config()->set('matrix.messaging.channels', ['alpha' => [], 'beta' => []]);
+
+        $this->assertSame(['alpha', 'beta'], $this->channels()->names());
     }
 
     public function test_an_unknown_channel_is_refused(): void {
@@ -61,6 +65,8 @@ class ChannelsTest extends FeatureTestCase {
     }
 
     public function test_the_registry_reflects_a_configuration_change_without_being_forgotten(): void {
+        config()->set('matrix.messaging.channels.mail.model', MailLog::class);
+
         $channels = $this->channels();
 
         $this->assertSame(MailLog::class, $channels->get('mail')->model);

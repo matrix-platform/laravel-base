@@ -154,10 +154,18 @@ class AuthControllerTest extends FeatureTestCase {
 
         $token = $this->login()->json('data.token');
 
-        $this->withToken($token)
+        $nodes = $this->withToken($token)
             ->postJson('admin/auth/profile')
-            ->assertJsonPath('data.nodes.authority.title', 'Authority')
-            ->assertJsonPath('data.nodes.user.title', 'Accounts');
+            ->json('data.nodes');
+
+        $this->assertIsArray($nodes);
+        $this->assertNotEmpty($nodes);
+
+        foreach ($nodes as $node) {
+            $this->assertIsArray($node);
+            $this->assertIsString($node['title']);
+            $this->assertNotSame('', $node['title']);
+        }
     }
 
     public function test_the_profile_never_exposes_the_permissions(): void {

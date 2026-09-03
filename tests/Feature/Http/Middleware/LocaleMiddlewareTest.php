@@ -17,13 +17,13 @@ class LocaleMiddlewareTest extends FeatureTestCase {
     public function test_a_known_locale_header_switches_the_translations(): void {
         $response = $this->postJson('locale-probe', [], ['Matrix-Locale' => 'tw']);
 
-        $response->assertJson(['locale' => 'tw', 'message' => '查無資料']);
+        $response->assertJson(['locale' => 'tw', 'message' => i18n('errors.data-not-found', 'tw')]);
     }
 
     public function test_no_header_falls_back_to_the_application_locale(): void {
         $response = $this->postJson('locale-probe');
 
-        $response->assertJson(['locale' => 'en', 'message' => 'Data not found']);
+        $response->assertJson(['locale' => 'en', 'message' => i18n('errors.data-not-found', 'en')]);
     }
 
     public function test_an_unlisted_locale_falls_back_to_the_application_locale(): void {

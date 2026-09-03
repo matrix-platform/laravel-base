@@ -13,7 +13,7 @@ use Tests\FeatureTestCase;
 class OperatorTest extends FeatureTestCase {
 
     public function test_the_view_carries_the_declared_columns(): void {
-        $this->assertSame(['id', 'type', 'username'], Schema::getColumnListing('base_operator'));
+        $this->assertEqualsCanonicalizing(['id', 'type', 'username'], Schema::getColumnListing('base_operator'));
     }
 
     public function test_the_view_exposes_every_identity_kind(): void {

@@ -10,6 +10,7 @@ use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Routing\ActionRoutes;
+use MatrixPlatform\Services\PreferenceService;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
 use Tests\Factories\UserFactory;
@@ -224,6 +225,31 @@ class CrudControllerTest extends FeatureTestCase {
         $this->assertCount(12, $this->admin('admin/widget', ['size' => 'abc'])->json('data.rows'));
     }
 
+    public function test_the_page_size_falls_back_to_the_users_list_size_preference(): void {
+        app(PreferenceService::class)->save(User::findOrFail(User::ROOT), ['listSize' => 5], false);
+
+        foreach (range(1, 12) as $index) {
+            $this->widget("W{$index}");
+        }
+
+        $this->assertCount(5, $this->admin('admin/widget')->json('data.rows'));
+        $this->assertCount(3, $this->admin('admin/widget', ['size' => 3])->json('data.rows'));
+    }
+
+    public function test_the_list_response_carries_the_users_column_preference_for_the_route(): void {
+        app(PreferenceService::class)->save(User::findOrFail(User::ROOT), ['column:widget' => ['title']], false);
+
+        $this->widget('Alpha');
+
+        $this->admin('admin/widget')->assertJsonPath('data.preference', ['title']);
+    }
+
+    public function test_the_list_response_preference_is_null_without_a_saved_value(): void {
+        $this->widget('Alpha');
+
+        $this->admin('admin/widget')->assertJsonPath('data.preference', null);
+    }
+
     public function test_the_get_response_carries_the_row_and_its_columns(): void {
         $widget = $this->widget('Alpha');
 
@@ -325,15 +351,24 @@ class CrudControllerTest extends FeatureTestCase {
         $response->assertJsonPath('data.context.widget_id', strval($alpha->id));
     }
 
+    public function test_a_nested_lists_column_preference_uses_a_hyphenated_key(): void {
+        $alpha = $this->widget('Alpha');
+
+        app(PreferenceService::class)->save(User::findOrFail(User::ROOT), ['column:widget-trinket' => ['label']], false);
+
+        Trinket::forceCreate(['label' => 'mine', 'widget_id' => $alpha->id]);
+
+        $this->admin("admin/widget/{$alpha->id}/trinket")->assertJsonPath('data.preference', ['label']);
+    }
+
     public function test_a_nested_breadcrumb_renders_the_parent_path(): void {
         $alpha = $this->widget('Alpha');
 
         $response = $this->admin("admin/widget/{$alpha->id}/trinket");
 
         $this->assertSame([
-            ['label' => null, 'path' => 'widget', 'title' => 'Widgets'],
-            ['label' => null, 'path' => "widget/{$alpha->id}", 'title' => 'Widget'],
-            ['label' => 'Alpha', 'path' => "widget/{$alpha->id}/trinket", 'title' => 'Trinkets']
+            ['label' => 'Alpha', 'path' => 'widget', 'title' => 'Widgets'],
+            ['label' => null, 'path' => "widget/{$alpha->id}/trinket", 'title' => 'Trinkets']
         ], $response->json('data.breadcrumbs'));
     }
 

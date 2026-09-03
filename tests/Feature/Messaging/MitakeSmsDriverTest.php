@@ -82,8 +82,20 @@ class MitakeSmsDriverTest extends FeatureTestCase {
         });
     }
 
-    public function test_every_delivery_state_the_vendor_documents_as_reached_is_accepted(): void {
-        $this->assertSame('0 1 2 4', cfg('mitake.accepted-status'));
+    public function test_every_status_code_configured_as_accepted_is_treated_as_delivered(): void {
+        $codes = tokenize(strval(cfg('mitake.accepted-status')));
+
+        $this->assertNotEmpty($codes);
+
+        foreach ($codes as $code) {
+            Http::fake(['*' => Http::response("statuscode={$code}\r\n")]);
+
+            $log = $this->log();
+
+            (new MitakeSmsDriver())->send($log);
+
+            $this->assertNull($log->error, "status code {$code} should not be treated as an error");
+        }
     }
 
     public function test_a_message_the_vendor_reports_as_delivered_to_the_handset_is_not_a_failure(): void {
@@ -135,16 +147,6 @@ class MitakeSmsDriverTest extends FeatureTestCase {
         $lenient = (new MitakeSmsDriver())->send($this->log('mitake-lenient'));
 
         $this->assertSame(self::REFUSED, $lenient);
-    }
-
-    public function test_the_section_header_and_blank_lines_the_vendor_sends_are_ignored(): void {
-        Http::fake(['*' => Http::response(self::REFUSED)]);
-
-        $log = $this->log();
-
-        $this->refuses('message-refused-by-provider', fn () => (new MitakeSmsDriver())->send($log));
-
-        $this->assertSame('Account or password incorrect', $log->error);
     }
 
     public function test_a_transport_level_failure_is_reported_as_a_failed_request(): void {

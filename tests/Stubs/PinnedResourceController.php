@@ -31,7 +31,7 @@ class PinnedResourceController extends BaseController {
     }
 
     private function service(): ResourceService {
-        return $this->service->prefix('mail-setting');
+        return $this->service->prefix('mail-setting')->pinned();
     }
 
 }

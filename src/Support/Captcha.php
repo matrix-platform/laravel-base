@@ -8,12 +8,12 @@ class Captcha {
      * @var list<array{int, int, int}>
      */
     private const COLORS = [
-        [122, 229, 112],
-        [85, 178, 85],
-        [226, 108, 97],
-        [141, 214, 210],
-        [214, 141, 205],
-        [100, 138, 204]
+        [80, 186, 67],
+        [64, 138, 64],
+        [196, 74, 64],
+        [86, 167, 163],
+        [173, 86, 162],
+        [65, 98, 169]
     ];
 
     public static function generate(string $code): string {

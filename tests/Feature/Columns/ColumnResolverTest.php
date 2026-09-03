@@ -17,6 +17,7 @@ use MatrixPlatform\Models\User;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
 use MatrixPlatform\Support\PermissionTree;
+use MatrixPlatform\Support\Resources;
 use Tests\FeatureTestCase;
 use Tests\Stubs\Gadget;
 use Tests\Stubs\StubDeclaration;
@@ -106,7 +107,7 @@ class ColumnResolverTest extends FeatureTestCase {
     public function test_a_declaration_rule_can_be_deferred_to_a_closure(): void {
         $this->declare(['title' => Definition::text(null, fn (): array => ['max:' . cfg('admin.token-idle-minutes')])]);
 
-        $this->assertSame(['max:30'], $this->resolve('title')->rule);
+        $this->assertSame(['max:' . cfg('admin.token-idle-minutes')], $this->resolve('title')->rule);
     }
 
     public function test_a_column_rule_overrides_the_declaration_rule(): void {
@@ -186,7 +187,10 @@ class ColumnResolverTest extends FeatureTestCase {
     }
 
     public function test_a_title_falls_back_to_the_default_bundle(): void {
-        $this->assertSame('Enable Time', $this->resolve('enable_time')->title);
+        $expected = array_get_value(app(Resources::class)->getI18nBundle('model/default'), 'enable_time');
+
+        $this->assertIsString($expected);
+        $this->assertSame($expected, $this->resolve('enable_time')->title);
     }
 
     public function test_a_title_falls_back_to_the_braced_name(): void {
@@ -280,13 +284,15 @@ class ColumnResolverTest extends FeatureTestCase {
         $this->assertFalse($this->resolve('disabled', new User())->sortable);
     }
 
-    public function test_a_boolean_column_carries_yes_and_no_options(): void {
+    public function test_a_boolean_column_uses_the_boolean_option_bundle(): void {
         $column = $this->resolve('disabled', new User());
         $options = $column->options === null ? [] : $column->options->options();
+        $found = app(Resources::class)->getI18nBundle('options/boolean');
+        $bundle = $found === null ? [] : $found;
 
         $this->assertSame(Presentation::Select, $column->presentation);
-        $this->assertSame([1, 0], array_map(fn (Option $option): int|string => $option->id, $options));
-        $this->assertSame(['Yes', 'No'], array_map(fn (Option $option): string => $option->title, $options));
+        $this->assertSame(array_keys($bundle), array_map(fn (Option $option): int|string => $option->id, $options));
+        $this->assertSame(array_values($bundle), array_map(fn (Option $option): string => $option->title, $options));
     }
 
     public function test_a_boolean_column_is_still_compared_by_equality(): void {

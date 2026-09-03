@@ -4,6 +4,7 @@ namespace MatrixPlatform\Columns\Options;
 
 use Illuminate\Database\Eloquent\Model;
 use MatrixPlatform\Support\MetadataRegistry;
+use MatrixPlatform\Support\Subject;
 
 class RelationOptions implements OptionProvider {
 
@@ -26,6 +27,7 @@ class RelationOptions implements OptionProvider {
         $current = new $this->related();
         $mapping = [];
         $registry = app(MetadataRegistry::class);
+        $subject = app(Subject::class);
 
         while (true) {
             $metadata = $registry->of($current::class);
@@ -39,7 +41,7 @@ class RelationOptions implements OptionProvider {
             $foreign = $relation === null ? null : $relation->getForeignKeyName();
 
             foreach ($current::query()->get() as $item) {
-                $mapping[$this->key($foreign === null ? null : $item->getAttribute($foreign))][] = $this->option($item, $metadata->title);
+                $mapping[$this->key($foreign === null ? null : $item->getAttribute($foreign))][] = $this->option($subject, $item);
             }
 
             if ($relation === null) {
@@ -68,8 +70,8 @@ class RelationOptions implements OptionProvider {
         return $value === null ? '' : (string) $value;
     }
 
-    private function option(Model $item, string $title): Option {
-        $label = $item->getAttribute($title);
+    private function option(Subject $subject, Model $item): Option {
+        $label = $subject->title($item);
         $ranking = $item->getAttribute('ranking');
 
         return new Option([], $this->identifier($item), is_int($ranking) ? $ranking : 0, is_string($label) ? $label : '');

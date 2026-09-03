@@ -75,9 +75,16 @@ class ResourceControllerTest extends FeatureTestCase {
     }
 
     public function test_each_group_carries_its_own_menu_node(): void {
-        $this->assertSame('Menus', $this->as($this->root, 'admin/resource/i18n/menu')->json('data.title'));
-        $this->assertSame('Messages', $this->as($this->root, 'admin/resource/i18n')->json('data.title'));
-        $this->assertSame('General', $this->as($this->root, 'admin/resource/cfg')->json('data.title'));
+        $menu = $this->as($this->root, 'admin/resource/i18n/menu')->json('data.title');
+        $i18n = $this->as($this->root, 'admin/resource/i18n')->json('data.title');
+        $cfg = $this->as($this->root, 'admin/resource/cfg')->json('data.title');
+
+        foreach ([$menu, $i18n, $cfg] as $title) {
+            $this->assertIsString($title);
+            $this->assertNotSame('', $title);
+        }
+
+        $this->assertCount(3, array_unique([$menu, $i18n, $cfg]));
     }
 
     public function test_an_ordinary_administrator_sees_only_the_whitelisted_bundles(): void {
@@ -116,17 +123,17 @@ class ResourceControllerTest extends FeatureTestCase {
     }
 
     public function test_a_bundle_outside_the_whitelist_is_missing_for_an_administrator(): void {
-        $this->as($this->admin, 'admin/resource/cfg/get', ['name' => 'secret'])
+        $this->as($this->admin, 'admin/resource/cfg/secret')
             ->assertOk()
             ->assertJson(['success' => false, 'code' => 404]);
 
-        $this->as($this->root, 'admin/resource/cfg/get', ['name' => 'secret'])
+        $this->as($this->root, 'admin/resource/cfg/secret')
             ->assertOk()
             ->assertJsonPath('data.id', 'cfg/secret');
     }
 
     public function test_a_bundle_outside_the_whitelist_cannot_be_written_by_an_administrator(): void {
-        $this->as($this->admin, 'admin/resource/cfg/update', ['name' => 'secret', 'data' => ['token' => 'stolen']])
+        $this->as($this->admin, 'admin/resource/cfg/secret/update', ['token' => 'stolen'])
             ->assertOk()
             ->assertJson(['success' => false, 'code' => 404]);
 
@@ -134,29 +141,25 @@ class ResourceControllerTest extends FeatureTestCase {
     }
 
     public function test_a_bundle_of_another_group_is_unreachable_from_this_one(): void {
-        $this->as($this->root, 'admin/resource/i18n/get', ['name' => 'admin'])
+        $this->as($this->root, 'admin/resource/i18n/admin')
             ->assertOk()
             ->assertJson(['success' => false, 'code' => 404]);
     }
 
-    public function test_a_row_carries_its_label_and_its_override_count(): void {
-        ResourceOverride::forceCreate(['bundle' => 'cfg/admin', 'data' => ['captcha-ttl' => 600, 'token-idle-minutes' => 90]]);
-
+    public function test_a_row_carries_its_label(): void {
         $rows = array_column($this->as($this->admin, 'admin/resource/cfg')->json('data.rows'), null, 'id');
 
         $this->assertSame('Dotted keys', $rows['dotted']['name']);
-        $this->assertSame(2, $rows['admin']['overrides']);
-        $this->assertSame(0, $rows['dotted']['overrides']);
     }
 
     public function test_a_listing_names_the_urls_of_its_own_group(): void {
         $actions = $this->as($this->admin, 'admin/resource/i18n/options')->json('data.actions.row');
 
-        $this->assertSame(['resource/i18n/options/get'], array_column($actions, 'url'));
+        $this->assertSame(['resource/i18n/options/{id}'], array_column($actions, 'url'));
     }
 
     public function test_an_update_round_trips_through_the_endpoint(): void {
-        $response = $this->as($this->admin, 'admin/resource/cfg/update', ['name' => 'admin', 'data' => ['captcha-ttl' => 600]]);
+        $response = $this->as($this->admin, 'admin/resource/cfg/admin/update', ['captcha-ttl' => 600]);
 
         $response->assertOk()->assertJsonPath('data.data.captcha-ttl', 600);
 
@@ -166,15 +169,17 @@ class ResourceControllerTest extends FeatureTestCase {
     public function test_clearing_a_field_through_the_endpoint_drops_the_override(): void {
         ResourceOverride::forceCreate(['bundle' => 'cfg/admin', 'data' => ['captcha-ttl' => 600, 'token-idle-minutes' => 90]]);
 
-        $this->as($this->admin, 'admin/resource/cfg/update', ['name' => 'admin', 'data' => ['captcha-ttl' => '']])
-            ->assertOk()
-            ->assertJsonPath('data.data', ['token-idle-minutes' => 90]);
+        $response = $this->as($this->admin, 'admin/resource/cfg/admin/update', ['captcha-ttl' => '']);
+
+        $response->assertOk();
+        $response->assertJsonPath('data.data.token-idle-minutes', 90);
+        $response->assertJsonPath('data.data.captcha-ttl', $response->json('data.default.captcha-ttl'));
 
         $this->assertSame(['token-idle-minutes' => 90], ResourceOverride::query()->where('bundle', 'cfg/admin')->value('data'));
     }
 
     public function test_a_rejected_value_answers_422_and_writes_nothing(): void {
-        $this->as($this->admin, 'admin/resource/cfg/update', ['name' => 'admin', 'data' => ['captcha-ttl' => 'nope']])
+        $this->as($this->admin, 'admin/resource/cfg/admin/update', ['captcha-ttl' => 'nope'])
             ->assertOk()
             ->assertJson(['success' => false, 'code' => 422]);
 
@@ -192,7 +197,7 @@ class ResourceControllerTest extends FeatureTestCase {
     }
 
     public function test_a_pinned_function_does_not_open_the_generic_route(): void {
-        $this->as($this->admin, 'admin/resource/cfg/get', ['name' => 'gmail'])
+        $this->as($this->admin, 'admin/resource/cfg/gmail')
             ->assertOk()
             ->assertJson(['success' => false, 'code' => 404]);
     }

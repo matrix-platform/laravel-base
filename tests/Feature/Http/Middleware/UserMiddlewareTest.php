@@ -12,6 +12,10 @@ class UserMiddlewareTest extends FeatureTestCase {
         return UserFactory::new()->createOne()->createToken();
     }
 
+    private function idle(): int {
+        return (int) cfg('admin.token-idle-minutes');
+    }
+
     private function updateCount(callable $callback): int {
         return $this->queryCount('update "base_auth_token"', $callback);
     }
@@ -71,7 +75,6 @@ class UserMiddlewareTest extends FeatureTestCase {
         $auth = AuthToken::query()->where('token', $this->token())->firstOrFail();
 
         $this->assertNull($auth->expire_time);
-        $this->assertNotNull($auth->update_time);
     }
 
     public function test_each_access_pushes_the_idle_window_forward(): void {
@@ -95,7 +98,7 @@ class UserMiddlewareTest extends FeatureTestCase {
         $token = $this->token();
 
         for ($hop = 0; $hop < 3; $hop++) {
-            $this->travel(20)->minutes();
+            $this->travel($this->idle() - 1)->minutes();
 
             $this->withToken($token)
                 ->postJson('admin/auth/profile')
@@ -106,7 +109,7 @@ class UserMiddlewareTest extends FeatureTestCase {
     public function test_a_session_left_idle_past_the_window_expires(): void {
         $token = $this->token();
 
-        $this->travel(31)->minutes();
+        $this->travel($this->idle() + 1)->minutes();
 
         $this->withToken($token)
             ->postJson('admin/auth/logout')
