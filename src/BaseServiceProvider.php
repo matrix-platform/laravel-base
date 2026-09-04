@@ -11,6 +11,7 @@ use Illuminate\Support\ServiceProvider;
 use MatrixPlatform\Console\Commands\DispatchMessagesCommand;
 use MatrixPlatform\Console\Commands\PruneTokensCommand;
 use MatrixPlatform\Console\Commands\ResetUserPasswordCommand;
+use MatrixPlatform\Console\Commands\SetTelegramWebhookCommand;
 use MatrixPlatform\Console\Commands\SyncTranslatableCommand;
 use MatrixPlatform\Database\Schema\BaseBlueprint;
 use MatrixPlatform\Http\Middleware\EnvelopeMiddleware;
@@ -19,6 +20,7 @@ use MatrixPlatform\Http\Middleware\LoginThrottleMiddleware;
 use MatrixPlatform\Http\Middleware\MemberAwareMiddleware;
 use MatrixPlatform\Http\Middleware\MemberMiddleware;
 use MatrixPlatform\Http\Middleware\PermissionMiddleware;
+use MatrixPlatform\Http\Middleware\TelegramWebhookMiddleware;
 use MatrixPlatform\Http\Middleware\UserAwareMiddleware;
 use MatrixPlatform\Http\Middleware\UserMiddleware;
 use MatrixPlatform\Http\Middleware\VendorMiddleware;
@@ -36,7 +38,7 @@ class BaseServiceProvider extends ServiceProvider {
 
     public function boot(): void {
         if ($this->app->runningInConsole()) {
-            $this->commands([DispatchMessagesCommand::class, PruneTokensCommand::class, ResetUserPasswordCommand::class, SyncTranslatableCommand::class]);
+            $this->commands([DispatchMessagesCommand::class, PruneTokensCommand::class, ResetUserPasswordCommand::class, SetTelegramWebhookCommand::class, SyncTranslatableCommand::class]);
         }
 
         Event::listen(TransactionRolledBack::class, fn () => app(RollbackCallbacks::class)->run());
@@ -51,6 +53,7 @@ class BaseServiceProvider extends ServiceProvider {
         Route::aliasMiddleware('member-api', MemberMiddleware::class);
         Route::aliasMiddleware('member-aware-api', MemberAwareMiddleware::class);
         Route::aliasMiddleware('permission-api', PermissionMiddleware::class);
+        Route::aliasMiddleware('telegram-webhook-api', TelegramWebhookMiddleware::class);
         Route::aliasMiddleware('user-api', UserMiddleware::class);
         Route::aliasMiddleware('user-aware-api', UserAwareMiddleware::class);
         Route::aliasMiddleware('vendor-api', VendorMiddleware::class);

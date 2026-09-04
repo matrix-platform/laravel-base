@@ -176,6 +176,10 @@ abstract class CrudController extends BaseController {
         return $this->onUpdate($this->prepare(new UpdateService($this->model), $request))->update($this->identifier($request), $request->all());
     }
 
+    protected function identifier(Request $request): string {
+        return strval($request->route('id'));
+    }
+
     protected function onArrange(ArrangeService $service): ArrangeService {
         return $service->rankable($this->sortable());
     }
@@ -270,10 +274,6 @@ abstract class CrudController extends BaseController {
      */
     private function forming(): array {
         return $this->inserts === null ? $this->updates() : $this->inserts;
-    }
-
-    private function identifier(Request $request): string {
-        return strval($request->route('id'));
     }
 
     private function instance(): Model {

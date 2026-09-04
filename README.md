@@ -26,7 +26,7 @@ class WidgetController extends CrudController {
 - [五個必讀概念](#五個必讀概念)
 - [開一個自己的功能](#開一個自己的功能)
 - [前台身分（member / vendor）](#前台身分member--vendor) —— 套件只給零件
-- [訊息](#訊息) —— [送訊息](#送訊息)、[派送與 worker](#派送與-worker)、[自訂訊息通道](#自訂訊息通道)
+- [訊息](#訊息) —— [送訊息](#送訊息)、[派送與 worker](#派送與-worker)、[後台查詢、重發與取消](#後台查詢重發與取消)、[Push 訂閱(Member)](#push-訂閱member)、[Telegram 綁定與 Webhook](#telegram-綁定與-webhook)、[自訂訊息通道](#自訂訊息通道)
 - [參考](#參考) —— [端點](#端點)、[設定鍵](#設定鍵)、[cfg 設定鍵](#cfg-設定鍵)、[主控台指令](#主控台指令)、[錯誤代碼](#錯誤代碼)、[資料表](#資料表)
 - [給前端](#給前端) —— [請求形狀](#請求形狀)、[回應形狀](#回應形狀)、[語系](#語系)
 - [沿用套件的 lint](#沿用套件的-lint) —— 選用,共用同一套風格檢查
@@ -43,7 +43,7 @@ class WidgetController extends CrudController {
 |---|---|
 | **前台登入端點** | 套件出貨 `member-api` / `vendor-api` middleware 與 `AuthToken::issue()`,**但沒有任何前台登入 controller**。前台的登入流程、驗證碼策略、密碼規則由宿主決定 |
 | **API 文件產生器** | 不出貨 Swagger / OpenAPI。端點是 `#[Action]` 反射掛載的,要文件請從 attribute 反射產生,不要掃註解 |
-| **排程註冊** | 套件不呼叫 `Schedule::command()`。兩個需要週期執行的指令由宿主自己排 |
+| **排程註冊** | 套件不呼叫 `Schedule::command()`。`matrix:prune-tokens` 與 `messages:dispatch` 都由宿主自己排(見[註冊排程](#8-註冊排程如果要用訊息或-token-清理)) |
 | **cache / queue driver 的選擇** | 套件用 `Cache` 與 `Queue` 門面,不指定 driver。驗證碼要跨請求共用的 cache,訊息派送要每條 queue 恰好一個 worker（見[派送與 worker](#派送與-worker)） |
 | **匯入** | 匯出有,匯入沒有 |
 | **檔案清理** | `base_file` 與磁碟上的檔案永遠不會被自動刪除。去重讓一筆記錄可能被多處引用,套件答不出「誰可以刪」 |
@@ -195,7 +195,7 @@ curl -X POST http://localhost/admin/auth/login \
 
 **驗證:** 拿到 token。用它打 `POST admin/auth/profile` 應該回傳選單樹與個人資料。
 
-### 8. 註冊排程（如果要用訊息或 token 清理）
+### 8. 註冊排程(如果要用訊息或 token 清理)
 
 套件不註冊排程。在你的 `routes/console.php`:
 
@@ -206,11 +206,13 @@ Schedule::command('messages:dispatch')->everyMinute()->withoutOverlapping();
 
 `withoutOverlapping()` 不是裝飾:兩個 prune 行程同時跑會互相搶同一批列。
 
-訊息還需要 queue worker。mail 與 sms 各有自己的 queue,而**每條 queue 只能有一個 worker**:
+訊息還需要 queue worker。mail、sms、push、telegram 各有自己的 queue,而**每條 queue 只能有一個 worker**:
 
 ```
 php artisan queue:work --queue=messaging-mail
 php artisan queue:work --queue=messaging-sms
+php artisan queue:work --queue=messaging-push
+php artisan queue:work --queue=messaging-telegram
 ```
 
 worker 會睡掉供應商的 `interval` 來節流,所以 `--timeout` 與 connection 的 `retry_after` 都必須大於最大的 `interval`。這三個數字沒對齊、或漏開一條 worker 的後果與訊號,見[派送與 worker](#派送與-worker)。
@@ -453,30 +455,35 @@ return [
 
 ### 送訊息
 
-`MailService` 與 `SmsService` 的公開介面只有 `schedule()`:
+`MailService`、`SmsService`、`PushService`、`TelegramService` 共用同一組公開介面(定義在 `MessageService`):`schedule()`、`send()`、`resend()`、`cancel()`。
 
 ```php
-app(MailService::class)->schedule(now(), 'alice@example.com', 'welcome', ['name' => 'Alice']);
-app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' => '123456']);
+app(MailService::class)->schedule(now()->addHour(), 'alice@example.com', 'welcome', ['name' => 'Alice']);
+app(SmsService::class)->send('0912345678', 'otp', ['code' => '123456']);
+app(PushService::class)->send('42', null, [], ['provider' => 'webpush', 'title' => '通知', 'content' => '你有一筆新訂單']);
+app(TelegramService::class)->send('42', null, [], ['provider' => 'telegram', 'content' => '你有一筆新訂單']);
+
+app(MailService::class)->resend($id);
+app(MailService::class)->cancel($id);
 ```
 
-參數是 `($at, $to, $template = null, $vars = [], $options = [])`,回傳寫進 `base_mail_log` / `base_sms_log` 的那一列。樣板檔案放 `resources/i18n/{語系}/template/{name}.php`。
+`schedule($at, $to, $template = null, $vars = [], $options = [])` 回傳寫進 `base_mail_log` / `base_sms_log` / `base_push_log` / `base_telegram_log` 的那一列;`send($to, $template = null, $vars = [], $options = [])` 是 `schedule(now(), ...)` 的薄封裝,等同「立即送」。樣板檔案放 `resources/i18n/{語系}/template/{name}.php`。`resend(int|string $reference)` 複製一筆既有紀錄(清空 `send_time` / `response` / `error`、`schedule_time` 設回 `now()`)重新排入佇列,原始那筆不受影響;`cancel(int|string $reference)` 只對還是 `Scheduled` 的紀錄生效,把它改成 `Failed`(`error` 設為 `'cancelled'`),對已經是終端狀態(`Success` / `Failed`)的紀錄呼叫是冪等的,不會報錯也不會改動它。
 
 | 事實 | 說明 |
 |---|---|
 | 回傳的列是 `Scheduled`,不是已送出 | 真正的送出在 worker。`schedule()` 只負責寫列 + 通知有東西要送 |
 | `$at` 到期了才派工 | 未來時間只寫列,等 `messages:dispatch` 那一輪撈到 |
 | **樣板可以是 `null`,provider 不行** | 樣板要嘛自己指名 `provider`,要嘛 `$options` 給。都沒有就 `invalid-message-provider`;供應商沒設 `driver` 就 `message-provider-has-no-driver` |
-| `$options` 覆蓋樣板的渲染結果 | 只認 `provider`、`subject`、`title`、`content` 四個 key。值是 `null` **不算**覆蓋 |
+| `$options` 覆蓋樣板的渲染結果 | 只認 `provider`、`subject`、`title`、`content`、`data` 五個 key。值是 `null` **不算**覆蓋。`title` 只有 push 用;`data` 給 push(額外 payload)與 telegram(`parse_mode` 等 Bot API 選項)用;mail / sms 不讀這兩個 key |
 | mail 的寄件者是當下快照 | `sender` 寫入時從 `cfg('{provider}.from-address')` 取,之後改設定不影響已排程的訊息 |
-| **取消與重送要自己做** | 套件不提供。取消 = 把 `Scheduled` 的列改成 `Failed`;重送 = 用同樣的參數再 `schedule()` 一次 |
+| `resend()` 的 `ip` 是重發當下的 IP | 複製出來的新紀錄一樣會經過 `creating` 的 `ip` generator,存的是操作 `resend` 的人的 IP,不是原始訊息建立時的 IP |
 
 ### 派送與 worker
 
 | 事實 | 說明 |
 |---|---|
 | **一個發送工作只送一封,節奏由 worker 的序列性決定** | 工作的單位是 channel。它撈這個 channel 最前面一筆（`schedule_time` 再 `id`）、送出、睡掉該供應商的 `interval`、然後派下一個工作接手;撈不到就結束,不派後繼。sleep 佔住的是那條 queue 唯一的 worker,所以兩次送出之間一定隔了 `interval`,不管佇列裡有幾個工作 —— 套件不記錄「上次幾點送的」,沒有任何節流狀態。`messages:dispatch` 只是鏈條斷掉時的安全網（`EXISTS` 檢查,有東西在等就派一個工作） |
-| **每條 queue 最多一個 worker** | 節流靠的是 worker 的序列性,所以多開一個 worker 就是速率翻倍。內建的 mail 與 sms 各有自己的 queue(`messaging-mail`／`messaging-sms`),要開兩個 worker;**漏開一條就是那條 channel 全部停在 `Scheduled`**,而 `messages:dispatch` 每分鐘照樣回成功。套件不偵測 worker 存活 —— 那歸行程監管（systemd／supervisor／Horizon）,你為了跑 `queue:work` 本來就需要它們 |
+| **每條 queue 最多一個 worker** | 節流靠的是 worker 的序列性,所以多開一個 worker 就是速率翻倍。內建的四個 channel 各有自己的 queue(`messaging-mail`／`messaging-sms`／`messaging-push`／`messaging-telegram`),要開四個 worker;**漏開一條就是那條 channel 全部停在 `Scheduled`**,而 `messages:dispatch` 每分鐘照樣回成功。套件不偵測 worker 存活 —— 那歸行程監管（systemd／supervisor／Horizon）,你為了跑 `queue:work` 本來就需要它們 |
 | **`interval` < `--timeout` < `retry_after`** | 套件無法幫你算這三個數字:工作在派送時只知道 channel,還不知道會送到哪個供應商。`--timeout`（預設 60）要大於「最大的 `interval` + 單筆送出耗時」,connection 的 `retry_after` 要再大於它 |
 | **同一個 channel 嚴格 FIFO** | 送出順序就是 `schedule_time` 的順序,不分供應商。所以一個供應商的 `interval` 也會延後排在它後面的其他供應商的訊息 |
 | **隊頭送不出去會卡住整個 channel** | 排程時 `schedule()` 就會擋掉沒有 driver 的供應商,所以這只發生在「排程之後設定才壞掉」:`driver` 被拿掉、改成不是 driver 的類別、或 cfg bundle 消失。工作會失敗（進 `failed_jobs`）、不動任何記錄,而那一筆還在隊頭 —— 後面的訊息（包含其他供應商的）都送不出去。排程每分鐘再派一次,所以壞多久就累積多少筆 `failed_jobs`。要隔離就給那個供應商自己的 channel（也就是自己的 queue 與 worker） |
@@ -485,13 +492,44 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | **worker 硬掉在送出中間會重送** | 送出成功但寫回失敗、或行程被 SIGKILL／OOM 砍在 driver 呼叫途中時,那一列還是 `Scheduled`,下一個工作會再送一次。優雅重啟（SIGTERM）不受影響,Laravel 會讓當前工作跑完。套件選的是「寧可重送也不漏送」,而且**沒有重試次數上限** |
 | queue connection 設成 `sync` | 送出會變成同步執行,`interval` 照樣生效（在同一個行程裡睡）,但鏈條會變成遞迴呼叫 |
 
+### 後台查詢、重發與取消
+
+`mail-log` / `sms-log` / `push-log` / `telegram-log` 四個 Admin controller 都繼承同一個抽象基底 `MessageLogController`,唯讀:只有列表(`{prefix}`)、查看單筆(`{prefix}/{id}`)、`{prefix}/{id}/resend`、`{prefix}/{id}/cancel` 四個動作有登記選單節點、對授權使用者開放,其餘 CRUD 動作(見上方[端點](#端點)表的附註)一律 403。`resend`/`cancel` 內部就是呼叫對應 `MessageService` 的同名方法,回傳 `{"id": ...}`(`resend` 是新那筆的 id)。四個 controller 本身沒有額外邏輯,只設定各自的 `$model`、`$service`、`$lists`。
+
+### Push 訂閱(Member)
+
+Push 是唯一需要前端配合的通道:瀏覽器要先用 Web Push API 取得 `endpoint` / `keys.p256dh` / `keys.auth`,再呼叫 `MemberPushSubscriptionController` 存進 `base_push_subscription`,`PushService::send()` 才推得出去。
+
+| 端點 | 說明 |
+|---|---|
+| `api/member/push/subscribe` | 帶 `endpoint`、`keys.p256dh`、`keys.auth`。以 `endpoint` 為準:同一個 `endpoint` 再訂閱一次是更新既有紀錄,不會重複 |
+| `api/member/push/unsubscribe` | 帶 `endpoint`。只刪目前這個會員自己名下、`endpoint` 相符的那一筆,刪不到不報錯 |
+
+Service worker 註冊、`Notification.requestPermission()`、呼叫這兩支 API,都是前端(消費端 repo)的工作,不在這個套件範圍內。
+
+### Telegram 綁定與 Webhook
+
+Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`)**——這個通道設計給營運/維運告警之類「後台人員自己訂閱通知」的情境。`base_telegram_log.chat_id` 是**雙語意欄位**,不額外加欄位區分,靠「查不查得到訂閱紀錄」解析:`TelegramDriver` 先判斷這個值是不是負數——Telegram 的規則是群組/頻道 chat_id 恆為負數、個人(這裡是 `User`)恆為正數,天然不會撞號,所以負數直接當成目標 chat_id 送(**固定群組/頻道**模式,`send($chatId, ...)` 時 `$to` 直接傳 chat_id 字串),連查都不用查;非負數才去查 `base_telegram_subscription.user_id`,查到就送去對應的訂閱 `chat_id`(**User 訂閱**模式),查不到就跟負數的情況一樣、把值本身當字面 chat_id 送。
+
+跟 Push 用 JS 直接呼叫 subscribe API 不同,User 訂閱需要使用者主動在 Telegram 裡點一個連結、跟 bot 對話。綁定端點掛在 `admin` 前綴、`user-api` middleware 底下(跟 `admin/user/preference` 同層,不需要額外權限,登入即可管理自己的綁定):
+
+| 端點 | 說明 |
+|---|---|
+| `admin/user/telegram/link` | 產生一次性 token(10 分鐘內有效,存在 cache,不進資料表),回傳 `https://t.me/{bot-username}?start={token}` 給前端導頁或顯示 QR code |
+| `admin/user/telegram/unsubscribe` | 刪掉目前這個使用者自己名下的 `base_telegram_subscription` |
+| `api/telegram/webhook` | Telegram 伺服器呼叫,**不是**給前端用的。收到 `/start {token}` 就把 token 換回 user id、寫入(或更新)那個使用者的 `chat_id` |
+
+這是套件目前唯一一個**接收外部主動呼叫**的端點(前面所有端點都是「我們主動對外呼叫」或「被已登入使用者呼叫」),所以認證方式也不同——不是 token,是 header:呼叫方要帶 `X-Telegram-Bot-Api-Secret-Token`,值要等於 `cfg('telegram.webhook-secret')`,對不上或這把密鑰根本沒設定,一律 403。跑 `php artisan messages:telegram-webhook` 之前記得先把 `telegram.bot-token` 與 `telegram.webhook-secret` 設定好(這支指令本身也會檢查,兩個空字串會直接失敗、不呼叫 Telegram)。
+
+無效或已過期的 token 會被靜靜忽略(不是 `/start` 開頭的訊息也一樣),webhook 一律回 200 系列的成功——Telegram 只在乎「有沒有收到」,不在乎綁定有沒有真的成功。
+
 ### 自訂訊息通道
 
 | 事實 | 說明 |
 |---|---|
-| 註冊點是 `config/matrix.php` 的 `messaging.channels`,**但那是巢狀 key** | 宣告 `messaging` 會整個取代掉內建的 mail / sms |
+| 註冊點是 `config/matrix.php` 的 `messaging.channels`,**但那是巢狀 key** | 宣告 `messaging` 會整個取代掉內建的 mail / sms / push / telegram |
 | **每個 channel 都必須宣告 `queue`** | 沒宣告就是 `invalid-message-channel`,那個 channel 完全不能用。加一個 channel 就是加一條 queue 加一個 worker |
-| 每個供應商還要一份 `resources/cfg/{provider}.php` | **`driver` 是必填** —— 沒有它 `schedule()` 當場回 `message-provider-has-no-driver`。其餘的鍵照 [cfg 設定鍵](#cfg-設定鍵)裡 `gmail` 與 `mitake` 兩組的形狀寫 |
+| 每個供應商還要一份 `resources/cfg/{provider}.php` | **`driver` 是必填** —— 沒有它 `schedule()` 當場回 `message-provider-has-no-driver`。其餘的鍵照 [cfg 設定鍵](#cfg-設定鍵)裡 `gmail`、`mitake`、`webpush`、`telegram` 四組的形狀寫 |
 | **供應商與樣板名稱要跨 channel 唯一** | —— |
 | 樣板必須指名 `provider` | 否則 `schedule()` 當場回 `invalid-message-provider` |
 
@@ -568,6 +606,8 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | POST | `admin/user/arrange/save` | 授權 |
 | POST | `admin/user/preference/get` | 登入 |
 | POST | `admin/user/preference/save` | 登入 |
+| POST | `admin/user/telegram/link` | 登入 |
+| POST | `admin/user/telegram/unsubscribe` | 登入 |
 | POST | `admin/group` | 授權 |
 | POST | `admin/group/new` | 授權 |
 | POST | `admin/group/insert` | 授權 |
@@ -598,14 +638,73 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | POST | `admin/resource/i18n/template` | 授權 |
 | POST | `admin/resource/i18n/template/{id}` | 授權 |
 | POST | `admin/resource/i18n/template/{id}/update` | 授權 |
+| POST | `admin/mail-log` | 授權 |
+| POST | `admin/mail-log/new` | 授權 |
+| POST | `admin/mail-log/insert` | 授權 |
+| POST | `admin/mail-log/{id}` | 授權 |
+| POST | `admin/mail-log/{id}/update` | 授權 |
+| POST | `admin/mail-log/{id}/copy` | 授權 |
+| POST | `admin/mail-log/delete` | 授權 |
+| POST | `admin/mail-log/export` | 授權 |
+| POST | `admin/mail-log/sort` | 授權 |
+| POST | `admin/mail-log/sort/save` | 授權 |
+| POST | `admin/mail-log/arrange` | 授權 |
+| POST | `admin/mail-log/arrange/save` | 授權 |
+| POST | `admin/mail-log/{id}/resend` | 授權 |
+| POST | `admin/mail-log/{id}/cancel` | 授權 |
+| POST | `admin/sms-log` | 授權 |
+| POST | `admin/sms-log/new` | 授權 |
+| POST | `admin/sms-log/insert` | 授權 |
+| POST | `admin/sms-log/{id}` | 授權 |
+| POST | `admin/sms-log/{id}/update` | 授權 |
+| POST | `admin/sms-log/{id}/copy` | 授權 |
+| POST | `admin/sms-log/delete` | 授權 |
+| POST | `admin/sms-log/export` | 授權 |
+| POST | `admin/sms-log/sort` | 授權 |
+| POST | `admin/sms-log/sort/save` | 授權 |
+| POST | `admin/sms-log/arrange` | 授權 |
+| POST | `admin/sms-log/arrange/save` | 授權 |
+| POST | `admin/sms-log/{id}/resend` | 授權 |
+| POST | `admin/sms-log/{id}/cancel` | 授權 |
+| POST | `admin/push-log` | 授權 |
+| POST | `admin/push-log/new` | 授權 |
+| POST | `admin/push-log/insert` | 授權 |
+| POST | `admin/push-log/{id}` | 授權 |
+| POST | `admin/push-log/{id}/update` | 授權 |
+| POST | `admin/push-log/{id}/copy` | 授權 |
+| POST | `admin/push-log/delete` | 授權 |
+| POST | `admin/push-log/export` | 授權 |
+| POST | `admin/push-log/sort` | 授權 |
+| POST | `admin/push-log/sort/save` | 授權 |
+| POST | `admin/push-log/arrange` | 授權 |
+| POST | `admin/push-log/arrange/save` | 授權 |
+| POST | `admin/push-log/{id}/resend` | 授權 |
+| POST | `admin/push-log/{id}/cancel` | 授權 |
+| POST | `admin/telegram-log` | 授權 |
+| POST | `admin/telegram-log/new` | 授權 |
+| POST | `admin/telegram-log/insert` | 授權 |
+| POST | `admin/telegram-log/{id}` | 授權 |
+| POST | `admin/telegram-log/{id}/update` | 授權 |
+| POST | `admin/telegram-log/{id}/copy` | 授權 |
+| POST | `admin/telegram-log/delete` | 授權 |
+| POST | `admin/telegram-log/export` | 授權 |
+| POST | `admin/telegram-log/sort` | 授權 |
+| POST | `admin/telegram-log/sort/save` | 授權 |
+| POST | `admin/telegram-log/arrange` | 授權 |
+| POST | `admin/telegram-log/arrange/save` | 授權 |
+| POST | `admin/telegram-log/{id}/resend` | 授權 |
+| POST | `admin/telegram-log/{id}/cancel` | 授權 |
 | POST | `api/common/city` | 匿名 |
 | POST | `api/common/menu` | 匿名 |
 | POST | `api/member/preference/get` | 登入 |
 | POST | `api/member/preference/save` | 登入 |
+| POST | `api/member/push/subscribe` | 登入 |
+| POST | `api/member/push/unsubscribe` | 登入 |
+| POST | `api/telegram/webhook` | 匿名* |
 | POST | `vendor/preference/get` | 登入 |
 | POST | `vendor/preference/save` | 登入 |
 
-「授權」= 登入 + 該選單節點的權限。`user` / `group` 的 `export`、`copy`、`sort` 端點存在但**套件出貨的選單沒有對應節點**,所以預設對所有人 403 —— 那三個動作在套件自己的兩個 controller 上是關閉的。
+「授權」= 登入 + 該選單節點的權限。`user` / `group` 的 `export`、`copy`、`sort` 端點存在但**套件出貨的選單沒有對應節點**,所以預設對所有人 403 —— 那三個動作在套件自己的兩個 controller 上是關閉的。`mail-log` / `sms-log` / `push-log` / `telegram-log` 更進一步:選單只登記了列表、`{id}`、`{id}/resend`、`{id}/cancel` 四個節點,其餘十個(`new`、`insert`、`{id}/update`、`{id}/copy`、`delete`、`export`、`sort`、`sort/save`、`arrange`、`arrange/save`)全部因為選單沒有節點而預設對所有人(含 ROOT)403——是刻意設計,訊息紀錄只能查詢與重發/取消,不能被手動增刪改。`api/telegram/webhook` 標「匿名*」是因為它不掛任何登入態 middleware(呼叫方是 Telegram 伺服器,沒有我們的 session/token 可帶),但自己驗證 `X-Telegram-Bot-Api-Secret-Token` header 等於 `cfg('telegram.webhook-secret')`,**沒設定這把密鑰就對所有請求一律 403**(見[Telegram 綁定與 Webhook](#telegram-綁定與-webhook))。
 
 ### 設定鍵
 
@@ -672,6 +771,18 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | `mitake.interval` | `1` | 同 `gmail.interval` |
 | `mitake.sandbox` | `false` | 同 `gmail.sandbox` |
 | `mitake.sandbox-recipient` | `''` | 同 `gmail.sandbox-recipient` |
+| `webpush.driver` | `WebPushDriver::class` | 同 `gmail.driver` |
+| `webpush.subject` | `''` | VAPID subject,`mailto:` 或網址 |
+| `webpush.public-key` | `''` | VAPID 公鑰 |
+| `webpush.private-key` | `''` | VAPID 私鑰 |
+| `webpush.interval` | `1` | 同 `gmail.interval` |
+| `telegram.driver` | `TelegramDriver::class` | 同 `gmail.driver` |
+| `telegram.bot-token` | `''` | Bot API token,呼叫 `sendMessage`/`setWebhook` 都用它 |
+| `telegram.bot-username` | `''` | 組 `link()` 回傳的 deep-link(`https://t.me/{bot-username}?start=...`)用,不含 `@` |
+| `telegram.webhook-secret` | `''` | `TelegramWebhookController` 拿來比對 `X-Telegram-Bot-Api-Secret-Token` header,空字串會讓 webhook 對所有請求一律 403 |
+| `telegram.interval` | `1` | 同 `gmail.interval` |
+| `telegram.sandbox` | `false` | 同 `gmail.sandbox`,開啟後訊息一律送到 `sandbox-recipient` 那個 chat_id |
+| `telegram.sandbox-recipient` | `''` | 同 `gmail.sandbox-recipient` |
 | `file.max-size` | `0` | 上傳大小上限,**0 = 不限制** |
 | `file.mime-patterns` | `''` | 型別白名單(正則,空白 = 不檢查) |
 | `drive.deduplicate` | `true` | 開啟後,雲端硬碟上傳內容雜湊相同的檔案會共用同一份實體檔案,不重複寫入 |
@@ -679,7 +790,7 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | `system.date-format` | `'Y-m-d'` | 日期顯示格式 |
 | `system.datetime-format` | `'Y-m-d H:i:s'` | 日期時間顯示格式 |
 
-`gmail` 與 `mitake` 是出貨的供應商 bundle。加一個供應商就是加一份 `resources/cfg/{名稱}.php`,鍵的形狀照上面兩組。
+`gmail`、`mitake`、`webpush` 與 `telegram` 是出貨的供應商 bundle。加一個供應商就是加一份 `resources/cfg/{名稱}.php`,鍵的形狀照上面四組。
 
 ### 主控台指令
 
@@ -689,6 +800,7 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | `matrix:prune-tokens` | 刪掉已經不能用來認證的 token,`--limit` 控制每批筆數（預設 1000） |
 | `matrix:sync-translatable` | 掃描所有套件、所有 Model 的 translatable 欄位,幫缺少目前設定語言的欄位補上實體欄位（皆為 nullable,不回填） |
 | `messages:dispatch` | 為每個有待送訊息的 channel 派送一個發送工作;任一 channel 設定壞掉就回非零 exit code |
+| `messages:telegram-webhook` | 呼叫 Telegram `setWebhook` API,把 `{APP_URL}/{api-prefix}/telegram/webhook` 連同 `telegram.webhook-secret` 註冊上去;一次性維運操作,環境變了(換網域、換 ngrok 網址)要重跑 |
 
 ### 錯誤代碼
 
@@ -723,6 +835,8 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | `message-template-not-found` | 查無訊息樣板 |
 | `name-already-exists` | 這個名稱在此位置已經存在 |
 | `permission-denied` | 權限不足 |
+| `push-delivery-failed` | 推播通知無法送達任何訂閱 |
+| `push-subscription-not-found` | 這個收件者沒有可用的推播訂閱 |
 | `request-failed` | 請求無法處理 |
 | `server-error` | 系統發生錯誤 |
 | `too-many-requests` | 請求過於頻繁，請稍後再試 |
@@ -747,8 +861,12 @@ app(SmsService::class)->schedule(now()->addHour(), '0912345678', 'otp', ['code' 
 | `base_member_log` | 會員行為紀錄 |
 | `base_menu` | 可線上維護的選單資料 |
 | `base_preference` | 各身分（user / member / vendor）各自一筆的個人化偏好,內容由前端決定 |
+| `base_push_log` | 推播佇列與送達結果 |
+| `base_push_subscription` | 會員的 Web Push 訂閱(endpoint / p256dh / auth) |
 | `base_resource_override` | 資源後台線上編輯的覆蓋值 |
 | `base_sms_log` | 簡訊佇列與寄送結果 |
+| `base_telegram_log` | Telegram 佇列與送達結果 |
+| `base_telegram_subscription` | 後台使用者(`User`)的 Telegram 綁定(user_id / chat_id / username) |
 | `base_user` | 後台帳號 |
 | `base_user_log` | 後台帳號的登入 / 改密碼紀錄 |
 | `base_vendor` | 廠商 |
@@ -934,9 +1052,9 @@ parameters:
 
 | 事實 | 你要做什麼 |
 |---|---|
-| **`matrix:prune-tokens` 只清 `base_auth_token`** | 另外六張只增不減的表要自己來:`base_manipulation_log`、`base_user_log`、`base_member_log`、`base_vendor_log`、`base_mail_log`、`base_sms_log` |
-| 前四張只有 `create_time`（沒有 `update_time`）;後兩張兩個都有 | 清理判準只能用 `create_time` |
-| **`base_mail_log` / `base_sms_log` 只能刪終端狀態**（成功 / 失敗） | `Scheduled` 是還沒送出的排程,刪掉等於取消一封信 |
+| **`matrix:prune-tokens` 只清 `base_auth_token`** | 另外八張只增不減的表要自己來:`base_manipulation_log`、`base_user_log`、`base_member_log`、`base_vendor_log`、`base_mail_log`、`base_sms_log`、`base_push_log`、`base_telegram_log` |
+| 前四張只有 `create_time`(沒有 `update_time`);後四張兩個都有 | 清理判準只能用 `create_time` |
+| **`base_mail_log` / `base_sms_log` / `base_push_log` / `base_telegram_log` 只能刪終端狀態**(成功 / 失敗) | `Scheduled` 是還沒送出的排程,刪掉等於取消一封信 |
 | **`base_file` 不要用時間清** | 刪列不刪磁碟檔會漏儲存空間,而去重讓一筆記錄可能被多處引用 —— 套件答不出「誰可以刪」 |
 | **`base_drive_node` 完全沒有永久刪除**——`drive/{id}/delete` 只是軟刪除(`deleted_at`),node 與實體檔案永遠不會真的消失 | 這是刻意的決定,不是漏做垃圾清除;資料庫與磁碟用量只會隨使用量增加,規劃容量時要算進去 |
 | **調大 `token-idle-minutes` 不會復活已經被清掉的 token** | 要調大就先調、再跑 prune |

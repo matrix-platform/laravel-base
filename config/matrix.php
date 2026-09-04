@@ -2,7 +2,9 @@
 
 use MatrixPlatform\Models\MailLog;
 use MatrixPlatform\Models\Member;
+use MatrixPlatform\Models\PushLog;
 use MatrixPlatform\Models\SmsLog;
+use MatrixPlatform\Models\TelegramLog;
 use MatrixPlatform\Models\Vendor;
 
 return [
@@ -26,7 +28,9 @@ return [
     'messaging' => [
         'channels' => [
             'mail' => ['model' => MailLog::class, 'queue' => 'messaging-mail'],
+            'push' => ['model' => PushLog::class, 'queue' => 'messaging-push'],
             'sms' => ['model' => SmsLog::class, 'queue' => 'messaging-sms'],
+            'telegram' => ['model' => TelegramLog::class, 'queue' => 'messaging-telegram'],
         ],
     ],
 

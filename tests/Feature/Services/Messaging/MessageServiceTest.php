@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Services\Messaging;
 
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use MatrixPlatform\Jobs\SendMessageJob;
@@ -147,6 +148,103 @@ class MessageServiceTest extends FeatureTestCase {
 
         $spy->shouldHaveReceived('info', ['messaging.mail.schedule', Mockery::on(fn (array $context) => array_get_value($context, 'to') === 'alice@example.com'
             && array_get_value($context, 'action') === 'schedule'
+            && array_get_value($context, 'channel') === 'mail')]);
+    }
+
+    public function test_the_data_option_reaches_the_composed_message(): void {
+        $spy = Log::spy();
+
+        $this->mail()->schedule(now(), 'alice@example.com', null, [], ['provider' => 'stub', 'content' => 'Body', 'data' => ['order_id' => 42]]);
+
+        $spy->shouldHaveReceived('info', ['messaging.mail.schedule', Mockery::on(function (array $context) {
+            $rendered = array_get_value($context, 'rendered');
+
+            return is_array($rendered) && array_get_value($rendered, 'data') === ['order_id' => 42];
+        })]);
+    }
+
+    public function test_send_stores_and_queues_a_message_immediately(): void {
+        $log = $this->mail()->send('alice@example.com', 'welcome', ['name' => 'Alice']);
+        $mail = $this->reload($log);
+
+        $this->assertSame('Welcome Alice', $mail->subject);
+        $this->assertSame(MessageStatus::Scheduled, $log->status);
+
+        Queue::assertPushed(SendMessageJob::class, fn (SendMessageJob $job) => $job->channel === 'mail');
+    }
+
+    public function test_resend_creates_a_new_log_from_the_original_and_queues_it(): void {
+        $original = $this->reload($this->mail()->schedule(now(), 'alice@example.com', 'welcome', ['name' => 'Alice']));
+
+        $resent = $this->reload($this->mail()->resend($original->id));
+
+        $this->assertNotSame($original->id, $resent->id);
+        $this->assertSame('alice@example.com', $resent->receiver);
+        $this->assertSame('Welcome Alice', $resent->subject);
+        $this->assertSame(MessageStatus::Scheduled, $resent->status);
+        $this->assertNull($resent->send_time);
+
+        Queue::assertPushed(SendMessageJob::class, fn (SendMessageJob $job) => $job->channel === 'mail');
+    }
+
+    public function test_resend_does_not_mutate_the_original_message(): void {
+        $original = $this->reload($this->mail()->schedule(now()->addDay(), 'alice@example.com', 'welcome', ['name' => 'Alice']));
+
+        $this->mail()->resend($original->id);
+
+        $this->assertSame(MessageStatus::Scheduled, $this->reload($original)->status);
+        $this->assertTrue($this->reload($original)->schedule_time->isFuture());
+    }
+
+    public function test_resend_is_written_to_the_application_log(): void {
+        $original = $this->reload($this->mail()->schedule(now(), 'alice@example.com', 'welcome', ['name' => 'Alice']));
+
+        $spy = Log::spy();
+
+        $this->mail()->resend($original->id);
+
+        $spy->shouldHaveReceived('info', ['messaging.mail.resend', Mockery::on(fn (array $context) => array_get_value($context, 'reference') === $original->id
+            && array_get_value($context, 'action') === 'resend'
+            && array_get_value($context, 'channel') === 'mail')]);
+    }
+
+    public function test_resend_of_an_unknown_reference_is_refused(): void {
+        $this->expectException(ModelNotFoundException::class);
+
+        $this->mail()->resend(99999);
+    }
+
+    public function test_cancel_marks_a_scheduled_message_as_failed(): void {
+        $log = $this->reload($this->mail()->schedule(now()->addDay(), 'alice@example.com', 'welcome', ['name' => 'Alice']));
+
+        $result = $this->mail()->cancel($log->id);
+
+        $this->assertSame(MessageStatus::Failed, $result->status);
+        $this->assertSame('cancelled', $result->error);
+        $this->assertSame(MessageStatus::Failed, $this->reload($log)->status);
+    }
+
+    public function test_cancel_leaves_an_already_finished_message_untouched(): void {
+        $log = $this->reload($this->mail()->schedule(now(), 'alice@example.com', 'welcome', ['name' => 'Alice']));
+
+        $log->status = MessageStatus::Success;
+        $log->save();
+
+        $result = $this->mail()->cancel($log->id);
+
+        $this->assertSame(MessageStatus::Success, $result->status);
+        $this->assertNull($result->error);
+    }
+
+    public function test_cancel_is_written_to_the_application_log(): void {
+        $log = $this->reload($this->mail()->schedule(now()->addDay(), 'alice@example.com', 'welcome', ['name' => 'Alice']));
+
+        $spy = Log::spy();
+
+        $this->mail()->cancel($log->id);
+
+        $spy->shouldHaveReceived('info', ['messaging.mail.cancel', Mockery::on(fn (array $context) => array_get_value($context, 'reference') === $log->id
+            && array_get_value($context, 'action') === 'cancel'
             && array_get_value($context, 'channel') === 'mail')]);
     }
 

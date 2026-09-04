@@ -18,9 +18,37 @@ abstract class MessageService {
 
     public function __construct(private Channels $channels) {}
 
+    public function cancel(int|string $reference): MessageLog {
+        [, $log] = $this->locate($reference);
+
+        $this->record('cancel', ['reference' => $reference]);
+
+        if ($log->status === MessageStatus::Scheduled) {
+            $log->status = MessageStatus::Failed;
+            $log->error = 'cancelled';
+            $log->save();
+        }
+
+        return $log;
+    }
+
+    public function resend(int|string $reference): MessageLog {
+        [$channel, $log] = $this->locate($reference);
+
+        $this->record('resend', ['reference' => $reference]);
+
+        $copy = $log->replicate();
+        $copy->send_time = null;
+        $copy->response = null;
+        $copy->error = null;
+        $copy->schedule_time = now();
+
+        return $this->enqueue($channel, $copy);
+    }
+
     /**
      * @param array<string, string> $vars
-     * @param array<string, string|null> $options
+     * @param array<string, mixed> $options
      */
     public function schedule(DateTimeInterface $at, string $to, ?string $template = null, array $vars = [], array $options = []): MessageLog {
         if ($to === '') {
@@ -30,7 +58,7 @@ abstract class MessageService {
         $when = Carbon::instance($at);
         $rendered = $this->compose($template, $vars, $options);
 
-        $this->record([
+        $this->record('schedule', [
             'at' => $when->format('Y-m-d H:i:s'),
             'to' => $to,
             'template' => $template,
@@ -43,6 +71,14 @@ abstract class MessageService {
     }
 
     /**
+     * @param array<string, string> $vars
+     * @param array<string, mixed> $options
+     */
+    public function send(string $to, ?string $template = null, array $vars = [], array $options = []): MessageLog {
+        return $this->schedule(now(), $to, $template, $vars, $options);
+    }
+
+    /**
      * @param array<string, mixed> $rendered
      * @return array<string, mixed>
      */
@@ -50,15 +86,19 @@ abstract class MessageService {
         return [];
     }
 
+    protected function receiverKey(): string {
+        return 'receiver';
+    }
+
     /**
      * @param array<string, string> $vars
-     * @param array<string, string|null> $options
+     * @param array<string, mixed> $options
      * @return array<string, mixed>
      */
     private function compose(?string $template, array $vars, array $options): array {
         $fields = $template === null ? [] : Template::render($template, $vars);
 
-        foreach (['subject', 'title', 'content', 'provider'] as $key) {
+        foreach (['subject', 'title', 'content', 'provider', 'data'] as $key) {
             if (isset($options[$key])) {
                 $fields[$key] = $options[$key];
             }
@@ -87,10 +127,19 @@ abstract class MessageService {
     }
 
     /**
+     * @return array{0: Channel, 1: MessageLog}
+     */
+    private function locate(int|string $reference): array {
+        $channel = $this->channels->get($this->channel);
+
+        return [$channel, $channel->model::query()->whereKey($reference)->firstOrFail()];
+    }
+
+    /**
      * @param array<string, mixed> $context
      */
-    private function record(array $context): void {
-        Log::info("messaging.{$this->channel}.schedule", array_merge(['channel' => $this->channel, 'action' => 'schedule'], $context));
+    private function record(string $action, array $context): void {
+        Log::info("messaging.{$this->channel}.{$action}", array_merge(['channel' => $this->channel, 'action' => $action], $context));
     }
 
     /**
@@ -104,7 +153,7 @@ abstract class MessageService {
         $provider = strval(array_get_value($rendered, 'provider'));
 
         $log->provider = $provider;
-        $log->receiver = $to;
+        $log->setAttribute($this->receiverKey(), $to);
         $log->content = strval(array_get_value($rendered, 'content'));
         $log->template = $template;
         $log->schedule_time = $at;

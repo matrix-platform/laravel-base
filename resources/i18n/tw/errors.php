@@ -60,6 +60,10 @@ return [
 
     'permission-denied' => '權限不足',
 
+    'push-delivery-failed' => '推播通知無法送達任何訂閱',
+
+    'push-subscription-not-found' => '這個收件者沒有可用的推播訂閱',
+
     'request-failed' => '請求無法處理',
 
     'server-error' => '系統發生錯誤',

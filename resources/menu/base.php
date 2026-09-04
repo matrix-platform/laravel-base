@@ -78,4 +78,30 @@ return [
                 'resource/i18n/template/{id}' => ['parent' => 'resource/i18n/template', 'tag' => 'query'],
                 'resource/i18n/template/{id}/update' => ['parent' => 'resource/i18n/template', 'tag' => 'update'],
 
+        'messaging' => ['icon' => 'fa-solid fa-paper-plane', 'ranking' => 400, 'parent' => 'system'],
+
+            'mail-log' => ['icon' => 'fa-solid fa-envelope', 'ranking' => 100, 'parent' => 'messaging', 'group' => true, 'tag' => 'query'],
+
+                'mail-log/{id}' => ['parent' => 'mail-log', 'tag' => 'query'],
+                'mail-log/{id}/resend' => ['parent' => 'mail-log', 'tag' => 'update'],
+                'mail-log/{id}/cancel' => ['parent' => 'mail-log', 'tag' => 'update'],
+
+            'sms-log' => ['icon' => 'fa-solid fa-comment-sms', 'ranking' => 200, 'parent' => 'messaging', 'group' => true, 'tag' => 'query'],
+
+                'sms-log/{id}' => ['parent' => 'sms-log', 'tag' => 'query'],
+                'sms-log/{id}/resend' => ['parent' => 'sms-log', 'tag' => 'update'],
+                'sms-log/{id}/cancel' => ['parent' => 'sms-log', 'tag' => 'update'],
+
+            'push-log' => ['icon' => 'fa-solid fa-bell', 'ranking' => 300, 'parent' => 'messaging', 'group' => true, 'tag' => 'query'],
+
+                'push-log/{id}' => ['parent' => 'push-log', 'tag' => 'query'],
+                'push-log/{id}/resend' => ['parent' => 'push-log', 'tag' => 'update'],
+                'push-log/{id}/cancel' => ['parent' => 'push-log', 'tag' => 'update'],
+
+            'telegram-log' => ['icon' => 'fa-solid fa-comment', 'ranking' => 400, 'parent' => 'messaging', 'group' => true, 'tag' => 'query'],
+
+                'telegram-log/{id}' => ['parent' => 'telegram-log', 'tag' => 'query'],
+                'telegram-log/{id}/resend' => ['parent' => 'telegram-log', 'tag' => 'update'],
+                'telegram-log/{id}/cancel' => ['parent' => 'telegram-log', 'tag' => 'update'],
+
 ];

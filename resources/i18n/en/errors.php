@@ -60,6 +60,10 @@ return [
 
     'permission-denied' => 'Permission denied',
 
+    'push-delivery-failed' => 'Push notification could not be delivered to any subscription',
+
+    'push-subscription-not-found' => 'No active push subscription for this receiver',
+
     'request-failed' => 'Request could not be processed',
 
     'server-error' => 'An unexpected error occurred',

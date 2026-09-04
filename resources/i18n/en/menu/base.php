@@ -56,4 +56,22 @@ return [
 
                 'resource/i18n/template/{id}' => 'Edit template',
 
+        'messaging' => 'Messaging',
+
+            'mail-log' => 'Mail Logs',
+
+                'mail-log/{id}' => 'Mail Log',
+
+            'sms-log' => 'SMS Logs',
+
+                'sms-log/{id}' => 'SMS Log',
+
+            'push-log' => 'Push Logs',
+
+                'push-log/{id}' => 'Push Log',
+
+            'telegram-log' => 'Telegram Logs',
+
+                'telegram-log/{id}' => 'Telegram Log',
+
 ];

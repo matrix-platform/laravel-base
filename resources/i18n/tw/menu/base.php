@@ -56,4 +56,22 @@ return [
 
                 'resource/i18n/template/{id}' => '編輯訊息樣板',
 
+        'messaging' => '訊息管理',
+
+            'mail-log' => '郵件紀錄',
+
+                'mail-log/{id}' => '郵件紀錄',
+
+            'sms-log' => '簡訊紀錄',
+
+                'sms-log/{id}' => '簡訊紀錄',
+
+            'push-log' => '推播紀錄',
+
+                'push-log/{id}' => '推播紀錄',
+
+            'telegram-log' => 'Telegram 紀錄',
+
+                'telegram-log/{id}' => 'Telegram 紀錄',
+
 ];
