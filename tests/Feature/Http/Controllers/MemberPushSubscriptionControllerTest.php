@@ -60,7 +60,9 @@ class MemberPushSubscriptionControllerTest extends FeatureTestCase {
         $token = $this->token(5);
 
         $this->withToken($token)->postJson('api/member/push/subscribe', $this->payload());
-        $this->withToken($token)->postJson('api/member/push/unsubscribe', ['endpoint' => 'https://push.example.test/device-1'])->assertJson(['success' => true]);
+        $this->withToken($token)
+            ->postJson('api/member/push/unsubscribe', ['endpoint' => 'https://push.example.test/device-1'])
+            ->assertJson(['success' => true]);
 
         $this->assertSame(0, PushSubscription::query()->count());
     }

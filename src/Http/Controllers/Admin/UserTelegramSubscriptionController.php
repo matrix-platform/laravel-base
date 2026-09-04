@@ -27,7 +27,8 @@ class UserTelegramSubscriptionController extends BaseController {
      */
     #[Action]
     public function unsubscribe(): array {
-        TelegramSubscription::query()->where('user_id', intval(actor()->requireCurrent()->getKey()))->delete();
+        $subscription = TelegramSubscription::query()->where('user_id', intval(actor()->requireCurrent()->getKey()))->first();
+        $subscription?->delete();
 
         return [];
     }

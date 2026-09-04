@@ -70,6 +70,8 @@ return [
 
     'too-many-requests' => '請求過於頻繁，請稍後再試',
 
+    'undeclared-action' => 'Action 未宣告',
+
     'undeclared-model' => 'Model 未宣告欄位',
 
     'unknown-message-channel' => '訊息管道未註冊',

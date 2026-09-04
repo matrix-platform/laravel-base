@@ -19,6 +19,7 @@ use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
 use Tests\Stubs\FailingGroupController;
 use Tests\Stubs\GuardedGroupController;
+use Tests\Stubs\NoTransactionGroupController;
 
 class GroupControllerTest extends FeatureTestCase {
 
@@ -33,6 +34,7 @@ class GroupControllerTest extends FeatureTestCase {
             ->group(function (): void {
                 Route::prefix('failing-group')->group(fn () => ActionRoutes::scan(FailingGroupController::class));
                 Route::prefix('guarded-group')->group(fn () => ActionRoutes::scan(GuardedGroupController::class));
+                Route::prefix('no-transaction-group')->group(fn () => ActionRoutes::scan(NoTransactionGroupController::class));
             });
     }
 
@@ -316,6 +318,14 @@ class GroupControllerTest extends FeatureTestCase {
 
         $this->assertNotNull(Group::query()->find($group->id));
         $this->assertSame(['user' => ['query' => true]], $group->refresh()->permissions);
+    }
+
+    public function test_an_action_marked_transaction_false_keeps_its_write_despite_a_later_error(): void {
+        $group = GroupFactory::new()->createOne(['permissions' => ['user' => ['query' => true]]]);
+
+        $this->send('admin/no-transaction-group/delete', ['id' => $group->id])->assertJsonPath('error', 'data-conflicted');
+
+        $this->assertNull(Group::query()->find($group->id));
     }
 
     public function test_deleting_removes_the_group(): void {

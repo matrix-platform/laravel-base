@@ -36,7 +36,9 @@ class UserTelegramSubscriptionControllerTest extends FeatureTestCase {
     public function test_unsubscribe_removes_the_users_subscription(): void {
         TelegramSubscriptionFactory::new()->createOne(['user_id' => 5, 'chat_id' => '555666']);
 
-        $this->withToken($this->token(5))->postJson('admin/user/telegram/unsubscribe')->assertJson(['success' => true]);
+        $this->withToken($this->token(5))
+            ->postJson('admin/user/telegram/unsubscribe')
+            ->assertJson(['success' => true]);
 
         $this->assertSame(0, TelegramSubscription::query()->count());
     }

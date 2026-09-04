@@ -20,7 +20,8 @@ class MemberPushSubscriptionController extends BaseController {
         ]);
 
         $endpoint = $request->string('endpoint')->value();
-        $subscription = PushSubscription::query()->where('endpoint', $endpoint)->first() ?? new PushSubscription();
+        $found = PushSubscription::query()->where('endpoint', $endpoint)->first();
+        $subscription = $found === null ? new PushSubscription() : $found;
 
         $subscription->member_id = intval(actor()->requireCurrent()->getKey());
         $subscription->endpoint = $endpoint;
@@ -39,10 +40,12 @@ class MemberPushSubscriptionController extends BaseController {
     public function unsubscribe(Request $request): array {
         $request->validate(['endpoint' => ['required', 'string']]);
 
-        PushSubscription::query()
+        $subscription = PushSubscription::query()
             ->where('member_id', intval(actor()->requireCurrent()->getKey()))
             ->where('endpoint', $request->string('endpoint')->value())
-            ->delete();
+            ->first();
+
+        $subscription?->delete();
 
         return [];
     }

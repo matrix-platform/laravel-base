@@ -70,6 +70,8 @@ return [
 
     'too-many-requests' => 'Too many requests, please try again later',
 
+    'undeclared-action' => 'Action has no declaration',
+
     'undeclared-model' => 'Model has no declaration',
 
     'unknown-message-channel' => 'Unknown message channel',

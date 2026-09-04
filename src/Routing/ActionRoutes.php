@@ -11,7 +11,7 @@ use ReflectionMethod;
 
 class ActionRoutes {
 
-    private static function attribute(ReflectionMethod $method): ?Action {
+    public static function attribute(ReflectionMethod $method): ?Action {
         $name = $method->getName();
 
         while (true) {

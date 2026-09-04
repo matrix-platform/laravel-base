@@ -39,6 +39,9 @@
         "phpunit/phpunit": "^12.5"
     },
     "config": {
+        "allow-plugins": {
+            "php-http/discovery": true
+        },
         "sort-packages": true
     },
     "scripts": {

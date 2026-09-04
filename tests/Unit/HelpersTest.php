@@ -23,6 +23,8 @@ class HelpersTest extends TestCase {
     }
 
     public function test_invalid_throws_a_422_validation_failed_exception_reporting_the_field(): void {
+        $this->expectException(ServiceException::class);
+
         try {
             invalid('current', 'invalid-password');
         } catch (ServiceException $exception) {
@@ -30,10 +32,8 @@ class HelpersTest extends TestCase {
             $this->assertSame(422, $exception->getCode());
             $this->assertSame(['fields' => ['current' => ['invalid-password']]], $exception->getExtra());
 
-            return;
+            throw $exception;
         }
-
-        $this->fail('expected invalid() to throw a ServiceException');
     }
 
     public function test_array_get_value_returns_value_when_key_exists(): void {

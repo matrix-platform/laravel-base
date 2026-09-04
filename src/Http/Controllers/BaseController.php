@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use MatrixPlatform\Routing\ActionRoutes;
+use ReflectionMethod;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -15,7 +17,14 @@ abstract class BaseController extends Controller {
      * @param array<string, mixed> $parameters
      */
     public function callAction($method, $parameters): Response {
-        $data = DB::transaction(fn () => $this->{$method}(...array_values($parameters)));
+        $run = fn () => $this->{$method}(...array_values($parameters));
+        $action = ActionRoutes::attribute(new ReflectionMethod($this, $method));
+
+        if ($action === null) {
+            error('undeclared-action');
+        }
+
+        $data = $action->transaction ? DB::transaction($run) : $run();
 
         return $data instanceof Response ? $data : response()->json(['success' => true, 'data' => $data]);
     }

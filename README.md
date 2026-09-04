@@ -840,6 +840,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `request-failed` | 請求無法處理 |
 | `server-error` | 系統發生錯誤 |
 | `too-many-requests` | 請求過於頻繁，請稍後再試 |
+| `undeclared-action` | Action 未宣告 |
 | `undeclared-model` | Model 未宣告欄位 |
 | `unknown-message-channel` | 訊息管道未註冊 |
 | `unknown-package` | 套件未註冊 |

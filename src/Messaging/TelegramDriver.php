@@ -21,7 +21,7 @@ class TelegramDriver implements Driver {
         $response = Http::post('https://api.telegram.org/bot' . strval(cfg("{$bundle}.bot-token")) . '/sendMessage', array_merge([
             'chat_id' => $target,
             'text' => $log->content
-        ], $log->data ?? []));
+        ], $log->data === null ? [] : $log->data));
 
         $body = $response->json();
 
@@ -44,7 +44,8 @@ class TelegramDriver implements Driver {
         }
 
         if ($sandbox === null && $subscribed && $this->expired(intval(array_get_value($body, 'error_code')), $description)) {
-            TelegramSubscription::query()->where('chat_id', $chatId)->delete();
+            $subscription = TelegramSubscription::query()->where('chat_id', $chatId)->first();
+            $subscription?->delete();
         }
 
         error('message-refused-by-provider');
