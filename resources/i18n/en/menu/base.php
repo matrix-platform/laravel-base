@@ -74,4 +74,6 @@ return [
 
                 'telegram-log/{id}' => 'Telegram Log',
 
+        'geolocation' => 'Geolocation Lookup',
+
 ];

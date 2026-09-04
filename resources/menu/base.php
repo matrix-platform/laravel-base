@@ -104,4 +104,6 @@ return [
                 'telegram-log/{id}/resend' => ['parent' => 'telegram-log', 'tag' => 'update'],
                 'telegram-log/{id}/cancel' => ['parent' => 'telegram-log', 'tag' => 'update'],
 
+        'geolocation' => ['icon' => 'fa-solid fa-location-crosshairs', 'ranking' => 500, 'parent' => 'system', 'group' => true, 'tag' => 'query'],
+
 ];

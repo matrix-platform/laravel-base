@@ -7,6 +7,7 @@ use MatrixPlatform\Http\Controllers\Admin\CityAreaController;
 use MatrixPlatform\Http\Controllers\Admin\CityController;
 use MatrixPlatform\Http\Controllers\Admin\DriveController;
 use MatrixPlatform\Http\Controllers\Admin\FileController;
+use MatrixPlatform\Http\Controllers\Admin\GeoLocationController;
 use MatrixPlatform\Http\Controllers\Admin\GroupController;
 use MatrixPlatform\Http\Controllers\Admin\I18nController;
 use MatrixPlatform\Http\Controllers\Admin\I18nResourceController;
@@ -47,6 +48,7 @@ Route::middleware(['envelope-api', 'locale-api'])->group(function () {
             Route::middleware('permission-api')->group(function () {
                 ActionRoutes::mount('city', CityController::class);
                 ActionRoutes::mount('city/{city_id}/area', CityAreaController::class);
+                ActionRoutes::mount('geolocation', GeoLocationController::class);
                 ActionRoutes::mount('group', GroupController::class);
                 ActionRoutes::mount('mail-log', MailLogController::class);
                 ActionRoutes::mount('push-log', PushLogController::class);

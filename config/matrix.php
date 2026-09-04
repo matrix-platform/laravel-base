@@ -21,6 +21,8 @@ return [
 
     'file-public-disk' => 'public',
 
+    'geolocation-provider' => 'ip2location-bin',
+
     'locales' => 'tw en',
 
     'member-model' => Member::class,

@@ -74,4 +74,6 @@ return [
 
                 'telegram-log/{id}' => 'Telegram 紀錄',
 
+        'geolocation' => '地理位置查詢',
+
 ];

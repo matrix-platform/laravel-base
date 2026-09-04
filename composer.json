@@ -24,8 +24,12 @@
     },
     "require": {
         "php": "^8.3",
+        "ext-bcmath": "*",
+        "ext-curl": "*",
         "ext-gd": "*",
         "ext-pdo_pgsql": "*",
+        "ext-zip": "*",
+        "ip2location/ip2location-php": "^9.8",
         "james-heinrich/getid3": "^1.9",
         "laravel/framework": "^13.23",
         "minishlink/web-push": "^11.0"

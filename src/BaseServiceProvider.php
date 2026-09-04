@@ -13,6 +13,7 @@ use MatrixPlatform\Console\Commands\PruneTokensCommand;
 use MatrixPlatform\Console\Commands\ResetUserPasswordCommand;
 use MatrixPlatform\Console\Commands\SetTelegramWebhookCommand;
 use MatrixPlatform\Console\Commands\SyncTranslatableCommand;
+use MatrixPlatform\Console\Commands\UpdateGeolocationDatabaseCommand;
 use MatrixPlatform\Database\Schema\BaseBlueprint;
 use MatrixPlatform\Http\Middleware\EnvelopeMiddleware;
 use MatrixPlatform\Http\Middleware\LocaleMiddleware;
@@ -38,7 +39,14 @@ class BaseServiceProvider extends ServiceProvider {
 
     public function boot(): void {
         if ($this->app->runningInConsole()) {
-            $this->commands([DispatchMessagesCommand::class, PruneTokensCommand::class, ResetUserPasswordCommand::class, SetTelegramWebhookCommand::class, SyncTranslatableCommand::class]);
+            $this->commands([
+                DispatchMessagesCommand::class,
+                PruneTokensCommand::class,
+                ResetUserPasswordCommand::class,
+                SetTelegramWebhookCommand::class,
+                SyncTranslatableCommand::class,
+                UpdateGeolocationDatabaseCommand::class
+            ]);
         }
 
         Event::listen(TransactionRolledBack::class, fn () => app(RollbackCallbacks::class)->run());
