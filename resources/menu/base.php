@@ -78,6 +78,8 @@ return [
                 'resource/i18n/template/{id}' => ['parent' => 'resource/i18n/template', 'tag' => 'query'],
                 'resource/i18n/template/{id}/update' => ['parent' => 'resource/i18n/template', 'tag' => 'update'],
 
+            'translation' => ['icon' => 'fa-solid fa-globe', 'ranking' => 600, 'parent' => 'locale', 'group' => true, 'tag' => 'query'],
+
         'messaging' => ['icon' => 'fa-solid fa-paper-plane', 'ranking' => 400, 'parent' => 'system'],
 
             'mail-log' => ['icon' => 'fa-solid fa-envelope', 'ranking' => 100, 'parent' => 'messaging', 'group' => true, 'tag' => 'query'],

@@ -56,6 +56,8 @@ return [
 
                 'resource/i18n/template/{id}' => 'Edit template',
 
+            'translation' => 'Content Translation',
+
         'messaging' => 'Messaging',
 
             'mail-log' => 'Mail Logs',

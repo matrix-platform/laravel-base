@@ -592,6 +592,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | POST | `admin/city/{city_id}/area/sort/save` | 授權 |
 | POST | `admin/city/{city_id}/area/arrange` | 授權 |
 | POST | `admin/city/{city_id}/area/arrange/save` | 授權 |
+| POST | `admin/geolocation` | 授權 |
 | POST | `admin/user` | 授權 |
 | POST | `admin/user/new` | 授權 |
 | POST | `admin/user/insert` | 授權 |
@@ -638,6 +639,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | POST | `admin/resource/i18n/template` | 授權 |
 | POST | `admin/resource/i18n/template/{id}` | 授權 |
 | POST | `admin/resource/i18n/template/{id}/update` | 授權 |
+| POST | `admin/translation` | 授權 |
 | POST | `admin/mail-log` | 授權 |
 | POST | `admin/mail-log/new` | 授權 |
 | POST | `admin/mail-log/insert` | 授權 |
@@ -718,6 +720,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `matrix.drive-disk` | `'local'` | 雲端硬碟實體檔案的 disk,獨立於 `file-*-disk`,永遠不對外公開,只透過 `drive/{id}/download` 讀取 |
 | `matrix.file-private-disk` | `'local'` | 非公開檔案的 disk |
 | `matrix.file-public-disk` | `'public'` | 公開檔案的 disk |
+| `matrix.geolocation-provider` | `'ip2location-bin'` | IP 地理位置查詢要用哪個 driver,對應 `resources/cfg/{值}.php` |
 | `matrix.locales` | `'tw en'` | 允許的語系,對應 `resources/i18n/{語系}/` |
 | `matrix.member-model` | `Member::class` | 會員 model,宿主可換成自己的 |
 | `matrix.messaging` | 見範本 | channel 註冊。每個 channel 都要有 `model` 與 `queue`。**巢狀 key,宣告就整份取代** |
@@ -728,6 +731,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `matrix.resource-i18n-model` | `[]` | 同上,欄位標題 |
 | `matrix.resource-i18n-options` | `[]` | 同上,下拉選項 |
 | `matrix.resource-i18n-template` | `[]` | 同上,訊息樣板 |
+| `matrix.translation-provider` | `'google-translate'` | 內容翻譯要用哪個 driver,對應 `resources/cfg/{值}.php` |
 | `matrix.vendor-api-prefix` | `'vendor'` | 廠商路由前綴 |
 | `matrix.vendor-model` | `Vendor::class` | 廠商 model |
 
@@ -812,13 +816,18 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `drive-anchor-immutable` | home 目錄與群組目錄不能被搬移或丟進垃圾桶 |
 | `endpoint-not-found` | 端點不存在 |
 | `file-too-large` | 檔案大小超過限制 |
+| `geolocation-database-not-found` | 找不到地理位置資料庫檔案 |
+| `geolocation-request-failed` | 地理位置查詢請求失敗 |
 | `invalid-arrange-order` | 上下架選擇與資料不符 |
 | `invalid-cascade-relation` | 連動關聯必須是 hasOne、hasMany 或其 morph 形式 |
 | `invalid-column-condition` | 欄位條件語法錯誤 |
 | `invalid-column-expression` | 欄位運算式語法錯誤 |
 | `invalid-filter-value` | 篩選值的格式不正確 |
+| `invalid-geolocation-driver` | 地理位置服務設定錯誤 |
 | `invalid-identity-model` | 身分 model 設定錯誤 |
 | `invalid-identity-type` | 不支援此身分類型 |
+| `invalid-ip-address` | IP 位址格式不正確 |
+| `invalid-locale` | 語系不正確 |
 | `invalid-message-channel` | 訊息管道設定錯誤 |
 | `invalid-message-content` | 訊息內容不得為空 |
 | `invalid-message-driver` | 訊息傳送器設定錯誤 |
@@ -830,6 +839,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `invalid-resource-token` | 資源代碼格式錯誤 |
 | `invalid-sort-order` | 排序內容與資料不符 |
 | `invalid-token` | 登入憑證無效或已過期 |
+| `invalid-translation-driver` | 翻譯服務設定錯誤 |
 | `message-provider-has-no-driver` | 訊息供應商未設定傳送器 |
 | `message-refused-by-provider` | 訊息被供應商拒絕 |
 | `message-template-not-found` | 查無訊息樣板 |
@@ -840,6 +850,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `request-failed` | 請求無法處理 |
 | `server-error` | 系統發生錯誤 |
 | `too-many-requests` | 請求過於頻繁，請稍後再試 |
+| `translation-request-failed` | 翻譯請求失敗 |
 | `undeclared-action` | Action 未宣告 |
 | `undeclared-model` | Model 未宣告欄位 |
 | `unknown-message-channel` | 訊息管道未註冊 |

@@ -14,6 +14,10 @@ return [
 
     'file-too-large' => '檔案大小超過限制',
 
+    'geolocation-database-not-found' => '找不到地理位置資料庫檔案',
+
+    'geolocation-request-failed' => '地理位置查詢請求失敗',
+
     'invalid-arrange-order' => '上下架選擇與資料不符',
 
     'invalid-cascade-relation' => '連動關聯必須是 hasOne、hasMany 或其 morph 形式',
@@ -24,9 +28,15 @@ return [
 
     'invalid-filter-value' => '篩選值的格式不正確',
 
+    'invalid-geolocation-driver' => '地理位置服務設定錯誤',
+
     'invalid-identity-model' => '身分 model 設定錯誤',
 
     'invalid-identity-type' => '不支援此身分類型',
+
+    'invalid-ip-address' => 'IP 位址格式不正確',
+
+    'invalid-locale' => '語系不正確',
 
     'invalid-message-channel' => '訊息管道設定錯誤',
 
@@ -50,6 +60,8 @@ return [
 
     'invalid-token' => '登入憑證無效或已過期',
 
+    'invalid-translation-driver' => '翻譯服務設定錯誤',
+
     'message-provider-has-no-driver' => '訊息供應商未設定傳送器',
 
     'message-refused-by-provider' => '訊息被供應商拒絕',
@@ -69,6 +81,8 @@ return [
     'server-error' => '系統發生錯誤',
 
     'too-many-requests' => '請求過於頻繁，請稍後再試',
+
+    'translation-request-failed' => '翻譯請求失敗',
 
     'undeclared-action' => 'Action 未宣告',
 

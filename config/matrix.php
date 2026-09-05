@@ -50,6 +50,8 @@ return [
 
     'resource-i18n-template' => [],
 
+    'translation-provider' => 'google-translate',
+
     'vendor-api-prefix' => 'vendor',
 
     'vendor-model' => Vendor::class,

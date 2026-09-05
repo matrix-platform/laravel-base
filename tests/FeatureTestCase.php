@@ -150,6 +150,10 @@ class FeatureTestCase extends TestCase {
         $this->usePackageFixtures('resource-fixture', 'package-resource');
     }
 
+    protected function useTranslationFixtures(): void {
+        $this->usePackageFixtures('translation-fixture', 'package-translation');
+    }
+
     private function usePackageFixtures(string $package, string $directory): void {
         app(PackageRegistry::class)->register($package, __DIR__ . "/fixtures/{$directory}");
 

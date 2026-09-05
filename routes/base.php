@@ -19,6 +19,7 @@ use MatrixPlatform\Http\Controllers\Admin\PushLogController;
 use MatrixPlatform\Http\Controllers\Admin\SmsLogController;
 use MatrixPlatform\Http\Controllers\Admin\TelegramLogController;
 use MatrixPlatform\Http\Controllers\Admin\TemplateResourceController;
+use MatrixPlatform\Http\Controllers\Admin\TranslationController;
 use MatrixPlatform\Http\Controllers\Admin\UserController;
 use MatrixPlatform\Http\Controllers\Admin\UserTelegramSubscriptionController;
 use MatrixPlatform\Http\Controllers\CommonController;
@@ -60,6 +61,7 @@ Route::middleware(['envelope-api', 'locale-api'])->group(function () {
                 ActionRoutes::mount('resource/i18n', I18nResourceController::class);
                 ActionRoutes::mount('sms-log', SmsLogController::class);
                 ActionRoutes::mount('telegram-log', TelegramLogController::class);
+                ActionRoutes::mount('translation', TranslationController::class);
                 ActionRoutes::mount('user', UserController::class);
             });
         });

@@ -77,6 +77,37 @@ class ErrorSlugTest extends TestCase {
     }
 
     /**
+     * @param list<array{int, string, int}|string> $tokens
+     */
+    private function lastLiteralArgument(array $tokens, int $index): ?string {
+        if (array_get_value($tokens, $index + 1) !== '(') {
+            return null;
+        }
+
+        $depth = 0;
+
+        for ($cursor = $index + 1; $cursor < count($tokens); $cursor++) {
+            if ($tokens[$cursor] === '(') {
+                $depth++;
+            } elseif ($tokens[$cursor] === ')' && --$depth === 0) {
+                for ($back = $cursor - 1; $back >= 0; $back--) {
+                    $previous = $tokens[$back];
+
+                    if (is_array($previous) && in_array($previous[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+                        continue;
+                    }
+
+                    return is_array($previous) && $previous[0] === T_CONSTANT_ENCAPSED_STRING ? trim($previous[1], "'\"") : null;
+                }
+
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * @return array<string, list<string>>
      */
     private function used(): array {
@@ -98,11 +129,15 @@ class ErrorSlugTest extends TestCase {
             for ($index = 0; $index < $count; $index++) {
                 $token = $tokens[$index];
 
-                if (!is_array($token) || $token[0] !== T_STRING || $token[1] !== 'error' || $this->invoked($tokens, $index)) {
+                if (!is_array($token) || $token[0] !== T_STRING || $this->invoked($tokens, $index)) {
                     continue;
                 }
 
-                $slug = $this->literalArgument($tokens, $index);
+                $slug = match ($token[1]) {
+                    'error' => $this->literalArgument($tokens, $index),
+                    'resolve_driver' => $this->lastLiteralArgument($tokens, $index),
+                    default => null,
+                };
 
                 if ($slug !== null) {
                     $found[substr($file->getPathname(), strlen($root) + 1)][] = $slug;

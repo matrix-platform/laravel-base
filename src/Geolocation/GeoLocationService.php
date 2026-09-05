@@ -10,17 +10,8 @@ class GeoLocationService {
         }
 
         $bundle = config()->string('matrix.geolocation-provider');
-        $class = cfg("{$bundle}.driver");
 
-        if ($class === null) {
-            return null;
-        }
-
-        if (!is_string($class) || !is_a($class, Driver::class, true)) {
-            error('invalid-geolocation-driver');
-        }
-
-        return app($class)->locate($ip);
+        return resolve_driver($bundle, Driver::class, 'invalid-geolocation-driver')?->locate($ip);
     }
 
 }

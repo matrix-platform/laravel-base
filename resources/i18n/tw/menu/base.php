@@ -56,6 +56,8 @@ return [
 
                 'resource/i18n/template/{id}' => '編輯訊息樣板',
 
+            'translation' => '內容翻譯',
+
         'messaging' => '訊息管理',
 
             'mail-log' => '郵件紀錄',

@@ -15,17 +15,7 @@ class Provider {
      * @return Driver<MessageLog>|null
      */
     public function driver(): ?Driver {
-        $class = cfg("{$this->name}.driver");
-
-        if ($class === null) {
-            return null;
-        }
-
-        if (!is_string($class) || !is_a($class, Driver::class, true)) {
-            error('invalid-message-driver');
-        }
-
-        return app($class);
+        return resolve_driver($this->name, Driver::class, 'invalid-message-driver');
     }
 
 }

@@ -50,6 +50,25 @@ function member(): ?Model {
 }
 
 /**
+ * @template T of object
+ * @param class-string<T> $contract
+ * @return T|null
+ */
+function resolve_driver(string $bundle, string $contract, string $error): ?object {
+    $class = cfg("{$bundle}.driver");
+
+    if ($class === null) {
+        return null;
+    }
+
+    if (!is_string($class) || !is_a($class, $contract, true)) {
+        error($error);
+    }
+
+    return app($class);
+}
+
+/**
  * @return list<string>
  */
 function tokenize(?string $text): array {

@@ -14,6 +14,10 @@ return [
 
     'file-too-large' => 'File exceeds the size limit',
 
+    'geolocation-database-not-found' => 'Geolocation database file not found',
+
+    'geolocation-request-failed' => 'Geolocation request failed',
+
     'invalid-arrange-order' => 'Arrange selection does not match the data',
 
     'invalid-cascade-relation' => 'Cascade relation must be a hasOne, hasMany or their morph form',
@@ -24,9 +28,15 @@ return [
 
     'invalid-filter-value' => 'Filter value has an invalid format',
 
+    'invalid-geolocation-driver' => 'Invalid geolocation driver configuration',
+
     'invalid-identity-model' => 'Configured identity model is invalid',
 
     'invalid-identity-type' => 'Identity type is not supported',
+
+    'invalid-ip-address' => 'Invalid IP address',
+
+    'invalid-locale' => 'Invalid locale',
 
     'invalid-message-channel' => 'Invalid message channel configuration',
 
@@ -50,6 +60,8 @@ return [
 
     'invalid-token' => 'Invalid or expired token',
 
+    'invalid-translation-driver' => 'Invalid translation driver configuration',
+
     'message-provider-has-no-driver' => 'Message provider has no driver configured',
 
     'message-refused-by-provider' => 'The provider refused the message',
@@ -69,6 +81,8 @@ return [
     'server-error' => 'An unexpected error occurred',
 
     'too-many-requests' => 'Too many requests, please try again later',
+
+    'translation-request-failed' => 'Translation request failed',
 
     'undeclared-action' => 'Action has no declaration',
 
