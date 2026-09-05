@@ -14,6 +14,8 @@ use MatrixPlatform\Models\Declarations\UserDeclaration;
  * @property string $username
  * @property ?string $password
  * @property ?int $group_id
+ * @property ?string $secret
+ * @property ?Carbon $confirmed_time
  * @property-read array<string, array<string, bool>> $permissions
  * @property-write array<string, mixed>|object|null $permissions
  * @property ?Carbon $enable_time
@@ -35,12 +37,13 @@ class User extends BaseModel {
     ];
 
     protected $hidden = [
-        'password'
+        'password',
+        'secret'
     ];
 
     protected $table = 'base_user';
 
-    protected array $untraceable = ['password'];
+    protected array $untraceable = ['password', 'secret'];
 
     public function createToken(): string {
         return AuthToken::issue(IdentityType::User, $this->id);
@@ -51,6 +54,10 @@ class User extends BaseModel {
      */
     public function group(): BelongsTo {
         return $this->belongsTo(Group::class);
+    }
+
+    public function hasMfaEnabled(): bool {
+        return $this->confirmed_time !== null;
     }
 
     public function newEloquentBuilder($query): UserBuilder {
@@ -75,11 +82,13 @@ class User extends BaseModel {
      */
     protected function casts(): array {
         return [
+            'confirmed_time' => 'datetime',
             'disable_time' => 'datetime',
             'disabled' => 'boolean',
             'enable_time' => 'datetime',
             'password' => 'hashed',
-            'permissions' => PermissionMap::class
+            'permissions' => PermissionMap::class,
+            'secret' => 'encrypted'
         ];
     }
 

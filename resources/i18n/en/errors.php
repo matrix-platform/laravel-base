@@ -68,6 +68,8 @@ return [
 
     'message-template-not-found' => 'Message template not found',
 
+    'mfa-already-enabled' => 'Two-factor authentication is already enabled',
+
     'name-already-exists' => 'That name is already used in this location',
 
     'permission-denied' => 'Permission denied',

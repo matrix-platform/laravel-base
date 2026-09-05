@@ -18,4 +18,6 @@ return [
 
     'permissions' => '權限',
 
+    'confirmed_time' => '2FA 啟用時間',
+
 ];

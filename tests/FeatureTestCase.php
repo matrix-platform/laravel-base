@@ -2,6 +2,7 @@
 
 namespace Tests;
 
+use Illuminate\Encryption\Encrypter;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -67,6 +68,8 @@ class FeatureTestCase extends TestCase {
      */
     protected function defineEnvironment($app): void {
         $app['config']->set('app.locale', 'en');
+        $app['config']->set('app.cipher', 'AES-256-CBC');
+        $app['config']->set('app.key', 'base64:' . base64_encode(Encrypter::generateKey('AES-256-CBC')));
 
         Event::listen(RequestHandled::class, fn () => $app->forgetScopedInstances());
     }

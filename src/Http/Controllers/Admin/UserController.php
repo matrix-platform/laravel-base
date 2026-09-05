@@ -5,7 +5,9 @@ namespace MatrixPlatform\Http\Controllers\Admin;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use MatrixPlatform\Attributes\Action;
 use MatrixPlatform\Models\User;
+use MatrixPlatform\Models\UserLogType;
 use MatrixPlatform\Services\Admin\Crud\CopyService;
 use MatrixPlatform\Services\Admin\Crud\CrudService;
 use MatrixPlatform\Services\Admin\Crud\DeleteService;
@@ -13,7 +15,9 @@ use MatrixPlatform\Services\Admin\Crud\ExportService;
 use MatrixPlatform\Services\Admin\Crud\GetService;
 use MatrixPlatform\Services\Admin\Crud\InsertService;
 use MatrixPlatform\Services\Admin\Crud\ListService;
+use MatrixPlatform\Services\Admin\Crud\Operation;
 use MatrixPlatform\Services\Admin\Crud\UpdateService;
+use MatrixPlatform\Services\Admin\MfaService;
 use MatrixPlatform\Services\Admin\PasswordService;
 use MatrixPlatform\Support\AdminLevel;
 use MatrixPlatform\Support\PermissionTree;
@@ -22,9 +26,34 @@ class UserController extends CrudController {
 
     protected string $model = User::class;
 
+    protected array $readonly = ['confirmed_time'];
+
     protected array $sorting = [
         'username'
     ];
+
+    /**
+     * @return array{id: mixed}
+     */
+    #[Action('{id}/disable-mfa')]
+    public function disableMfa(Request $request): array {
+        $minimum = $this->minimumManageableId();
+        $query = User::query();
+
+        if ($minimum > User::ROOT) {
+            $query->where('id', '>=', $minimum);
+        }
+
+        $model = $query->findOrFail($this->identifier($request));
+
+        $this->guardNotSelf($model);
+
+        app(MfaService::class)->disable($model);
+
+        $model->writeLog(UserLogType::MfaDisabled);
+
+        return ['id' => $model->getKey()];
+    }
 
     /**
      * @return array<string, mixed>
@@ -44,11 +73,7 @@ class UserController extends CrudController {
     }
 
     protected function onDelete(DeleteService $service): DeleteService {
-        return $this->visible(parent::onDelete($service))->guard(function (Model $model): void {
-            if ($model->getKey() === actor()->requireUser()->id) {
-                error('permission-denied', 403);
-            }
-        });
+        return $this->visible(parent::onDelete($service))->guard(fn (Model $model) => $this->guardNotSelf($model));
     }
 
     protected function onExport(ExportService $service): ExportService {
@@ -64,11 +89,25 @@ class UserController extends CrudController {
     }
 
     protected function onList(ListService $service): ListService {
-        return $this->visible(parent::onList($service));
+        return $this->visible(parent::onList($service))->rowActions([
+            'edit',
+            'delete',
+            new Operation('disable-mfa', fn (User $model): bool => $model->hasMfaEnabled() && $model->getKey() !== actor()->requireUser()->id)
+        ]);
     }
 
     protected function onUpdate(UpdateService $service): UpdateService {
         return $this->visible(parent::onUpdate($service))->guard(app(PermissionTree::class)->filter());
+    }
+
+    private function guardNotSelf(Model $model): void {
+        if ($model->getKey() === actor()->requireUser()->id) {
+            error('permission-denied', 403);
+        }
+    }
+
+    private function minimumManageableId(): int {
+        return AdminLevel::of(actor()->requireUser()->id)->minimumManageableId();
     }
 
     /**
@@ -77,7 +116,7 @@ class UserController extends CrudController {
      * @return TService
      */
     private function visible(CrudService $service): CrudService {
-        $minimum = AdminLevel::of(actor()->requireUser()->id)->minimumManageableId();
+        $minimum = $this->minimumManageableId();
 
         return $service->when($minimum > User::ROOT, fn (Builder $query) => $query->where($query->getModel()->getQualifiedKeyName(), '>=', $minimum));
     }

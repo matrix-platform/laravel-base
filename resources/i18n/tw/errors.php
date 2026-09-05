@@ -68,6 +68,8 @@ return [
 
     'message-template-not-found' => '查無訊息樣板',
 
+    'mfa-already-enabled' => '雙因子驗證已經啟用',
+
     'name-already-exists' => '這個名稱在此位置已經存在',
 
     'permission-denied' => '權限不足',

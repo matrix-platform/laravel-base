@@ -548,6 +548,10 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | POST | `admin/auth/captcha` | 匿名 |
 | POST | `admin/auth/login` | 匿名（有節流） |
 | POST | `admin/auth/logout` | 登入 |
+| POST | `admin/auth/mfa` | 匿名（有節流） |
+| POST | `admin/auth/mfa/confirm` | 登入 |
+| POST | `admin/auth/mfa/disable` | 登入 |
+| POST | `admin/auth/mfa/setup` | 登入 |
 | POST | `admin/auth/passwd` | 登入 |
 | POST | `admin/auth/profile` | 登入 |
 | POST | `admin/i18n/get` | **匿名** |
@@ -598,6 +602,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | POST | `admin/user/insert` | 授權 |
 | POST | `admin/user/{id}` | 授權 |
 | POST | `admin/user/{id}/update` | 授權 |
+| POST | `admin/user/{id}/disable-mfa` | 授權 |
 | POST | `admin/user/{id}/copy` | 授權 |
 | POST | `admin/user/delete` | 授權 |
 | POST | `admin/user/export` | 授權 |
@@ -746,6 +751,9 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `admin.captcha-ttl` | `300` | 驗證碼有效秒數 |
 | `admin.login-throttle-max` | `5` | 每個窗口容許的登入失敗次數 |
 | `admin.login-throttle-window` | `1` | 節流窗口(分鐘) |
+| `admin.mfa-challenge-ttl` | `300` | MFA challenge 有效秒數 |
+| `admin.mfa-trust-days` | `30` | 「信任此瀏覽器」cookie 的有效天數 |
+| `admin.mfa-window` | `1` | TOTP 驗證時間漂移容忍度(±N 個 30 秒區間) |
 | `admin.password-pattern` | `'/^(?=.*\d)(?=.*[a-zA-Z]).{8,}$/'` | 自助改密碼、`matrix:passwd` 與使用者表單共用的密碼規則 |
 | `admin.token-idle-minutes` | `30` | 後台 token 閒置多久失效 |
 | `member.login-throttle-max` | `5` | 同上,前台會員 |
@@ -843,6 +851,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `message-provider-has-no-driver` | 訊息供應商未設定傳送器 |
 | `message-refused-by-provider` | 訊息被供應商拒絕 |
 | `message-template-not-found` | 查無訊息樣板 |
+| `mfa-already-enabled` | 雙因子驗證已經啟用 |
 | `name-already-exists` | 這個名稱在此位置已經存在 |
 | `permission-denied` | 權限不足 |
 | `push-delivery-failed` | 推播通知無法送達任何訂閱 |

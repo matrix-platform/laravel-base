@@ -8,6 +8,12 @@ return [
 
     'login-throttle-window' => 1,
 
+    'mfa-challenge-ttl' => 300,
+
+    'mfa-trust-days' => 30,
+
+    'mfa-window' => 1,
+
     'password-pattern' => '/^(?=.*\d)(?=.*[a-zA-Z]).{8,}$/',
 
     'token-idle-minutes' => 30,

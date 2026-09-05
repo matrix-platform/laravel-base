@@ -14,6 +14,10 @@ return [
 
     'delete-confirm' => '確定要刪除嗎？',
 
+    'disable-mfa' => '關閉 MFA',
+
+    'disable-mfa-confirm' => '確定要關閉此帳號的雙重驗證(MFA)嗎？',
+
     'edit' => '編輯',
 
     'export' => '匯出',

@@ -30,6 +30,8 @@ return new class extends Migration {
             $table->text('username')->unique();
             $table->text('password')->nullable();
             $table->integer('group_id')->nullable();
+            $table->text('secret')->nullable();
+            $table->timestamp('confirmed_time')->nullable();
             $table->jsonb('permissions')->nullable();
             $table->schedules();
             $table->boolean('disabled');

@@ -18,4 +18,6 @@ return [
 
     'permissions' => 'Permissions',
 
+    'confirmed_time' => '2FA Enable Time',
+
 ];

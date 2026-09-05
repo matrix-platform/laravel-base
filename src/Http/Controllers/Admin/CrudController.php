@@ -55,6 +55,11 @@ abstract class CrudController extends BaseController {
      */
     protected string $model;
 
+    /**
+     * @var list<string>
+     */
+    protected array $readonly = [];
+
     protected ?bool $sortable = null;
 
     /**
@@ -242,7 +247,7 @@ abstract class CrudController extends BaseController {
     }
 
     private function complex(Definition $definition): bool {
-        return is_string($definition->presentation) || in_array($definition->presentation, [Presentation::Hidden, Presentation::Password], true);
+        return is_string($definition->presentation) || $definition->presentation === Presentation::Password;
     }
 
     /**
@@ -258,8 +263,9 @@ abstract class CrudController extends BaseController {
         $foreign = app(Subject::class)->foreign($this->instance());
         $reserved = [...array_keys(Definitions::primaryKey()), ...array_keys(Definitions::auditings())];
         $excluded = Arr::whereNotNull([...$reserved, $this->ranking(), $foreign]);
+        $names = array_diff(array_keys($definitions), $excluded);
 
-        return array_values(array_diff(array_keys($definitions), $excluded));
+        return array_values(array_filter($names, fn (string $name): bool => $definitions[$name]->presentation !== Presentation::Hidden));
     }
 
     /**
@@ -410,7 +416,7 @@ abstract class CrudController extends BaseController {
             return $this->updates;
         }
 
-        return $this->derived();
+        return array_map(fn (string $name): string => in_array($name, $this->readonly, true) ? "!{$name}" : $name, $this->derived());
     }
 
 }

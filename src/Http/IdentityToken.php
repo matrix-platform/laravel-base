@@ -9,7 +9,11 @@ use MatrixPlatform\Models\IdentityType;
 class IdentityToken {
 
     public static function attach(JsonResponse $response, IdentityType $type, string $token): JsonResponse {
-        return $response->cookie($type->cookie(), $token, 0, '/', null, (bool) config('session.secure'), true, false, 'lax');
+        return self::cookie($response, $type->cookie(), $token, 0);
+    }
+
+    public static function cookie(JsonResponse $response, string $name, string $token, int $minutes): JsonResponse {
+        return $response->cookie($name, $token, $minutes, '/', null, (bool) config('session.secure'), true, false, 'lax');
     }
 
     public static function from(Request $request, IdentityType $type): ?string {

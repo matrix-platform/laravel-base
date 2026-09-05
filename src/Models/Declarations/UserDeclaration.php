@@ -23,6 +23,10 @@ class UserDeclaration implements Declares {
             ],
             Definitions::disabled(),
             Definitions::schedules(),
+            [
+                'secret' => Definition::text(Presentation::Hidden),
+                'confirmed_time' => Definition::dateTime()
+            ],
             Definitions::permissions(),
             Definitions::auditings()
         );

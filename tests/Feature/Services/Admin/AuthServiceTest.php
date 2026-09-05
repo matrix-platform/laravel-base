@@ -31,7 +31,7 @@ class AuthServiceTest extends FeatureTestCase {
         Cache::put('captcha:test-token', hash('sha256', 'ABCDE'), 60);
 
         try {
-            app(AuthService::class)->login('someone', 'whatever', 'test-token', 'WRONG');
+            app(AuthService::class)->login('someone', 'whatever', 'test-token', 'WRONG', null);
         } catch (ServiceException $exception) {
             $this->assertSame(422, $exception->getCode());
             $this->assertSame(['fields' => ['code' => ['invalid-captcha']]], $exception->getExtra());
@@ -48,7 +48,7 @@ class AuthServiceTest extends FeatureTestCase {
         Cache::put('captcha:test-token', hash('sha256', 'ABCDE'), 60);
 
         try {
-            app(AuthService::class)->login($user->username, 'not-the-real-password', 'test-token', 'ABCDE');
+            app(AuthService::class)->login($user->username, 'not-the-real-password', 'test-token', 'ABCDE', null);
         } catch (ServiceException $exception) {
             $this->assertSame(422, $exception->getCode());
             $this->assertSame(['fields' => ['password' => ['invalid-username-or-password']]], $exception->getExtra());

@@ -14,6 +14,10 @@ return [
 
     'delete-confirm' => 'Are you sure you want to delete?',
 
+    'disable-mfa' => 'Disable MFA',
+
+    'disable-mfa-confirm' => 'Are you sure you want to disable MFA for this account?',
+
     'edit' => 'Edit',
 
     'export' => 'Export',

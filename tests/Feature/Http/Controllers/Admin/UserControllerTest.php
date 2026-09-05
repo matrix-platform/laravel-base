@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Routing\ActionRoutes;
+use MatrixPlatform\Services\Admin\MfaService;
+use PragmaRX\Google2FA\Google2FA;
 use Tests\Factories\GroupFactory;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
@@ -26,6 +28,12 @@ class UserControllerTest extends FeatureTestCase {
         $router->middleware(['envelope-api', 'user-api'])
             ->prefix('admin')
             ->group(fn () => Route::prefix('exportable-user')->group(fn () => ActionRoutes::scan(ExportableUserController::class)));
+    }
+
+    private function enableMfa(User $user): void {
+        $setup = app(MfaService::class)->setup($user);
+
+        app(MfaService::class)->confirm($user, (new Google2FA())->getCurrentOtp($setup['secret']));
     }
 
     /**
@@ -254,6 +262,29 @@ class UserControllerTest extends FeatureTestCase {
         }
     }
 
+    public function test_confirmed_time_reports_when_the_account_enrolled_in_mfa(): void {
+        $user = UserFactory::new()->createOne(['id' => 6000, 'username' => 'managed-user']);
+        $setup = app(MfaService::class)->setup($user);
+        app(MfaService::class)->confirm($user, (new Google2FA())->getCurrentOtp($setup['secret']));
+
+        $token = $this->signIn(self::ADMIN);
+
+        $this->assertNotNull($this->send($token, 'admin/user/6000')->json('data.data.confirmed_time'));
+    }
+
+    public function test_confirmed_time_cannot_be_written_through_the_generic_update_endpoint(): void {
+        UserFactory::new()->createOne(['id' => 6000, 'username' => 'managed-user']);
+
+        $token = $this->signIn(self::ADMIN);
+
+        $this->send($token, 'admin/user/6000/update', $this->form([
+            'username' => 'managed-user',
+            'confirmed_time' => now()->format('Y-m-d H:i:s')
+        ]))->assertJsonPath('success', true);
+
+        $this->assertNull(User::query()->findOrFail(6000)->confirmed_time);
+    }
+
     public function test_the_account_form_carries_the_permissions_column(): void {
         $response = $this->send($this->signIn(self::ADMIN), 'admin/user/new');
         $permissions = $this->columnByName($response->json('data.columns'), 'permissions');
@@ -388,6 +419,74 @@ class UserControllerTest extends FeatureTestCase {
         foreach (['admin/user/1/copy', 'admin/user/export', 'admin/user/sort', 'admin/user/sort/save'] as $uri) {
             $this->send($token, $uri)->assertJsonPath('error', 'permission-denied');
         }
+    }
+
+    public function test_an_admin_disables_mfa_for_an_account(): void {
+        $user = UserFactory::new()->createOne(['id' => 6000, 'username' => 'managed-user']);
+
+        $this->enableMfa($user);
+
+        $token = $this->signIn(self::ADMIN);
+
+        $this->send($token, 'admin/user/6000/disable-mfa')->assertJsonPath('success', true);
+
+        $fresh = User::query()->findOrFail(6000);
+
+        $this->assertNull($fresh->secret);
+        $this->assertNull($fresh->confirmed_time);
+    }
+
+    public function test_the_disable_mfa_row_action_only_shows_up_for_accounts_with_mfa_enabled(): void {
+        $enrolled = UserFactory::new()->createOne(['id' => 6000, 'username' => 'enrolled']);
+
+        UserFactory::new()->createOne(['id' => 6001, 'username' => 'not-enrolled']);
+        $this->enableMfa($enrolled);
+
+        $rows = $this->send($this->signIn(self::ADMIN), 'admin/user')->json('data.rows');
+        $actions = array_column($rows, 'actions', 'username');
+
+        $this->assertContains('disable-mfa', $actions['enrolled']);
+        $this->assertNotContains('disable-mfa', $actions['not-enrolled']);
+    }
+
+    public function test_the_disable_mfa_row_action_never_shows_up_on_the_actors_own_row(): void {
+        $self = UserFactory::new()->createOne(['id' => self::ADMIN, 'username' => 'self-account']);
+
+        $this->enableMfa($self);
+
+        $rows = $this->send($self->createToken(), 'admin/user')->json('data.rows');
+        $actions = array_column($rows, 'actions', 'username');
+
+        $this->assertNotContains('disable-mfa', $actions['self-account']);
+    }
+
+    public function test_a_user_cannot_disable_mfa_on_itself(): void {
+        $response = $this->send($this->signIn(self::ADMIN), 'admin/user/' . self::ADMIN . '/disable-mfa');
+
+        $response->assertJsonPath('code', 403);
+        $response->assertJsonPath('error', 'permission-denied');
+    }
+
+    public function test_a_regular_user_cannot_disable_mfa_on_an_admin_account(): void {
+        $admin = UserFactory::new()->createOne(['id' => self::ADMIN, 'username' => 'protected-admin']);
+
+        $this->enableMfa($admin);
+
+        $token = $this->signIn(self::REGULAR, ['user' => ['update' => true]]);
+
+        $this->send($token, 'admin/user/' . self::ADMIN . '/disable-mfa')->assertJsonPath('error', 'data-not-found');
+    }
+
+    public function test_a_regular_user_can_disable_mfa_on_another_regular_account_when_granted(): void {
+        $peer = UserFactory::new()->createOne(['id' => 6000, 'username' => 'visible-regular']);
+
+        $this->enableMfa($peer);
+
+        $token = $this->signIn(self::REGULAR, ['user' => ['query' => true, 'update' => true]]);
+
+        $this->send($token, 'admin/user/6000/disable-mfa')->assertJsonPath('success', true);
+
+        $this->assertFalse(User::query()->findOrFail(6000)->hasMfaEnabled());
     }
 
 }

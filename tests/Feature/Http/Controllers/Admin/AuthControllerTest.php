@@ -11,6 +11,8 @@ use MatrixPlatform\Models\AuthToken;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Models\UserLog;
 use MatrixPlatform\Models\UserLogType;
+use MatrixPlatform\Services\Admin\MfaService;
+use PragmaRX\Google2FA\Google2FA;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
 
@@ -88,6 +90,37 @@ class AuthControllerTest extends FeatureTestCase {
         return UserFactory::new()->createOne(array_merge(['username' => 'alice', 'password' => self::PASSWORD], $attributes));
     }
 
+    private function enableMfa(User $user): string {
+        $setup = app(MfaService::class)->setup($user);
+        app(MfaService::class)->confirm($user, (new Google2FA())->getCurrentOtp($setup['secret']));
+
+        return $setup['secret'];
+    }
+
+    /**
+     * @return array{0: User, 1: string, 2: string}
+     */
+    private function challenged(): array {
+        $user = $this->user();
+        $secret = $this->enableMfa($user);
+        $challenge = strval($this->login()->json('data.challenge'));
+
+        return [$user, $challenge, (new Google2FA())->getCurrentOtp($secret)];
+    }
+
+    /**
+     * @param TestResponse<JsonResponse> $response
+     */
+    private function trustCookie(TestResponse $response): ?string {
+        foreach ($response->headers->getCookies() as $cookie) {
+            if ($cookie->getName() === 'matrix-mfa-trust') {
+                return $cookie->getValue();
+            }
+        }
+
+        return null;
+    }
+
     public function test_the_captcha_endpoint_returns_a_token_and_a_rendered_image(): void {
         $prefix = 'data:image/png;base64,';
 
@@ -110,6 +143,147 @@ class AuthControllerTest extends FeatureTestCase {
         $response->assertStatus(200);
         $response->assertJsonStructure(['success', 'data' => ['token']]);
         $response->assertCookie('matrix-user');
+    }
+
+    public function test_a_login_for_an_mfa_enabled_account_returns_a_challenge_instead_of_a_token(): void {
+        $user = $this->user();
+
+        $this->enableMfa($user);
+
+        $response = $this->login();
+
+        $response->assertJsonPath('data.mfa', true);
+        $this->assertIsString($response->json('data.challenge'));
+        $response->assertCookieMissing('matrix-user');
+        $this->assertSame(0, UserLog::query()->where('type', UserLogType::Login)->count());
+    }
+
+    public function test_the_mfa_endpoint_with_the_correct_code_returns_a_token_sets_the_cookie_and_logs_in(): void {
+        [$user, $challenge, $code] = $this->challenged();
+
+        $response = $this->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => $code]);
+
+        $response->assertJsonStructure(['data' => ['token']]);
+        $response->assertCookie('matrix-user');
+        $this->assertSame(1, UserLog::query()->where('user_id', $user->id)->where('type', UserLogType::Login)->count());
+    }
+
+    public function test_the_mfa_endpoint_accepts_the_challenge_even_when_the_cache_returns_the_user_id_as_a_string(): void {
+        [$user, $challenge, $code] = $this->challenged();
+
+        Cache::put("mfa-challenge:{$challenge}", strval($user->id), 60);
+
+        $this->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => $code])
+            ->assertJsonStructure(['data' => ['token']]);
+    }
+
+    public function test_the_mfa_endpoint_with_remember_issues_a_trust_cookie_that_skips_a_later_mfa_challenge(): void {
+        [, $challenge, $code] = $this->challenged();
+
+        $response = $this->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => $code, 'remember' => true]);
+        $trust = $this->trustCookie($response);
+
+        $this->assertIsString($trust);
+        $response->assertJsonMissingPath('data.trust');
+
+        $this->withCredentials()->withUnencryptedCookie('matrix-mfa-trust', strval($trust));
+
+        $this->login()->assertJsonStructure(['data' => ['token']]);
+    }
+
+    public function test_the_mfa_endpoint_without_remember_does_not_issue_a_trust_cookie(): void {
+        [, $challenge, $code] = $this->challenged();
+
+        $response = $this->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => $code]);
+
+        $this->assertNull($this->trustCookie($response));
+    }
+
+    public function test_a_trust_cookie_does_not_skip_the_mfa_challenge_for_a_different_account(): void {
+        [, $challenge, $code] = $this->challenged();
+
+        $trust = $this->trustCookie($this->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => $code, 'remember' => true]));
+
+        $this->enableMfa($this->user(['username' => 'bob']));
+
+        $this->withCredentials()->withUnencryptedCookie('matrix-mfa-trust', strval($trust));
+
+        $this->login('bob')->assertJsonPath('data.mfa', true);
+    }
+
+    public function test_the_mfa_endpoint_with_the_wrong_code_reports_invalid_code_and_logs_the_failure(): void {
+        $user = $this->user();
+
+        $this->enableMfa($user);
+
+        $challenge = strval($this->login()->json('data.challenge'));
+        $response = $this->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => '000000']);
+
+        $response->assertJson(['code' => 422, 'error' => 'validation-failed']);
+        $response->assertJsonPath('fields.code', ['invalid-code']);
+        $this->assertSame(1, UserLog::query()->where('user_id', $user->id)->where('type', UserLogType::MfaChallengeFailed)->count());
+    }
+
+    public function test_repeated_mfa_failures_are_rate_limited(): void {
+        $user = $this->user();
+
+        $this->enableMfa($user);
+
+        $challenge = strval($this->login()->json('data.challenge'));
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => '000000']);
+        }
+
+        $response = $this->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => '000000']);
+
+        $response->assertStatus(200);
+        $response->assertJson(['code' => 429, 'error' => 'too-many-requests']);
+    }
+
+    public function test_the_full_self_service_mfa_setup_confirm_and_disable_cycle(): void {
+        $this->user();
+
+        $token = $this->login()->json('data.token');
+
+        $secret = strval($this->withToken($token)->postJson('admin/auth/mfa/setup')->json('data.secret'));
+        $code = (new Google2FA())->getCurrentOtp($secret);
+
+        $this->withToken($token)
+            ->postJson('admin/auth/mfa/confirm', ['code' => $code])
+            ->assertJsonPath('success', true);
+
+        $this->login()->assertJsonPath('data.mfa', true);
+
+        $this->withToken($token)
+            ->postJson('admin/auth/mfa/disable', ['password' => self::PASSWORD])
+            ->assertJsonPath('success', true);
+
+        $this->login()->assertJsonStructure(['data' => ['token']]);
+    }
+
+    public function test_mfa_fields_cannot_be_written_through_the_generic_user_update_endpoint(): void {
+        $user = $this->user();
+        $secret = $this->enableMfa($user);
+
+        $admin = UserFactory::new()->createOne(['id' => User::ROOT])->createToken();
+
+        $this->withToken($admin)
+            ->postJson("admin/user/{$user->id}/update", [
+                'username' => 'alice',
+                'password' => null,
+                'group_id' => null,
+                'disabled' => false,
+                'enable_time' => null,
+                'disable_time' => null,
+                'permissions' => null,
+                'secret' => 'malicious'
+            ])
+            ->assertJsonPath('success', true);
+
+        $fresh = User::query()->findOrFail($user->id);
+
+        $this->assertSame($secret, $fresh->secret);
     }
 
     public function test_a_bearer_token_reaches_a_protected_endpoint(): void {
