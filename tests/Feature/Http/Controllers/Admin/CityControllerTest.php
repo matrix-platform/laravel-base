@@ -69,6 +69,19 @@ class CityControllerTest extends FeatureTestCase {
         $this->assertNull(City::query()->find($city->id));
     }
 
+    public function test_deleting_a_city_with_areas_is_refused(): void {
+        $city = CityFactory::new()->createOne();
+
+        CityAreaFactory::new()->createOne(['city_id' => $city->id]);
+        CityAreaFactory::new()->createOne(['city_id' => $city->id]);
+
+        $response = $this->send('admin/city/delete', ['id' => [$city->id]]);
+
+        $response->assertJsonPath('error', 'data-in-use');
+        $response->assertJsonPath('count', 2);
+        $this->assertNotNull(City::query()->find($city->id));
+    }
+
     public function test_the_default_sorting_follows_ranking(): void {
         $second = CityFactory::new()->createOne(['ranking' => 100]);
         $first = CityFactory::new()->createOne(['ranking' => 50]);

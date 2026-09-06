@@ -6,6 +6,8 @@ return [
 
     'data-conflicted' => '数据已被修改',
 
+    'data-in-use' => '该数据仍被其他数据引用，无法删除',
+
     'data-not-found' => '未找到数据',
 
     'drive-anchor-immutable' => 'home 目录与群组目录不能被移动或放入回收站',

@@ -6,6 +6,8 @@ return [
 
     'data-conflicted' => 'Data has been modified by someone else',
 
+    'data-in-use' => 'This record is still referenced by other data',
+
     'data-not-found' => 'Data not found',
 
     'drive-anchor-immutable' => 'Home and group directories cannot be moved or trashed',

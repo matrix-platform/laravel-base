@@ -269,7 +269,7 @@ class CrudServiceTest extends FeatureTestCase {
 
         (new DeleteService(Widget::class))
             ->standalone(true)
-            ->cascade(['trinkets'])
+            ->cascade(['trinkets', 'sole'])
             ->delete(['id' => $widget->id]);
 
         $this->assertSame(['a', 'b'], $deleted);
@@ -285,10 +285,51 @@ class CrudServiceTest extends FeatureTestCase {
 
         (new DeleteService(Widget::class))
             ->standalone(true)
-            ->cascade(['trinkets.trinkets'])
+            ->cascade(['trinkets.trinkets', 'sole'])
             ->delete(['id' => $widget->id]);
 
         $this->assertSame(0, Trinket::query()->count());
+    }
+
+    public function test_deleting_without_cascade_is_refused_when_an_uncascaded_relation_has_rows(): void {
+        $widget = $this->widgets();
+
+        $this->trinkets($widget->id, ['a', 'b']);
+
+        try {
+            (new DeleteService(Widget::class))->standalone(true)->delete(['id' => $widget->id]);
+        } catch (ServiceException $exception) {
+            $this->assertSame('data-in-use', $exception->getError());
+            $this->assertSame(['count' => 2], $exception->getExtra());
+            $this->assertSame(1, Widget::query()->count());
+
+            return;
+        }
+
+        $this->fail('the delete was expected to be refused');
+    }
+
+    public function test_cascade_delete_still_checks_an_uncascaded_relation_on_a_cascaded_child(): void {
+        $widget = $this->widgets();
+        $child = Trinket::forceCreate(['label' => 'child', 'widget_id' => $widget->id]);
+
+        Trinket::forceCreate(['label' => 'grandchild', 'trinket_id' => $child->id]);
+
+        try {
+            (new DeleteService(Widget::class))
+                ->standalone(true)
+                ->cascade(['trinkets', 'sole'])
+                ->delete(['id' => $widget->id]);
+        } catch (ServiceException $exception) {
+            $this->assertSame('data-in-use', $exception->getError());
+            $this->assertSame(['count' => 1], $exception->getExtra());
+            $this->assertSame(1, Widget::query()->count());
+            $this->assertSame(2, Trinket::query()->count());
+
+            return;
+        }
+
+        $this->fail('the delete was expected to be refused');
     }
 
     public function test_cascade_delete_reaches_a_morph_relation(): void {

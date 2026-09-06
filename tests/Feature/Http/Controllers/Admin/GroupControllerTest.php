@@ -336,6 +336,18 @@ class GroupControllerTest extends FeatureTestCase {
         $this->assertNull(Group::query()->find($group->id));
     }
 
+    public function test_deleting_a_group_with_users_is_refused(): void {
+        $group = GroupFactory::new()->createOne();
+
+        UserFactory::new()->createOne(['group_id' => $group->id]);
+
+        $response = $this->send('admin/group/delete', ['id' => $group->id]);
+
+        $response->assertJsonPath('error', 'data-in-use');
+        $response->assertJsonPath('count', 1);
+        $this->assertNotNull(Group::query()->find($group->id));
+    }
+
     public function test_the_inherited_actions_keep_their_routes_without_redeclaring_the_attribute(): void {
         $paths = array_column(ActionRoutes::resolve(FailingGroupController::class), 'path');
         $checked = 0;

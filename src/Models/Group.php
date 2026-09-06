@@ -2,6 +2,7 @@
 
 namespace MatrixPlatform\Models;
 
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use MatrixPlatform\Attributes\Declared;
 use MatrixPlatform\Models\Casts\PermissionMap;
@@ -26,6 +27,13 @@ class Group extends BaseModel {
     ];
 
     protected $table = 'base_group';
+
+    /**
+     * @return HasMany<User, $this>
+     */
+    public function users(): HasMany {
+        return $this->hasMany(User::class);
+    }
 
     /**
      * @return array<string, string>
