@@ -2,16 +2,16 @@
 
 return [
 
-    'basic' => '基本資料',
+    'basic' => '共用類別',
 
         'city' => '縣市',
 
-            'city/{id}' => '縣市',
+            'city/{id}' => '編輯縣市',
             'city/new' => '新增縣市',
 
             'city/{city_id}/area' => '行政區',
 
-                'city/{city_id}/area/{id}' => '行政區',
+                'city/{city_id}/area/{id}' => '編輯行政區',
                 'city/{city_id}/area/new' => '新增行政區',
 
     'system' => '系統管理',

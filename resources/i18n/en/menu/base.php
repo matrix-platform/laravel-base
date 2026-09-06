@@ -2,16 +2,16 @@
 
 return [
 
-    'basic' => 'Basic Data',
+    'basic' => 'Shared Categories',
 
         'city' => 'Cities',
 
-            'city/{id}' => 'City',
+            'city/{id}' => 'Edit City',
             'city/new' => 'New City',
 
             'city/{city_id}/area' => 'Districts',
 
-                'city/{city_id}/area/{id}' => 'District',
+                'city/{city_id}/area/{id}' => 'Edit District',
                 'city/{city_id}/area/new' => 'New District',
 
     'system' => 'System',

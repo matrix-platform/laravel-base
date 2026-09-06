@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Http;
 class GoogleTranslateDriver implements Driver {
 
     private const LOCALE_MAP = [
+        'cn' => 'zh-CN',
+        'jp' => 'ja',
         'tw' => 'zh-TW'
     ];
 
