@@ -15,6 +15,7 @@ use MatrixPlatform\Http\Controllers\Admin\MailLogController;
 use MatrixPlatform\Http\Controllers\Admin\MenuResourceController;
 use MatrixPlatform\Http\Controllers\Admin\ModelResourceController;
 use MatrixPlatform\Http\Controllers\Admin\OptionsResourceController;
+use MatrixPlatform\Http\Controllers\Admin\PasskeyController;
 use MatrixPlatform\Http\Controllers\Admin\PushLogController;
 use MatrixPlatform\Http\Controllers\Admin\SmsLogController;
 use MatrixPlatform\Http\Controllers\Admin\TelegramLogController;
@@ -43,6 +44,7 @@ Route::middleware(['envelope-api', 'locale-api'])->group(function () {
         Route::middleware('user-api')->group(function () {
             ActionRoutes::mount('drive', DriveController::class);
             ActionRoutes::mount('file', FileController::class);
+            ActionRoutes::mount('user/passkey', PasskeyController::class);
             ActionRoutes::mount('user/preference', PreferenceController::class);
             ActionRoutes::mount('user/telegram', UserTelegramSubscriptionController::class);
 

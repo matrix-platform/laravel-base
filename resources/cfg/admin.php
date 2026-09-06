@@ -14,6 +14,12 @@ return [
 
     'mfa-window' => 1,
 
+    'passkey-allow-subdomains' => false,
+
+    'passkey-challenge-ttl' => 120,
+
+    'passkey-timeout' => 60000,
+
     'password-pattern' => '/^(?=.*\d)(?=.*[a-zA-Z]).{8,}$/',
 
     'token-idle-minutes' => 30,

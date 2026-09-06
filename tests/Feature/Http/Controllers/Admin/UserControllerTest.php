@@ -7,11 +7,13 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
+use MatrixPlatform\Models\PasskeyCredential;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Routing\ActionRoutes;
 use MatrixPlatform\Services\Admin\MfaService;
 use PragmaRX\Google2FA\Google2FA;
 use Tests\Factories\GroupFactory;
+use Tests\Factories\PasskeyCredentialFactory;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
 use Tests\Stubs\ExportableUserController;
@@ -487,6 +489,52 @@ class UserControllerTest extends FeatureTestCase {
         $this->send($token, 'admin/user/6000/disable-mfa')->assertJsonPath('success', true);
 
         $this->assertFalse(User::query()->findOrFail(6000)->hasMfaEnabled());
+    }
+
+    public function test_an_admin_revokes_all_passkeys_for_an_account(): void {
+        UserFactory::new()->createOne(['id' => 6000, 'username' => 'managed-user']);
+
+        PasskeyCredentialFactory::new()->createOne(['user_id' => 6000]);
+        PasskeyCredentialFactory::new()->createOne(['user_id' => 6000]);
+
+        $token = $this->signIn(self::ADMIN);
+
+        $this->send($token, 'admin/user/6000/revoke-passkeys')
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.revoked', 2);
+
+        $this->assertSame(0, PasskeyCredential::query()->where('user_id', 6000)->count());
+    }
+
+    public function test_the_revoke_passkeys_row_action_only_shows_up_for_accounts_with_a_passkey(): void {
+        UserFactory::new()->createOne(['id' => 6000, 'username' => 'with-passkey']);
+        UserFactory::new()->createOne(['id' => 6001, 'username' => 'without-passkey']);
+
+        PasskeyCredentialFactory::new()->createOne(['user_id' => 6000]);
+
+        $rows = $this->send($this->signIn(self::ADMIN), 'admin/user')->json('data.rows');
+        $actions = array_column($rows, 'actions', 'username');
+
+        $this->assertContains('revoke-passkeys', $actions['with-passkey']);
+        $this->assertNotContains('revoke-passkeys', $actions['without-passkey']);
+    }
+
+    public function test_the_revoke_passkeys_row_action_never_shows_up_on_the_actors_own_row(): void {
+        $self = UserFactory::new()->createOne(['id' => self::ADMIN, 'username' => 'self-account']);
+
+        PasskeyCredentialFactory::new()->createOne(['user_id' => self::ADMIN]);
+
+        $rows = $this->send($self->createToken(), 'admin/user')->json('data.rows');
+        $actions = array_column($rows, 'actions', 'username');
+
+        $this->assertNotContains('revoke-passkeys', $actions['self-account']);
+    }
+
+    public function test_an_admin_cannot_revoke_their_own_passkeys(): void {
+        $response = $this->send($this->signIn(self::ADMIN), 'admin/user/' . self::ADMIN . '/revoke-passkeys');
+
+        $response->assertJsonPath('code', 403);
+        $response->assertJsonPath('error', 'permission-denied');
     }
 
 }

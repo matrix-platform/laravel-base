@@ -51,9 +51,25 @@ return new class extends Migration {
 
             $table->foreign('user_id')->references('id')->on('base_user');
         });
+
+        Schema::create('base_passkey_credential', function (BaseBlueprint $table) {
+            $table->primaryKey();
+            $table->integer('user_id');
+            $table->text('credential_id')->unique();
+            $table->text('public_key');
+            $table->text('aaguid');
+            $table->bigInteger('sign_count')->default(0);
+            $table->boolean('uv_initialized')->nullable();
+            $table->text('name');
+            $table->timestamp('last_used_time')->nullable();
+            $table->auditings();
+
+            $table->foreign('user_id')->references('id')->on('base_user');
+        });
     }
 
     public function down(): void {
+        Schema::dropIfExists('base_passkey_credential');
         Schema::dropIfExists('base_user_log');
         Schema::dropIfExists('base_user');
         Schema::dropIfExists('base_group');

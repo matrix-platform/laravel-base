@@ -11,5 +11,8 @@ enum UserLogType: string {
     case MfaChallengeFailed = 'MfaChallengeFailed';
     case MfaDisabled = 'MfaDisabled';
     case MfaEnabled = 'MfaEnabled';
+    case PasskeyLoginFailed = 'PasskeyLoginFailed';
+    case PasskeyRegistered = 'PasskeyRegistered';
+    case PasskeyRevoked = 'PasskeyRevoked';
 
 }

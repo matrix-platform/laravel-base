@@ -26,6 +26,10 @@ return [
 
     'new' => '新增',
 
+    'revoke-passkeys' => '撤销 Passkey',
+
+    'revoke-passkeys-confirm' => '确定要撤销此账号的所有 Passkey 吗？',
+
     'sort' => '排序',
 
     'update' => '保存',

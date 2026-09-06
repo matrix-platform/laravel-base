@@ -38,6 +38,8 @@ return [
 
     'packages' => 'app base',
 
+    'passkey-rp-id' => null,
+
     'resource-cfg' => [],
 
     'resource-i18n' => [],

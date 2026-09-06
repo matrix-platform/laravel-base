@@ -33,6 +33,7 @@ return [
                 'user/{id}' => ['parent' => 'user', 'tag' => 'query'],
                 'user/{id}/update' => ['parent' => 'user', 'tag' => 'update'],
                 'user/{id}/disable-mfa' => ['parent' => 'user', 'tag' => 'update'],
+                'user/{id}/revoke-passkeys' => ['parent' => 'user', 'tag' => 'update'],
                 'user/delete' => ['parent' => 'user', 'tag' => 'delete'],
                 'user/insert' => ['parent' => 'user', 'tag' => 'insert'],
                 'user/new' => ['parent' => 'user', 'tag' => 'insert'],

@@ -12,13 +12,14 @@ use MatrixPlatform\Models\User;
 use MatrixPlatform\Models\UserLogType;
 use MatrixPlatform\Services\Admin\AuthService;
 use MatrixPlatform\Services\Admin\MfaService;
+use MatrixPlatform\Services\Admin\Passkey\PasskeyService;
 use MatrixPlatform\Services\Admin\PasswordService;
 
 class AuthController extends BaseController {
 
     private const TRUST_COOKIE = 'matrix-mfa-trust';
 
-    public function __construct(private AuthService $service, private MfaService $mfa, private PasswordService $passwords) {}
+    public function __construct(private AuthService $service, private MfaService $mfa, private PasswordService $passwords, private PasskeyService $passkeys) {}
 
     /**
      * @return array{token: string, image: string}
@@ -110,6 +111,27 @@ class AuthController extends BaseController {
         }
 
         return $response;
+    }
+
+    #[Action('passkey/login', scope: 'anonymous', middleware: 'login-throttle-api:admin')]
+    public function passkeyLogin(Request $request): JsonResponse {
+        $request->validate([
+            'challenge' => ['required'],
+            'credential' => ['required', 'array']
+        ]);
+
+        $user = $this->passkeys->authenticate($request->string('challenge')->value(), $request->array('credential'));
+        $token = $user->createToken();
+
+        return IdentityToken::attach(response()->json(['success' => true, 'data' => ['token' => $token]]), IdentityType::User, $token);
+    }
+
+    /**
+     * @return array{options: array<string, mixed>, challenge: string}
+     */
+    #[Action('passkey/options', scope: 'anonymous')]
+    public function passkeyLoginOptions(): array {
+        return $this->passkeys->authenticationOptions();
     }
 
     #[Action]

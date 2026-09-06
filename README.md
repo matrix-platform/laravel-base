@@ -552,6 +552,8 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | POST | `admin/auth/mfa/confirm` | 登入 |
 | POST | `admin/auth/mfa/disable` | 登入 |
 | POST | `admin/auth/mfa/setup` | 登入 |
+| POST | `admin/auth/passkey/options` | 匿名（有節流） |
+| POST | `admin/auth/passkey/login` | 匿名（有節流） |
 | POST | `admin/auth/passwd` | 登入 |
 | POST | `admin/auth/profile` | 登入 |
 | POST | `admin/i18n/get` | **匿名** |
@@ -603,6 +605,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | POST | `admin/user/{id}` | 授權 |
 | POST | `admin/user/{id}/update` | 授權 |
 | POST | `admin/user/{id}/disable-mfa` | 授權 |
+| POST | `admin/user/{id}/revoke-passkeys` | 授權 |
 | POST | `admin/user/{id}/copy` | 授權 |
 | POST | `admin/user/delete` | 授權 |
 | POST | `admin/user/export` | 授權 |
@@ -614,6 +617,11 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | POST | `admin/user/preference/save` | 登入 |
 | POST | `admin/user/telegram/link` | 登入 |
 | POST | `admin/user/telegram/unsubscribe` | 登入 |
+| POST | `admin/user/passkey` | 登入 |
+| POST | `admin/user/passkey/register/options` | 登入 |
+| POST | `admin/user/passkey/register` | 登入 |
+| POST | `admin/user/passkey/{id}/rename` | 登入 |
+| POST | `admin/user/passkey/{id}/delete` | 登入 |
 | POST | `admin/group` | 授權 |
 | POST | `admin/group/new` | 授權 |
 | POST | `admin/group/insert` | 授權 |
@@ -730,6 +738,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `matrix.member-model` | `Member::class` | 會員 model,宿主可換成自己的 |
 | `matrix.messaging` | 見範本 | channel 註冊。每個 channel 都要有 `model` 與 `queue`。**巢狀 key,宣告就整份取代** |
 | `matrix.packages` | `'app base'` | 資源疊層順序 |
+| `matrix.passkey-rp-id` | `null` | Passkey Relying Party ID。`null` 時 fallback 用當次請求的主機名稱——若後台前端與此 API 不同源,務必明確設定,見[已知限制與取捨](#已知限制與取捨)。允許的 origin 一律由此值(加上 `admin.passkey-allow-subdomains`)推導為 `["https://{rp-id}"]`,不另外開放設定 |
 | `matrix.resource-cfg` | `[]` | 資源後台開放編輯的 cfg bundle 白名單,**空 = 全部不開放** |
 | `matrix.resource-i18n` | `[]` | 同上,一般翻譯 |
 | `matrix.resource-i18n-menu` | `[]` | 同上,選單標題 |
@@ -754,6 +763,9 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `admin.mfa-challenge-ttl` | `300` | MFA challenge 有效秒數 |
 | `admin.mfa-trust-days` | `30` | 「信任此瀏覽器」cookie 的有效天數 |
 | `admin.mfa-window` | `1` | TOTP 驗證時間漂移容忍度(±N 個 30 秒區間) |
+| `admin.passkey-allow-subdomains` | `false` | 是否允許子網域的 origin 通過驗證 |
+| `admin.passkey-challenge-ttl` | `120` | Passkey 註冊/登入 challenge 有效秒數 |
+| `admin.passkey-timeout` | `60000` | 前端 ceremony 逾時毫秒數(供前端顯示,伺服器不強制) |
 | `admin.password-pattern` | `'/^(?=.*\d)(?=.*[a-zA-Z]).{8,}$/'` | 自助改密碼、`matrix:passwd` 與使用者表單共用的密碼規則 |
 | `admin.token-idle-minutes` | `30` | 後台 token 閒置多久失效 |
 | `member.login-throttle-max` | `5` | 同上,前台會員 |
@@ -881,6 +893,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `base_member` | 前台會員 |
 | `base_member_log` | 會員行為紀錄 |
 | `base_menu` | 可線上維護的選單資料 |
+| `base_passkey_credential` | 後台帳號(`User`)的 Passkey 憑證(credential ID、COSE 公鑰、sign count 等) |
 | `base_preference` | 各身分（user / member / vendor）各自一筆的個人化偏好,內容由前端決定 |
 | `base_push_log` | 推播佇列與送達結果 |
 | `base_push_subscription` | 會員的 Web Push 訂閱(endpoint / p256dh / auth) |
@@ -1042,6 +1055,8 @@ parameters:
 | **驗證碼端點匿名且沒有節流** | 需要的話自己加 |
 | **`api/common/*` 兩個端點匿名且沒有節流**,`base_menu.data` 的內容會原樣出現在回應裡 | 不要在 `base_menu.data` 放非公開資料 |
 | **登入節流的鍵是「IP + 帳號」** —— 同一個 IP 換帳號就換一份配額,擋不住拿一組密碼掃一堆帳號 | 要擋就在應用層之外做（WAF / 反向代理） |
+| **Passkey 登入端點沒有帳號欄位,節流退化成近似純 IP** | 比密碼登入更粗放的取捨,若濫用明顯可考慮改用 `IP + credential_id 前綴` 當節流鍵 |
+| **`matrix.passkey-rp-id` 的 fallback 是當次請求的主機名稱,只在後台前端與此 API 同源時才正確**;RP ID 一旦設錯或事後變更,所有已註冊 passkey 會**全部永久失效,無遷移路徑**(WebAuthn 規格的密碼學綁定特性) | 若前後端分離部署在不同網域,啟用 passkey 前務必明確設定 `matrix.passkey-rp-id`,不要依賴 fallback |
 | **`base_auth_token.token` 是明文** | 資料庫外洩等於所有人的登入狀態外洩,備份與存取控制要照這個等級處理 |
 | **cookie 的 `secure` 跟隨 `config('session.secure')`** | 生產環境務必設成 true,否則 token 會在明文連線上傳 |
 | **上傳不檢查型別**（`cfg('file.mime-patterns')` 出貨空白 = 全部放行） | 要限制就設 `mime-patterns`（正則,空白分隔,**不能含逗號或分號** —— 那是分隔字元） |

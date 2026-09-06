@@ -14,6 +14,12 @@ return [
 
     'mfa-window' => ['type' => 'integer', 'rule' => ['integer', 'min:0']],
 
+    'passkey-allow-subdomains' => ['type' => 'boolean'],
+
+    'passkey-challenge-ttl' => ['type' => 'integer', 'rule' => ['integer', 'min:1']],
+
+    'passkey-timeout' => ['type' => 'integer', 'rule' => ['integer', 'min:1000']],
+
     'token-idle-minutes' => ['type' => 'integer', 'rule' => ['integer', 'min:1']],
 
 ];

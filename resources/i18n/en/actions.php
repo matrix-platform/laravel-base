@@ -26,6 +26,10 @@ return [
 
     'new' => 'Create',
 
+    'revoke-passkeys' => 'Revoke Passkeys',
+
+    'revoke-passkeys-confirm' => 'Are you sure you want to revoke all passkeys for this account?',
+
     'sort' => 'Sort',
 
     'update' => 'Save',

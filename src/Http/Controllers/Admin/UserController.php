@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use MatrixPlatform\Attributes\Action;
+use MatrixPlatform\Models\PasskeyCredential;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Models\UserLogType;
 use MatrixPlatform\Services\Admin\Crud\CopyService;
@@ -18,6 +19,7 @@ use MatrixPlatform\Services\Admin\Crud\ListService;
 use MatrixPlatform\Services\Admin\Crud\Operation;
 use MatrixPlatform\Services\Admin\Crud\UpdateService;
 use MatrixPlatform\Services\Admin\MfaService;
+use MatrixPlatform\Services\Admin\Passkey\PasskeyService;
 use MatrixPlatform\Services\Admin\PasswordService;
 use MatrixPlatform\Support\AdminLevel;
 use MatrixPlatform\Support\PermissionTree;
@@ -37,22 +39,25 @@ class UserController extends CrudController {
      */
     #[Action('{id}/disable-mfa')]
     public function disableMfa(Request $request): array {
-        $minimum = $this->minimumManageableId();
-        $query = User::query();
-
-        if ($minimum > User::ROOT) {
-            $query->where('id', '>=', $minimum);
-        }
-
-        $model = $query->findOrFail($this->identifier($request));
-
-        $this->guardNotSelf($model);
+        $model = $this->manageableUser($request);
 
         app(MfaService::class)->disable($model);
 
         $model->writeLog(UserLogType::MfaDisabled);
 
         return ['id' => $model->getKey()];
+    }
+
+    /**
+     * @return array{id: mixed, revoked: int}
+     */
+    #[Action('{id}/revoke-passkeys')]
+    public function revokePasskeys(Request $request): array {
+        $model = $this->manageableUser($request);
+
+        $revoked = app(PasskeyService::class)->revokeAll($model);
+
+        return ['id' => $model->getKey(), 'revoked' => $revoked];
     }
 
     /**
@@ -89,11 +94,14 @@ class UserController extends CrudController {
     }
 
     protected function onList(ListService $service): ListService {
-        return $this->visible(parent::onList($service))->rowActions([
-            'edit',
-            'delete',
-            new Operation('disable-mfa', fn (User $model): bool => $model->hasMfaEnabled() && $model->getKey() !== actor()->requireUser()->id)
-        ]);
+        return $this->visible(parent::onList($service))
+            ->scope(fn (Builder $query) => $query->addSelect(['passkeys_count' => PasskeyCredential::query()->selectRaw('count(*)')->whereColumn('user_id', $query->getModel()->getQualifiedKeyName())]))
+            ->rowActions([
+                'edit',
+                'delete',
+                new Operation('disable-mfa', fn (User $model): bool => $model->hasMfaEnabled() && $model->getKey() !== actor()->requireUser()->id),
+                new Operation('revoke-passkeys', fn (User $model): bool => ((int) $model->getAttribute('passkeys_count')) > 0 && $model->getKey() !== actor()->requireUser()->id)
+            ]);
     }
 
     protected function onUpdate(UpdateService $service): UpdateService {
@@ -104,6 +112,21 @@ class UserController extends CrudController {
         if ($model->getKey() === actor()->requireUser()->id) {
             error('permission-denied', 403);
         }
+    }
+
+    private function manageableUser(Request $request): User {
+        $minimum = $this->minimumManageableId();
+        $query = User::query();
+
+        if ($minimum > User::ROOT) {
+            $query->where('id', '>=', $minimum);
+        }
+
+        $model = $query->findOrFail($this->identifier($request));
+
+        $this->guardNotSelf($model);
+
+        return $model;
     }
 
     private function minimumManageableId(): int {

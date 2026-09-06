@@ -27,13 +27,16 @@
         "ext-bcmath": "*",
         "ext-curl": "*",
         "ext-gd": "*",
+        "ext-mbstring": "*",
+        "ext-openssl": "*",
         "ext-pdo_pgsql": "*",
         "ext-zip": "*",
         "ip2location/ip2location-php": "^9.8",
         "james-heinrich/getid3": "^1.9",
         "laravel/framework": "^13.23",
         "minishlink/web-push": "^11.0",
-        "pragmarx/google2fa": "^9.1"
+        "pragmarx/google2fa": "^9.1",
+        "web-auth/webauthn-lib": "^5.3"
     },
     "require-dev": {
         "fakerphp/faker": "^1.24",

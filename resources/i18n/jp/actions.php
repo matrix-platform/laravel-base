@@ -26,6 +26,10 @@ return [
 
     'new' => '新規作成',
 
+    'revoke-passkeys' => 'パスキーを無効化',
+
+    'revoke-passkeys-confirm' => 'このアカウントの全てのパスキーを無効化してもよろしいですか？',
+
     'sort' => '並び替え',
 
     'update' => '保存',

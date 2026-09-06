@@ -12,14 +12,25 @@ use MatrixPlatform\Models\User;
 use MatrixPlatform\Models\UserLog;
 use MatrixPlatform\Models\UserLogType;
 use MatrixPlatform\Services\Admin\MfaService;
+use MatrixPlatform\Services\Admin\Passkey\PasskeyService;
+use ParagonIE\ConstantTime\Base64UrlSafe;
 use PragmaRX\Google2FA\Google2FA;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
+use Tests\Support\PasskeyAuthenticator;
 
 class AuthControllerTest extends FeatureTestCase {
 
     private const CODE = '13579';
+    private const ORIGIN = 'https://example.com';
     private const PASSWORD = 'secret-Passw0rd';
+    private const RP_ID = 'example.com';
+
+    protected function setUp(): void {
+        parent::setUp();
+
+        config(['matrix.passkey-rp-id' => self::RP_ID]);
+    }
 
     private function comparisons(callable $callback, ?bool $forcedResult = null): int {
         $inner = app(Hasher::class);
@@ -603,6 +614,73 @@ class AuthControllerTest extends FeatureTestCase {
             ->assertJsonPath('data.profile', null);
 
         $this->assertSame(1, AuthToken::query()->where('target_id', $user->id)->count());
+    }
+
+    /**
+     * @return array{0: PasskeyAuthenticator, 1: User}
+     */
+    private function registeredPasskey(): array {
+        $user = $this->user();
+        $authenticator = new PasskeyAuthenticator();
+        $options = app(PasskeyService::class)->registrationOptions($user);
+        $response = $authenticator->registrationResponse(Base64UrlSafe::decodeNoPadding($options['challenge']), self::RP_ID, self::ORIGIN);
+
+        app(PasskeyService::class)->register($user, $options['challenge'], $response, 'my device');
+
+        return [$authenticator, $user];
+    }
+
+    public function test_passkey_login_with_a_valid_assertion_returns_a_token_and_sets_the_cookie(): void {
+        [$authenticator, $user] = $this->registeredPasskey();
+
+        $options = $this->postJson('admin/auth/passkey/options')->json('data');
+        $response = $authenticator->assertionResponse(Base64UrlSafe::decodeNoPadding($options['challenge']), self::RP_ID, self::ORIGIN, (string) $user->id);
+
+        $result = $this->postJson('admin/auth/passkey/login', ['challenge' => $options['challenge'], 'credential' => $response]);
+
+        $result->assertJsonPath('success', true);
+        $result->assertCookie('matrix-user');
+    }
+
+    public function test_passkey_login_with_a_wrong_credential_id_answers_with_http_200_and_a_generic_error(): void {
+        $options = $this->postJson('admin/auth/passkey/options')->json('data');
+        $response = (new PasskeyAuthenticator())->assertionResponse(Base64UrlSafe::decodeNoPadding($options['challenge']), self::RP_ID, self::ORIGIN, '1');
+
+        $result = $this->postJson('admin/auth/passkey/login', ['challenge' => $options['challenge'], 'credential' => $response]);
+
+        $result->assertStatus(200);
+        $result->assertJsonPath('fields.credential.0', 'invalid-passkey');
+    }
+
+    public function test_a_failed_passkey_assertion_for_a_known_user_writes_a_passkey_login_failed_log_after_rollback(): void {
+        [$authenticator, $user] = $this->registeredPasskey();
+
+        $options = $this->postJson('admin/auth/passkey/options')->json('data');
+        $response = $authenticator->assertionResponse(Base64UrlSafe::decodeNoPadding($options['challenge']), self::RP_ID, self::ORIGIN, (string) $user->id);
+        $response['response']['signature'] = base64_encode('tampered');
+
+        $this->postJson('admin/auth/passkey/login', ['challenge' => $options['challenge'], 'credential' => $response]);
+
+        $types = UserLog::query()
+            ->where('user_id', $user->id)
+            ->pluck('type')
+            ->map(fn (UserLogType $type) => $type->value)
+            ->all();
+
+        $this->assertSame(['PasskeyRegistered', 'PasskeyLoginFailed'], $types);
+    }
+
+    public function test_passkey_login_is_rate_limited_per_ip(): void {
+        $options = $this->postJson('admin/auth/passkey/options')->json('data');
+        $response = (new PasskeyAuthenticator())->assertionResponse(Base64UrlSafe::decodeNoPadding($options['challenge']), self::RP_ID, self::ORIGIN, '1');
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->postJson('admin/auth/passkey/login', ['challenge' => $options['challenge'], 'credential' => $response]);
+        }
+
+        $result = $this->postJson('admin/auth/passkey/login', ['challenge' => $options['challenge'], 'credential' => $response]);
+
+        $result->assertJson(['code' => 429, 'error' => 'too-many-requests']);
     }
 
 }
