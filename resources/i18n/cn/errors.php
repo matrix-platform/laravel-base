@@ -10,6 +10,8 @@ return [
 
     'data-not-found' => '未找到数据',
 
+    'directory-create-failed' => '无法创建目录',
+
     'drive-anchor-immutable' => 'home 目录与群组目录不能被移动或放入回收站',
 
     'endpoint-not-found' => '端点不存在',
@@ -19,6 +21,8 @@ return [
     'geolocation-database-not-found' => '找不到地理位置数据库文件',
 
     'geolocation-request-failed' => '地理位置查询请求失败',
+
+    'image-decode-failed' => '无法解析图片',
 
     'invalid-arrange-order' => '上下架选择与数据不符',
 

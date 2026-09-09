@@ -6,6 +6,7 @@ use Illuminate\Encryption\Encrypter;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -111,6 +112,36 @@ class FeatureTestCase extends TestCase {
         }
 
         $this->fail("expected the call to be refused with {$field}:{$slug}");
+    }
+
+    /**
+     * A 20x10 JPEG carrying an EXIF `Orientation=6` tag (needs a 90° rotation to be upright).
+     */
+    protected function rotatedImagePath(): string {
+        $plain = tempnam(sys_get_temp_dir(), 'gd') . '.jpg';
+
+        imagejpeg(imagecreatetruecolor(20, 10), $plain, 90);
+
+        $tiff = 'II' . pack('v', 42) . pack('V', 8);
+        $ifd0 = pack('v', 1) . pack('vvV', 0x0112, 3, 1) . pack('v', 6) . pack('v', 0) . pack('V', 0);
+        $exif = "Exif\x00\x00" . $tiff . $ifd0;
+        $app1 = "\xFF\xE1" . pack('n', strlen($exif) + 2) . $exif;
+
+        $bytes = file_get_contents($plain);
+
+        if ($bytes === false) {
+            $this->fail('failed to read the generated fixture image');
+        }
+
+        $path = tempnam(sys_get_temp_dir(), 'rot') . '.jpg';
+
+        file_put_contents($path, substr($bytes, 0, 2) . $app1 . substr($bytes, 2));
+
+        return $path;
+    }
+
+    protected function uploadedFrom(string $path, string $name): UploadedFile {
+        return new UploadedFile($path, $name, null, null, true);
     }
 
     /**

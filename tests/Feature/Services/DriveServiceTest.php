@@ -172,6 +172,31 @@ class DriveServiceTest extends FeatureTestCase {
         $this->assertNull($node->seconds);
     }
 
+    public function test_uploading_a_sideways_photograph_orients_it_before_recording_its_dimensions(): void {
+        $service = $this->service();
+        $root = $service->root();
+        $owner = $this->user();
+        $path = $this->rotatedImagePath();
+        $rawSize = filesize($path);
+
+        $node = $service->upload($root, $this->uploadedFrom($path, 'sideways.jpg'), $owner);
+
+        $this->assertSame(10, $node->width);
+        $this->assertSame(20, $node->height);
+        $this->assertNotSame($rawSize, $node->size);
+
+        $stored = Storage::disk($service->disk())->get($service->location($node));
+
+        $this->assertSame(strlen((string) $stored), $node->size);
+    }
+
+    public function test_thumbnail_location_nests_the_size_under_the_drive_folder(): void {
+        $service = $this->service();
+        $node = $service->upload($service->root(), $this->blob('a.bin', 'content'), $this->user());
+
+        $this->assertSame("drive/icon/{$node->path}.webp", $service->thumbnailLocation($node, 'icon'));
+    }
+
     public function test_rename_rejects_a_colliding_name(): void {
         $service = $this->service();
         $root = $service->root();

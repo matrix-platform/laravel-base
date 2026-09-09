@@ -10,9 +10,12 @@ use MatrixPlatform\Http\Controllers\BaseController;
 use MatrixPlatform\Models\DriveNode;
 use MatrixPlatform\Models\DriveNodeType;
 use MatrixPlatform\Services\Admin\DriveService;
+use MatrixPlatform\Support\Thumbnails;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DriveController extends BaseController {
+
+    use Thumbnails;
 
     public function __construct(private DriveService $service) {}
 
@@ -44,7 +47,7 @@ class DriveController extends BaseController {
         return $this->present($node);
     }
 
-    #[Action('{id}/download')]
+    #[Action('{id}/download', transaction: false)]
     public function download(Request $request): StreamedResponse {
         $node = $this->node($request, withTrashed: true);
 
@@ -54,7 +57,17 @@ class DriveController extends BaseController {
             error('data-not-found', 404);
         }
 
-        return $this->stream($this->service->disk(), $this->service->location($node), $node->name, $node->mime_type);
+        $disk = $this->service->disk();
+
+        $resolved = $this->withThumbnail(
+            $request,
+            $disk,
+            $this->service->location($node),
+            $node->mime_type,
+            fn (string $size): string => $this->service->thumbnailLocation($node, $size)
+        );
+
+        return $this->stream($disk, $resolved['location'], $node->name, $resolved['mime_type']);
     }
 
     /**

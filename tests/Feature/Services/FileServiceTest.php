@@ -46,6 +46,14 @@ class FileServiceTest extends FeatureTestCase {
         return UploadedFile::fake()->createWithContent($name, $content);
     }
 
+    private function corruptImagePath(): string {
+        $path = tempnam(sys_get_temp_dir(), 'corrupt') . '.jpg';
+
+        file_put_contents($path, 'not-a-real-image');
+
+        return $path;
+    }
+
     private function driveFile(string $name = 'cover.jpg', ?DriveNode $parent = null): DriveNode {
         $node = new DriveNode();
 
@@ -74,6 +82,18 @@ class FileServiceTest extends FeatureTestCase {
         $node->save();
 
         return $node;
+    }
+
+    /**
+     * @param positive-int $width
+     * @param positive-int $height
+     */
+    private function imagePath(int $width, int $height): string {
+        $path = tempnam(sys_get_temp_dir(), 'img') . '.png';
+
+        imagepng(imagecreatetruecolor($width, $height), $path);
+
+        return $path;
     }
 
     private function reload(File $file): File {
@@ -304,6 +324,154 @@ class FileServiceTest extends FeatureTestCase {
         $this->assertNull($file->width);
         $this->assertNull($file->height);
         $this->assertNull($file->seconds);
+    }
+
+    public function test_is_raster_image_accepts_photographs_but_rejects_svg_and_non_images(): void {
+        $service = $this->service();
+
+        $this->assertTrue($service->isRasterImage('image/jpeg'));
+        $this->assertTrue($service->isRasterImage('image/png'));
+        $this->assertFalse($service->isRasterImage('image/svg+xml'));
+        $this->assertFalse($service->isRasterImage('application/pdf'));
+        $this->assertFalse($service->isRasterImage(null));
+    }
+
+    public function test_orient_rotates_a_sideways_photograph_upright(): void {
+        $path = $this->rotatedImagePath();
+
+        $this->service()->orient($path);
+
+        $size = getimagesize($path);
+
+        if ($size === false) {
+            $this->fail('failed to read the oriented image size');
+        }
+
+        $this->assertSame(10, $size[0]);
+        $this->assertSame(20, $size[1]);
+    }
+
+    public function test_orient_is_idempotent_once_the_photograph_is_upright(): void {
+        $path = $this->rotatedImagePath();
+
+        $this->service()->orient($path);
+        $corrected = getimagesize($path);
+
+        $this->service()->orient($path);
+
+        $this->assertSame($corrected, getimagesize($path));
+    }
+
+    public function test_orient_leaves_an_upright_photograph_untouched(): void {
+        $path = $this->imagePath(20, 10);
+        $before = file_get_contents($path);
+
+        $this->service()->orient($path);
+
+        $this->assertSame($before, file_get_contents($path));
+    }
+
+    public function test_orient_ignores_a_format_without_exif_support(): void {
+        $path = $this->imagePath(4, 4);
+        $before = file_get_contents($path);
+
+        $this->service()->orient($path);
+
+        $this->assertSame($before, file_get_contents($path));
+    }
+
+    public function test_thumbnail_scales_down_to_the_configured_width_and_encodes_as_webp(): void {
+        config()->set('matrix.thumbnail-sizes', ['icon' => 64]);
+
+        $destination = sys_get_temp_dir() . '/thumb-' . Str::random(8) . '/icon.webp';
+
+        $this->service()->thumbnail($this->imagePath(200, 100), $destination, 'icon');
+
+        $this->assertFileExists($destination);
+        $this->assertSame('RIFF', substr((string) file_get_contents($destination), 0, 4));
+        $this->assertSame('WEBP', substr((string) file_get_contents($destination), 8, 4));
+
+        $size = getimagesize($destination);
+
+        if ($size === false) {
+            $this->fail('failed to read the generated thumbnail size');
+        }
+
+        $this->assertSame(64, $size[0]);
+        $this->assertSame(32, $size[1]);
+    }
+
+    public function test_thumbnail_does_not_upscale_a_smaller_source(): void {
+        config()->set('matrix.thumbnail-sizes', ['icon' => 64]);
+
+        $destination = sys_get_temp_dir() . '/thumb-' . Str::random(8) . '/icon.webp';
+
+        $this->service()->thumbnail($this->imagePath(20, 10), $destination, 'icon');
+
+        $size = getimagesize($destination);
+
+        if ($size === false) {
+            $this->fail('failed to read the generated thumbnail size');
+        }
+
+        $this->assertSame(20, $size[0]);
+        $this->assertSame(10, $size[1]);
+    }
+
+    public function test_thumbnail_does_nothing_for_an_unconfigured_size(): void {
+        $destination = sys_get_temp_dir() . '/thumb-' . Str::random(8) . '/icon.webp';
+
+        $this->service()->thumbnail($this->imagePath(20, 10), $destination, 'not-configured');
+
+        $this->assertFileDoesNotExist($destination);
+    }
+
+    public function test_thumbnail_creates_the_destination_directory(): void {
+        config()->set('matrix.thumbnail-sizes', ['icon' => 64]);
+
+        $directory = sys_get_temp_dir() . '/thumb-' . Str::random(8);
+
+        $this->service()->thumbnail($this->imagePath(20, 10), "{$directory}/nested/icon.webp", 'icon');
+
+        $this->assertFileExists("{$directory}/nested/icon.webp");
+    }
+
+    public function test_thumbnail_does_not_regenerate_an_existing_file(): void {
+        config()->set('matrix.thumbnail-sizes', ['icon' => 64]);
+
+        $directory = sys_get_temp_dir() . '/thumb-' . Str::random(8);
+        $destination = "{$directory}/icon.webp";
+
+        mkdir($directory, recursive: true);
+        file_put_contents($destination, 'already-here');
+
+        $this->service()->thumbnail($this->imagePath(20, 10), $destination, 'icon');
+
+        $this->assertSame('already-here', file_get_contents($destination));
+    }
+
+    public function test_thumbnail_reports_a_decode_failure_instead_of_leaking_the_underlying_exception(): void {
+        config()->set('matrix.thumbnail-sizes', ['icon' => 64]);
+
+        $destination = sys_get_temp_dir() . '/thumb-' . Str::random(8) . '/icon.webp';
+
+        $this->refuses('image-decode-failed', fn () => $this->service()->thumbnail($this->corruptImagePath(), $destination, 'icon'));
+        $this->assertFileDoesNotExist($destination);
+    }
+
+    public function test_an_uploaded_photograph_is_oriented_before_its_size_and_hash_are_recorded(): void {
+        $path = $this->rotatedImagePath();
+        $rawSize = filesize($path);
+
+        $file = $this->reload($this->service()->upload($this->uploadedFrom($path, 'sideways.jpg')));
+
+        $this->assertSame(10, $file->width);
+        $this->assertSame(20, $file->height);
+        $this->assertNotSame($rawSize, $file->size);
+
+        $stored = Storage::disk('public')->get("files/{$file->path}");
+
+        $this->assertSame(strlen((string) $stored), $file->size);
     }
 
     public function test_the_packaged_limits_are_declared_with_usable_types(): void {

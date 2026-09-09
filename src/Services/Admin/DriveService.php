@@ -14,6 +14,7 @@ use MatrixPlatform\Models\Group;
 use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\ManipulationType;
 use MatrixPlatform\Models\User;
+use MatrixPlatform\Services\FileService;
 use MatrixPlatform\Services\FileStorage;
 use MatrixPlatform\Services\MediaMeasurer;
 use MatrixPlatform\Support\RollbackCallbacks;
@@ -223,6 +224,10 @@ class DriveService {
         return DriveNode::query()->findOrFail(DriveNode::ROOT);
     }
 
+    public function thumbnailLocation(DriveNode $node, string $size): string {
+        return app(FileStorage::class)->thumbnailLocation(self::FOLDER, $node->path, $size);
+    }
+
     public function trash(DriveNode $node, User $user): void {
         if ($this->isAnchor($node)) {
             error('drive-anchor-immutable');
@@ -250,6 +255,13 @@ class DriveService {
     public function upload(DriveNode $parent, UploadedFile $file, User $user): DriveNode {
         $this->requireAllowed($parent, $user);
 
+        $mimeType = $file->getMimeType();
+        $fileService = app(FileService::class);
+
+        if ($fileService->isRasterImage($mimeType)) {
+            $fileService->orient($file->getPathname());
+        }
+
         $hash = app(FileStorage::class)->hash($file);
         $size = $file->getSize();
         $disk = $this->disk();
@@ -263,7 +275,6 @@ class DriveService {
             app(RollbackCallbacks::class)->register(fn () => Storage::disk($disk)->delete(self::FOLDER . $path));
         }
 
-        $mimeType = $file->getMimeType();
         $measured = app(MediaMeasurer::class)->measure($mimeType, $file->getPathname());
 
         $node = new DriveNode();

@@ -24,8 +24,8 @@ class FileControllerTest extends FeatureTestCase {
     /**
      * @return array{0: File, 1: DriveNode}
      */
-    private function driveLinked(): array {
-        $node = app(DriveService::class)->upload(DriveNode::query()->findOrFail(DriveNode::ROOT), UploadedFile::fake()->createWithContent('cover.bin', 'drive-bytes'), $this->user());
+    private function driveLinked(?UploadedFile $upload = null): array {
+        $node = app(DriveService::class)->upload(DriveNode::query()->findOrFail(DriveNode::ROOT), $upload === null ? UploadedFile::fake()->createWithContent('cover.bin', 'drive-bytes') : $upload, $this->user());
 
         if ($node->size === null || $node->hash === null) {
             $this->fail('expected the uploaded drive node to have a size and hash');
@@ -45,8 +45,8 @@ class FileControllerTest extends FeatureTestCase {
         return [$file, $node];
     }
 
-    private function stored(int $privilege): File {
-        return app(FileService::class)->upload(UploadedFile::fake()->createWithContent('regular.bin', 'regular-bytes'), $privilege);
+    private function stored(int $privilege, ?UploadedFile $upload = null): File {
+        return app(FileService::class)->upload($upload === null ? UploadedFile::fake()->createWithContent('regular.bin', 'regular-bytes') : $upload, $privilege);
     }
 
     private function user(): User {
@@ -61,6 +61,16 @@ class FileControllerTest extends FeatureTestCase {
 
         $response->assertRedirect(Storage::disk('public')->url($location));
         Storage::disk('public')->assertExists($location);
+    }
+
+    public function test_a_public_uploaded_image_with_a_size_parameter_redirects_to_its_thumbnail(): void {
+        $file = $this->stored(File::PUBLIC, UploadedFile::fake()->image('photo.png', 200, 100));
+        $thumbnailLocation = app(FileService::class)->thumbnailLocation($file, 'icon');
+
+        $response = $this->get("api/files/{$file->path}?size=icon");
+
+        $response->assertRedirect(Storage::disk('public')->url($thumbnailLocation));
+        Storage::disk('public')->assertExists($thumbnailLocation);
     }
 
     public function test_a_private_uploaded_file_is_refused_with_not_found(): void {
@@ -87,6 +97,16 @@ class FileControllerTest extends FeatureTestCase {
 
         $response->assertOk();
         $this->assertSame('drive-bytes', $response->streamedContent());
+    }
+
+    public function test_a_drive_linked_image_with_a_size_parameter_streams_a_webp_thumbnail(): void {
+        [$file] = $this->driveLinked(UploadedFile::fake()->image('cover.png', 200, 100));
+
+        $response = $this->get("api/files/{$file->path}?size=icon");
+
+        $response->assertOk();
+        $response->assertHeader('Content-Type', 'image/webp');
+        $this->assertSame('RIFF', substr($response->streamedContent(), 0, 4));
     }
 
     public function test_an_unknown_path_is_not_found(): void {

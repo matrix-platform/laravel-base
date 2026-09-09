@@ -5,12 +5,16 @@ namespace MatrixPlatform\Services;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Storage;
+use Intervention\Image\Encoders\WebpEncoder;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Interfaces\ImageInterface;
 use MatrixPlatform\Models\DriveNode;
 use MatrixPlatform\Models\DriveNodeType;
 use MatrixPlatform\Models\File;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Services\Admin\DrivePermissionService;
 use MatrixPlatform\Support\RollbackCallbacks;
+use Throwable;
 
 class FileService {
 
@@ -37,6 +41,10 @@ class FileService {
         return File::query()->where('path', $path)->firstOrFail();
     }
 
+    public function isRasterImage(?string $mimeType): bool {
+        return str_starts_with((string) $mimeType, 'image/') && $mimeType !== 'image/svg+xml';
+    }
+
     public function location(File $file): string {
         return app(FileStorage::class)->location(self::FOLDER, $file->path);
     }
@@ -48,6 +56,21 @@ class FileService {
         );
 
         return $limits === [] ? 0 : min($limits);
+    }
+
+    public function orient(string $path): void {
+        $exif = @exif_read_data($path);
+        $orientation = is_array($exif) ? array_get_value($exif, 'Orientation') : null;
+
+        if (!is_int($orientation) || $orientation === 1) {
+            return;
+        }
+
+        $encoded = (string) $this->decode($path)->encode();
+
+        file_put_contents($path, $encoded);
+
+        clearstatcache(true, $path);
     }
 
     /**
@@ -116,6 +139,49 @@ class FileService {
         return $resolved;
     }
 
+    public function thumbnail(string $sourcePath, string $destinationPath, string $size): void {
+        if (is_file($destinationPath)) {
+            return;
+        }
+
+        $width = $this->thumbnailWidth($size);
+
+        if ($width === null) {
+            return;
+        }
+
+        $directory = dirname($destinationPath);
+
+        if (!is_dir($directory) && !@mkdir($directory, recursive: true) && !is_dir($directory)) {
+            error('directory-create-failed');
+        }
+
+        $encoded = (string) $this->decode($sourcePath)
+            ->scaleDown(width: $width)
+            ->encode(new WebpEncoder(quality: config()->integer('matrix.thumbnail-quality')));
+
+        $temporary = "{$destinationPath}." . bin2hex(random_bytes(8)) . '.tmp';
+
+        file_put_contents($temporary, $encoded);
+        rename($temporary, $destinationPath);
+    }
+
+    public function thumbnailLocation(File $file, string $size): string {
+        return app(FileStorage::class)->thumbnailLocation(self::FOLDER, $file->path, $size);
+    }
+
+    public function thumbnailWidth(string $size): ?int {
+        $sizes = config()->array('matrix.thumbnail-sizes');
+
+        if (!array_key_exists($size, $sizes)) {
+            return null;
+        }
+
+        $width = $sizes[$size];
+
+        return is_int($width) ? $width : null;
+    }
+
     public function update(string $path, string $name, ?string $description): File {
         $file = $this->find($path);
 
@@ -134,16 +200,21 @@ class FileService {
         $mime = $file->getMimeType();
         $allowed = $patterns === null ? $this->patterns() : $patterns;
         $limit = $maxSize === null ? $this->limit() : $maxSize;
-        $size = $file->getSize();
+        $rawSize = $file->getSize();
 
         if ($allowed !== [] && Arr::first($allowed, fn (string $pattern): bool => preg_match($pattern, strval($mime)) === 1) === null) {
             error('invalid-mime-type');
         }
 
-        if ($limit > 0 && $size > $limit) {
+        if ($limit > 0 && $rawSize > $limit) {
             error('file-too-large');
         }
 
+        if ($this->isRasterImage($mime)) {
+            $this->orient($file->getPathname());
+        }
+
+        $size = $file->getSize();
         $hash = app(FileStorage::class)->hash($file);
 
         $existing = File::query()
@@ -177,6 +248,14 @@ class FileService {
         $record->save();
 
         return $record;
+    }
+
+    private function decode(string $path): ImageInterface {
+        try {
+            return ImageManager::gd()->read($path);
+        } catch (Throwable) {
+            error('image-decode-failed');
+        }
     }
 
     private function limit(): int {

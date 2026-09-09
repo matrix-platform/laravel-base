@@ -10,6 +10,8 @@ return [
 
     'data-not-found' => 'データが見つかりません',
 
+    'directory-create-failed' => 'ディレクトリを作成できませんでした',
+
     'drive-anchor-immutable' => 'ホームディレクトリとグループディレクトリは移動やゴミ箱への移動ができません',
 
     'endpoint-not-found' => 'エンドポイントが存在しません',
@@ -19,6 +21,8 @@ return [
     'geolocation-database-not-found' => '位置情報データベースファイルが見つかりません',
 
     'geolocation-request-failed' => '位置情報の取得に失敗しました',
+
+    'image-decode-failed' => '画像を解析できませんでした',
 
     'invalid-arrange-order' => '公開設定の選択内容がデータと一致しません',
 

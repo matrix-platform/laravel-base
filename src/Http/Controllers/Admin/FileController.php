@@ -8,22 +8,10 @@ use Illuminate\Http\UploadedFile;
 use MatrixPlatform\Attributes\Action;
 use MatrixPlatform\Http\Controllers\BaseController;
 use MatrixPlatform\Services\FileService;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class FileController extends BaseController {
 
     public function __construct(private FileService $service) {}
-
-    #[Action]
-    public function download(Request $request): StreamedResponse {
-        $request->validate([
-            'path' => ['required', 'string']
-        ]);
-
-        $file = $this->service->find($request->string('path')->value());
-
-        return $this->stream($this->service->disk($file->privilege), $this->service->location($file), $file->name, $file->mime_type);
-    }
 
     #[Action]
     public function update(Request $request): JsonResponse {

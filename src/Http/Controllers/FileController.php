@@ -2,20 +2,24 @@
 
 namespace MatrixPlatform\Http\Controllers;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use MatrixPlatform\Attributes\Action;
 use MatrixPlatform\Models\DriveNode;
 use MatrixPlatform\Models\File;
 use MatrixPlatform\Services\Admin\DriveService;
 use MatrixPlatform\Services\FileService;
+use MatrixPlatform\Support\Thumbnails;
 use Symfony\Component\HttpFoundation\Response;
 
 class FileController extends BaseController {
 
+    use Thumbnails;
+
     public function __construct(private FileService $service) {}
 
     #[Action(transaction: false)]
-    public function get(string $path): Response {
+    public function get(Request $request, string $path): Response {
         $file = File::query()->where('path', $path)->first();
 
         if ($file === null) {
@@ -29,11 +33,32 @@ class FileController extends BaseController {
                 error('data-not-found', 404);
             }
 
-            return $this->stream(app(DriveService::class)->disk(), app(DriveService::class)->location($node), $node->name, $node->mime_type);
+            $driveService = app(DriveService::class);
+            $disk = $driveService->disk();
+
+            $resolved = $this->withThumbnail(
+                $request,
+                $disk,
+                $driveService->location($node),
+                $node->mime_type,
+                fn (string $size): string => $driveService->thumbnailLocation($node, $size)
+            );
+
+            return $this->stream($disk, $resolved['location'], $node->name, $resolved['mime_type']);
         }
 
         if ($file->privilege === File::PUBLIC) {
-            return redirect(Storage::disk($this->service->disk(File::PUBLIC))->url($this->service->location($file)), 302);
+            $disk = $this->service->disk(File::PUBLIC);
+
+            $resolved = $this->withThumbnail(
+                $request,
+                $disk,
+                $this->service->location($file),
+                $file->mime_type,
+                fn (string $size): string => $this->service->thumbnailLocation($file, $size)
+            );
+
+            return redirect(Storage::disk($disk)->url($resolved['location']), 302);
         }
 
         error('data-not-found', 404);

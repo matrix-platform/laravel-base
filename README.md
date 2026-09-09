@@ -561,7 +561,6 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | POST | `admin/auth/profile` | 登入 |
 | POST | `admin/i18n/get` | **匿名** |
 | POST | `admin/file/upload` | 登入 |
-| POST | `admin/file/download` | 登入 |
 | POST | `admin/file/update` | 登入 |
 | POST | `admin/drive/root` | 登入 |
 | POST | `admin/drive/home` | 登入 |
@@ -754,6 +753,8 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `matrix.resource-i18n-model` | `[]` | 同上,欄位標題 |
 | `matrix.resource-i18n-options` | `[]` | 同上,下拉選項 |
 | `matrix.resource-i18n-template` | `[]` | 同上,訊息樣板 |
+| `matrix.thumbnail-quality` | `80` | 縮圖 webp 編碼品質(0-100) |
+| `matrix.thumbnail-sizes` | `['icon' => 64, 'thumb' => 256]` | 可用的縮圖 `size` 參數與對應寬度(px),`?size=` 帶不在此清單內的值一律回原始檔案 |
 | `matrix.translation-provider` | `'google-translate'` | 內容翻譯要用哪個 driver,對應 `resources/cfg/{值}.php` |
 | `matrix.vendor-api-prefix` | `'vendor'` | 廠商路由前綴 |
 | `matrix.vendor-model` | `Vendor::class` | 廠商 model |
@@ -843,11 +844,13 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `data-conflicted` | 資料已被修改 |
 | `data-in-use` | 這筆資料仍被其他資料參照，無法刪除 |
 | `data-not-found` | 查無資料 |
+| `directory-create-failed` | 無法建立目錄 |
 | `drive-anchor-immutable` | home 目錄與群組目錄不能被搬移或丟進垃圾桶 |
 | `endpoint-not-found` | 端點不存在 |
 | `file-too-large` | 檔案大小超過限制 |
 | `geolocation-database-not-found` | 找不到地理位置資料庫檔案 |
 | `geolocation-request-failed` | 地理位置查詢請求失敗 |
+| `image-decode-failed` | 無法解析圖片 |
 | `invalid-arrange-order` | 上下架選擇與資料不符 |
 | `invalid-cascade-relation` | 連動關聯必須是 hasOne、hasMany 或其 morph 形式 |
 | `invalid-column-condition` | 欄位條件語法錯誤 |
