@@ -31,6 +31,28 @@ class ActionRoutes {
         }
     }
 
+    public static function controller(string $prefix): ?string {
+        $stripped = (is_string(config('matrix.admin-api-prefix')) ? config('matrix.admin-api-prefix') : '') . '/';
+
+        foreach (Route::getRoutes()->getRoutes() as $route) {
+            $uri = $route->uri();
+
+            if (!str_starts_with($uri, $stripped)) {
+                continue;
+            }
+
+            $relative = substr($uri, strlen($stripped));
+
+            if ($relative === $prefix || Str::startsWith($relative, "{$prefix}/")) {
+                $action = $route->getAction('controller');
+
+                return is_string($action) ? Str::before($action, '@') : null;
+            }
+        }
+
+        return null;
+    }
+
     public static function fallback(): void {
         Route::any('{endpoint}', fn () => error('endpoint-not-found', 404))->where('endpoint', '.*')->fallback();
     }

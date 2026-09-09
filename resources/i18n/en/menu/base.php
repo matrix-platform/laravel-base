@@ -78,4 +78,6 @@ return [
 
         'geolocation' => 'Geolocation Lookup',
 
+    'drive' => 'File Manager',
+
 ];

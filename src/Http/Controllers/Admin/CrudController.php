@@ -3,7 +3,6 @@
 namespace MatrixPlatform\Http\Controllers\Admin;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Arr;
@@ -12,6 +11,7 @@ use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Declarations\Definitions;
 use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Http\Controllers\BaseController;
+use MatrixPlatform\Models\BaseModel;
 use MatrixPlatform\Services\Admin\Crud\ArrangeService;
 use MatrixPlatform\Services\Admin\Crud\CopyService;
 use MatrixPlatform\Services\Admin\Crud\CrudService;
@@ -25,13 +25,15 @@ use MatrixPlatform\Services\Admin\Crud\SortService;
 use MatrixPlatform\Services\Admin\Crud\UpdateService;
 use MatrixPlatform\Support\MetadataRegistry;
 use MatrixPlatform\Support\Subject;
-use ReflectionClass;
-use ReflectionMethod;
-use ReflectionNamedType;
 
 abstract class CrudController extends BaseController {
 
     protected ?bool $arrangeable = null;
+
+    /**
+     * @var list<string>
+     */
+    protected array $counts = [];
 
     protected bool $exportable = false;
 
@@ -51,7 +53,7 @@ abstract class CrudController extends BaseController {
     protected ?array $lists = null;
 
     /**
-     * @var class-string<Model>
+     * @var class-string<BaseModel>
      */
     protected string $model;
 
@@ -59,6 +61,11 @@ abstract class CrudController extends BaseController {
      * @var list<string>
      */
     protected array $readonly = [];
+
+    /**
+     * @var list<string>
+     */
+    protected array $selects = [];
 
     protected ?bool $sortable = null;
 
@@ -75,11 +82,6 @@ abstract class CrudController extends BaseController {
     protected array $updates = [];
 
     private ?Model $instance = null;
-
-    /**
-     * @var list<string>|null
-     */
-    private ?array $relations = null;
 
     /**
      * @return array<string, mixed>
@@ -213,7 +215,10 @@ abstract class CrudController extends BaseController {
     }
 
     protected function onList(ListService $service): ListService {
-        return $service->columns($this->listing())->sorting($this->sorting());
+        return $service
+            ->columns($this->listing())
+            ->sorting($this->sorting())
+            ->selects($this->selects);
     }
 
     protected function onNew(NewService $service): NewService {
@@ -246,8 +251,28 @@ abstract class CrudController extends BaseController {
         return $this->onArrange($this->prepare(new ArrangeService($this->model), $request));
     }
 
+    /**
+     * @return list<string>
+     */
+    private function arranging(): array {
+        if (!$this->arrangeable()) {
+            return [];
+        }
+
+        $metadata = app(MetadataRegistry::class)->of($this->model);
+
+        return array_values(Arr::whereNotNull([$metadata?->enable, $metadata?->disable]));
+    }
+
     private function complex(Definition $definition): bool {
         return is_string($definition->presentation) || $definition->presentation === Presentation::Password;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function counted(): array {
+        return array_map(fn (string $name): string => "count({$name})", $this->counts);
     }
 
     /**
@@ -291,16 +316,6 @@ abstract class CrudController extends BaseController {
         return $this->instance;
     }
 
-    private function isHasManyAccessor(ReflectionMethod $method): bool {
-        $type = $method->getReturnType();
-
-        return $method->getDeclaringClass()->getName() === $this->model
-            && $method->getNumberOfParameters() === 0
-            && $type instanceof ReflectionNamedType
-            && !$type->isBuiltin()
-            && is_a($type->getName(), HasMany::class, true);
-    }
-
     private function joined(string $name): string {
         if (!str_ends_with($name, '_id')) {
             return $name;
@@ -332,15 +347,20 @@ abstract class CrudController extends BaseController {
 
         $found = app(MetadataRegistry::class)->definitions($this->model);
         $definitions = $found === null ? [] : $found;
+        $excluded = $this->arranging();
         $names = [];
 
         foreach ($this->derived() as $name) {
+            if (in_array($name, $excluded, true)) {
+                continue;
+            }
+
             if (!$this->complex($definitions[$name])) {
                 $names[] = $this->joined($name);
             }
         }
 
-        return [...$names, ...$this->relations()];
+        return [...$names, ...$this->counted()];
     }
 
     /**
@@ -356,25 +376,6 @@ abstract class CrudController extends BaseController {
 
     private function ranking(): ?string {
         return app(MetadataRegistry::class)->of($this->model)?->ranking;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function relations(): array {
-        if ($this->relations !== null) {
-            return $this->relations;
-        }
-
-        $names = [];
-
-        foreach ((new ReflectionClass($this->model))->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
-            if ($this->isHasManyAccessor($method)) {
-                $names[] = "count({$method->getName()})";
-            }
-        }
-
-        return $this->relations = $names;
     }
 
     private function sortable(): bool {

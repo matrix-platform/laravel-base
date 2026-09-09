@@ -69,7 +69,7 @@ abstract class BaseModel extends Model {
     }
 
     protected function serializeDate(DateTimeInterface $date): string {
-        return $date->format(cfg('system.datetime-format'));
+        return $date->format(config('matrix.datetime-format'));
     }
 
     private function applyCreatingGenerators(): void {
@@ -110,9 +110,8 @@ abstract class BaseModel extends Model {
      */
     private function decoded(array $data): array {
         foreach (array_intersect_key($data, $this->getCasts()) as $name => $value) {
-            if (!$this->isDateCastable($name)) {
-                $data[$name] = $this->castAttribute($name, $value);
-            }
+            $cast = $this->castAttribute($name, $value);
+            $data[$name] = $cast instanceof DateTimeInterface ? $this->serializeDate($cast) : $cast;
         }
 
         return $data;
@@ -143,6 +142,20 @@ abstract class BaseModel extends Model {
     }
 
     /**
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private function serialized(array $data): array {
+        foreach ($data as $name => $value) {
+            if ($value instanceof DateTimeInterface) {
+                $data[$name] = $this->serializeDate($value);
+            }
+        }
+
+        return $data;
+    }
+
+    /**
      * @param array<string, mixed>|null $before
      * @param array<string, mixed>|null $after
      */
@@ -163,7 +176,7 @@ abstract class BaseModel extends Model {
     }
 
     private function traceDeleted(): void {
-        $this->trace(ManipulationType::Deleted, $this->getTraceables($this->getOriginal()), null);
+        $this->trace(ManipulationType::Deleted, $this->serialized($this->getTraceables($this->getOriginal())), null);
     }
 
     private function traceRestored(): void {
@@ -175,8 +188,9 @@ abstract class BaseModel extends Model {
 
         if ($changes) {
             $original = $this->getOriginal();
+            $before = Arr::map($changes, fn (mixed $_, string $name) => array_get_value($original, $name));
 
-            $this->trace(ManipulationType::Updated, Arr::map($changes, fn (mixed $_, string $name) => array_get_value($original, $name)), $this->decoded($changes));
+            $this->trace(ManipulationType::Updated, $this->serialized($before), $this->decoded($changes));
         }
     }
 

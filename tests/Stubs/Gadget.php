@@ -13,6 +13,8 @@ use MatrixPlatform\Models\BaseModel;
  * @property ?array<string, mixed> $attachments
  * @property ?string $translated__tw
  * @property ?string $translated__en
+ * @property ?Carbon $enable_time
+ * @property ?Carbon $disable_time
  * @property ?int $creator_id
  * @property Carbon $create_time
  * @property ?int $updater_id

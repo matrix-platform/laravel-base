@@ -21,10 +21,6 @@ return [
     'cfg/member.password-pattern' => '密碼規則(正規表達式)',
     'cfg/member.token-idle-minutes' => '憑證閒置逾時(分鐘)',
 
-    'cfg/system' => '系統',
-    'cfg/system.date-format' => '日期格式',
-    'cfg/system.datetime-format' => '日期時間格式',
-
     'cfg/vendor' => '廠商',
     'cfg/vendor.login-throttle-max' => '登入嘗試次數上限',
     'cfg/vendor.login-throttle-window' => '登入限制時間(分鐘)',

@@ -28,6 +28,8 @@ return [
 
     'invalid-column-expression' => '字段表达式语法错误',
 
+    'invalid-drive-file' => '不是有效的云端硬盘文件',
+
     'invalid-filter-value' => '筛选值的格式不正确',
 
     'invalid-geolocation-driver' => '地理位置服务设置错误',

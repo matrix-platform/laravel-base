@@ -31,6 +31,19 @@ class User extends BaseModel {
 
     const ROOT = 1;
 
+    /**
+     * @param iterable<int, ?int> $ids
+     * @return array<int, string>
+     */
+    public static function usernames(iterable $ids): array {
+        $unique = collect($ids)
+            ->filter()
+            ->unique()
+            ->values();
+
+        return $unique->isEmpty() ? [] : self::query()->whereIn('id', $unique)->pluck('username', 'id')->all();
+    }
+
     protected $attributes = [
         'disabled' => false,
         'permissions' => '{}'

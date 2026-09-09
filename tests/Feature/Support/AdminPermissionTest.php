@@ -297,4 +297,14 @@ class AdminPermissionTest extends FeatureTestCase {
         $this->assertSame('Teams', $nodes['group']['title']);
     }
 
+    public function test_menu_nodes_carry_the_blank_flag(): void {
+        $this->useMenus('base');
+
+        $nodes = $this->permission(User::ROOT)->getMenuNodes();
+
+        $this->assertArrayHasKey('drive', $nodes);
+        $this->assertTrue($nodes['drive']['blank']);
+        $this->assertFalse($nodes['user']['blank']);
+    }
+
 }

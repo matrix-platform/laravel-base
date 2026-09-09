@@ -8,7 +8,7 @@ return [
 
     'bin-path' => 'ip2location.bin',
 
-    'download-token' => '',
+    'download-token' => 'ZwbtQ7hfKqG2TpeI5lTHIVVBNncLJnjBdzyDrKbVIA8lv5KJD8FN5xuNBZI95XTD',
 
     'db-code' => 'DB11LITEBIN',
 

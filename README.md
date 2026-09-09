@@ -43,10 +43,10 @@ class WidgetController extends CrudController {
 |---|---|
 | **前台登入端點** | 套件出貨 `member-api` / `vendor-api` middleware 與 `AuthToken::issue()`,**但沒有任何前台登入 controller**。前台的登入流程、驗證碼策略、密碼規則由宿主決定 |
 | **API 文件產生器** | 不出貨 Swagger / OpenAPI。端點是 `#[Action]` 反射掛載的,要文件請從 attribute 反射產生,不要掃註解 |
-| **排程註冊** | 套件不呼叫 `Schedule::command()`。`matrix:prune-tokens` 與 `messages:dispatch` 都由宿主自己排(見[註冊排程](#8-註冊排程如果要用訊息或-token-清理)) |
+| **排程註冊** | 套件不呼叫 `Schedule::command()`。`matrix:prune-tokens`、`matrix:prune-drive-files` 與 `messages:dispatch` 都由宿主自己排(見[註冊排程](#8-註冊排程如果要用訊息或-token-清理)) |
 | **cache / queue driver 的選擇** | 套件用 `Cache` 與 `Queue` 門面,不指定 driver。驗證碼要跨請求共用的 cache,訊息派送要每條 queue 恰好一個 worker（見[派送與 worker](#派送與-worker)） |
 | **匯入** | 匯出有,匯入沒有 |
-| **檔案清理** | `base_file` 與磁碟上的檔案永遠不會被自動刪除。去重讓一筆記錄可能被多處引用,套件答不出「誰可以刪」 |
+| **檔案清理** | 一般上傳的 `base_file` 與磁碟上的檔案永遠不會被自動刪除,去重讓一筆記錄可能被多處引用,套件答不出「誰可以刪」。**例外**:drive-linked 的 `base_file`(`path` 以 `@` 開頭,對應雲端硬碟欄位 `drive-file`/`drive-image` 選檔後產生的連結)由 `matrix:prune-drive-files` 排程時即時掃描 CRUD 資料表,清掉沒有任何記錄引用的部分 |
 | **多資料庫支援** | 只支援 PostgreSQL,而且是硬性的（見下一節） |
 
 ---
@@ -201,6 +201,7 @@ curl -X POST http://localhost/admin/auth/login \
 
 ```php
 Schedule::command('matrix:prune-tokens')->daily()->withoutOverlapping();
+Schedule::command('matrix:prune-drive-files')->daily()->withoutOverlapping();
 Schedule::command('messages:dispatch')->everyMinute()->withoutOverlapping();
 ```
 
@@ -229,15 +230,15 @@ worker 會睡掉供應商的 `interval` 來節流,所以 `--timeout` 與 connect
 { "success": false, "code": 422, "error": "validation-failed", "message": "...", "fields": { "username": ["required"] } }
 ```
 
-這不是風格偏好:客戶端的防火牆會擋掉非 200 的回應。`error` 欄位就是 i18n key,`message` 是後端已經翻好的字串 —— 前端可以直接顯示 `message`,也可以拿 `error` 自己對照。
+這不是風格偏好:客戶端的防火牆會擋掉非 200 的回應。`error` 欄位就是 i18n key,`message` 是後端已經翻好的字串 —— 前端可以直接顯示 `message`,也可以拿 `error` 自己對照。**唯一的例外是 `GET api/files/{path}`**——它要直接當 `<img src>` 或瀏覽器重定向目標用,回真正的 302/404,不走信封(見「端點」表)。
 
-**信封的範圍是套件的兩個路由前綴。** `admin/` 與 `api/` 底下打不到的路徑、用錯方法的請求,都會回信封格式的 404。**這兩個前綴之外的請求不受影響** —— 你自己的網頁 404 還是 Laravel 原本的樣子。
+**信封的範圍是套件的兩個路由前綴。** `admin/` 與 `api/` 底下打不到的路徑、用錯方法的請求,都會回信封格式的 404,**`GET api/files/{path}` 除外**——它是刻意不信封化的公開檔案讀取端點。**這兩個前綴之外的請求不受影響** —— 你自己的網頁 404 還是 Laravel 原本的樣子。
 
 代價要知道:因為兜底路由吃下所有方法,**「方法用錯」不再回 405,而是回 404 信封**。前端分不出「網址拼錯」與「方法用錯」。
 
 ### 2. 全部端點都是 POST
 
-沒有一個 GET。讀取(清單、詳情)也是 POST。用 GET 打會拿到 404 信封。
+除了 `GET api/files/{path}`(公開檔案讀取,詳見「端點」表)之外,其餘沒有一個 GET。讀取(清單、詳情)也是 POST。用 GET 打其他端點會拿到 404 信封。
 
 ### 3. 身分、middleware,以及順序
 
@@ -374,7 +375,7 @@ class WidgetDeclaration implements Declares {
 }
 ```
 
-`Metadata` 的第一個參數是 **alias,它必須等於選單節點的路徑前綴**;第二個是「這一列叫什麼」的欄位（麵包屑與排序頁會用）。第三個參數可以指定父層關聯,巢狀資源才需要。第四個參數 `ranking` 可指定排序用的欄位名稱,`CrudController` 會用它推導預設的 `$sorting`/`$sortable`;第五、六個參數 `enable`/`disable` 標記上下架時間欄位,目前只是宣告能力,尚無消費端。
+`Metadata` 的第一個參數是 **alias,它必須等於選單節點的路徑前綴**;第二個是「這一列叫什麼」的欄位（麵包屑與排序頁會用）。第三個參數可以指定父層關聯,巢狀資源才需要。第四個參數 `ranking` 可指定排序用的欄位名稱,`CrudController` 會用它推導預設的 `$sorting`/`$sortable`;第五、六個參數 `enable`/`disable` 標記上下架時間欄位,接上後解鎖 `POST admin/schedule/toggle`(單筆立即切換)與 `admin/{prefix}/arrange`、`arrange/save`(拖曳式批次上下架)兩支既有 API。
 
 沒有 `#[Declared]` 的 model 一進 CRUD 端點就是 `undeclared-model`。
 
@@ -541,7 +542,9 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 
 ### 端點
 
-全部是 `POST`。路徑省略前綴（`admin`、`api` 與 `vendor` 分別來自 `matrix.admin-api-prefix`、`matrix.api-prefix` 與 `matrix.vendor-api-prefix`）。
+除了 `GET api/files/{path}`(公開檔案讀取,見下方說明)之外,其餘全部是 `POST`。路徑省略前綴（`admin`、`api` 與 `vendor` 分別來自 `matrix.admin-api-prefix`、`matrix.api-prefix` 與 `matrix.vendor-api-prefix`）。
+
+`GET api/files/{path}` 是唯一的例外:不需要身分、不走信封,直接回 302(公開上傳檔案)、200(串流,drive-linked 檔案)或 404(私有/不存在)。路由用 `Route::get()` 註冊,Laravel 會自動一併掛上 `HEAD`(任何 `Route` 只要方法含 `GET` 就一定含 `HEAD`,框架內建行為,無法關閉),所以「端點」表裡這一列的方法欄是 `GET\|HEAD`。
 
 | 方法 | 路徑 | 需要 |
 |---|---|---|
@@ -567,6 +570,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | POST | `admin/drive/{id}/children` | 登入 |
 | POST | `admin/drive/{id}/folder` | 登入 |
 | POST | `admin/drive/{id}/upload` | 登入 |
+| GET\|HEAD | `admin/drive/{id}/download` | 登入 |
 | POST | `admin/drive/{id}/download` | 登入 |
 | POST | `admin/drive/{id}/rename` | 登入 |
 | POST | `admin/drive/{id}/move` | 登入 |
@@ -574,6 +578,8 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | POST | `admin/drive/{id}/delete` | 登入 |
 | POST | `admin/drive/trashed` | 登入 |
 | POST | `admin/drive/{id}/restore` | 登入 |
+| POST | `admin/manipulation-log/query` | 登入 |
+| POST | `admin/schedule/toggle` | 登入 |
 | POST | `admin/city` | 授權 |
 | POST | `admin/city/new` | 授權 |
 | POST | `admin/city/insert` | 授權 |
@@ -711,6 +717,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | POST | `admin/telegram-log/{id}/cancel` | 授權 |
 | POST | `api/common/city` | 匿名 |
 | POST | `api/common/menu` | 匿名 |
+| GET\|HEAD | `api/files/{path}` | **匿名,不走信封** |
 | POST | `api/member/preference/get` | 登入 |
 | POST | `api/member/preference/save` | 登入 |
 | POST | `api/member/push/subscribe` | 登入 |
@@ -730,6 +737,8 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `matrix.admin-api-prefix` | `'admin'` | 後台路由前綴 |
 | `matrix.admin-menus` | `'base'` | 要載入哪些選單 bundle,空白分隔,排前面的覆蓋排後面的 |
 | `matrix.api-prefix` | `'api'` | 前台路由前綴 |
+| `matrix.date-format` | `'Y-m-d'` | 日期顯示格式 |
+| `matrix.datetime-format` | `'Y-m-d H:i:s'` | 日期時間顯示格式 |
 | `matrix.drive-disk` | `'local'` | 雲端硬碟實體檔案的 disk,獨立於 `file-*-disk`,永遠不對外公開,只透過 `drive/{id}/download` 讀取 |
 | `matrix.file-private-disk` | `'local'` | 非公開檔案的 disk |
 | `matrix.file-public-disk` | `'public'` | 公開檔案的 disk |
@@ -738,7 +747,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `matrix.member-model` | `Member::class` | 會員 model,宿主可換成自己的 |
 | `matrix.messaging` | 見範本 | channel 註冊。每個 channel 都要有 `model` 與 `queue`。**巢狀 key,宣告就整份取代** |
 | `matrix.packages` | `'app base'` | 資源疊層順序 |
-| `matrix.passkey-rp-id` | `null` | Passkey Relying Party ID。`null` 時 fallback 用當次請求的主機名稱——若後台前端與此 API 不同源,務必明確設定,見[已知限制與取捨](#已知限制與取捨)。允許的 origin 一律由此值(加上 `admin.passkey-allow-subdomains`)推導為 `["https://{rp-id}"]`,不另外開放設定 |
+| `matrix.passkey-rp-id` | `null` | Passkey Relying Party ID。`null` 時 fallback 用當次請求的主機名稱——若後台前端與此 API 不同源,務必明確設定,見[已知限制與取捨](#已知限制與取捨)。允許的 origin 由此值(加上 `admin.passkey-allow-subdomains`)推導,預設一律要求 `https://{rp-id}`;此值出現在 `admin.passkey-http-rp-ids` 白名單裡才會額外放行 `http://{rp-id}`(本機開發用) |
 | `matrix.resource-cfg` | `[]` | 資源後台開放編輯的 cfg bundle 白名單,**空 = 全部不開放** |
 | `matrix.resource-i18n` | `[]` | 同上,一般翻譯 |
 | `matrix.resource-i18n-menu` | `[]` | 同上,選單標題 |
@@ -765,6 +774,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `admin.mfa-window` | `1` | TOTP 驗證時間漂移容忍度(±N 個 30 秒區間) |
 | `admin.passkey-allow-subdomains` | `false` | 是否允許子網域的 origin 通過驗證 |
 | `admin.passkey-challenge-ttl` | `120` | Passkey 註冊/登入 challenge 有效秒數 |
+| `admin.passkey-http-rp-ids` | `''` | 逗號分隔的 RP ID 清單,清單內的值額外放行 `http://` origin(本機開發用,本機以外不要設)。空字串 = 一律要求 `https://` |
 | `admin.passkey-timeout` | `60000` | 前端 ceremony 逾時毫秒數(供前端顯示,伺服器不強制) |
 | `admin.password-pattern` | `'/^(?=.*\d)(?=.*[a-zA-Z]).{8,}$/'` | 自助改密碼、`matrix:passwd` 與使用者表單共用的密碼規則 |
 | `admin.token-idle-minutes` | `30` | 後台 token 閒置多久失效 |
@@ -811,8 +821,6 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `file.mime-patterns` | `''` | 型別白名單(正則,空白 = 不檢查) |
 | `drive.deduplicate` | `true` | 開啟後,雲端硬碟上傳內容雜湊相同的檔案會共用同一份實體檔案,不重複寫入 |
 | `drive.trash-default-days` | `30` | `drive/trashed` 預設只列出這幾天內的垃圾桶項目,可用 `days`/`all` 參數放寬,不影響 `restore` |
-| `system.date-format` | `'Y-m-d'` | 日期顯示格式 |
-| `system.datetime-format` | `'Y-m-d H:i:s'` | 日期時間顯示格式 |
 
 `gmail`、`mitake`、`webpush` 與 `telegram` 是出貨的供應商 bundle。加一個供應商就是加一份 `resources/cfg/{名稱}.php`,鍵的形狀照上面四組。
 
@@ -821,6 +829,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | 指令 | 作用 |
 |---|---|
 | `matrix:passwd` | 設定後台帳號密碼,建立管理員的唯一官方入口 |
+| `matrix:prune-drive-files` | 刪掉不再被任何 CRUD 記錄引用的 drive-linked `base_file`,每次執行都是即時掃描全部資料、當場判斷、當場刪除,沒有寬限期。**只掃描寫進 model `#[Declared]` 宣告(不是只寫在 controller)的 `drive-file`/`drive-image` 欄位** |
 | `matrix:prune-tokens` | 刪掉已經不能用來認證的 token,`--limit` 控制每批筆數（預設 1000） |
 | `matrix:sync-translatable` | 掃描所有套件、所有 Model 的 translatable 欄位,幫缺少目前設定語言的欄位補上實體欄位（皆為 nullable,不回填） |
 | `messages:dispatch` | 為每個有待送訊息的 channel 派送一個發送工作;任一 channel 設定壞掉就回非零 exit code |
@@ -832,6 +841,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 |---|---|
 | `actor-already-assigned` | 身分已設定，不可重複指派 |
 | `data-conflicted` | 資料已被修改 |
+| `data-in-use` | 這筆資料仍被其他資料參照，無法刪除 |
 | `data-not-found` | 查無資料 |
 | `drive-anchor-immutable` | home 目錄與群組目錄不能被搬移或丟進垃圾桶 |
 | `endpoint-not-found` | 端點不存在 |
@@ -842,6 +852,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `invalid-cascade-relation` | 連動關聯必須是 hasOne、hasMany 或其 morph 形式 |
 | `invalid-column-condition` | 欄位條件語法錯誤 |
 | `invalid-column-expression` | 欄位運算式語法錯誤 |
+| `invalid-drive-file` | 不是有效的雲端硬碟檔案 |
 | `invalid-filter-value` | 篩選值的格式不正確 |
 | `invalid-geolocation-driver` | 地理位置服務設定錯誤 |
 | `invalid-identity-model` | 身分 model 設定錯誤 |
@@ -951,6 +962,8 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 - `writable` 是**這一欄送回來會不會被寫入**。
 
 一個「有選項的整數欄位」是 `type: integer` + `presentation: select`,三個維度都完整。
+
+`type` 是 `date` 或 `datetime` 的欄位另外帶一個 `format`(例如 `YYYY-MM-DD`、`YYYY-MM-DD HH:mm:ss`,即 `matrix.date-format` / `matrix.datetime-format` 轉成前端慣用的日期格式代號),`rows`/`data` 裡該欄位的實際字串就是照這個格式輸出;其餘型別 `format` 是 `null`。
 
 **不可寫有三種原因:`readonly` 宣告、`virtual`(`+` 前綴)、以及跨關聯或聚合欄位(`group.title`、`count(orders)`)。** 只有第一種在 `columns[]` 上另有 `readonly` 鍵看得出來,所以**前端要看 `writable`,不要看 `readonly`** —— 否則後兩種會畫出一顆改了完全沒效果的輸入框,而使用者會看到「已儲存」。
 
@@ -1066,6 +1079,7 @@ parameters:
 | **前台沒有任何檔案端點** | 前台要上傳就自己呼叫 `FileService::upload()`,並自己決定權限與限制 |
 | **雲端硬碟(`drive/*`)上傳不檢查型別或大小**,沒有等同 `file.max-size` / `file.mime-patterns` 的設定 | 要限制就自己在 `DriveService::upload()` 前面加檢查 |
 | **`drive/*` 沒有選單節點,只掛 `user-api`**(比照 `admin/auth/passwd`、`admin/file/*`)——任何登入的後台 User 都能呼叫,不需要選單授權 | 節點層級的 owner/群組存取完全交給 `DrivePermissionService` 這一層把關,不是靠選單權限 |
+| **`manipulation-log/query`、`schedule/toggle` 同樣沒有專屬選單節點、只掛 `user-api`**,但跟上面兩列不同——這兩支端點呼叫時會依請求帶的 `prefix` 找出目標資料實際所屬的既有選單節點,動態呼叫 `AdminPermission::permits()` 檢查 `query`/`update` 權限,行為上等同「借用」該資料原本的選單授權,不是完全不設防 | `prefix` 必須是某個已掛載 `ActionRoutes::mount()` 的 CRUD 資源的路由前綴(如 `group`);對應不到就回 `unsupported-model`,對應得到但沒權限一律 403 |
 | **`drive/{id}/delete` 只軟刪除目標本身,不遞迴子項目**;但被刪節點底下**沒被動到**的子孫會變成整體不可操作——`DrivePermissionService::allowed()` 往上爬錨點時遇到已軟刪除的祖先就直接判定沒有權限,**`User::ROOT` 也不例外** | 這是刻意的設計:不用遞迴刪除/還原,單純靠「祖先鏈斷在已軟刪除的節點」讓整個子樹自然變成不可操作;`restore()` 也只還原目標本身,把祖先救回來,子孫的可操作性就自動恢復。**但「看不看得到」是另一回事**——`drive/trashed` 跟 `drive/{id}/path` 用的是 `visible()`,爬的時候會穿過軟刪除的祖先繼續找,所以子孫依然會出現在垃圾桶列表、路徑依然查得到,只是在祖先還原之前 `restore()` 會報 `permission-denied` |
 | **欄位 DSL 是開發者輸入**,識別字會被插值進 SQL | 絕對不要把使用者輸入拼進 `$lists` / `$updates` |
 | **權限白名單只覆蓋 CRUD 的寫入路徑**。`replicate()`、`setRawAttributes()`、query builder 的 `update()` 都繞得過去 | 白名單防的是請求輸入,不是程式碼 |
@@ -1091,7 +1105,7 @@ parameters:
 | **`matrix:prune-tokens` 只清 `base_auth_token`** | 另外八張只增不減的表要自己來:`base_manipulation_log`、`base_user_log`、`base_member_log`、`base_vendor_log`、`base_mail_log`、`base_sms_log`、`base_push_log`、`base_telegram_log` |
 | 前四張只有 `create_time`(沒有 `update_time`);後四張兩個都有 | 清理判準只能用 `create_time` |
 | **`base_mail_log` / `base_sms_log` / `base_push_log` / `base_telegram_log` 只能刪終端狀態**(成功 / 失敗) | `Scheduled` 是還沒送出的排程,刪掉等於取消一封信 |
-| **`base_file` 不要用時間清** | 刪列不刪磁碟檔會漏儲存空間,而去重讓一筆記錄可能被多處引用 —— 套件答不出「誰可以刪」 |
+| **`base_file` 不要用時間清** | 刪列不刪磁碟檔會漏儲存空間,而去重讓一筆記錄可能被多處引用 —— 套件答不出「誰可以刪」。**例外**:drive-linked 的 `base_file`(`path` 以 `@` 開頭)由 `matrix:prune-drive-files` 即時掃描 CRUD 資料表判斷是否還有引用,可以安全清除 |
 | **`base_drive_node` 完全沒有永久刪除**——`drive/{id}/delete` 只是軟刪除(`deleted_at`),node 與實體檔案永遠不會真的消失 | 這是刻意的決定,不是漏做垃圾清除;資料庫與磁碟用量只會隨使用量增加,規劃容量時要算進去 |
 | **調大 `token-idle-minutes` 不會復活已經被清掉的 token** | 要調大就先調、再跑 prune |
 | `token-idle-minutes` 的 `min:1` 驗證**只擋資源後台** | 自己在 `resources/cfg/admin.php` 寫 `0` 不受檢查,結果是全員登出、prune 清空整張表 |

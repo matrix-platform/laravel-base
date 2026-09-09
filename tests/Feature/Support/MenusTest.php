@@ -54,6 +54,25 @@ class MenusTest extends FeatureTestCase {
         $this->assertTrue($node->group);
     }
 
+    public function test_a_node_without_a_blank_flag_defaults_to_false(): void {
+        $node = $this->menus()->node('widget');
+
+        $this->assertNotNull($node);
+        $this->assertFalse($node->blank);
+    }
+
+    public function test_the_production_drive_node_opens_in_a_new_tab(): void {
+        $this->useMenus('base');
+
+        $node = $this->menus()->node('drive');
+
+        $this->assertNotNull($node);
+        $this->assertTrue($node->blank);
+        $this->assertNull($node->parent);
+        $this->assertTrue($node->group);
+        $this->assertSame('user', $node->tag);
+    }
+
     public function test_an_unknown_node_is_null(): void {
         $this->assertNull($this->menus()->node('nothing'));
     }

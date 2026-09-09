@@ -28,6 +28,8 @@ return [
 
     'invalid-column-expression' => '列の式が不正です',
 
+    'invalid-drive-file' => '有効なドライブファイルではありません',
+
     'invalid-filter-value' => '絞り込み値の形式が不正です',
 
     'invalid-geolocation-driver' => '位置情報サービスの設定が不正です',

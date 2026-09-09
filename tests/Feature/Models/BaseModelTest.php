@@ -100,6 +100,33 @@ class BaseModelTest extends FeatureTestCase {
         $this->assertSame('2026-08-12 13:45:07', array_get_value($this->lastLog()->after, 'enable_time'));
     }
 
+    public function test_updating_a_datetime_column_serializes_before_and_after_in_the_same_format(): void {
+        $widget = Widget::forceCreate(['title' => 'alpha', 'enable_time' => '2026-08-12 13:45:07']);
+
+        $widget->setAttribute('enable_time', '2026-08-13 09:00:00');
+        $widget->save();
+
+        $log = $this->lastLog();
+        $pattern = '/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/';
+
+        $this->assertMatchesRegularExpression($pattern, array_get_value($log->before, 'enable_time'));
+        $this->assertMatchesRegularExpression($pattern, array_get_value($log->after, 'enable_time'));
+    }
+
+    public function test_updating_a_datetime_column_stays_aligned_under_a_custom_datetime_format(): void {
+        $this->useDateFormats('d/m/Y', 'd/m/Y H:i');
+
+        $widget = Widget::forceCreate(['title' => 'alpha', 'enable_time' => '2026-08-12 13:45:07']);
+
+        $widget->setAttribute('enable_time', '2026-08-13 09:00:00');
+        $widget->save();
+
+        $log = $this->lastLog();
+
+        $this->assertSame('12/08/2026 13:45', array_get_value($log->before, 'enable_time'));
+        $this->assertSame('13/08/2026 09:00', array_get_value($log->after, 'enable_time'));
+    }
+
     public function test_updating_only_untraceable_columns_writes_no_log(): void {
         $widget = Widget::forceCreate(['title' => 'alpha']);
         $before = $this->logCount();
@@ -226,7 +253,7 @@ class BaseModelTest extends FeatureTestCase {
     }
 
     public function test_dates_serialize_with_the_configured_format(): void {
-        $this->useCfgFixtures();
+        $this->useDateFormats('d/m/Y', 'd/m/Y H:i');
 
         $widget = Widget::forceCreate(['title' => 'alpha', 'enable_time' => '2026-08-12 13:45:07']);
 

@@ -145,7 +145,7 @@ class AuthController extends BaseController {
     }
 
     /**
-     * @return array{nodes: array<string, array<string, mixed>>, profile: ?User}
+     * @return array{nodes: array<string, array<string, mixed>>, profile: ?User, max_upload_size: int}
      */
     #[Action(scope: 'user-aware')]
     public function profile(): array {

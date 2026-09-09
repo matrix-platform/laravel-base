@@ -18,6 +18,8 @@ return [
 
     'passkey-challenge-ttl' => 120,
 
+    'passkey-http-rp-ids' => '',
+
     'passkey-timeout' => 60000,
 
     'password-pattern' => '/^(?=.*\d)(?=.*[a-zA-Z]).{8,}$/',

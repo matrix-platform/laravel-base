@@ -24,6 +24,8 @@ return [
 
     'insert' => 'Save',
 
+    'log' => 'Change History',
+
     'new' => 'Create',
 
     'revoke-passkeys' => 'Revoke Passkeys',

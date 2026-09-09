@@ -260,7 +260,8 @@ class PasskeyService {
     private function ceremonies(): CeremonyStepManagerFactory {
         $factory = new CeremonyStepManagerFactory();
         $factory->setCounterChecker(new PasskeyCounterChecker());
-        $factory->setAllowedOrigins(["https://{$this->rpId()}"], (bool) cfg('admin.passkey-allow-subdomains'));
+        $factory->setAllowedOrigins([], (bool) cfg('admin.passkey-allow-subdomains'));
+        $factory->setSecuredRelyingPartyId($this->httpRpIds());
 
         return $factory;
     }
@@ -281,6 +282,15 @@ class PasskeyService {
      */
     private function descriptorJson(PublicKeyCredentialDescriptor $descriptor): array {
         return ['type' => $descriptor->type, 'id' => Base64UrlSafe::encodeUnpadded($descriptor->id), 'transports' => array_values($descriptor->transports)];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function httpRpIds(): array {
+        $names = explode(',', (string) cfg('admin.passkey-http-rp-ids', ''));
+
+        return array_values(array_filter(array_map('trim', $names)));
     }
 
     /**

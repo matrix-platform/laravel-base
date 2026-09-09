@@ -5,6 +5,7 @@ namespace MatrixPlatform\Support;
 class MenuNode {
 
     public function __construct(
+        public readonly bool $blank,
         public readonly string $bundle,
         public readonly bool $group,
         public readonly ?string $icon,

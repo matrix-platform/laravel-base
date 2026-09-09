@@ -2,6 +2,7 @@
 
 namespace MatrixPlatform\Http\Controllers\Admin;
 
+use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use MatrixPlatform\Attributes\Action;
@@ -20,10 +21,12 @@ class DriveController extends BaseController {
      */
     #[Action('{id}/children')]
     public function children(Request $request): array {
+        $nodes = $this->service->children($this->node($request), actor()->requireUser());
+        $createdBy = $this->service->createdByMany($nodes);
         $payload = [];
 
-        foreach ($this->service->children($this->node($request), actor()->requireUser()) as $node) {
-            $payload[] = $this->present($node);
+        foreach ($nodes as $node) {
+            $payload[] = $this->present($node, $createdBy);
         }
 
         return $payload;
@@ -43,7 +46,9 @@ class DriveController extends BaseController {
 
     #[Action('{id}/download')]
     public function download(Request $request): StreamedResponse {
-        $node = $this->node($request);
+        $node = $this->node($request, withTrashed: true);
+
+        $this->service->requireAllowed($node, actor()->requireUser());
 
         if ($node->type !== DriveNodeType::File) {
             error('data-not-found', 404);
@@ -113,11 +118,12 @@ class DriveController extends BaseController {
     #[Action('{id}/path')]
     public function path(Request $request): array {
         $ancestors = $this->service->path($this->node($request, withTrashed: true), actor()->requireUser());
+        $createdBy = $this->service->createdByMany($ancestors);
         $deletedBy = $this->service->deletedByMany($ancestors);
         $payload = [];
 
         foreach ($ancestors as $ancestor) {
-            $payload[] = $this->present($ancestor, $deletedBy);
+            $payload[] = $this->present($ancestor, $createdBy, $deletedBy);
         }
 
         return $payload;
@@ -166,11 +172,12 @@ class DriveController extends BaseController {
     #[Action]
     public function trashed(Request $request): array {
         $nodes = $this->service->trashed(actor()->requireUser(), $this->optional($request, 'days'), $request->boolean('all'));
+        $createdBy = $this->service->createdByMany($nodes);
         $deletedBy = $this->service->deletedByMany($nodes);
         $payload = [];
 
         foreach ($nodes as $node) {
-            $payload[] = $this->present($node, $deletedBy);
+            $payload[] = $this->present($node, $createdBy, $deletedBy);
         }
 
         return $payload;
@@ -194,6 +201,17 @@ class DriveController extends BaseController {
         return $this->present($this->service->upload($this->node($request), $file, actor()->requireUser()));
     }
 
+    /**
+     * @param ?array<int, string> $map
+     */
+    private function mapped(DriveNode $node, ?array $map, Closure $fallback): ?string {
+        if ($map === null) {
+            return $fallback();
+        }
+
+        return array_key_exists($node->id, $map) ? $map[$node->id] : null;
+    }
+
     private function node(Request $request, bool $withTrashed = false): DriveNode {
         return $this->service->find((string) $request->route('id'), $withTrashed);
     }
@@ -203,25 +221,17 @@ class DriveController extends BaseController {
     }
 
     /**
-     * @param array<int, int> $deletedByMap
+     * @param array<int, string> $createdByMap
+     * @param array<int, string> $deletedByMap
      * @return array<string, mixed>
      */
-    private function present(DriveNode $node, ?array $deletedByMap = null): array {
+    private function present(DriveNode $node, ?array $createdByMap = null, ?array $deletedByMap = null): array {
         return [
-            'id' => $node->id,
-            'parent_id' => $node->parent_id,
-            'type' => $node->type->value,
-            'name' => $node->name,
-            'size' => $node->size,
-            'description' => $node->description,
-            'mime_type' => $node->mime_type,
-            'width' => $node->width,
-            'height' => $node->height,
-            'seconds' => $node->seconds,
-            'create_time' => $node->create_time,
-            'update_time' => $node->update_time,
-            'deleted_at' => $node->deleted_at,
-            'deleted_by' => $deletedByMap === null ? $this->service->deletedBy($node) : (array_key_exists($node->id, $deletedByMap) ? $deletedByMap[$node->id] : null)
+            ...array_intersect_key($node->toArray(), array_flip([
+                'id', 'parent_id', 'type', 'name', 'size', 'description', 'mime_type', 'width', 'height', 'seconds', 'create_time', 'update_time', 'deleted_at'
+            ])),
+            'created_by' => $this->mapped($node, $createdByMap, fn (): ?string => $this->service->createdBy($node)),
+            'deleted_by' => $this->mapped($node, $deletedByMap, fn (): ?string => $this->service->deletedBy($node))
         ];
     }
 

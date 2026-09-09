@@ -42,7 +42,7 @@ class ResourceServiceTest extends FeatureTestCase {
     }
 
     public function test_an_overridden_field_replaces_the_file_default_in_data(): void {
-        ResourceOverride::forceCreate(['bundle' => 'cfg/admin', 'data' => ['captcha-ttl' => 600]]);
+        $this->useCfg('admin', ['captcha-ttl' => 600]);
 
         $payload = $this->service()->get(ResourceGroup::Cfg, 'admin');
 

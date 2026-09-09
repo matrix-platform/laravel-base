@@ -44,6 +44,7 @@ return new class extends Migration {
             $table->integer('widget_id')->nullable();
             $table->jsonb('attachments')->nullable();
             $table->translatable('translated');
+            $table->schedules();
             $table->auditings();
         });
     }

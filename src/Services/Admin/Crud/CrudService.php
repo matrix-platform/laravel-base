@@ -3,6 +3,7 @@
 namespace MatrixPlatform\Services\Admin\Crud;
 
 use Closure;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
@@ -12,9 +13,12 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Unique;
 use MatrixPlatform\Columns\Column;
 use MatrixPlatform\Columns\ColumnResolver;
+use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Columns\Query\QueryPlan;
 use MatrixPlatform\Columns\Syntax\ColumnParser;
+use MatrixPlatform\Models\BaseModel;
+use MatrixPlatform\Services\FileService;
 use MatrixPlatform\Support\Actions;
 use MatrixPlatform\Support\AdminPermission;
 use MatrixPlatform\Support\Menus;
@@ -32,7 +36,7 @@ abstract class CrudService {
      */
     protected array $guards = [];
 
-    protected Model $model;
+    protected BaseModel $model;
 
     /**
      * @var array<string, mixed>
@@ -53,7 +57,7 @@ abstract class CrudService {
     private ColumnResolver $resolver;
 
     /**
-     * @param class-string<Model> $model
+     * @param class-string<BaseModel> $model
      */
     public function __construct(string $model) {
         $this->model = new $model();
@@ -188,6 +192,57 @@ abstract class CrudService {
         return $this->prepared($this->plan()->complete());
     }
 
+    /**
+     * @param array<string, mixed> $data
+     * @param list<Column> $columns
+     * @return array<string, mixed>
+     */
+    protected function dated(array $data, Model $record, array $columns): array {
+        foreach ($columns as $column) {
+            if ($column->type === ColumnType::Date) {
+                $value = $record->getAttribute($column->name);
+
+                if ($value instanceof DateTimeInterface) {
+                    $data[$column->name] = $value->format(config('matrix.date-format'));
+                }
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * @param array<mixed> $value
+     * @return list<array<string, mixed>>
+     */
+    protected function driveEntries(array $value): array {
+        $entries = [];
+
+        foreach ($value as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+
+            $normalized = [];
+
+            foreach ($entry as $key => $item) {
+                $normalized[(string) $key] = $item;
+            }
+
+            $entries[] = $normalized;
+        }
+
+        return $entries;
+    }
+
+    protected function driveResolved(Column $column, mixed $value): mixed {
+        if (!in_array($column->presentation, [Presentation::DriveFile, Presentation::DriveImage], true) || !is_array($value)) {
+            return $value;
+        }
+
+        return app(FileService::class)->resolveDriveReferences($this->driveEntries($value), actor()->requireUser());
+    }
+
     protected function foreign(): ?string {
         return $this->standalone ? null : $this->subject->foreign($this->model);
     }
@@ -202,8 +257,9 @@ abstract class CrudService {
     }
 
     /**
-     * @param Collection<int, Model> $models
-     * @return array<string, Model>
+     * @template TModel of Model
+     * @param Collection<int, TModel> $models
+     * @return array<string, TModel>
      */
     protected function keyed(Collection $models): array {
         $keyed = [];
@@ -294,7 +350,7 @@ abstract class CrudService {
     }
 
     /**
-     * @return Builder<Model>
+     * @return Builder<BaseModel>
      */
     protected function plain(): Builder {
         return $this->prepared($this->model->query());
@@ -360,6 +416,11 @@ abstract class CrudService {
             'title' => $column->title,
             'translatable' => $column->translatable,
             'type' => $column->type->value,
+            'format' => match ($column->type) {
+                ColumnType::Date => $this->frontendFormat(config('matrix.date-format')),
+                ColumnType::DateTime => $this->frontendFormat(config('matrix.datetime-format')),
+                default => null
+            },
             'presentation' => $column->presentation instanceof Presentation ? $column->presentation->value : $column->presentation
         ];
     }
@@ -383,6 +444,24 @@ abstract class CrudService {
         $menu = app(AdminPermission::class)->getCurrentMenu();
 
         return $menu === null ? null : i18n($menu->token());
+    }
+
+    /**
+     * @param list<string|Operation> $actions
+     * @return list<string|Operation>
+     */
+    protected function traceable(array $actions): array {
+        if (!$this->model::TRACEABLE) {
+            return $actions;
+        }
+
+        foreach ($actions as $action) {
+            if ($action === 'log' || ($action instanceof Operation && $action->type === 'log')) {
+                return $actions;
+            }
+        }
+
+        return [...$actions, 'log'];
     }
 
     /**
@@ -420,6 +499,18 @@ abstract class CrudService {
         return $url !== null && app(AdminPermission::class)->reaches($url);
     }
 
+    private function frontendFormat(string $format): string {
+        return strtr($format, [
+            'Y' => 'YYYY', 'y' => 'YY',
+            'm' => 'MM', 'n' => 'M',
+            'd' => 'DD', 'j' => 'D',
+            'H' => 'HH', 'G' => 'H',
+            'h' => 'hh', 'g' => 'h',
+            'i' => 'mm', 's' => 'ss',
+            'A' => 'A', 'a' => 'a'
+        ]);
+    }
+
     private function has(string $name): bool {
         return in_array($name, array_column($this->columns, 'name'), true);
     }
@@ -453,8 +544,9 @@ abstract class CrudService {
     }
 
     /**
-     * @param Builder<Model> $query
-     * @return Builder<Model>
+     * @template TModel of Model
+     * @param Builder<TModel> $query
+     * @return Builder<TModel>
      */
     private function prepared(Builder $query): Builder {
         $foreign = $this->foreign();

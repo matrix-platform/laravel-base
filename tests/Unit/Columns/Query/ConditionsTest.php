@@ -9,13 +9,13 @@ use PHPUnit\Framework\TestCase;
 class ConditionsTest extends TestCase {
 
     public function test_no_conditions_compile_to_an_empty_clause(): void {
-        $this->assertSame(['', []], Conditions::compile([]));
+        $this->assertSame(['', []], Conditions::compile([], fn (string $alias, string $field): string => "{$alias}.{$field}"));
     }
 
     public function test_a_plain_operator_binds_its_value(): void {
         $this->assertSame(
             ['trinkets.amount > ?', ['10']],
-            Conditions::compile(['trinkets' => [new Condition('amount', '>', '10')]])
+            Conditions::compile(['trinkets' => [new Condition('amount', '>', '10')]], fn (string $alias, string $field): string => "{$alias}.{$field}")
         );
     }
 
@@ -25,21 +25,21 @@ class ConditionsTest extends TestCase {
             Conditions::compile(['trinkets' => [
                 new Condition('label', 'NULL', null),
                 new Condition('amount', 'NOT NULL', null)
-            ]])
+            ]], fn (string $alias, string $field): string => "{$alias}.{$field}")
         );
     }
 
     public function test_in_expands_into_placeholders(): void {
         $this->assertSame(
             ['trinkets.amount IN (?,?,?)', ['1', '2', '3']],
-            Conditions::compile(['trinkets' => [new Condition('amount', 'IN', ['1', '2', '3'])]])
+            Conditions::compile(['trinkets' => [new Condition('amount', 'IN', ['1', '2', '3'])]], fn (string $alias, string $field): string => "{$alias}.{$field}")
         );
     }
 
     public function test_not_in_expands_into_placeholders(): void {
         $this->assertSame(
             ['trinkets.amount NOT IN (?,?)', ['1', '2']],
-            Conditions::compile(['trinkets' => [new Condition('amount', 'NOT IN', ['1', '2'])]])
+            Conditions::compile(['trinkets' => [new Condition('amount', 'NOT IN', ['1', '2'])]], fn (string $alias, string $field): string => "{$alias}.{$field}")
         );
     }
 
@@ -50,14 +50,14 @@ class ConditionsTest extends TestCase {
                 new Condition('label', '^=', 'a'),
                 new Condition('label', '$=', 'a'),
                 new Condition('label', '*=', 'a')
-            ]])
+            ]], fn (string $alias, string $field): string => "{$alias}.{$field}")
         );
     }
 
     public function test_like_values_are_escaped(): void {
         $this->assertSame(
             ['trinkets.label ILIKE ?', ['100\\%\\_\\\\%']],
-            Conditions::compile(['trinkets' => [new Condition('label', '^=', '100%_\\')]])
+            Conditions::compile(['trinkets' => [new Condition('label', '^=', '100%_\\')]], fn (string $alias, string $field): string => "{$alias}.{$field}")
         );
     }
 
@@ -67,7 +67,7 @@ class ConditionsTest extends TestCase {
             Conditions::compile([
                 'trinkets' => [new Condition('label', '=', 'a')],
                 'trinkets__widget' => [new Condition('title', '=', 'b')]
-            ])
+            ], fn (string $alias, string $field): string => "{$alias}.{$field}")
         );
     }
 

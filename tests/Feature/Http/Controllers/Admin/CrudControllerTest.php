@@ -82,7 +82,7 @@ class CrudControllerTest extends FeatureTestCase {
         $response->assertJsonPath('data.breadcrumbs', [['label' => null, 'path' => 'widget', 'title' => 'Widgets']]);
         $response->assertJsonPath('data.rows.0.title', 'Alpha');
         $response->assertJsonPath('data.rows.0.trinkets_count', 1);
-        $response->assertJsonPath('data.rows.0.actions', ['edit', 'delete']);
+        $response->assertJsonPath('data.rows.0.actions', ['edit', 'delete', 'log']);
         $response->assertJsonPath('data.pagination', ['page' => 1, 'size' => 10, 'total' => 1]);
         $response->assertJsonPath('data.columns.0.name', 'title');
         $response->assertJsonPath('data.actions.page.0.type', 'new');
@@ -191,6 +191,23 @@ class CrudControllerTest extends FeatureTestCase {
 
         $this->assertSame(['title', 'attachments'], $listNames);
         $this->assertSame(['title', 'attachments', 'permissions', 'password'], $newNames);
+    }
+
+    public function test_the_auto_derived_listing_omits_the_enable_and_disable_columns_when_arrangeable(): void {
+        app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget', enable: 'enable_time', disable: 'disable_time'), [
+            'id' => Definition::integer(),
+            'title' => Definition::text(),
+            'enable_time' => Definition::dateTime(),
+            'disable_time' => Definition::dateTime(),
+            'creator_id' => Definition::integer(),
+            'create_time' => Definition::dateTime()
+        ]));
+
+        $listNames = array_column($this->admin('admin/gadget')->json('data.columns'), 'name');
+        $newNames = array_column($this->admin('admin/gadget/new')->json('data.columns'), 'name');
+
+        $this->assertSame(['title'], $listNames);
+        $this->assertSame(['title', 'enable_time', 'disable_time'], $newNames);
     }
 
     public function test_the_auto_derived_listing_joins_a_foreign_key_into_its_related_title(): void {

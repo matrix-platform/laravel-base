@@ -21,10 +21,6 @@ return [
     'cfg/member.password-pattern' => '密码规则(正则表达式)',
     'cfg/member.token-idle-minutes' => '凭证闲置超时(分钟)',
 
-    'cfg/system' => '系统',
-    'cfg/system.date-format' => '日期格式',
-    'cfg/system.datetime-format' => '日期时间格式',
-
     'cfg/vendor' => '厂商',
     'cfg/vendor.login-throttle-max' => '登录尝试次数上限',
     'cfg/vendor.login-throttle-window' => '登录限制时间(分钟)',

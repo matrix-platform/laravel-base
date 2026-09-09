@@ -18,6 +18,8 @@ return [
 
     'passkey-challenge-ttl' => ['type' => 'integer', 'rule' => ['integer', 'min:1']],
 
+    'passkey-http-rp-ids' => ['type' => 'text'],
+
     'passkey-timeout' => ['type' => 'integer', 'rule' => ['integer', 'min:1000']],
 
     'token-idle-minutes' => ['type' => 'integer', 'rule' => ['integer', 'min:1']],

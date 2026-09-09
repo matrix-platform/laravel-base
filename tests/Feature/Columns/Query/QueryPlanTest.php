@@ -11,6 +11,7 @@ use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
 use Tests\FeatureTestCase;
+use Tests\Stubs\CamelCasedGadget;
 use Tests\Stubs\Gadget;
 use Tests\Stubs\StubDeclaration;
 use Tests\Stubs\Trinket;
@@ -60,6 +61,19 @@ class QueryPlanTest extends FeatureTestCase {
         return new QueryPlan($model, array_map(fn ($column) => $resolver->resolve($parser->parse($column), $model), $columns));
     }
 
+    private function gadgets(): void {
+        app(MetadataRegistry::class)->register(CamelCasedGadget::class, new StubDeclaration(new Metadata('gadget')));
+
+        $alpha = CamelCasedGadget::forceCreate(['title' => 'Alpha']);
+        $beta = CamelCasedGadget::forceCreate(['title' => 'Beta']);
+
+        CamelCasedGadget::forceCreate(['title' => 'Gamma']);
+
+        Trinket::forceCreate(['label' => 'a1', 'gadget_id' => $alpha->id]);
+        Trinket::forceCreate(['label' => 'a2', 'gadget_id' => $alpha->id]);
+        Trinket::forceCreate(['label' => 'b1', 'gadget_id' => $beta->id]);
+    }
+
     private function widgets(): void {
         $alpha = Widget::forceCreate(['title' => 'Alpha']);
         $beta = Widget::forceCreate(['title' => 'Beta']);
@@ -81,7 +95,7 @@ class QueryPlanTest extends FeatureTestCase {
             ->toSql();
 
         $this->assertSame(
-            'select "stub_trinket"."id", "widget"."title" as widget_title from "stub_trinket" '
+            'select "stub_trinket"."id", "widget"."title" as "widget_title" from "stub_trinket" '
                 . 'left join "stub_widget" as "widget" on "widget"."id" = "stub_trinket"."widget_id"',
             $sql
         );
@@ -128,7 +142,7 @@ class QueryPlanTest extends FeatureTestCase {
             ->toSql();
 
         $this->assertSame(
-            'select "stub_widget"."id", "stub_widget"."title" as title, "stub_widget"."ranking" as ranking from "stub_widget"',
+            'select "stub_widget"."id", "stub_widget"."title" as "title", "stub_widget"."ranking" as "ranking" from "stub_widget"',
             $sql
         );
     }
@@ -139,7 +153,7 @@ class QueryPlanTest extends FeatureTestCase {
             ->toSql();
 
         $this->assertSame(
-            'select "stub_trinket".*, "widget"."title" as widget_title from "stub_trinket" '
+            'select "stub_trinket".*, "widget"."title" as "widget_title" from "stub_trinket" '
                 . 'left join "stub_widget" as "widget" on "widget"."id" = "stub_trinket"."widget_id"',
             $sql
         );
@@ -150,7 +164,7 @@ class QueryPlanTest extends FeatureTestCase {
             ->projection()
             ->toSql();
 
-        $this->assertSame('select "stub_widget"."id", "stub_widget"."title" as title from "stub_widget"', $sql);
+        $this->assertSame('select "stub_widget"."id", "stub_widget"."title" as "title" from "stub_widget"', $sql);
     }
 
     public function test_a_virtual_column_keeps_its_join_so_that_it_stays_filterable(): void {
@@ -166,7 +180,7 @@ class QueryPlanTest extends FeatureTestCase {
             ->toSql();
 
         $this->assertSame(
-            'select "stub_widget"."id", lower("stub_widget"."title") as lowered from "stub_widget"',
+            'select "stub_widget"."id", lower("stub_widget"."title") as "lowered" from "stub_widget"',
             $sql
         );
     }
@@ -177,8 +191,8 @@ class QueryPlanTest extends FeatureTestCase {
             ->toSql();
 
         $this->assertSame(
-            'select "stub_widget"."id", "trinkets"."trinkets_count" as trinkets_count from "stub_widget" '
-                . 'left join (select "trinkets"."widget_id", count(*) as trinkets_count '
+            'select "stub_widget"."id", "trinkets"."trinkets_count" as "trinkets_count" from "stub_widget" '
+                . 'left join (select "trinkets"."widget_id", count(*) as "trinkets_count" '
                 . 'from "stub_trinket" as "trinkets" group by "trinkets"."widget_id") as "trinkets" '
                 . 'on "trinkets"."widget_id" = "stub_widget"."id"',
             $sql
@@ -210,7 +224,7 @@ class QueryPlanTest extends FeatureTestCase {
             ->toSql();
 
         foreach (['sum', 'avg', 'max', 'min'] as $aggregate) {
-            $this->assertStringContainsString("{$aggregate}(trinkets.amount) as trinkets_{$aggregate}_amount", $sql);
+            $this->assertStringContainsString("{$aggregate}(\"trinkets\".\"amount\") as \"trinkets_{$aggregate}_amount\"", $sql);
         }
     }
 
@@ -220,13 +234,13 @@ class QueryPlanTest extends FeatureTestCase {
             ->toSql();
 
         $this->assertSame(1, substr_count($sql, 'left join ('));
-        $this->assertStringContainsString('count(*) as trinkets_count, sum(trinkets.amount) as trinkets_sum_amount', $sql);
+        $this->assertStringContainsString('count(*) as "trinkets_count", sum("trinkets"."amount") as "trinkets_sum_amount"', $sql);
     }
 
     public function test_a_conditional_aggregate_uses_a_filter_clause(): void {
         $query = $this->plan(['count(trinkets[label^=a])'])->projection();
 
-        $this->assertStringContainsString('count(*) FILTER (WHERE trinkets.label ILIKE ?) as trinkets_count', $query->toSql());
+        $this->assertStringContainsString('count(*) FILTER (WHERE "trinkets"."label" ILIKE ?) as "trinkets_count"', $query->toSql());
         $this->assertSame(['a%'], $query->getBindings());
     }
 
@@ -247,15 +261,37 @@ class QueryPlanTest extends FeatureTestCase {
         $this->assertSame(3, $this->plan(['title', 'count(trinkets[label^=a])'])->projection()->count());
     }
 
+    public function test_a_mixed_case_relation_name_survives_the_aggregate_join(): void {
+        $this->gadgets();
+
+        $rows = $this->plan(['title', 'count(camelCasedTrinkets)'], new CamelCasedGadget())
+            ->projection()
+            ->orderBy('title')
+            ->get();
+
+        $this->assertSame([2, 1, null], $rows->pluck('camelCasedTrinkets_count')->all());
+    }
+
+    public function test_a_mixed_case_relation_name_survives_a_filtered_aggregate(): void {
+        $this->gadgets();
+
+        $rows = $this->plan(['title', 'count(camelCasedTrinkets[label^=a])'], new CamelCasedGadget())
+            ->projection()
+            ->orderBy('title')
+            ->get();
+
+        $this->assertSame([2, 0, null], $rows->pluck('camelCasedTrinkets_count')->all());
+    }
+
     public function test_the_three_condition_specials_compile_into_the_filter_clause(): void {
         $query = $this->plan(['count(trinkets[widget_id=null])', 'x=count(trinkets[widget_id!=null])', 'y=count(trinkets[amount=5,10])'])
             ->projection();
 
         $sql = $query->toSql();
 
-        $this->assertStringContainsString('FILTER (WHERE trinkets.widget_id IS NULL)', $sql);
-        $this->assertStringContainsString('FILTER (WHERE trinkets.widget_id IS NOT NULL)', $sql);
-        $this->assertStringContainsString('FILTER (WHERE trinkets.amount IN (?,?))', $sql);
+        $this->assertStringContainsString('FILTER (WHERE "trinkets"."widget_id" IS NULL)', $sql);
+        $this->assertStringContainsString('FILTER (WHERE "trinkets"."widget_id" IS NOT NULL)', $sql);
+        $this->assertStringContainsString('FILTER (WHERE "trinkets"."amount" IN (?,?))', $sql);
         $this->assertSame(['5', '10'], $query->getBindings());
     }
 
@@ -263,7 +299,7 @@ class QueryPlanTest extends FeatureTestCase {
         $query = $this->plan(['count(trinkets[label^=a].trinket[label^=b])'])->projection();
 
         $this->assertStringContainsString(
-            'FILTER (WHERE trinkets.label ILIKE ? AND trinkets__trinket.label ILIKE ?)',
+            'FILTER (WHERE "trinkets"."label" ILIKE ? AND "trinkets__trinket"."label" ILIKE ?)',
             $query->toSql()
         );
 
@@ -276,8 +312,8 @@ class QueryPlanTest extends FeatureTestCase {
             ->toSql();
 
         $this->assertSame(
-            'select "stub_widget"."id", "trinkets__trinket"."trinkets__trinket_count" as trinkets__trinket_count '
-                . 'from "stub_widget" left join (select "trinkets"."widget_id", count(*) as trinkets__trinket_count '
+            'select "stub_widget"."id", "trinkets__trinket"."trinkets__trinket_count" as "trinkets__trinket_count" '
+                . 'from "stub_widget" left join (select "trinkets"."widget_id", count(*) as "trinkets__trinket_count" '
                 . 'from "stub_trinket" as "trinkets__trinket" '
                 . 'inner join "stub_trinket" as "trinkets" on "trinkets__trinket"."id" = "trinkets"."trinket_id" '
                 . 'group by "trinkets"."widget_id") as "trinkets__trinket" '
@@ -335,7 +371,7 @@ class QueryPlanTest extends FeatureTestCase {
     public function test_a_condition_value_is_unrestricted_but_always_bound(): void {
         $query = $this->plan(["count(trinkets[label=a b;c'])"])->projection();
 
-        $this->assertStringContainsString('FILTER (WHERE trinkets.label = ?)', $query->toSql());
+        $this->assertStringContainsString('FILTER (WHERE "trinkets"."label" = ?)', $query->toSql());
         $this->assertSame(["a b;c'"], $query->getBindings());
     }
 
@@ -347,9 +383,9 @@ class QueryPlanTest extends FeatureTestCase {
             ->toSql();
 
         $this->assertSame(
-            'select "stub_widget"."id", "stub_widget"."translated__tw" as translated__tw, '
-                . '"stub_widget"."translated__en" as translated__en, '
-                . '"stub_widget"."translated__en" as translated from "stub_widget"',
+            'select "stub_widget"."id", "stub_widget"."translated__tw" as "translated__tw", '
+                . '"stub_widget"."translated__en" as "translated__en", '
+                . '"stub_widget"."translated__en" as "translated" from "stub_widget"',
             $sql
         );
     }
@@ -361,7 +397,7 @@ class QueryPlanTest extends FeatureTestCase {
             ->complete()
             ->toSql();
 
-        $this->assertSame('select "stub_widget".*, "stub_widget"."translated__en" as translated from "stub_widget"', $sql);
+        $this->assertSame('select "stub_widget".*, "stub_widget"."translated__en" as "translated" from "stub_widget"', $sql);
     }
 
     public function test_a_translatable_column_reached_through_a_relation_uses_the_join_alias_as_qualifier(): void {
@@ -372,9 +408,9 @@ class QueryPlanTest extends FeatureTestCase {
             ->toSql();
 
         $this->assertSame(
-            'select "stub_trinket".*, "gadget"."translated__tw" as gadget_translated__tw, '
-                . '"gadget"."translated__en" as gadget_translated__en, '
-                . '"gadget"."translated__en" as gadget_translated from "stub_trinket" '
+            'select "stub_trinket".*, "gadget"."translated__tw" as "gadget_translated__tw", '
+                . '"gadget"."translated__en" as "gadget_translated__en", '
+                . '"gadget"."translated__en" as "gadget_translated" from "stub_trinket" '
                 . 'left join "stub_gadget" as "gadget" on "gadget"."id" = "stub_trinket"."gadget_id"',
             $sql
         );

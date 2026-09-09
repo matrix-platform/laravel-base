@@ -563,6 +563,18 @@ class DriveServiceTest extends FeatureTestCase {
         $this->refuses('drive-anchor-immutable', fn () => $service->trash($root, $owner));
     }
 
+    public function test_created_by_reports_the_creators_username(): void {
+        $this->actAsRoot();
+
+        $service = $this->service();
+        $root = $service->root();
+        $owner = $this->user();
+        $folder = $service->createFolder($root, 'folder', $owner);
+
+        $this->assertNull($service->createdBy($root));
+        $this->assertSame(User::query()->findOrFail(User::ROOT)->username, $service->createdBy($folder));
+    }
+
     public function test_deleted_by_is_null_for_a_node_that_is_not_trashed(): void {
         $service = $this->service();
         $root = $service->root();
@@ -571,7 +583,7 @@ class DriveServiceTest extends FeatureTestCase {
         $this->assertNull($service->deletedBy($folder));
     }
 
-    public function test_deleted_by_reports_the_acting_users_id(): void {
+    public function test_deleted_by_reports_the_acting_users_username(): void {
         $this->actAsRoot();
 
         $service = $this->service();
@@ -581,7 +593,7 @@ class DriveServiceTest extends FeatureTestCase {
 
         $service->trash($folder, $owner);
 
-        $this->assertSame(User::ROOT, $service->deletedBy($folder->refresh()));
+        $this->assertSame(User::query()->findOrFail(User::ROOT)->username, $service->deletedBy($folder->refresh()));
     }
 
     public function test_path_returns_the_ancestor_chain_from_the_anchor_down(): void {

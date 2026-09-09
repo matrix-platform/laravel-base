@@ -78,4 +78,6 @@ return [
 
         'geolocation' => '地理位置查询',
 
+    'drive' => '文件管理',
+
 ];

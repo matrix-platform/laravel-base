@@ -67,7 +67,7 @@ class QueryPlan {
             }
 
             if ($column->expression->path !== [] || $column->translatable) {
-                $selects[] = new Raw("{$this->fields[$column->name]} as {$column->name}");
+                $selects[] = new Raw("{$this->fields[$column->name]} as {$this->quote($column->name)}");
             }
         }
 
@@ -102,7 +102,7 @@ class QueryPlan {
                 array_push($selects, ...$this->translatedSelects($column));
             }
 
-            $selects[] = new Raw("{$this->fields[$column->name]} as {$column->name}");
+            $selects[] = new Raw("{$this->fields[$column->name]} as {$this->quote($column->name)}");
         }
 
         $this->apply($query);
@@ -237,6 +237,13 @@ class QueryPlan {
         error('invalid-column-expression');
     }
 
+    private function quote(string $value): string {
+        return $this->root
+            ->getConnection()
+            ->getQueryGrammar()
+            ->wrap($value);
+    }
+
     /**
      * @return Relation<Model, Model, mixed>
      */
@@ -270,17 +277,17 @@ class QueryPlan {
         $sub->select($group)->groupBy($group);
 
         foreach ($join->aggregates as $aggregate) {
-            $sql = $aggregate->field === null ? 'count(*)' : "{$aggregate->aggregate}({$join->alias}.{$aggregate->field})";
+            $sql = $aggregate->field === null ? 'count(*)' : "{$aggregate->aggregate}({$this->wrap($join->alias, $aggregate->field)})";
 
             if ($aggregate->conditions === []) {
-                $sub->addSelect(new Raw("{$sql} as {$aggregate->name}"));
+                $sub->addSelect(new Raw("{$sql} as {$this->quote($aggregate->name)}"));
 
                 continue;
             }
 
-            [$where, $bindings] = Conditions::compile($aggregate->conditions);
+            [$where, $bindings] = Conditions::compile($aggregate->conditions, fn (string $alias, string $field): string => $this->wrap($alias, $field));
 
-            $sub->addSelect(new Raw("{$sql} FILTER (WHERE {$where}) as {$aggregate->name}"))->addBinding($bindings, 'select');
+            $sub->addSelect(new Raw("{$sql} FILTER (WHERE {$where}) as {$this->quote($aggregate->name)}"))->addBinding($bindings, 'select');
         }
 
         return [$sub, $top];
@@ -295,16 +302,14 @@ class QueryPlan {
         $selects = [];
 
         foreach (locales() as $locale) {
-            $selects[] = new Raw("{$this->wrap($qualifier, "{$field}__{$locale}")} as {$column->name}__{$locale}");
+            $selects[] = new Raw("{$this->wrap($qualifier, "{$field}__{$locale}")} as {$this->quote("{$column->name}__{$locale}")}");
         }
 
         return $selects;
     }
 
     private function wrap(string $qualifier, string $field): string {
-        $grammar = $this->root->getConnection()->getQueryGrammar();
-
-        return "{$grammar->wrap($qualifier)}.{$grammar->wrap($field)}";
+        return "{$this->quote($qualifier)}.{$this->quote($field)}";
     }
 
 }
