@@ -27,6 +27,7 @@ use MatrixPlatform\Models\Declarations\FileDeclaration;
 #[Declared(FileDeclaration::class)]
 class File extends BaseModel {
 
+    const DRIVE_PREFIX = '@';
     const PRIVATE = 1;
     const PUBLIC = 0;
 

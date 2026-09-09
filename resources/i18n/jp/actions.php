@@ -24,6 +24,8 @@ return [
 
     'insert' => '保存',
 
+    'log' => '変更履歴',
+
     'new' => '新規作成',
 
     'revoke-passkeys' => 'パスキーを無効化',

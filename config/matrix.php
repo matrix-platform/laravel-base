@@ -15,6 +15,10 @@ return [
 
     'api-prefix' => 'api',
 
+    'date-format' => 'Y-m-d',
+
+    'datetime-format' => 'Y-m-d H:i:s',
+
     'drive-disk' => 'local',
 
     'file-private-disk' => 'local',

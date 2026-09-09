@@ -15,6 +15,19 @@ class Operator extends BaseModel {
 
     const TRACEABLE = false;
 
+    /**
+     * @param iterable<int, ?int> $ids
+     * @return array<int, self>
+     */
+    public static function identities(iterable $ids): array {
+        $unique = collect($ids)
+            ->filter()
+            ->unique()
+            ->values();
+
+        return $unique->isEmpty() ? [] : self::query()->whereIn('id', $unique)->get()->keyBy('id')->all();
+    }
+
     public $timestamps = false;
 
     protected $table = 'base_operator';

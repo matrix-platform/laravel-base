@@ -24,6 +24,8 @@ return [
 
     'insert' => '保存',
 
+    'log' => '变更记录',
+
     'new' => '新增',
 
     'revoke-passkeys' => '撤销 Passkey',

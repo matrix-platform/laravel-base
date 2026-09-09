@@ -8,9 +8,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use MatrixPlatform\Exceptions\ServiceException;
+use MatrixPlatform\Models\DriveNode;
+use MatrixPlatform\Models\DriveNodeType;
 use MatrixPlatform\Models\File;
 use MatrixPlatform\Models\ManipulationLog;
+use MatrixPlatform\Models\User;
 use MatrixPlatform\Services\FileService;
+use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
 
 class FileServiceTest extends FeatureTestCase {
@@ -42,6 +46,36 @@ class FileServiceTest extends FeatureTestCase {
         return UploadedFile::fake()->createWithContent($name, $content);
     }
 
+    private function driveFile(string $name = 'cover.jpg', ?DriveNode $parent = null): DriveNode {
+        $node = new DriveNode();
+
+        $node->parent_id = $parent === null ? DriveNode::ROOT : $parent->id;
+        $node->type = DriveNodeType::File;
+        $node->name = $name;
+        $node->hash = 'hash-' . $name;
+        $node->path = date('Ym') . '/' . Str::random(32);
+        $node->size = 1234;
+        $node->mime_type = 'image/jpeg';
+        $node->width = 800;
+        $node->height = 600;
+
+        $node->save();
+
+        return $node;
+    }
+
+    private function driveFolder(): DriveNode {
+        $node = new DriveNode();
+
+        $node->parent_id = DriveNode::ROOT;
+        $node->type = DriveNodeType::Folder;
+        $node->name = 'folder';
+
+        $node->save();
+
+        return $node;
+    }
+
     private function reload(File $file): File {
         return File::query()->whereKey($file->id)->firstOrFail();
     }
@@ -62,12 +96,30 @@ class FileServiceTest extends FeatureTestCase {
         return new FileService();
     }
 
+    private function user(?int $groupId = null): User {
+        return UserFactory::new()->createOne(['group_id' => $groupId]);
+    }
+
     private function tone(): UploadedFile {
         $path = tempnam(sys_get_temp_dir(), 'tone') . '.wav';
 
         copy(__DIR__ . '/../../fixtures/media/tone.wav', $path);
 
         return new UploadedFile($path, 'tone.wav', null, null, true);
+    }
+
+    public function test_bytes_parses_php_ini_shorthand_units(): void {
+        $service = $this->service();
+
+        $this->assertSame(8 * 1024 * 1024, $service->bytes('8M'));
+        $this->assertSame(2 * 1024 * 1024 * 1024, $service->bytes('2G'));
+        $this->assertSame(512 * 1024, $service->bytes('512K'));
+        $this->assertSame(100, $service->bytes('100'));
+        $this->assertSame(0, $service->bytes('0'));
+    }
+
+    public function test_max_upload_size_returns_a_non_negative_byte_count(): void {
+        $this->assertGreaterThanOrEqual(0, $this->service()->maxUploadSize());
     }
 
     public function test_an_image_upload_records_its_dimensions_on_the_public_disk(): void {
@@ -257,6 +309,95 @@ class FileServiceTest extends FeatureTestCase {
     public function test_the_packaged_limits_are_declared_with_usable_types(): void {
         $this->assertIsInt(cfg('file.max-size'));
         $this->assertIsString(cfg('file.mime-patterns'));
+    }
+
+    public function test_resolving_the_same_drive_node_twice_reuses_the_same_base_file(): void {
+        $node = $this->driveFile();
+        $actor = $this->user();
+
+        $first = $this->service()->resolveDriveReferences([['id' => $node->id]], $actor);
+        $second = $this->service()->resolveDriveReferences([['id' => $node->id]], $actor);
+
+        $this->assertSame($first[0]['path'], $second[0]['path']);
+        $this->assertSame(1, File::query()->where('path', $first[0]['path'])->count());
+    }
+
+    public function test_resolving_a_drive_node_produces_the_expected_shape(): void {
+        $node = $this->driveFile();
+
+        $resolved = $this->service()->resolveDriveReferences([['id' => $node->id]], $this->user())[0];
+
+        $this->assertSame(File::DRIVE_PREFIX . $node->path, $resolved['path']);
+        $this->assertSame($node->name, $resolved['name']);
+        $this->assertSame($node->mime_type, $resolved['mime_type']);
+        $this->assertSame($node->size, $resolved['size']);
+        $this->assertSame($node->width, $resolved['width']);
+        $this->assertSame($node->height, $resolved['height']);
+        $this->assertArrayNotHasKey('type', $resolved);
+    }
+
+    public function test_an_unknown_drive_id_is_rejected(): void {
+        try {
+            $this->service()->resolveDriveReferences([['id' => 999999]], $this->user());
+
+            $this->fail('expected an exception');
+        } catch (ServiceException $exception) {
+            $this->assertSame('invalid-drive-file', $exception->getError());
+        }
+    }
+
+    public function test_a_folder_node_is_rejected(): void {
+        $folder = $this->driveFolder();
+
+        try {
+            $this->service()->resolveDriveReferences([['id' => $folder->id]], $this->user());
+
+            $this->fail('expected an exception');
+        } catch (ServiceException $exception) {
+            $this->assertSame('invalid-drive-file', $exception->getError());
+        }
+    }
+
+    public function test_a_node_outside_the_actors_reach_is_refused(): void {
+        $owner = $this->user();
+        $home = new DriveNode();
+
+        $home->id = $owner->id;
+        $home->parent_id = null;
+        $home->type = DriveNodeType::Root;
+        $home->name = $owner->username;
+
+        $home->save();
+
+        $node = $this->driveFile(parent: $home);
+        $stranger = $this->user();
+
+        try {
+            $this->service()->resolveDriveReferences([['id' => $node->id]], $stranger);
+
+            $this->fail('expected an exception');
+        } catch (ServiceException $exception) {
+            $this->assertSame('permission-denied', $exception->getError());
+            $this->assertSame(403, $exception->getCode());
+        }
+    }
+
+    public function test_an_entry_without_an_id_is_passed_through_unchanged(): void {
+        $entry = ['name' => 'existing.jpg', 'path' => File::DRIVE_PREFIX . 'already-resolved', 'width' => 100, 'height' => 100];
+
+        $resolved = $this->service()->resolveDriveReferences([$entry], $this->user());
+
+        $this->assertSame([$entry], $resolved);
+    }
+
+    public function test_a_mixed_array_only_resolves_the_entry_carrying_an_id(): void {
+        $node = $this->driveFile();
+        $existing = ['name' => 'existing.jpg', 'path' => File::DRIVE_PREFIX . 'already-resolved', 'width' => 100, 'height' => 100];
+
+        $resolved = $this->service()->resolveDriveReferences([$existing, ['id' => $node->id]], $this->user());
+
+        $this->assertSame($existing, $resolved[0]);
+        $this->assertSame(File::DRIVE_PREFIX . $node->path, $resolved[1]['path']);
     }
 
 }

@@ -75,7 +75,10 @@ class ReadmeTest extends FeatureTestCase {
         $rows = [];
 
         foreach ($lines as $line) {
-            $rows[] = array_map(fn (string $cell): string => trim($cell, " \t`"), explode('|', trim($line, '|')));
+            $rows[] = array_map(
+                fn (string $cell): string => str_replace("\0", '|', trim($cell, " \t`")),
+                explode('|', trim(str_replace('\\|', "\0", $line), '|'))
+            );
         }
 
         return $rows;

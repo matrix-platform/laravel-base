@@ -57,6 +57,10 @@ class FileControllerTest extends FeatureTestCase {
         ]);
 
         $response->assertJsonPath('success', true);
+        $response->assertJsonPath('data.name', 'photo.png');
+        $response->assertJsonPath('data.width', 10);
+        $response->assertJsonPath('data.height', 10);
+        $response->assertJsonPath('data.seconds', null);
 
         $path = $response->json('data.path');
 

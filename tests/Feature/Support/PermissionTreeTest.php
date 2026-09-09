@@ -5,6 +5,7 @@ namespace Tests\Feature\Support;
 use MatrixPlatform\Columns\Options\Option;
 use MatrixPlatform\Support\Menus;
 use MatrixPlatform\Support\PermissionTree;
+use MatrixPlatform\Support\ReservedTag;
 use Tests\FeatureTestCase;
 
 class PermissionTreeTest extends FeatureTestCase {
@@ -61,9 +62,23 @@ class PermissionTreeTest extends FeatureTestCase {
 
     public function test_the_production_menu_files_every_resource_under_its_own_section(): void {
         $tree = $this->tree();
+        $menus = app(Menus::class);
 
         foreach ($tree as $section) {
-            $this->assertNotSame('', $section->id, 'a resource with no section ancestor fell into the catch-all section');
+            if ($section->id !== '') {
+                continue;
+            }
+
+            foreach ($section->children as $resource) {
+                $node = $menus->node(strval($resource->id));
+
+                $this->assertNotNull($node, strval($resource->id));
+                $this->assertContains(
+                    $node->tag,
+                    [ReservedTag::System->value, ReservedTag::User->value],
+                    "a resource with no section ancestor and a grantable (non-reserved) tag fell into the catch-all section: {$resource->id}"
+                );
+            }
         }
 
         $this->assertNotEmpty($tree);

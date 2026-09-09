@@ -100,6 +100,19 @@ class FeatureTestCase extends TestCase {
         $this->fail("expected the call to be refused with '{$slug}'");
     }
 
+    protected function refusesField(string $field, string $slug, callable $callback): void {
+        try {
+            $callback();
+        } catch (ServiceException $exception) {
+            $this->assertSame(422, $exception->getCode());
+            $this->assertSame(['fields' => [$field => [$slug]]], $exception->getExtra());
+
+            return;
+        }
+
+        $this->fail("expected the call to be refused with {$field}:{$slug}");
+    }
+
     /**
      * @param array<string, mixed> $values
      */
@@ -116,6 +129,11 @@ class FeatureTestCase extends TestCase {
 
     protected function useCfgFixtures(): void {
         $this->usePackageFixtures('cfg-fixture', 'package-format');
+    }
+
+    protected function useDateFormats(string $date, string $datetime): void {
+        config()->set('matrix.date-format', $date);
+        config()->set('matrix.datetime-format', $datetime);
     }
 
     protected function useGeolocationFixtures(): void {

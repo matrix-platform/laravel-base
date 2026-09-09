@@ -164,7 +164,7 @@ class ExportServiceTest extends FeatureTestCase {
     }
 
     public function test_a_date_column_honours_the_configured_format(): void {
-        $this->useCfgFixtures();
+        $this->useDateFormats('d/m/Y', 'd/m/Y H:i');
 
         Widget::forceCreate(['title' => 'Alpha', 'enable_time' => '2026-08-12 13:45:07']);
 
@@ -172,7 +172,7 @@ class ExportServiceTest extends FeatureTestCase {
     }
 
     public function test_a_datetime_column_honours_the_configured_format(): void {
-        $this->useCfgFixtures();
+        $this->useDateFormats('d/m/Y', 'd/m/Y H:i');
 
         Widget::forceCreate(['title' => 'Alpha', 'enable_time' => '2026-08-12 13:45:07']);
 

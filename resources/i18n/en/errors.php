@@ -28,6 +28,8 @@ return [
 
     'invalid-column-expression' => 'Invalid column expression',
 
+    'invalid-drive-file' => 'Not a valid drive file',
+
     'invalid-filter-value' => 'Filter value has an invalid format',
 
     'invalid-geolocation-driver' => 'Invalid geolocation driver configuration',

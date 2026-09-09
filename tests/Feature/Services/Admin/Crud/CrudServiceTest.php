@@ -148,9 +148,37 @@ class CrudServiceTest extends FeatureTestCase {
         $columns = (new ListService(Widget::class))->standalone(true)->columns(['title'])->list([])['columns'];
 
         $this->assertSame([
-            'name', 'title', 'translatable', 'type', 'presentation', 'group', 'op', 'options',
+            'name', 'title', 'translatable', 'type', 'format', 'presentation', 'group', 'op', 'options',
             'path', 'placeholder', 'remark', 'readonly', 'required', 'rule', 'sortable', 'writable'
         ], array_keys($columns[0]));
+    }
+
+    public function test_the_format_matches_the_declared_column_type(): void {
+        config(['matrix.date-format' => 'Y-m-d', 'matrix.datetime-format' => 'Y-m-d H:i:s']);
+
+        $columns = (new ListService(Widget::class))
+            ->standalone(true)
+            ->columns([['name' => 'enable_time', 'type' => 'date'], 'disable_time'])
+            ->list([])['columns'];
+
+        $this->assertSame('YYYY-MM-DD', $columns[0]['format']);
+        $this->assertSame('YYYY-MM-DD HH:mm:ss', $columns[1]['format']);
+    }
+
+    public function test_a_date_typed_column_drops_the_time_component_from_the_response(): void {
+        $widget = Widget::forceCreate(['title' => 'Alpha', 'enable_time' => '2026-08-12 15:30:00']);
+
+        $rows = (new ListService(Widget::class))
+            ->standalone(true)
+            ->columns([['name' => 'enable_time', 'type' => 'date']])
+            ->list([])['rows'];
+        $data = (new GetService(Widget::class))
+            ->standalone(true)
+            ->columns([['name' => 'enable_time', 'type' => 'date']])
+            ->get($widget->id)['data'];
+
+        $this->assertSame('2026-08-12', $rows[0]['enable_time']);
+        $this->assertSame('2026-08-12', $data['enable_time']);
     }
 
     public function test_options_are_resolved_against_the_record(): void {

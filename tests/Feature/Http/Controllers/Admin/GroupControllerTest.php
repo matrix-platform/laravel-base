@@ -95,7 +95,7 @@ class GroupControllerTest extends FeatureTestCase {
         $this->assertNotEmpty($permissions['options']);
 
         $this->assertSame(array_keys($other), array_keys($permissions));
-        $this->assertCount(16, $permissions);
+        $this->assertCount(17, $permissions);
     }
 
     public function test_the_new_payload_carries_an_empty_permission_object(): void {
@@ -286,6 +286,20 @@ class GroupControllerTest extends FeatureTestCase {
 
         $response->assertJsonMissingPath('data.rows.0.permissions');
         $this->assertTrue($title['required']);
+    }
+
+    public function test_the_list_row_actions_include_log_since_the_model_is_traceable(): void {
+        GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors']);
+
+        $this->send('admin/group')->assertJsonPath('data.rows.0.actions', ['edit', 'delete', 'log']);
+    }
+
+    public function test_the_get_actions_include_log_since_the_model_is_traceable(): void {
+        $group = GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors']);
+
+        $types = array_column($this->send("admin/group/{$group->id}")->json('data.actions'), 'type');
+
+        $this->assertContains('log', $types);
     }
 
     public function test_the_permission_change_lands_in_the_audit_trail(): void {

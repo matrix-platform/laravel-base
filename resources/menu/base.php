@@ -110,4 +110,6 @@ return [
 
         'geolocation' => ['icon' => 'fa-solid fa-location-crosshairs', 'ranking' => 500, 'parent' => 'system', 'group' => true, 'tag' => 'query'],
 
+    'drive' => ['icon' => 'fa-solid fa-hard-drive', 'ranking' => 9900, 'parent' => null, 'group' => true, 'tag' => 'user', 'blank' => true],
+
 ];

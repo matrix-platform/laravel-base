@@ -21,10 +21,6 @@ return [
     'cfg/member.password-pattern' => 'パスワードのパターン(正規表現)',
     'cfg/member.token-idle-minutes' => 'トークンのアイドルタイムアウト(分)',
 
-    'cfg/system' => 'システム',
-    'cfg/system.date-format' => '日付形式',
-    'cfg/system.datetime-format' => '日付時刻形式',
-
     'cfg/vendor' => 'ベンダー',
     'cfg/vendor.login-throttle-max' => 'ログイン試行回数の上限',
     'cfg/vendor.login-throttle-window' => 'ログイン制限時間(分)',

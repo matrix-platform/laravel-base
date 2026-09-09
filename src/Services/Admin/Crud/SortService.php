@@ -3,8 +3,8 @@
 namespace MatrixPlatform\Services\Admin\Crud;
 
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
+use MatrixPlatform\Models\BaseModel;
 use MatrixPlatform\Support\MetadataRegistry;
 
 class SortService extends CrudService {
@@ -70,7 +70,7 @@ class SortService extends CrudService {
     }
 
     /**
-     * @return Collection<int, Model>
+     * @return Collection<int, BaseModel>
      */
     private function ordered(): Collection {
         return $this->plain()

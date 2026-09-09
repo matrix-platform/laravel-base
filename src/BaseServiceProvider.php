@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use MatrixPlatform\Console\Commands\DispatchMessagesCommand;
+use MatrixPlatform\Console\Commands\PruneDriveFilesCommand;
 use MatrixPlatform\Console\Commands\PruneTokensCommand;
 use MatrixPlatform\Console\Commands\ResetUserPasswordCommand;
 use MatrixPlatform\Console\Commands\SetTelegramWebhookCommand;
@@ -34,6 +35,7 @@ use MatrixPlatform\Support\PackageRegistry;
 use MatrixPlatform\Support\PermissionTree;
 use MatrixPlatform\Support\Resources;
 use MatrixPlatform\Support\RollbackCallbacks;
+use MatrixPlatform\Support\SharedModels;
 
 class BaseServiceProvider extends ServiceProvider {
 
@@ -41,6 +43,7 @@ class BaseServiceProvider extends ServiceProvider {
         if ($this->app->runningInConsole()) {
             $this->commands([
                 DispatchMessagesCommand::class,
+                PruneDriveFilesCommand::class,
                 PruneTokensCommand::class,
                 ResetUserPasswordCommand::class,
                 SetTelegramWebhookCommand::class,
@@ -84,6 +87,7 @@ class BaseServiceProvider extends ServiceProvider {
         $this->app->singleton(MetadataRegistry::class);
         $this->app->singleton(PackageRegistry::class);
         $this->app->singleton(Resources::class);
+        $this->app->singleton(SharedModels::class);
     }
 
 }

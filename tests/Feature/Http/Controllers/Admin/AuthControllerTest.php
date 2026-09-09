@@ -407,6 +407,10 @@ class AuthControllerTest extends FeatureTestCase {
             ->assertJsonPath('data.nodes', []);
     }
 
+    public function test_the_profile_reports_the_max_upload_size(): void {
+        $this->assertIsInt($this->postJson('admin/auth/profile')->json('data.max_upload_size'));
+    }
+
     public function test_a_captcha_token_is_burned_even_when_the_answer_is_wrong(): void {
         $this->user();
 

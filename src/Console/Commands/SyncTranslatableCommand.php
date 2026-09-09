@@ -2,7 +2,6 @@
 
 namespace MatrixPlatform\Console\Commands;
 
-use Generator;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -10,14 +9,6 @@ use MatrixPlatform\Support\MetadataRegistry;
 use MatrixPlatform\Support\PackageRegistry;
 
 class SyncTranslatableCommand extends Command {
-
-    /**
-     * @var array<string, string>
-     */
-    private const MODEL_ROOTS = [
-        'src/Models' => 'MatrixPlatform\\Models',
-        'app/Models' => 'App\\Models'
-    ];
 
     protected $description = 'Add the missing per-locale entity columns for every translatable field';
 
@@ -31,7 +22,7 @@ class SyncTranslatableCommand extends Command {
     public function handle(): int {
         $this->columns = [];
 
-        foreach ($this->models() as $model) {
+        foreach (app(PackageRegistry::class)->models() as $model) {
             if (!is_a($model, Model::class, true)) {
                 continue;
             }
@@ -66,19 +57,6 @@ class SyncTranslatableCommand extends Command {
         }
 
         return $this->columns[$table];
-    }
-
-    /**
-     * @return Generator<int, string>
-     */
-    private function models(): Generator {
-        foreach (app(PackageRegistry::class)->paths() as $root) {
-            foreach (self::MODEL_ROOTS as $directory => $namespace) {
-                foreach (glob("{$root}/{$directory}/*.php") ?: [] as $file) {
-                    yield "{$namespace}\\" . basename($file, '.php');
-                }
-            }
-        }
     }
 
     private function source(string $table, string $field): ?string {

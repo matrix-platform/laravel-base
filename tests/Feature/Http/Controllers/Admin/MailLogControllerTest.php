@@ -54,6 +54,12 @@ class MailLogControllerTest extends FeatureTestCase {
         $response->assertJsonPath('data.rows.0.provider', 'stub');
     }
 
+    public function test_the_row_actions_never_include_log_since_message_logs_are_not_traceable(): void {
+        $this->schedule();
+
+        $this->assertNotContains('log', $this->send('admin/mail-log')->json('data.rows.0.actions'));
+    }
+
     public function test_resend_copies_the_log_and_queues_it(): void {
         $log = $this->schedule();
 

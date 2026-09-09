@@ -20,7 +20,7 @@ class UpdateService extends CrudService {
             }
 
             if (!$column->readonly && array_key_exists($column->name, $values)) {
-                $model->setAttribute($column->name, $values[$column->name]);
+                $model->setAttribute($column->name, $this->driveResolved($column, $values[$column->name]));
             }
         }
 

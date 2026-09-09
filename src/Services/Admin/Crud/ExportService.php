@@ -171,8 +171,8 @@ class ExportService extends CrudService {
         }
 
         return match ($column->type) {
-            ColumnType::Date => $this->moment($value, cfg('system.date-format')),
-            ColumnType::DateTime => $this->moment($value, cfg('system.datetime-format')),
+            ColumnType::Date => $this->moment($value, config('matrix.date-format')),
+            ColumnType::DateTime => $this->moment($value, config('matrix.datetime-format')),
             default => $this->text($value)
         };
     }
@@ -214,7 +214,7 @@ class ExportService extends CrudService {
 
     private function text(mixed $value): string {
         if ($value instanceof DateTimeInterface) {
-            return $this->moment($value, cfg('system.datetime-format'));
+            return $this->moment($value, config('matrix.datetime-format'));
         }
 
         if (is_bool($value)) {

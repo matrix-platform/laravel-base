@@ -56,7 +56,32 @@ class DriveService {
         return $node;
     }
 
-    public function deletedBy(DriveNode $node): ?int {
+    public function createdBy(DriveNode $node): ?string {
+        $map = $this->createdByMany(new Collection([$node]));
+
+        return array_key_exists($node->id, $map) ? $map[$node->id] : null;
+    }
+
+    /**
+     * @param Collection<int, DriveNode> $nodes
+     * @return array<int, string>
+     */
+    public function createdByMany(Collection $nodes): array {
+        if ($nodes->isEmpty()) {
+            return [];
+        }
+
+        $usernames = User::usernames($nodes->pluck('creator_id'));
+
+        return $nodes
+            ->mapWithKeys(fn (DriveNode $node): array => [
+                $node->id => $node->creator_id === null ? null : array_get_value($usernames, $node->creator_id)
+            ])
+            ->filter()
+            ->all();
+    }
+
+    public function deletedBy(DriveNode $node): ?string {
         if ($node->deleted_at === null) {
             return null;
         }
@@ -68,14 +93,14 @@ class DriveService {
 
     /**
      * @param Collection<int, DriveNode> $nodes
-     * @return array<int, int>
+     * @return array<int, string>
      */
     public function deletedByMany(Collection $nodes): array {
         if ($nodes->isEmpty()) {
             return [];
         }
 
-        return ManipulationLog::query()
+        $creatorIds = ManipulationLog::query()
             ->where('data_type', $nodes->first()->getTable())
             ->whereIn('data_id', $nodes->pluck('id'))
             ->where('type', ManipulationType::Deleted)
@@ -83,7 +108,13 @@ class DriveService {
             ->get()
             ->groupBy('data_id')
             ->map(fn ($logs) => $logs->last()?->creator_id)
-            ->filter(fn (?int $creatorId) => $creatorId !== null)
+            ->filter(fn (?int $creatorId) => $creatorId !== null);
+
+        $usernames = User::usernames($creatorIds);
+
+        return $creatorIds
+            ->map(fn (?int $creatorId): ?string => $creatorId === null ? null : array_get_value($usernames, $creatorId))
+            ->filter()
             ->all();
     }
 
@@ -170,6 +201,12 @@ class DriveService {
         $node->description = $description;
 
         $node->save();
+    }
+
+    public function requireAllowed(DriveNode $node, User $user): void {
+        if (!$this->permission->allowed($node, $user)) {
+            error('permission-denied', 403);
+        }
     }
 
     public function restore(DriveNode $node, User $user): void {
@@ -305,12 +342,6 @@ class DriveService {
         }
 
         return false;
-    }
-
-    private function requireAllowed(DriveNode $node, User $user): void {
-        if (!$this->permission->allowed($node, $user)) {
-            error('permission-denied', 403);
-        }
     }
 
     private function uniqueName(DriveNode $parent, string $name): string {

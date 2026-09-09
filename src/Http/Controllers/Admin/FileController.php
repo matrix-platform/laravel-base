@@ -39,7 +39,7 @@ class FileController extends BaseController {
     }
 
     /**
-     * @return array{path: string}
+     * @return array{name: string, path: string, width: ?int, height: ?int, seconds: ?int}
      */
     #[Action]
     public function upload(Request $request): array {
@@ -55,7 +55,15 @@ class FileController extends BaseController {
             error('validation-failed', 422);
         }
 
-        return ['path' => $this->service->upload($file, $request->integer('privilege'), null, null, $this->optionalString($request, 'usage'))->path];
+        $record = $this->service->upload($file, $request->integer('privilege'), null, null, $this->optionalString($request, 'usage'));
+
+        return [
+            'name' => $record->name,
+            'path' => $record->path,
+            'width' => $record->width,
+            'height' => $record->height,
+            'seconds' => $record->seconds
+        ];
     }
 
 }

@@ -58,7 +58,7 @@ return new class extends Migration {
             $table->text('credential_id')->unique();
             $table->text('public_key');
             $table->text('aaguid');
-            $table->bigInteger('sign_count')->default(0);
+            $table->bigInteger('sign_count');
             $table->boolean('uv_initialized')->nullable();
             $table->text('name');
             $table->timestamp('last_used_time')->nullable();

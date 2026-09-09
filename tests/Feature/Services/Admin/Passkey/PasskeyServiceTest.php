@@ -66,19 +66,6 @@ class PasskeyServiceTest extends FeatureTestCase {
         return array_values($types);
     }
 
-    private function refusesField(string $field, string $slug, callable $callback): void {
-        try {
-            $callback();
-        } catch (ServiceException $exception) {
-            $this->assertSame(422, $exception->getCode());
-            $this->assertSame(['fields' => [$field => [$slug]]], $exception->getExtra());
-
-            return;
-        }
-
-        $this->fail("expected the call to be refused with {$field}:{$slug}");
-    }
-
     private function reload(PasskeyCredential $credential): PasskeyCredential {
         return PasskeyCredential::query()->findOrFail($credential->id);
     }
@@ -235,6 +222,26 @@ class PasskeyServiceTest extends FeatureTestCase {
         [$challengeKey, $response] = $this->assertionRequest($authenticator, 'other.example', self::ORIGIN, (string) $user->id);
 
         $this->refusesField('credential', 'invalid-passkey', fn () => $this->service()->authenticate($challengeKey, $response));
+    }
+
+    public function test_plain_http_is_rejected_for_an_rp_id_not_on_the_http_allow_list(): void {
+        $user = UserFactory::new()->createOne();
+        [$authenticator] = $this->register($user);
+
+        [$challengeKey, $response] = $this->assertionRequest($authenticator, self::RP_ID, 'http://' . self::RP_ID, (string) $user->id);
+
+        $this->refusesField('credential', 'invalid-passkey', fn () => $this->service()->authenticate($challengeKey, $response));
+    }
+
+    public function test_plain_http_is_accepted_for_an_rp_id_explicitly_on_the_http_allow_list(): void {
+        $this->useCfg('admin', ['passkey-http-rp-ids' => self::RP_ID]);
+
+        $user = UserFactory::new()->createOne();
+        [$authenticator] = $this->register($user);
+
+        [$challengeKey, $response] = $this->assertionRequest($authenticator, self::RP_ID, 'http://' . self::RP_ID, (string) $user->id);
+
+        $this->assertSame($user->id, $this->service()->authenticate($challengeKey, $response)->id);
     }
 
     public function test_a_failed_assertion_for_a_known_user_writes_a_passkey_login_failed_log_after_rollback(): void {

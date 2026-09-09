@@ -8,6 +8,7 @@ use MatrixPlatform\Models\AuthToken;
 use MatrixPlatform\Models\IdentityType;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Models\UserLogType;
+use MatrixPlatform\Services\FileService;
 use MatrixPlatform\Support\AdminPermission;
 use MatrixPlatform\Support\Captcha;
 use MatrixPlatform\Support\RollbackCallbacks;
@@ -121,14 +122,16 @@ class AuthService {
     }
 
     /**
-     * @return array{nodes: array<string, array<string, mixed>>, profile: ?User}
+     * @return array{nodes: array<string, array<string, mixed>>, profile: ?User, max_upload_size: int}
      */
     public function profile(?User $user): array {
+        $maxUploadSize = app(FileService::class)->maxUploadSize();
+
         if ($user === null) {
-            return ['nodes' => [], 'profile' => null];
+            return ['nodes' => [], 'profile' => null, 'max_upload_size' => $maxUploadSize];
         }
 
-        return ['nodes' => app(AdminPermission::class)->getMenuNodes(), 'profile' => $user->makeHidden('permissions')];
+        return ['nodes' => app(AdminPermission::class)->getMenuNodes(), 'profile' => $user->makeHidden('permissions'), 'max_upload_size' => $maxUploadSize];
     }
 
     private function findUser(string $username): ?User {

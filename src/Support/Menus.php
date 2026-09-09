@@ -62,6 +62,7 @@ class Menus {
         $tag = array_get_value($node, 'tag');
 
         return new MenuNode(
+            array_get_value($node, 'blank') === true,
             array_key_exists($path, $this->origins) ? $this->origins[$path] : '',
             array_get_value($node, 'group') === true,
             is_string($icon) ? $icon : null,

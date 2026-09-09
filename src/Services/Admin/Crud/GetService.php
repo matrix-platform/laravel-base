@@ -38,9 +38,9 @@ class GetService extends CrudService {
             'title' => $this->title(),
             'subtitle' => $this->subject->title($model),
             'breadcrumbs' => $this->breadcrumbs([$model, ...$parents], $model),
-            'data' => array_intersect_key($model->toArray(), array_flip($names)),
+            'data' => $this->dated(array_intersect_key($model->toArray(), array_flip($names)), $model, $this->columns),
             'columns' => $this->payload($this->columns, $model),
-            'actions' => $this->operations($this->passing($this->actions, $model), $this->prefix())
+            'actions' => $this->operations($this->passing($this->traceable($this->actions), $model), $this->prefix())
         ];
     }
 

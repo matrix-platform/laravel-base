@@ -51,6 +51,9 @@ class PasskeyControllerTest extends FeatureTestCase {
             ->postJson('admin/user/passkey')
             ->json('data');
         $this->assertSame(['my device'], array_column($rows, 'name'));
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $rows[0]['create_time']);
+        $this->assertArrayNotHasKey('public_key', $rows[0]);
+        $this->assertArrayNotHasKey('credential_id', $rows[0]);
 
         $this->withToken($token)
             ->postJson("admin/user/passkey/{$id}/rename", ['name' => 'renamed'])

@@ -67,12 +67,7 @@ class PasskeyController extends BaseController {
      * @return array<string, mixed>
      */
     private function present(PasskeyCredential $credential): array {
-        return [
-            'id' => $credential->id,
-            'name' => $credential->name,
-            'create_time' => $credential->create_time,
-            'last_used_time' => $credential->last_used_time
-        ];
+        return array_intersect_key($credential->toArray(), array_flip(['id', 'name', 'create_time', 'last_used_time']));
     }
 
 }

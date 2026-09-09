@@ -24,6 +24,10 @@ class PasskeyCredential extends BaseModel {
 
     const TRACEABLE = false;
 
+    protected $attributes = [
+        'sign_count' => 0
+    ];
+
     protected $table = 'base_passkey_credential';
 
     /**

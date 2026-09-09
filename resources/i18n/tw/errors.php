@@ -28,6 +28,8 @@ return [
 
     'invalid-column-expression' => '欄位運算式語法錯誤',
 
+    'invalid-drive-file' => '不是有效的雲端硬碟檔案',
+
     'invalid-filter-value' => '篩選值的格式不正確',
 
     'invalid-geolocation-driver' => '地理位置服務設定錯誤',

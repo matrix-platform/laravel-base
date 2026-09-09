@@ -5,8 +5,9 @@ namespace MatrixPlatform\Services\Admin\Crud;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Carbon;
+use MatrixPlatform\Models\BaseModel;
 use MatrixPlatform\Support\MetadataRegistry;
+use MatrixPlatform\Support\Schedule;
 
 class ArrangeService extends CrudService {
 
@@ -98,27 +99,15 @@ class ArrangeService extends CrudService {
     }
 
     private function enabled(Model $model): bool {
-        $enable = $model->getAttribute($this->enable);
-
-        if ($enable === null || $this->future($enable)) {
-            return false;
-        }
-
-        $disable = $model->getAttribute($this->disable);
-
-        return $disable === null || $this->future($disable);
+        return Schedule::isEnabled($model, $this->enable, $this->disable);
     }
 
     private function field(?string $value, string $default): string {
         return $value === null ? $default : $value;
     }
 
-    private function future(mixed $value): bool {
-        return ($value instanceof Carbon ? $value : Carbon::parse($value))->isFuture();
-    }
-
     /**
-     * @return Collection<int, Model>
+     * @return Collection<int, BaseModel>
      */
     private function ordered(): Collection {
         $query = $this->plain();

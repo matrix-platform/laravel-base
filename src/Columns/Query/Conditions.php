@@ -2,21 +2,23 @@
 
 namespace MatrixPlatform\Columns\Query;
 
+use Closure;
 use MatrixPlatform\Columns\Syntax\Condition;
 
 class Conditions {
 
     /**
      * @param array<string, list<Condition>> $conditions
+     * @param Closure(string, string): string $qualify
      * @return array{string, list<mixed>}
      */
-    public static function compile(array $conditions): array {
+    public static function compile(array $conditions, Closure $qualify): array {
         $bindings = [];
         $clauses = [];
 
         foreach ($conditions as $alias => $items) {
             foreach ($items as $condition) {
-                $field = "{$alias}.{$condition->field}";
+                $field = $qualify($alias, $condition->field);
                 $operator = $condition->operator;
 
                 if ($operator === 'NULL' || $operator === 'NOT NULL') {

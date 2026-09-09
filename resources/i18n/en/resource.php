@@ -21,10 +21,6 @@ return [
     'cfg/member.password-pattern' => 'Password pattern',
     'cfg/member.token-idle-minutes' => 'Token idle timeout (minutes)',
 
-    'cfg/system' => 'System',
-    'cfg/system.date-format' => 'Date format',
-    'cfg/system.datetime-format' => 'Date and time format',
-
     'cfg/vendor' => 'Vendor',
     'cfg/vendor.login-throttle-max' => 'Login attempt limit',
     'cfg/vendor.login-throttle-window' => 'Login throttle window (minutes)',

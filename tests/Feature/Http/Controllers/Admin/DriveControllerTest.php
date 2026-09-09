@@ -51,6 +51,14 @@ class DriveControllerTest extends FeatureTestCase {
         $response->assertJsonPath('data.id', User::ROOT);
     }
 
+    public function test_home_returns_create_time_in_the_configured_datetime_format(): void {
+        $data = $this->send('admin/drive/home')->json('data');
+
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $data['create_time']);
+        $this->assertArrayNotHasKey('path', $data);
+        $this->assertArrayNotHasKey('hash', $data);
+    }
+
     public function test_creating_a_folder_and_listing_it_as_a_child_of_root(): void {
         $root = $this->send('admin/drive/root')->json('data.id');
 
@@ -75,6 +83,57 @@ class DriveControllerTest extends FeatureTestCase {
 
         $download->assertOk();
         $this->assertSame('hello', $download->streamedContent());
+    }
+
+    public function test_downloading_via_get_streams_the_file(): void {
+        $root = $this->send('admin/drive/root')->json('data.id');
+
+        $node = $this->withToken($this->token)
+            ->post("admin/drive/{$root}/upload", ['file' => UploadedFile::fake()->createWithContent('note.txt', 'hello')])
+            ->json('data');
+
+        $download = $this->withToken($this->token)->get("admin/drive/{$node['id']}/download");
+
+        $download->assertOk();
+        $this->assertSame('hello', $download->streamedContent());
+    }
+
+    public function test_a_trashed_file_can_still_be_downloaded(): void {
+        $root = $this->send('admin/drive/root')->json('data.id');
+
+        $node = $this->withToken($this->token)
+            ->post("admin/drive/{$root}/upload", ['file' => UploadedFile::fake()->createWithContent('note.txt', 'hello')])
+            ->json('data');
+
+        $this->assertIsArray($node);
+
+        $this->send("admin/drive/{$node['id']}/delete")->assertJsonPath('success', true);
+
+        $download = $this->send("admin/drive/{$node['id']}/download");
+
+        $download->assertOk();
+        $this->assertSame('hello', $download->streamedContent());
+    }
+
+    public function test_a_user_cannot_download_another_users_file(): void {
+        $owner = UserFactory::new()->createOne(['id' => self::REGULAR])->createToken();
+        $home = $this->withToken($owner)
+            ->postJson('admin/drive/home')
+            ->json('data.id');
+
+        $node = $this->withToken($owner)
+            ->post("admin/drive/{$home}/upload", ['file' => UploadedFile::fake()->createWithContent('note.txt', 'hello')])
+            ->json('data');
+
+        $stranger = UserFactory::new()->createOne(['id' => self::REGULAR + 1])->createToken();
+
+        $this->withToken($stranger)
+            ->postJson("admin/drive/{$node['id']}/download")
+            ->assertJson(['success' => false, 'code' => 403, 'error' => 'permission-denied']);
+
+        $this->withToken($stranger)
+            ->get("admin/drive/{$node['id']}/download")
+            ->assertJson(['success' => false, 'code' => 403, 'error' => 'permission-denied']);
     }
 
     public function test_downloading_a_folder_reports_not_found(): void {
@@ -136,8 +195,19 @@ class DriveControllerTest extends FeatureTestCase {
         $response->assertJsonPath('data.deleted_by', null);
     }
 
+    public function test_get_reports_the_user_who_created_the_node(): void {
+        $token = UserFactory::new()->createOne(['id' => self::REGULAR, 'username' => 'creator'])->createToken();
+        $root = $this->send('admin/drive/root')->json('data.id');
+
+        $folder = $this->withToken($token)
+            ->postJson("admin/drive/{$root}/folder", ['name' => 'mine'])
+            ->json('data.id');
+
+        $this->send("admin/drive/{$folder}")->assertJsonPath('data.created_by', 'creator');
+    }
+
     public function test_deleted_by_reports_the_user_who_deleted_it(): void {
-        $token = UserFactory::new()->createOne(['id' => self::REGULAR])->createToken();
+        $token = UserFactory::new()->createOne(['id' => self::REGULAR, 'username' => 'deleter'])->createToken();
         $root = $this->send('admin/drive/root')->json('data.id');
 
         $folder = $this->withToken($token)
@@ -148,7 +218,7 @@ class DriveControllerTest extends FeatureTestCase {
 
         $this->withToken($token)
             ->postJson('admin/drive/trashed')
-            ->assertJsonPath('data.0.deleted_by', self::REGULAR);
+            ->assertJsonPath('data.0.deleted_by', 'deleter');
     }
 
     public function test_getting_an_unknown_node_reports_not_found(): void {

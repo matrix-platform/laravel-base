@@ -33,7 +33,7 @@ class AdminPermission {
     }
 
     /**
-     * @return array<string, array{icon: ?string, ranking: ?int, parent: ?string, group: bool, tag: ?string, title: string}>
+     * @return array<string, array{icon: ?string, ranking: ?int, parent: ?string, group: bool, tag: ?string, blank: bool, title: string}>
      */
     public function getMenuNodes(): array {
         $nodes = [];
@@ -49,6 +49,7 @@ class AdminPermission {
                 'parent' => $menu->parent,
                 'group' => $menu->group,
                 'tag' => $menu->tag,
+                'blank' => $menu->blank,
                 'title' => i18n($menu->token())
             ];
         }
