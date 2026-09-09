@@ -56,6 +56,13 @@ return [
 
     'resource-i18n-template' => [],
 
+    'thumbnail-quality' => 80,
+
+    'thumbnail-sizes' => [
+        'icon' => 64,
+        'thumb' => 256,
+    ],
+
     'translation-provider' => 'google-translate',
 
     'vendor-api-prefix' => 'vendor',

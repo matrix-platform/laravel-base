@@ -10,6 +10,8 @@ return [
 
     'data-not-found' => 'Data not found',
 
+    'directory-create-failed' => 'Directory could not be created',
+
     'drive-anchor-immutable' => 'Home and group directories cannot be moved or trashed',
 
     'endpoint-not-found' => 'Endpoint does not exist',
@@ -19,6 +21,8 @@ return [
     'geolocation-database-not-found' => 'Geolocation database file not found',
 
     'geolocation-request-failed' => 'Geolocation request failed',
+
+    'image-decode-failed' => 'Image could not be decoded',
 
     'invalid-arrange-order' => 'Arrange selection does not match the data',
 

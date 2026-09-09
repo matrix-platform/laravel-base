@@ -98,6 +98,33 @@ class DriveControllerTest extends FeatureTestCase {
         $this->assertSame('hello', $download->streamedContent());
     }
 
+    public function test_downloading_with_a_valid_size_parameter_streams_a_webp_thumbnail(): void {
+        $root = $this->send('admin/drive/root')->json('data.id');
+
+        $node = $this->withToken($this->token)
+            ->post("admin/drive/{$root}/upload", ['file' => UploadedFile::fake()->image('photo.png', 200, 100)])
+            ->json('data');
+
+        $download = $this->withToken($this->token)->get("admin/drive/{$node['id']}/download?size=icon");
+
+        $download->assertOk();
+        $download->assertHeader('Content-Type', 'image/webp');
+        $this->assertSame('RIFF', substr($download->streamedContent(), 0, 4));
+    }
+
+    public function test_downloading_with_an_unknown_size_parameter_streams_the_original_file(): void {
+        $root = $this->send('admin/drive/root')->json('data.id');
+
+        $node = $this->withToken($this->token)
+            ->post("admin/drive/{$root}/upload", ['file' => UploadedFile::fake()->createWithContent('note.txt', 'hello')])
+            ->json('data');
+
+        $download = $this->withToken($this->token)->get("admin/drive/{$node['id']}/download?size=not-configured");
+
+        $download->assertOk();
+        $this->assertSame('hello', $download->streamedContent());
+    }
+
     public function test_a_trashed_file_can_still_be_downloaded(): void {
         $root = $this->send('admin/drive/root')->json('data.id');
 

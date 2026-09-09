@@ -30,4 +30,8 @@ class FileStorage {
         return $path;
     }
 
+    public function thumbnailLocation(string $folder, ?string $path, string $size): string {
+        return $this->location($folder, "{$size}/{$path}.webp");
+    }
+
 }
