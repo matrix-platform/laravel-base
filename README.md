@@ -148,7 +148,7 @@ php artisan migrate
 
 套件的 migration 檔名是 `0001_` 到 `0007_`,字串排序落在 Laravel 內建的 `0001_01_01_*` 之後、你自己的日期式 migration 之前。**你自己的表如果要用套件的主鍵慣例,順序不能反過來** —— `0001_foundation` 建立 `base_id` 與 `base_ranking` 兩個 sequence,你的 migration 必須排在它後面。
 
-**驗證:** `base_user`、`base_group`、`base_auth_token` 等 16 張表存在。
+**驗證:** `base_user`、`base_group`、`base_auth_token` 等 17 張表存在。
 
 ### 5. 跑 seeder
 
@@ -180,6 +180,16 @@ php artisan matrix:passwd root@matrix
 **驗證:** 下一步能登入。
 
 ### 7. 打第一個請求
+
+**先產生加密金鑰圈:**
+
+```bash
+php artisan matrix:rotate-encryption-key
+```
+
+`matrix.admin-api-encryption` 與 `matrix.vendor-api-encryption` 出貨是**開的**,金鑰圈空著的時候 `encryption-key` 只會回 `encryption-unavailable`,整個後台開不起來。
+
+**然後下面這兩個 curl 還是會失敗**——加密開著的時候明文請求一律回 `invalid-envelope`,`auth/captcha` 與 `auth/login` 沒有宣告 `#[Action(encrypted: false)]`。要用 curl 驗證,先在你的 `config/matrix.php` 把 `'admin-api-encryption' => false` 關掉;要驗證加密路徑,用瀏覽器端(前端 `initConfig` 的 `encryption` 也是預設開的),或照[給前端](#傳輸加密)那節的線路格式自己組信封。
 
 ```bash
 # 1. 取驗證碼(匿名)
@@ -244,7 +254,8 @@ worker 會睡掉供應商的 `interval` 來節流,所以 `--timeout` 與 connect
 
 | 別名 | 作用 |
 |---|---|
-| `envelope-api` | 把例外收斂成信封。**必須掛在最外層** |
+| `encrypted-api` | 解開/封回加密信封,只作用在 `admin` 前綴。**必須掛在 `envelope-api` 之前**,否則錯誤信封不會被加密 |
+| `envelope-api` | 把例外收斂成信封。**必須掛在 `encrypted-api` 以外的最外層** |
 | `locale-api` | 讀 `Matrix-Locale` header 決定語系 |
 | `user-api` | 後台身分,解析 token,失敗回 401 `invalid-token` |
 | `permission-api` | 授權,**必須掛在 `user-api` 之後** |
@@ -398,7 +409,7 @@ class WidgetController extends CrudController {
 ### 5. 路由 —— 必須掛在 `admin` 前綴之下
 
 ```php
-Route::middleware(['envelope-api', 'locale-api'])->group(function () {
+Route::middleware(['encrypted-api', 'envelope-api', 'locale-api'])->group(function () {
     Route::prefix(config('matrix.admin-api-prefix'))->group(function () {
         Route::middleware(['user-api', 'permission-api'])->group(function () {
             ActionRoutes::mount('widget', WidgetController::class);
@@ -408,6 +419,8 @@ Route::middleware(['envelope-api', 'locale-api'])->group(function () {
 ```
 
 **前綴不對,`AdminPermission` 認不出這是套件的路由,全部 403。**
+
+**`encrypted-api` 漏掉的話,那一組路由不會解密,但前端還是會加密。** 前端是按前綴決定要不要封信封的(它不知道哪些路由掛了什麼 middleware),所以你自己的 `admin` 端點只要少掛這一層,收到的 body 就是 `{kid, epk, iv, ts, ct}` 這個信封本身,症狀是每一個欄位都 `validation-failed`。**這三個別名的順序也是約束**:`encrypted-api` 必須在 `envelope-api` 之前,否則錯誤信封不會被加密。
 
 ### 6. 選單與翻譯
 
@@ -543,6 +556,8 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 ### 端點
 
 除了 `GET api/files/{path}`(公開檔案讀取,見下方說明)之外,其餘全部是 `POST`。路徑省略前綴（`admin`、`api` 與 `vendor` 分別來自 `matrix.admin-api-prefix`、`matrix.api-prefix` 與 `matrix.vendor-api-prefix`）。
+
+`POST encryption-key` 是唯一**不在任何前綴底下**的端點:三組 API 共用同一個金鑰圈,而它是拿公鑰的地方,所以它不能落在任何一組的加密範圍裡——沒有公鑰就沒有信封,拿公鑰的請求自己不可能是信封。它同時也宣告了 `#[Action(encrypted: false)]`,所以「它是明文」是寫下來的事實,不是靠它剛好落在所有前綴之外推論出來的。
 
 `GET api/files/{path}` 是唯一的例外:不需要身分、不走信封,直接回 302(公開上傳檔案)、200(串流,drive-linked 檔案)或 404(私有/不存在)。路由用 `Route::get()` 註冊,Laravel 會自動一併掛上 `HEAD`(任何 `Route` 只要方法含 `GET` 就一定含 `HEAD`,框架內建行為,無法關閉),所以「端點」表裡這一列的方法欄是 `GET\|HEAD`。
 
@@ -722,6 +737,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | POST | `api/member/push/subscribe` | 登入 |
 | POST | `api/member/push/unsubscribe` | 登入 |
 | POST | `api/telegram/webhook` | 匿名* |
+| POST | `encryption-key` | 匿名 |
 | POST | `vendor/preference/get` | 登入 |
 | POST | `vendor/preference/save` | 登入 |
 
@@ -733,8 +749,10 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 
 | 鍵 | 出貨值 | 說明 |
 |---|---|---|
+| `matrix.admin-api-encryption` | `true` | `admin` 前綴要不要傳輸加密。三組前綴各有各的開關,互不影響。**這是明確開關,伺服器不會自動偵測環境** |
 | `matrix.admin-api-prefix` | `'admin'` | 後台路由前綴 |
 | `matrix.admin-menus` | `'base'` | 要載入哪些選單 bundle,空白分隔,排前面的覆蓋排後面的 |
+| `matrix.api-encryption` | `false` | `api` 前綴要不要傳輸加密。出貨關著,因為這一組的呼叫方包含 Telegram 這種不可能配合的第三方 |
 | `matrix.api-prefix` | `'api'` | 前台路由前綴 |
 | `matrix.date-format` | `'Y-m-d'` | 日期顯示格式 |
 | `matrix.datetime-format` | `'Y-m-d H:i:s'` | 日期時間顯示格式 |
@@ -756,6 +774,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `matrix.thumbnail-quality` | `80` | 縮圖 webp 編碼品質(0-100) |
 | `matrix.thumbnail-sizes` | `['icon' => 64, 'thumb' => 256]` | 可用的縮圖 `size` 參數與對應寬度(px),`?size=` 帶不在此清單內的值一律回原始檔案 |
 | `matrix.translation-provider` | `'google-translate'` | 內容翻譯要用哪個 driver,對應 `resources/cfg/{值}.php` |
+| `matrix.vendor-api-encryption` | `true` | `vendor` 前綴要不要傳輸加密 |
 | `matrix.vendor-api-prefix` | `'vendor'` | 廠商路由前綴 |
 | `matrix.vendor-model` | `Vendor::class` | 廠商 model |
 
@@ -779,6 +798,8 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `admin.passkey-timeout` | `60000` | 前端 ceremony 逾時毫秒數(供前端顯示,伺服器不強制) |
 | `admin.password-pattern` | `'/^(?=.*\d)(?=.*[a-zA-Z]).{8,}$/'` | 自助改密碼、`matrix:passwd` 與使用者表單共用的密碼規則 |
 | `admin.token-idle-minutes` | `30` | 後台 token 閒置多久失效 |
+| `encryption.grace-period` | `86400` | 輪替後舊金鑰還能解密多久(秒);`matrix:rotate-encryption-key --grace` 可以單次覆蓋 |
+| `encryption.window` | `300` | 加密信封的 `ts` 容許誤差(秒),同時是同一個 `epk` 的去重保留時間(2 倍) |
 | `member.login-throttle-max` | `5` | 同上,前台會員 |
 | `member.login-throttle-window` | `1` | 同上,前台會員 |
 | `member.password-pattern` | `'/^(?=.*\d)(?=.*[a-zA-Z]).{8,}$/'` | 同上,前台會員 |
@@ -832,6 +853,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `matrix:passwd` | 設定後台帳號密碼,建立管理員的唯一官方入口 |
 | `matrix:prune-drive-files` | 刪掉不再被任何 CRUD 記錄引用的 drive-linked `base_file`,每次執行都是即時掃描全部資料、當場判斷、當場刪除,沒有寬限期。**只掃描寫進 model `#[Declared]` 宣告(不是只寫在 controller)的 `drive-file`/`drive-image` 欄位** |
 | `matrix:prune-tokens` | 刪掉已經不能用來認證的 token,`--limit` 控制每批筆數（預設 1000） |
+| `matrix:rotate-encryption-key` | 產生新的 API 加密金鑰並把舊的標記為 `expire_time = now + grace`(`--grace` 秒數,預設 `encryption.grace-period`);同時刪除已經過完寬限期的舊金鑰。**任何一組前綴的加密開關是開的,上線之前就必須先跑過一次**——金鑰圈是空的時候,bootstrap 端點只會回 `encryption-unavailable` |
 | `matrix:sync-translatable` | 掃描所有套件、所有 Model 的 translatable 欄位,幫缺少目前設定語言的欄位補上實體欄位（皆為 nullable,不回填） |
 | `messages:dispatch` | 為每個有待送訊息的 channel 派送一個發送工作;任一 channel 設定壞掉就回非零 exit code |
 | `messages:telegram-webhook` | 呼叫 Telegram `setWebhook` API,把 `{APP_URL}/{api-prefix}/telegram/webhook` 連同 `telegram.webhook-secret` 註冊上去;一次性維運操作,環境變了(換網域、換 ngrok 網址)要重跑 |
@@ -846,6 +868,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `data-not-found` | 查無資料 |
 | `directory-create-failed` | 無法建立目錄 |
 | `drive-anchor-immutable` | home 目錄與群組目錄不能被搬移或丟進垃圾桶 |
+| `encryption-unavailable` | 金鑰圈沒有可用的金鑰(還沒跑過 `matrix:rotate-encryption-key`) |
 | `endpoint-not-found` | 端點不存在 |
 | `file-too-large` | 檔案大小超過限制 |
 | `geolocation-database-not-found` | 找不到地理位置資料庫檔案 |
@@ -856,6 +879,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `invalid-column-condition` | 欄位條件語法錯誤 |
 | `invalid-column-expression` | 欄位運算式語法錯誤 |
 | `invalid-drive-file` | 不是有效的雲端硬碟檔案 |
+| `invalid-envelope` | 加密信封無法解讀:`kid` 不存在或已過期、GCM 驗證失敗、`ts` 超出容許誤差,或同一個信封被重送 |
 | `invalid-filter-value` | 篩選值的格式不正確 |
 | `invalid-geolocation-driver` | 地理位置服務設定錯誤 |
 | `invalid-identity-model` | 身分 model 設定錯誤 |
@@ -900,6 +924,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `base_city` | 縣市 |
 | `base_city_area` | 行政區 |
 | `base_drive_node` | 雲端硬碟節點(資料夾與檔案共用同一張表);root/home/群組三個固定區域,軟刪除、無永久刪除 |
+| `base_encryption_key` | API 傳輸加密的金鑰圈(EC P-256;私鑰以 `APP_KEY` 加密存放),`expire_time` 是輪替後的寬限期終點 |
 | `base_file` | 上傳檔案(含去重雜湊與媒體資訊) |
 | `base_group` | 後台群組 |
 | `base_mail_log` | 郵件佇列與寄送結果 |
@@ -977,6 +1002,29 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 ### 語系
 
 送 `Matrix-Locale: en` header。值必須在 `matrix.locales` 裡,否則退回應用程式的預設語系。
+
+### 傳輸加密
+
+三組前綴各有各的開關,出貨值是 `admin` 開、`vendor` 開、`api` 關。開關關著的那一組一切照舊,以下完全不存在。開著的那一組,**該前綴底下所有 POST 端點**(除了宣告 `#[Action(encrypted: false)]` 的 action)的 request 與 response body 都是加密信封,明文請求一律回 `invalid-envelope`。
+
+後台前端只打 `admin`,所以下面一律以它為例。
+
+**每開一個分頁做一次**:`POST encryption-key`(明文,不在任何前綴底下)拿 `{"kid", "public_key"}`,`public_key` 是 base64 的 SPKI DER,用 `crypto.subtle.importKey('spki', ..., {name: 'ECDH', namedCurve: 'P-256'}, false, [])` 匯入。
+
+**每次呼叫做一次**:產生一組**用完即丟**的 P-256 金鑰對 → 跟伺服器公鑰做 ECDH → `HKDF-SHA256` 衍生出這次專用的 AES-256-GCM 金鑰,參數是 `salt` 空、`info` 為 UTF-8 的 `matrix-api-v1`、長度 256 bit。
+
+```json
+{ "kid": "...", "epk": "<base64 SPKI>", "ts": 1757000000, "iv": "<base64 12 bytes>", "ct": "<base64 密文+tag>" }
+```
+
+- `ts` 是**秒**為單位的 Unix 時間戳,與伺服器時間差超過 `cfg('encryption.window')` 就是 `invalid-envelope`。
+- `epk` 是一次性公鑰,同時當作防重放的 nonce:**同一個 `epk` 只能用一次**,重送第二次是 `invalid-envelope`。
+- AAD 是 `request|{METHOD} {path}|{ts}` 的 UTF-8 位元組。`path` 是**完整的 URL 路徑去掉開頭斜線**(即瀏覽器的 `new URL(...).pathname`,應用程式裝在子目錄時包含子目錄),例如 `request|POST admin/user/insert|1757000000`。少了它,同一份密文可以被原封不動搬去別支端點。
+- `ct` 是 `crypto.subtle.encrypt` 的原始輸出(密文後面接 16 bytes 的 GCM tag),不用自己拆。
+
+**回應**是 `{"iv", "ct"}`,用**同一把**衍生金鑰、新的 IV、AAD 換成 `response|{METHOD} {path}|{ts}`。解開之後才是平常那個 `{"success": ...}` 信封,錯誤信封也一樣被加密。
+
+**唯一的例外是解密失敗**:中介層自己擋下來的錯誤沒有金鑰可以加密,會以**明文**回 `{"success": false, "code": 400, "error": "invalid-envelope", "message": "..."}`。前端在解密前必須先認這個形狀,不要無條件把回應丟進 `crypto.subtle.decrypt`。
 
 ---
 
@@ -1073,6 +1121,10 @@ parameters:
 | **登入節流的鍵是「IP + 帳號」** —— 同一個 IP 換帳號就換一份配額,擋不住拿一組密碼掃一堆帳號 | 要擋就在應用層之外做（WAF / 反向代理） |
 | **Passkey 登入端點沒有帳號欄位,節流退化成近似純 IP** | 比密碼登入更粗放的取捨,若濫用明顯可考慮改用 `IP + credential_id 前綴` 當節流鍵 |
 | **`matrix.passkey-rp-id` 的 fallback 是當次請求的主機名稱,只在後台前端與此 API 同源時才正確**;RP ID 一旦設錯或事後變更,所有已註冊 passkey 會**全部永久失效,無遷移路徑**(WebAuthn 規格的密碼學綁定特性) | 若前後端分離部署在不同網域,啟用 passkey 前務必明確設定 `matrix.passkey-rp-id`,不要依賴 fallback |
+| **傳輸加密的三個開關(`matrix.{admin-api,api,vendor-api}-encryption`)都是明確開關,沒有自動偵測**;`crypto.subtle` 只在 secure context(HTTPS 或 `localhost` / `127.0.0.1`)存在,用區網 IP 走純 HTTP 的開發環境打不開它 | 那種環境把開關關掉,並且清楚知道**那台機器沒有應用層加密**。不要讓前端「偵測不到就自動退回明文」——那等於給攻擊者一個降級開關 |
+| **防重放的去重表存在 `Cache`**,一台機器記下的 `epk` 只有那台知道 | 多機部署時 `CACHE_STORE` 必須是跨機共享的(Redis),用 `file` / `array` 等單機快取的話,同一份密文換一台機器就能重送一次 |
+| **加密只保護 body,不改變 token 的傳法**(`Authorization` header / `matrix-user` cookie 還是原樣),也不取代 HTTPS | 它防的是「TLS 在反向代理就終止、之後那段是明文」這個威脅,不是 HTTPS 的替代品 |
+| **私鑰以 `APP_KEY` 加密後存在 `base_encryption_key`** | 資料庫與 `APP_KEY` 同時外洩,等於過去 `encryption.grace-period` 之內錄下來的流量都能解開。輪替頻率照你的合規要求定 |
 | **`base_auth_token.token` 是明文** | 資料庫外洩等於所有人的登入狀態外洩,備份與存取控制要照這個等級處理 |
 | **cookie 的 `secure` 跟隨 `config('session.secure')`** | 生產環境務必設成 true,否則 token 會在明文連線上傳 |
 | **上傳不檢查型別**（`cfg('file.mime-patterns')` 出貨空白 = 全部放行） | 要限制就設 `mime-patterns`（正則,空白分隔,**不能含逗號或分號** —— 那是分隔字元） |
@@ -1122,6 +1174,7 @@ parameters:
 | **每個 `#[Action]` 都要有選單節點** | 漏一個,那個端點對所有人 403,包含 ROOT |
 | **每一個 action 都跑在一個交易裡** | `BaseController::callAction()` 用 `DB::transaction()` 包住整個動作。要在 rollback 之後仍然執行的副作用（寄信、打第三方、刪檔）請註冊到 `RollbackCallbacks`,不要直接做 |
 | **`#[Action]` 會沿繼承鏈繼承** | 覆寫 action 不需要重新宣告 attribute |
+| **`#[Action(encrypted: false)]` 讓那支 action 不受所屬前綴的加密開關約束** | 呼叫方不可能封信封的端點要標記它:出貨已標的是 telegram webhook、兩支 multipart 上傳(`file/upload`、`drive/{id}/upload`)與 `encryption-key`。自己的上傳端點也要自己標,漏標的症狀是開關一開就變 `invalid-envelope` |
 | **篩選值的格式會驗證** | op 要的是單一值卻送陣列(`eq` / `contains` / `between` 的 from、to 等)、`in` / `notIn` 的清單裡有陣列,一律回 422 `invalid-filter-value`。以前這幾種格式有的靜默回**全量**、有的靠 binding 攤平湊出一個結果。欄位或 op 不被允許仍是靜默忽略（行為不變）,`in` 清單裡的 null 也照舊（合法 SQL,永不匹配） |
 | **`get` / `update` / `delete` 會自動加上父層條件** | 巢狀資源不會誤動別人家的資料 |
 | **樂觀鎖要自己呼叫** | `BaseModel::lock()` 會重讀該列並逐欄比對,值被別人改過就回 `data-conflicted`。CRUD 引擎不會自動幫你呼叫 |

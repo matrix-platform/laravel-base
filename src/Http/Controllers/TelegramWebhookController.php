@@ -13,7 +13,7 @@ class TelegramWebhookController extends BaseController {
     /**
      * @return array{}
      */
-    #[Action]
+    #[Action(encrypted: false)]
     public function webhook(Request $request): array {
         $matches = [];
 

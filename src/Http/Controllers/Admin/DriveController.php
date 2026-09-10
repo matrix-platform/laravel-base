@@ -199,7 +199,7 @@ class DriveController extends BaseController {
     /**
      * @return array<string, mixed>
      */
-    #[Action('{id}/upload')]
+    #[Action('{id}/upload', encrypted: false)]
     public function upload(Request $request): array {
         $request->validate([
             'file' => ['required', 'file']

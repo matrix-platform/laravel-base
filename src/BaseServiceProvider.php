@@ -12,10 +12,12 @@ use MatrixPlatform\Console\Commands\DispatchMessagesCommand;
 use MatrixPlatform\Console\Commands\PruneDriveFilesCommand;
 use MatrixPlatform\Console\Commands\PruneTokensCommand;
 use MatrixPlatform\Console\Commands\ResetUserPasswordCommand;
+use MatrixPlatform\Console\Commands\RotateEncryptionKeyCommand;
 use MatrixPlatform\Console\Commands\SetTelegramWebhookCommand;
 use MatrixPlatform\Console\Commands\SyncTranslatableCommand;
 use MatrixPlatform\Console\Commands\UpdateGeolocationDatabaseCommand;
 use MatrixPlatform\Database\Schema\BaseBlueprint;
+use MatrixPlatform\Http\Middleware\EncryptedEnvelopeMiddleware;
 use MatrixPlatform\Http\Middleware\EnvelopeMiddleware;
 use MatrixPlatform\Http\Middleware\LocaleMiddleware;
 use MatrixPlatform\Http\Middleware\LoginThrottleMiddleware;
@@ -46,6 +48,7 @@ class BaseServiceProvider extends ServiceProvider {
                 PruneDriveFilesCommand::class,
                 PruneTokensCommand::class,
                 ResetUserPasswordCommand::class,
+                RotateEncryptionKeyCommand::class,
                 SetTelegramWebhookCommand::class,
                 SyncTranslatableCommand::class,
                 UpdateGeolocationDatabaseCommand::class
@@ -58,6 +61,7 @@ class BaseServiceProvider extends ServiceProvider {
         $packages->register('app', base_path());
         $packages->register('base', dirname(__DIR__));
 
+        Route::aliasMiddleware('encrypted-api', EncryptedEnvelopeMiddleware::class);
         Route::aliasMiddleware('envelope-api', EnvelopeMiddleware::class);
         Route::aliasMiddleware('locale-api', LocaleMiddleware::class);
         Route::aliasMiddleware('login-throttle-api', LoginThrottleMiddleware::class);

@@ -154,6 +154,10 @@ return [
 
     'loadingMask' => 'Loading',
 
+    'locale-abbr-cn' => '简',
+    'locale-abbr-en' => 'EN',
+    'locale-abbr-jp' => '日',
+    'locale-abbr-tw' => '繁',
     'locale-cn' => '简体中文',
     'locale-en' => 'English',
     'locale-jp' => '日本語',

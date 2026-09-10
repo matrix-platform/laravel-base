@@ -14,6 +14,8 @@ return [
 
     'drive-anchor-immutable' => 'home 目录与群组目录不能被移动或放入回收站',
 
+    'encryption-unavailable' => '加密密钥无法使用',
+
     'endpoint-not-found' => '端点不存在',
 
     'file-too-large' => '文件大小超过限制',
@@ -33,6 +35,8 @@ return [
     'invalid-column-expression' => '字段表达式语法错误',
 
     'invalid-drive-file' => '不是有效的云端硬盘文件',
+
+    'invalid-envelope' => '无法读取加密请求',
 
     'invalid-filter-value' => '筛选值的格式不正确',
 

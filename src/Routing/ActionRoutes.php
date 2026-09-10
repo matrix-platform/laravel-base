@@ -6,6 +6,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use MatrixPlatform\Attributes\Action;
+use MatrixPlatform\Http\Middleware\EncryptedEnvelopeMiddleware;
 use ReflectionClass;
 use ReflectionMethod;
 
@@ -66,7 +67,7 @@ class ActionRoutes {
 
     /**
      * @param class-string $controller
-     * @return list<array{path: string, method: string, middleware: ?string}>
+     * @return list<array{path: string, method: string, middleware: ?string, encrypted: bool}>
      */
     public static function resolve(string $controller, ?string $scope = null): array {
         $routes = [];
@@ -80,7 +81,7 @@ class ActionRoutes {
 
             $path = $action->path === null ? Str::kebab($method->getName()) : $action->path;
 
-            $routes[] = ['path' => $path, 'method' => $method->getName(), 'middleware' => $action->middleware];
+            $routes[] = ['path' => $path, 'method' => $method->getName(), 'middleware' => $action->middleware, 'encrypted' => $action->encrypted];
         }
 
         usort($routes, fn (array $first, array $second): int => $first['path'] <=> $second['path']);
@@ -93,7 +94,11 @@ class ActionRoutes {
      */
     public static function scan(string $controller, ?string $scope = null): void {
         foreach (self::resolve($controller, $scope) as $route) {
-            Route::post($route['path'], [$controller, $route['method']])->middleware(Arr::wrap($route['middleware']));
+            $registered = Route::post($route['path'], [$controller, $route['method']])->middleware(Arr::wrap($route['middleware']));
+
+            if (!$route['encrypted']) {
+                $registered->withoutMiddleware(EncryptedEnvelopeMiddleware::class);
+            }
         }
     }
 

@@ -29,7 +29,7 @@ class FileController extends BaseController {
     /**
      * @return array{name: string, path: string, width: ?int, height: ?int, seconds: ?int}
      */
-    #[Action]
+    #[Action(encrypted: false)]
     public function upload(Request $request): array {
         $request->validate([
             'file' => ['required', 'file'],

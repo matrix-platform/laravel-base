@@ -26,13 +26,14 @@ use MatrixPlatform\Http\Controllers\Admin\TranslationController;
 use MatrixPlatform\Http\Controllers\Admin\UserController;
 use MatrixPlatform\Http\Controllers\Admin\UserTelegramSubscriptionController;
 use MatrixPlatform\Http\Controllers\CommonController;
+use MatrixPlatform\Http\Controllers\EncryptionController;
 use MatrixPlatform\Http\Controllers\FileController as PublicFileController;
 use MatrixPlatform\Http\Controllers\MemberPushSubscriptionController;
 use MatrixPlatform\Http\Controllers\PreferenceController;
 use MatrixPlatform\Http\Controllers\TelegramWebhookController;
 use MatrixPlatform\Routing\ActionRoutes;
 
-Route::middleware(['envelope-api', 'locale-api'])->group(function () {
+Route::middleware(['encrypted-api', 'envelope-api', 'locale-api'])->group(function () {
     Route::prefix(config('matrix.admin-api-prefix'))->group(function () {
         ActionRoutes::mount('i18n', I18nController::class);
 
@@ -98,4 +99,6 @@ Route::middleware(['envelope-api', 'locale-api'])->group(function () {
 
         ActionRoutes::fallback();
     });
+
+    ActionRoutes::scan(EncryptionController::class);
 });

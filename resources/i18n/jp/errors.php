@@ -14,6 +14,8 @@ return [
 
     'drive-anchor-immutable' => 'ホームディレクトリとグループディレクトリは移動やゴミ箱への移動ができません',
 
+    'encryption-unavailable' => '暗号鍵が利用できません',
+
     'endpoint-not-found' => 'エンドポイントが存在しません',
 
     'file-too-large' => 'ファイルサイズが上限を超えています',
@@ -33,6 +35,8 @@ return [
     'invalid-column-expression' => '列の式が不正です',
 
     'invalid-drive-file' => '有効なドライブファイルではありません',
+
+    'invalid-envelope' => '暗号化されたリクエストを読み取れません',
 
     'invalid-filter-value' => '絞り込み値の形式が不正です',
 

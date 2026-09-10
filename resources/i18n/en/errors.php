@@ -14,6 +14,8 @@ return [
 
     'drive-anchor-immutable' => 'Home and group directories cannot be moved or trashed',
 
+    'encryption-unavailable' => 'Encryption keys are unavailable',
+
     'endpoint-not-found' => 'Endpoint does not exist',
 
     'file-too-large' => 'File exceeds the size limit',
@@ -33,6 +35,8 @@ return [
     'invalid-column-expression' => 'Invalid column expression',
 
     'invalid-drive-file' => 'Not a valid drive file',
+
+    'invalid-envelope' => 'Encrypted request could not be read',
 
     'invalid-filter-value' => 'Filter value has an invalid format',
 
