@@ -71,6 +71,9 @@ class FeatureTestCase extends TestCase {
         $app['config']->set('app.locale', 'en');
         $app['config']->set('app.cipher', 'AES-256-CBC');
         $app['config']->set('app.key', 'base64:' . base64_encode(Encrypter::generateKey('AES-256-CBC')));
+        $app['config']->set('matrix.admin-api-encryption', false);
+        $app['config']->set('matrix.api-encryption', false);
+        $app['config']->set('matrix.vendor-api-encryption', false);
 
         Event::listen(RequestHandled::class, fn () => $app->forgetScopedInstances());
     }

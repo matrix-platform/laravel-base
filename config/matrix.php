@@ -9,9 +9,13 @@ use MatrixPlatform\Models\Vendor;
 
 return [
 
+    'admin-api-encryption' => true,
+
     'admin-api-prefix' => 'admin',
 
     'admin-menus' => 'base',
+
+    'api-encryption' => false,
 
     'api-prefix' => 'api',
 
@@ -64,6 +68,8 @@ return [
     ],
 
     'translation-provider' => 'google-translate',
+
+    'vendor-api-encryption' => true,
 
     'vendor-api-prefix' => 'vendor',
 

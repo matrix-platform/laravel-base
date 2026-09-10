@@ -76,6 +76,11 @@ class StubController extends BaseController {
         throw new RuntimeException('internal detail that must not leak');
     }
 
+    #[Action(encrypted: false)]
+    public function unsealed(): string {
+        return 'unsealed';
+    }
+
     #[Action]
     public function validated(Request $request): string {
         $request->validate(['name' => ['required'], 'age' => ['required', 'integer']]);

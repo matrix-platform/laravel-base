@@ -11,6 +11,15 @@ return new class extends Migration {
         DB::statement('CREATE SEQUENCE IF NOT EXISTS base_id START WITH 10000000');
         DB::statement('CREATE SEQUENCE IF NOT EXISTS base_ranking START WITH 100 INCREMENT BY 100');
 
+        Schema::create('base_encryption_key', function (BaseBlueprint $table) {
+            $table->primaryKey();
+            $table->text('kid')->unique();
+            $table->text('public_key');
+            $table->text('private_key');
+            $table->timestamp('expire_time')->nullable();
+            $table->auditings(false);
+        });
+
         Schema::create('base_manipulation_log', function (BaseBlueprint $table) {
             $table->id();
             $table->integer('type');
@@ -26,6 +35,7 @@ return new class extends Migration {
 
     public function down(): void {
         Schema::dropIfExists('base_manipulation_log');
+        Schema::dropIfExists('base_encryption_key');
 
         DB::statement('DROP SEQUENCE IF EXISTS base_ranking');
         DB::statement('DROP SEQUENCE IF EXISTS base_id');

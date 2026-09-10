@@ -14,6 +14,8 @@ return [
 
     'drive-anchor-immutable' => 'home 目錄與群組目錄不能被搬移或丟進垃圾桶',
 
+    'encryption-unavailable' => '加密金鑰無法使用',
+
     'endpoint-not-found' => '端點不存在',
 
     'file-too-large' => '檔案大小超過限制',
@@ -33,6 +35,8 @@ return [
     'invalid-column-expression' => '欄位運算式語法錯誤',
 
     'invalid-drive-file' => '不是有效的雲端硬碟檔案',
+
+    'invalid-envelope' => '無法讀取加密請求',
 
     'invalid-filter-value' => '篩選值的格式不正確',
 
