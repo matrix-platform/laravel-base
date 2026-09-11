@@ -1,0 +1,15 @@
+<?php //>
+
+namespace {{ namespace }};
+
+{{ uses }}
+
+/**
+{{ properties }}
+ */
+#[Declared({{ declaration }}::class)]
+class {{ model }} extends BaseModel {
+
+    protected $table = '{{ table }}';
+{{ members }}
+}

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use MatrixPlatform\Console\Commands\DispatchMessagesCommand;
+use MatrixPlatform\Console\Commands\MakeCrudCommand;
 use MatrixPlatform\Console\Commands\PruneDriveFilesCommand;
 use MatrixPlatform\Console\Commands\PruneTokensCommand;
 use MatrixPlatform\Console\Commands\ResetUserPasswordCommand;
@@ -45,6 +46,7 @@ class BaseServiceProvider extends ServiceProvider {
         if ($this->app->runningInConsole()) {
             $this->commands([
                 DispatchMessagesCommand::class,
+                MakeCrudCommand::class,
                 PruneDriveFilesCommand::class,
                 PruneTokensCommand::class,
                 ResetUserPasswordCommand::class,

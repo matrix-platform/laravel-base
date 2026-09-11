@@ -327,6 +327,8 @@ bundle 一律**扁平**:只有一層 key,key 本身可以含點,取值時當字�
 
 以一個 `Widget` 為例,**六個步驟,少一個都不會動**。
 
+> **資料表已經 migrate 好的話,可以先跑 `matrix:make-crud {table}` 偷懶**:它會反向產生步驟 2、3、4 的 Model/Declaration/Controller 草稿,以及步驟 6 欄位標題用的 `resources/i18n/{locale}/model/{table}.php`。它是輔助草稿工具,不是黑盒——呈現方式、`--title`、`--parent` 猜不到或猜錯風險高的地方一律留白或印出警示,產生後務必自己核對一遍再送出,路由/選單/選單翻譯仍要照下面步驟 5、6 手動加。細節看[主控台指令](#主控台指令)。
+
 ### 1. 資料表
 
 ```php
@@ -850,6 +852,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 
 | 指令 | 作用 |
 |---|---|
+| `matrix:make-crud` | 傳入資料表名稱(`{table}`),從已存在的資料表反向產生 Model、Declaration、Controller 草稿與 `resources/i18n/{locale}/model/{table}.php`(欄位清單、型別、`unique` 約束、translatable 欄位皆由 `information_schema` 內省;`required` 不從 schema 推斷)。不存在才寫入,`--force` 才覆寫既有檔案,`--dry-run` 只印出全部內容不寫入;路由(`routes/*.php`)、選單(`resources/menu/*.php`)與選單標題(`resources/i18n/{locale}/menu/*.php`)只印出建議片段供人工貼上,不會自動改寫這幾份共用陣列檔。**只有 `--parent` 指定的那個關聯會被轉成 `belongsTo()` 並在清單頁享有 `joined()` 智慧轉換,其餘一般外鍵欄位清單頁仍顯示裸 ID**;複合(多欄位)`unique`/`FOREIGN KEY` 約束不自動處理;只支援 `public` schema 的 PostgreSQL。**欄位若在資料庫設有 `COMMENT`,該註解會直接作為應用程式預設語系(`app()->getLocale()`)的欄位標題,其餘語系透過已設定的翻譯 provider 自動翻譯**;沒有 `COMMENT`、翻譯 provider 未設定或翻譯失敗時,該語系退回 `TODO: {欄位}` 並列入警示清單 |
 | `matrix:passwd` | 設定後台帳號密碼,建立管理員的唯一官方入口 |
 | `matrix:prune-drive-files` | 刪掉不再被任何 CRUD 記錄引用的 drive-linked `base_file`,每次執行都是即時掃描全部資料、當場判斷、當場刪除,沒有寬限期。**只掃描寫進 model `#[Declared]` 宣告(不是只寫在 controller)的 `drive-file`/`drive-image` 欄位** |
 | `matrix:prune-tokens` | 刪掉已經不能用來認證的 token,`--limit` 控制每批筆數（預設 1000） |
