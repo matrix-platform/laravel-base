@@ -4,10 +4,23 @@ namespace Tests\Feature\Models;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
+use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\Menu;
+use MatrixPlatform\Services\Admin\Crud\DeleteService;
 use Tests\FeatureTestCase;
 
 class MenuTest extends FeatureTestCase {
+
+    private function node(string $title): Menu {
+        $menu = new Menu();
+
+        $menu->title__en = $title;
+        $menu->ranking = 0;
+
+        $menu->save();
+
+        return $menu;
+    }
 
     public function test_the_table_carries_the_declared_columns(): void {
         $this->assertEqualsCanonicalizing(
@@ -51,6 +64,34 @@ class MenuTest extends FeatureTestCase {
         $this->assertInstanceOf(Carbon::class, $menu->enable_time);
         $this->assertInstanceOf(Carbon::class, $menu->disable_time);
         $this->assertSame('2026-01-02 03:04:05', $menu->enable_time->format('Y-m-d H:i:s'));
+    }
+
+    public function test_deleting_a_leaf_node_succeeds(): void {
+        $leaf = $this->node('leaf');
+
+        (new DeleteService(Menu::class))->standalone(true)->delete(['id' => $leaf->id]);
+
+        $this->assertNull(Menu::query()->find($leaf->id));
+    }
+
+    public function test_deleting_a_node_with_children_is_refused_instead_of_hitting_the_database_constraint(): void {
+        $root = $this->node('root');
+
+        $child = $this->node('child');
+
+        $child->parent_id = $root->id;
+        $child->save();
+
+        try {
+            (new DeleteService(Menu::class))->standalone(true)->delete(['id' => $root->id]);
+        } catch (ServiceException $exception) {
+            $this->assertSame('data-in-use', $exception->getError());
+            $this->assertNotNull(Menu::query()->find($root->id));
+
+            return;
+        }
+
+        $this->fail('the delete was expected to be refused');
     }
 
 }

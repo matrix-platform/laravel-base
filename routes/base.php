@@ -13,6 +13,8 @@ use MatrixPlatform\Http\Controllers\Admin\I18nController;
 use MatrixPlatform\Http\Controllers\Admin\I18nResourceController;
 use MatrixPlatform\Http\Controllers\Admin\MailLogController;
 use MatrixPlatform\Http\Controllers\Admin\ManipulationLogController;
+use MatrixPlatform\Http\Controllers\Admin\MenuChildrenController;
+use MatrixPlatform\Http\Controllers\Admin\MenuController;
 use MatrixPlatform\Http\Controllers\Admin\MenuResourceController;
 use MatrixPlatform\Http\Controllers\Admin\ModelResourceController;
 use MatrixPlatform\Http\Controllers\Admin\OptionsResourceController;
@@ -62,6 +64,8 @@ Route::middleware(['encrypted-api', 'envelope-api', 'locale-api'])->group(functi
                 ActionRoutes::mount('geolocation', GeoLocationController::class);
                 ActionRoutes::mount('group', GroupController::class);
                 ActionRoutes::mount('mail-log', MailLogController::class);
+                ActionRoutes::mount('menu', MenuController::class);
+                ActionRoutes::mount('menu/{parent_id}/children', MenuChildrenController::class);
                 ActionRoutes::mount('push-log', PushLogController::class);
                 ActionRoutes::mount('resource/cfg', CfgResourceController::class);
                 ActionRoutes::mount('resource/i18n/menu', MenuResourceController::class);

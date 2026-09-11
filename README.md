@@ -622,6 +622,22 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | POST | `admin/city/{city_id}/area/delete` | 授權 |
 | POST | `admin/city/{city_id}/area/sort` | 授權 |
 | POST | `admin/city/{city_id}/area/sort/save` | 授權 |
+| POST | `admin/menu` | 授權 |
+| POST | `admin/menu/new` | 授權 |
+| POST | `admin/menu/insert` | 授權 |
+| POST | `admin/menu/{id}` | 授權 |
+| POST | `admin/menu/{id}/update` | 授權 |
+| POST | `admin/menu/delete` | 授權 |
+| POST | `admin/menu/arrange` | 授權 |
+| POST | `admin/menu/arrange/save` | 授權 |
+| POST | `admin/menu/{parent_id}/children` | 授權 |
+| POST | `admin/menu/{parent_id}/children/new` | 授權 |
+| POST | `admin/menu/{parent_id}/children/insert` | 授權 |
+| POST | `admin/menu/{parent_id}/children/{id}` | 授權 |
+| POST | `admin/menu/{parent_id}/children/{id}/update` | 授權 |
+| POST | `admin/menu/{parent_id}/children/delete` | 授權 |
+| POST | `admin/menu/{parent_id}/children/arrange` | 授權 |
+| POST | `admin/menu/{parent_id}/children/arrange/save` | 授權 |
 | POST | `admin/geolocation` | 授權 |
 | POST | `admin/user` | 授權 |
 | POST | `admin/user/new` | 授權 |
@@ -1163,6 +1179,7 @@ parameters:
 | **匯出回應的 `columns[]` 不含 `op` / `sortable` / `options`** | 前端要知道能篩什麼,必須先呼叫清單端點 |
 | **`base_city_area.ranking` 與 `base_ranking` 序列不同量級** | 後台第一次拖曳排序就會把整組重編 |
 | **jsonb 欄位會宣稱自己可排序** | 引擎沒有把 Json 型別排除在排序之外。對它排序不會壞,但結果沒有意義 |
+| **自我參照的樹,巢狀資源必須掛在與關聯名同名的路由段下** | `count(children)` 的鑽取路徑是這樣推出來的:`Subject::path()` 遇到自我參照會停在 alias(`menu`),引擎改用關聯名 `children` 去選單裡找 `menu/{任意參數}/children`,找到才有 `path`。掛成別的名字(例如 `menu/{parent_id}/sub`)不會壞,但 `path` 會是 `null`,前端的數字就點不進去。`admin/menu` 只列頂層,子層一律走 `admin/menu/{parent_id}/children`,每一層都回到同一個 pattern,深度不限 |
 
 #### 資料寫入與稽核
 

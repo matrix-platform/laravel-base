@@ -11,6 +11,9 @@ return [
     'appearanceDark' => '深色',
     'appearanceLight' => '浅色',
 
+    'arrange.published' => '已上架',
+    'arrange.unpublished' => '未上架',
+
     'colorConfirm' => '确定',
 
     'common.cancel' => '取消',

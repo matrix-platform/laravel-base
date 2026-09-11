@@ -14,6 +14,18 @@ return [
                 'city/{city_id}/area/{id}' => '編輯行政區',
                 'city/{city_id}/area/new' => '新增行政區',
 
+    'website' => '網站管理',
+
+        'menu' => '選單管理',
+
+            'menu/{id}' => '編輯選單',
+            'menu/new' => '新增選單',
+
+            'menu/{parent_id}/children' => '子選單',
+
+                'menu/{parent_id}/children/{id}' => '編輯子選單',
+                'menu/{parent_id}/children/new' => '新增子選單',
+
     'system' => '系統管理',
 
         'authority' => '權限管理',

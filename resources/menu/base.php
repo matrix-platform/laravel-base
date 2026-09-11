@@ -24,6 +24,28 @@ return [
                 'city/{city_id}/area/sort' => ['parent' => 'city/{city_id}/area', 'tag' => 'update'],
                 'city/{city_id}/area/sort/save' => ['parent' => 'city/{city_id}/area', 'tag' => 'update'],
 
+    'website' => ['icon' => 'fa-solid fa-globe', 'ranking' => 8800, 'parent' => null],
+
+        'menu' => ['icon' => 'fa-solid fa-bars', 'ranking' => 100, 'parent' => 'website', 'group' => true, 'tag' => 'query'],
+
+            'menu/{id}' => ['parent' => 'menu', 'tag' => 'query'],
+            'menu/{id}/update' => ['parent' => 'menu', 'tag' => 'update'],
+            'menu/arrange' => ['parent' => 'menu', 'tag' => 'update'],
+            'menu/arrange/save' => ['parent' => 'menu', 'tag' => 'update'],
+            'menu/delete' => ['parent' => 'menu', 'tag' => 'delete'],
+            'menu/insert' => ['parent' => 'menu', 'tag' => 'insert'],
+            'menu/new' => ['parent' => 'menu', 'tag' => 'insert'],
+
+            'menu/{parent_id}/children' => ['icon' => 'fa-solid fa-list', 'parent' => 'menu', 'group' => true, 'tag' => 'query'],
+
+                'menu/{parent_id}/children/{id}' => ['parent' => 'menu/{parent_id}/children', 'tag' => 'query'],
+                'menu/{parent_id}/children/{id}/update' => ['parent' => 'menu/{parent_id}/children', 'tag' => 'update'],
+                'menu/{parent_id}/children/arrange' => ['parent' => 'menu/{parent_id}/children', 'tag' => 'update'],
+                'menu/{parent_id}/children/arrange/save' => ['parent' => 'menu/{parent_id}/children', 'tag' => 'update'],
+                'menu/{parent_id}/children/delete' => ['parent' => 'menu/{parent_id}/children', 'tag' => 'delete'],
+                'menu/{parent_id}/children/insert' => ['parent' => 'menu/{parent_id}/children', 'tag' => 'insert'],
+                'menu/{parent_id}/children/new' => ['parent' => 'menu/{parent_id}/children', 'tag' => 'insert'],
+
     'system' => ['icon' => 'fa-solid fa-desktop', 'ranking' => 9000, 'parent' => null],
 
         'authority' => ['icon' => 'fa-solid fa-users-gear', 'ranking' => 100, 'parent' => 'system'],

@@ -14,6 +14,18 @@ return [
                 'city/{city_id}/area/{id}' => '地区編集',
                 'city/{city_id}/area/new' => '地区の新規作成',
 
+    'website' => 'サイト管理',
+
+        'menu' => 'メニュー管理',
+
+            'menu/{id}' => 'メニュー編集',
+            'menu/new' => 'メニューの新規作成',
+
+            'menu/{parent_id}/children' => 'サブメニュー',
+
+                'menu/{parent_id}/children/{id}' => 'サブメニュー編集',
+                'menu/{parent_id}/children/new' => 'サブメニューの新規作成',
+
     'system' => 'システム管理',
 
         'authority' => '権限管理',
