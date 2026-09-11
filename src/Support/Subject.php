@@ -9,6 +9,10 @@ use MatrixPlatform\Columns\Declarations\Definition;
 
 class Subject {
 
+    public static function joinSegment(string $prefix, string $foreignKey, string $alias): string {
+        return "{$prefix}/{{$foreignKey}}/{$alias}";
+    }
+
     public function __construct(private MetadataRegistry $registry) {}
 
     public function alias(Model $model): string {
@@ -137,7 +141,7 @@ class Subject {
 
         $visited[$model::class] = true;
 
-        return $this->path($parent, $visited) . "/{{$relation->getForeignKeyName()}}/{$metadata->alias}";
+        return self::joinSegment($this->path($parent, $visited), $relation->getForeignKeyName(), $metadata->alias);
     }
 
     /**

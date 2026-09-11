@@ -1,0 +1,11 @@
+<?php //>
+
+namespace {{ namespace }};
+
+{{ uses }}
+
+class {{ controller }} extends CrudController {
+
+    protected string $model = {{ model }}::class;
+
+}

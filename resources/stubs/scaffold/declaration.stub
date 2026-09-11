@@ -1,0 +1,22 @@
+<?php //>
+
+namespace {{ namespace }};
+
+{{ uses }}
+
+class {{ declaration }} implements Declares {
+
+    /**
+     * @return array<string, Definition>
+     */
+    public function definitions(): array {
+        return array_merge(
+{{ segments }}
+        );
+    }
+
+    public function metadata(): Metadata {
+        return new Metadata({{ metadata }});
+    }
+
+}
