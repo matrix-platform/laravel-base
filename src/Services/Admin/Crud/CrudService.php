@@ -167,6 +167,12 @@ abstract class CrudService {
                     'path' => $rendered,
                     'title' => i18n($menu->token())
                 ];
+
+                $next = array_get_value($items, count($breadcrumbs));
+
+                if ($menu->group && $next instanceof Model && $this->subject->recursive($this->model)) {
+                    continue;
+                }
             }
 
             $parent = $menu->parent;
@@ -400,7 +406,19 @@ abstract class CrudService {
     }
 
     protected function prefix(): string {
-        return $this->standalone ? $this->subject->alias($this->model) : $this->subject->prefix($this->model);
+        if ($this->standalone) {
+            return $this->subject->alias($this->model);
+        }
+
+        $derived = $this->subject->prefix($this->model);
+
+        if (!$this->subject->recursive($this->model)) {
+            return $derived;
+        }
+
+        $mounted = $this->mounted();
+
+        return $mounted === null ? $derived : $mounted;
     }
 
     /**
@@ -627,6 +645,17 @@ abstract class CrudService {
 
     private function isLocal(Column $column): bool {
         return !$column->virtual && $column->expression->path === [];
+    }
+
+    private function mounted(): ?string {
+        $menus = app(Menus::class);
+        $menu = app(AdminPermission::class)->getCurrentMenu();
+
+        while ($menu !== null && !$menu->group) {
+            $menu = $menus->above($menu);
+        }
+
+        return $menu?->path;
     }
 
     /**

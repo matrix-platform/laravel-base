@@ -84,6 +84,12 @@ class Subject {
         return $this->path($model, []);
     }
 
+    public function recursive(Model $model): bool {
+        $relation = $this->parent($model);
+
+        return $relation !== null && $relation->getRelated() instanceof $model;
+    }
+
     public function title(Model $model): ?string {
         $field = $this->metadata($model)->title;
         $definitions = $this->registry->definitions($model::class);
@@ -135,7 +141,7 @@ class Subject {
         $relation = $this->relation($model, $metadata->parent);
         $parent = $relation->getRelated();
 
-        if ($parent instanceof $model || array_key_exists($parent::class, $visited)) {
+        if ($this->recursive($model) || array_key_exists($parent::class, $visited)) {
             return $metadata->alias;
         }
 

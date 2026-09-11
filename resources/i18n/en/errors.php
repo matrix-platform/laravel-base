@@ -86,6 +86,8 @@ return [
 
     'name-already-exists' => 'That name is already used in this location',
 
+    'nested-composite-not-supported' => 'Nested composite fields are not supported',
+
     'permission-denied' => 'Permission denied',
 
     'push-delivery-failed' => 'Push notification could not be delivered to any subscription',

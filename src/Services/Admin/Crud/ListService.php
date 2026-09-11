@@ -69,7 +69,7 @@ class ListService extends CrudService {
         return [
             'title' => $this->title(),
             'subtitle' => $this->subtitle($parents),
-            'breadcrumbs' => $this->breadcrumbs([null, ...$parents], $context),
+            'breadcrumbs' => $this->breadcrumbs($this->foreign() === null ? [null, ...$parents] : $parents, $context),
             'context' => $data === [] ? (object) [] : $data,
             'rows' => $rows,
             'columns' => $this->payload($columns, $context, null),
