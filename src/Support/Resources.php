@@ -2,9 +2,16 @@
 
 namespace MatrixPlatform\Support;
 
+use FilesystemIterator;
+use Illuminate\Contracts\Cache\Repository;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 
 class Resources {
+
+    private const MISSING = "\0missing\0";
 
     /**
      * @param array<string, mixed> $base
@@ -19,6 +26,14 @@ class Resources {
         }
 
         return $base;
+    }
+
+    public static function defaultsCacheKey(string $name): string {
+        return "matrix:resources:defaults:{$name}";
+    }
+
+    public static function overridesCacheKey(): string {
+        return 'matrix:resources:overrides';
     }
 
     private static function traverses(string $name): bool {
@@ -67,6 +82,16 @@ class Resources {
     public function forget(): void {
         $this->bundles = [];
         $this->overrides = null;
+
+        $this->cache()->forget(self::overridesCacheKey());
+    }
+
+    public function forgetAll(): void {
+        foreach ($this->allBundleNames() as $name) {
+            $this->cache()->forget(self::defaultsCacheKey($name));
+        }
+
+        $this->forget();
     }
 
     /**
@@ -138,6 +163,35 @@ class Resources {
     }
 
     /**
+     * @return list<string>
+     */
+    private function allBundleNames(): array {
+        $names = [];
+
+        foreach ($this->packages->paths() as $path) {
+            $root = "{$path}/resources";
+
+            if (!is_dir($root)) {
+                continue;
+            }
+
+            $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
+
+            foreach ($files as $file) {
+                if ($file->getExtension() === 'php') {
+                    $names[substr($file->getPathname(), strlen($root) + 1, -4)] = true;
+                }
+            }
+        }
+
+        return array_keys($names);
+    }
+
+    private function cache(): Repository {
+        return Cache::store(config('matrix.resource-cache-store'));
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     private function load(string $path): ?array {
@@ -158,6 +212,13 @@ class Resources {
             error('invalid-resource-token');
         }
 
+        $key = self::defaultsCacheKey($name);
+        $cached = $this->cache()->get($key);
+
+        if ($cached !== null) {
+            return $cached === self::MISSING ? null : $cached;
+        }
+
         $bundle = null;
 
         foreach ($this->packages->paths() as $path) {
@@ -168,6 +229,8 @@ class Resources {
             }
         }
 
+        $this->cache()->forever($key, $bundle === null ? self::MISSING : $bundle);
+
         return $bundle;
     }
 
@@ -176,15 +239,19 @@ class Resources {
      */
     private function overrides(): array {
         if ($this->overrides === null) {
-            $this->overrides = [];
+            $this->overrides = $this->cache()->rememberForever(self::overridesCacheKey(), function (): array {
+                $overrides = [];
 
-            foreach (DB::table('base_resource_override')->get(['bundle', 'data']) as $row) {
-                $data = json_decode(strval($row->data), true);
+                foreach (DB::table('base_resource_override')->get(['bundle', 'data']) as $row) {
+                    $data = json_decode(strval($row->data), true);
 
-                if (is_array($data)) {
-                    $this->overrides[strval($row->bundle)] = $data;
+                    if (is_array($data)) {
+                        $overrides[strval($row->bundle)] = $data;
+                    }
                 }
-            }
+
+                return $overrides;
+            });
         }
 
         return $this->overrides;

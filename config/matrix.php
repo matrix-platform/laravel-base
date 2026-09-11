@@ -48,6 +48,8 @@ return [
 
     'passkey-rp-id' => null,
 
+    'resource-cache-store' => null,
+
     'resource-cfg' => [],
 
     'resource-i18n' => [],

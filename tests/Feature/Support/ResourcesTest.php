@@ -177,6 +177,34 @@ class ResourcesTest extends FeatureTestCase {
         File::deleteDirectory($path);
     }
 
+    public function test_defaults_survive_the_file_being_deleted_even_from_a_different_resources_instance(): void {
+        $path = $this->temporary();
+        $file = "{$path}/resources/cfg/temp.php";
+
+        File::put($file, "<?php return ['key' => 'cached'];");
+
+        $this->packaged($path)->config('temp.key');
+
+        File::delete($file);
+        clearstatcache();
+
+        $this->assertSame('cached', $this->packaged($path)->config('temp.key'));
+
+        File::deleteDirectory($path);
+    }
+
+    public function test_a_missing_bundle_stays_missing_even_for_a_different_resources_instance(): void {
+        $path = $this->temporary();
+
+        $this->assertNull($this->packaged($path)->config('ghost.key'));
+
+        File::put("{$path}/resources/cfg/ghost.php", "<?php return ['key' => 'appeared'];");
+        clearstatcache();
+
+        $this->assertNull($this->packaged($path)->config('ghost.key'));
+
+        File::deleteDirectory($path);
+    }
 
     public function test_a_bundle_without_an_override_row_equals_its_defaults(): void {
         $resources = $this->fixtures();
@@ -244,6 +272,23 @@ class ResourcesTest extends FeatureTestCase {
         $this->assertCount(1, $queries);
     }
 
+    public function test_the_override_query_is_not_repeated_by_a_different_resources_instance(): void {
+        $this->overriding('cfg/demo', ['shared' => 'x']);
+
+        $this->fixtures()->config('demo.shared');
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $this->fixtures()->config('demo.shared');
+
+        $queries = array_filter(DB::getQueryLog(), fn (array $query): bool => str_contains(strval($query['query']), 'base_resource_override'));
+
+        DB::disableQueryLog();
+
+        $this->assertCount(0, $queries);
+    }
+
     public function test_forgetting_a_bundle_makes_the_next_read_see_the_new_override(): void {
         $resources = $this->fixtures();
 
@@ -253,6 +298,17 @@ class ResourcesTest extends FeatureTestCase {
         $resources->forget();
 
         $this->assertSame('later', $resources->config('demo.shared'));
+    }
+
+    public function test_forgetting_a_bundle_makes_a_different_resources_instance_see_the_new_override_too(): void {
+        $first = $this->fixtures();
+
+        $this->assertSame('from-a', $first->config('demo.shared'));
+
+        $this->overriding('cfg/demo', ['shared' => 'later']);
+        $first->forget();
+
+        $this->assertSame('later', $this->fixtures()->config('demo.shared'));
     }
 
     public function test_bundle_names_list_the_files_of_one_directory_only(): void {

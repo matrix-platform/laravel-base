@@ -767,6 +767,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `matrix.messaging` | 見範本 | channel 註冊。每個 channel 都要有 `model` 與 `queue`。**巢狀 key,宣告就整份取代** |
 | `matrix.packages` | `'app base'` | 資源疊層順序 |
 | `matrix.passkey-rp-id` | `null` | Passkey Relying Party ID。`null` 時 fallback 用當次請求的主機名稱——若後台前端與此 API 不同源,務必明確設定,見[已知限制與取捨](#已知限制與取捨)。允許的 origin 由此值(加上 `admin.passkey-allow-subdomains`)推導,預設一律要求 `https://{rp-id}`;此值出現在 `admin.passkey-http-rp-ids` 白名單裡才會額外放行 `http://{rp-id}`(本機開發用) |
+| `matrix.resource-cache-store` | `null` | 資源 bundle defaults(檔案)與 override(DB)要快取到哪個 cache store,`null` = 用預設 store(`cache.default`)。清快取見 `matrix:clear-resource-cache` |
 | `matrix.resource-cfg` | `[]` | 資源後台開放編輯的 cfg bundle 白名單,**空 = 全部不開放** |
 | `matrix.resource-i18n` | `[]` | 同上,一般翻譯 |
 | `matrix.resource-i18n-menu` | `[]` | 同上,選單標題 |
@@ -852,6 +853,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 
 | 指令 | 作用 |
 |---|---|
+| `matrix:clear-resource-cache` | 清掉所有已快取的 cfg/i18n/menu/style 資源 bundle defaults 與 DB override 快取(`matrix.resource-cache-store`)。部署後改了資源檔案卻沒生效,先跑這個 |
 | `matrix:make-crud` | 傳入資料表名稱(`{table}`),從已存在的資料表反向產生 Model、Declaration、Controller 草稿與 `resources/i18n/{locale}/model/{table}.php`(欄位清單、型別、`unique` 約束、translatable 欄位皆由 `information_schema` 內省;`required` 不從 schema 推斷)。不存在才寫入,`--force` 才覆寫既有檔案,`--dry-run` 只印出全部內容不寫入;路由(`routes/*.php`)、選單(`resources/menu/*.php`)與選單標題(`resources/i18n/{locale}/menu/*.php`)只印出建議片段供人工貼上,不會自動改寫這幾份共用陣列檔。**只有 `--parent` 指定的那個關聯會被轉成 `belongsTo()` 並在清單頁享有 `joined()` 智慧轉換,其餘一般外鍵欄位清單頁仍顯示裸 ID**;複合(多欄位)`unique`/`FOREIGN KEY` 約束不自動處理;只支援 `public` schema 的 PostgreSQL。**欄位若在資料庫設有 `COMMENT`,該註解會直接作為應用程式預設語系(`app()->getLocale()`)的欄位標題,其餘語系透過已設定的翻譯 provider 自動翻譯**;沒有 `COMMENT`、翻譯 provider 未設定或翻譯失敗時,該語系退回 `TODO: {欄位}` 並列入警示清單 |
 | `matrix:passwd` | 設定後台帳號密碼,建立管理員的唯一官方入口 |
 | `matrix:prune-drive-files` | 刪掉不再被任何 CRUD 記錄引用的 drive-linked `base_file`,每次執行都是即時掃描全部資料、當場判斷、當場刪除,沒有寬限期。**只掃描寫進 model `#[Declared]` 宣告(不是只寫在 controller)的 `drive-file`/`drive-image` 欄位** |
