@@ -86,6 +86,8 @@ return [
 
     'name-already-exists' => 'この名称はこの場所ですでに使用されています',
 
+    'nested-composite-not-supported' => '複合フィールドの入れ子はサポートされていません',
+
     'permission-denied' => '権限がありません',
 
     'push-delivery-failed' => 'プッシュ通知をどの購読先にも送信できませんでした',

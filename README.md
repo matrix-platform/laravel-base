@@ -859,6 +859,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `message-template-not-found` | 查無訊息樣板 |
 | `mfa-already-enabled` | 雙因子驗證已經啟用 |
 | `name-already-exists` | 這個名稱在此位置已經存在 |
+| `nested-composite-not-supported` | 複合欄位不支援巢狀 |
 | `permission-denied` | 權限不足 |
 | `push-delivery-failed` | 推播通知無法送達任何訂閱 |
 | `push-subscription-not-found` | 這個收件者沒有可用的推播訂閱 |

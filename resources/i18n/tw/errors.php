@@ -86,6 +86,8 @@ return [
 
     'name-already-exists' => '這個名稱在此位置已經存在',
 
+    'nested-composite-not-supported' => '複合欄位不支援巢狀',
+
     'permission-denied' => '權限不足',
 
     'push-delivery-failed' => '推播通知無法送達任何訂閱',

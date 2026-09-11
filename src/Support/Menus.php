@@ -14,6 +14,10 @@ class Menus {
      */
     private array $origins = [];
 
+    public function above(MenuNode $menu): ?MenuNode {
+        return $menu->parent === null ? null : $this->node($menu->parent);
+    }
+
     /**
      * @return array<string, mixed>
      */

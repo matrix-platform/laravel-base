@@ -102,6 +102,22 @@ class ColumnResolver {
         return $definition instanceof Definition ? $definition : null;
     }
 
+    /**
+     * @param list<string> $relations
+     */
+    private function descended(Model $terminal, string $prefix, array $relations): ?string {
+        $segment = $relations === [] ? null : $relations[count($relations) - 1];
+        $foreign = $this->subject->foreign($terminal);
+
+        if ($segment === null || $foreign === null) {
+            return null;
+        }
+
+        $path = Subject::joinSegment($prefix, $foreign, $segment);
+
+        return $this->menus->has($path) ? $this->subject->generic($path) : null;
+    }
+
     private function fallback(ParsedColumn $column): string {
         return $column->title === null ? "{{$column->name}}" : $column->title;
     }
@@ -192,6 +208,10 @@ class ColumnResolver {
         }
 
         $prefix = $this->subject->prefix($terminal);
+
+        if ($this->subject->recursive($terminal)) {
+            return $this->descended($terminal, $prefix, $column->expression->path);
+        }
 
         return $this->menus->has($prefix) ? $this->subject->generic($prefix) : null;
     }

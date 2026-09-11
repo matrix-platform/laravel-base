@@ -86,6 +86,8 @@ return [
 
     'name-already-exists' => '该名称在此位置已存在',
 
+    'nested-composite-not-supported' => '复合字段不支持嵌套',
+
     'permission-denied' => '权限不足',
 
     'push-delivery-failed' => '推送通知无法送达任何订阅',

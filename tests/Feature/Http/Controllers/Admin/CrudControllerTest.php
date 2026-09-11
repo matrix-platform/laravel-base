@@ -400,8 +400,8 @@ class CrudControllerTest extends FeatureTestCase {
         $response = $this->admin("admin/widget/{$alpha->id}/trinket");
 
         $this->assertSame([
-            ['label' => 'Alpha', 'path' => 'widget', 'title' => 'Widgets'],
-            ['label' => null, 'path' => "widget/{$alpha->id}/trinket", 'title' => 'Trinkets']
+            ['label' => null, 'path' => 'widget', 'title' => 'Widgets'],
+            ['label' => 'Alpha', 'path' => "widget/{$alpha->id}/trinket", 'title' => 'Trinkets']
         ], $response->json('data.breadcrumbs'));
     }
 
