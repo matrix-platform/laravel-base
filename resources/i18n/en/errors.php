@@ -74,6 +74,8 @@ return [
 
     'invalid-translation-driver' => 'Invalid translation driver configuration',
 
+    'invalid-type-resolver' => 'Invalid composite field type resolver configuration',
+
     'message-provider-has-no-driver' => 'Message provider has no driver configured',
 
     'message-refused-by-provider' => 'The provider refused the message',

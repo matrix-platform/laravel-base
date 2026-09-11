@@ -95,7 +95,7 @@ class GroupControllerTest extends FeatureTestCase {
         $this->assertNotEmpty($permissions['options']);
 
         $this->assertSame(array_keys($other), array_keys($permissions));
-        $this->assertCount(17, $permissions);
+        $this->assertCount(18, $permissions);
     }
 
     public function test_the_new_payload_carries_an_empty_permission_object(): void {

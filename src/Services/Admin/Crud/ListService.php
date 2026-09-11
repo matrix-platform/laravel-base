@@ -72,7 +72,7 @@ class ListService extends CrudService {
             'breadcrumbs' => $this->breadcrumbs([null, ...$parents], $context),
             'context' => $data === [] ? (object) [] : $data,
             'rows' => $rows,
-            'columns' => $this->payload($columns, $context),
+            'columns' => $this->payload($columns, $context, null),
             'features' => $arrangeable ? ['arrange'] : [],
             'preference' => array_get_value($preference, "column:{$key}"),
             'sorting' => array_map(fn (Sort $sort): array => ['name' => $sort->name, 'direction' => $sort->direction->value], $sorted),

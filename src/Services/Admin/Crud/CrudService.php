@@ -14,6 +14,9 @@ use Illuminate\Validation\Rules\Unique;
 use MatrixPlatform\Columns\Column;
 use MatrixPlatform\Columns\ColumnResolver;
 use MatrixPlatform\Columns\ColumnType;
+use MatrixPlatform\Columns\Declarations\Definition;
+use MatrixPlatform\Columns\Declarations\TypeResolver;
+use MatrixPlatform\Columns\Declarations\Variant;
 use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Columns\Query\QueryPlan;
 use MatrixPlatform\Columns\Syntax\ColumnParser;
@@ -22,6 +25,7 @@ use MatrixPlatform\Services\FileService;
 use MatrixPlatform\Support\Actions;
 use MatrixPlatform\Support\AdminPermission;
 use MatrixPlatform\Support\Menus;
+use MatrixPlatform\Support\Resources;
 use MatrixPlatform\Support\Subject;
 
 abstract class CrudService {
@@ -192,6 +196,36 @@ abstract class CrudService {
         return $this->prepared($this->plan()->complete());
     }
 
+    protected function compositeResolved(Column $column, mixed $value, mixed $input, ?Model $model): mixed {
+        if (!is_array($value) || $column->variantGroup === null) {
+            return $value;
+        }
+
+        $variant = $this->variant($column->variantGroup, $input, $model);
+
+        if ($variant === null) {
+            return $value;
+        }
+
+        foreach ($variant->definitions() as $field => $definition) {
+            if (!in_array($definition->presentation, [Presentation::DriveFile, Presentation::DriveImage], true)) {
+                continue;
+            }
+
+            if ($definition->translatable) {
+                foreach (locales() as $locale) {
+                    if (isset($value[$field][$locale]) && is_array($value[$field][$locale])) {
+                        $value[$field][$locale] = app(FileService::class)->resolveDriveReferences($this->driveEntries($value[$field][$locale]), actor()->requireUser());
+                    }
+                }
+            } elseif (isset($value[$field]) && is_array($value[$field])) {
+                $value[$field] = app(FileService::class)->resolveDriveReferences($this->driveEntries($value[$field]), actor()->requireUser());
+            }
+        }
+
+        return $value;
+    }
+
     /**
      * @param array<string, mixed> $data
      * @param list<Column> $columns
@@ -324,7 +358,7 @@ abstract class CrudService {
      * @param list<Column> $columns
      * @return list<array<string, mixed>>
      */
-    protected function payload(array $columns, ?Model $record): array {
+    protected function payload(array $columns, ?Model $record, mixed $input): array {
         return array_map(fn (Column $column): array => [
             ...$this->shape($column),
             'group' => $column->group,
@@ -337,6 +371,7 @@ abstract class CrudService {
             'required' => $column->required,
             'rule' => $column->rule,
             'sortable' => $column->sortable,
+            'variant' => $this->resolvedVariant($column, $input, $record),
             'writable' => $this->writable($column)
         ], $columns);
     }
@@ -385,13 +420,32 @@ abstract class CrudService {
     }
 
     /**
+     * @return list<array<string, mixed>>|null
+     */
+    protected function resolvedVariant(Column $column, mixed $input, ?Model $model): ?array {
+        if ($column->variantGroup === null) {
+            return null;
+        }
+
+        $variant = $this->variant($column->variantGroup, $input, $model);
+
+        return $variant === null ? null : $this->variantShape($column->variantGroup, $variant->definitions());
+    }
+
+    /**
      * @return array<string, list<string|Unique>>
      */
-    protected function rules(int|string|null $ignoreId = null): array {
+    protected function rules(mixed $input, ?Model $model, int|string|null $ignoreId = null): array {
         $rules = [];
 
         foreach ($this->local() as $column) {
             if (!$this->writable($column)) {
+                continue;
+            }
+
+            if ($column->variantGroup !== null) {
+                $this->expand($rules, $column->name, $column->variantGroup, $input, $model);
+
                 continue;
             }
 
@@ -475,10 +529,41 @@ abstract class CrudService {
     /**
      * @return array<string, mixed>
      */
-    protected function validated(mixed $input, int|string|null $ignoreId = null): array {
+    protected function validated(mixed $input, ?Model $model, int|string|null $ignoreId = null): array {
         $values = is_array($input) ? $input : [];
 
-        return Validator::make($values, $this->rules($ignoreId))->validate();
+        return Validator::make($values, $this->rules($input, $model, $ignoreId))->validate();
+    }
+
+    /**
+     * @param array<string, Definition> $definitions
+     * @return list<array<string, mixed>>
+     */
+    protected function variantShape(string $group, array $definitions): array {
+        $found = app(Resources::class)->getI18nBundle("model/{$group}");
+        $bundle = $found === null ? [] : $found;
+        $shapes = [];
+
+        foreach ($definitions as $name => $definition) {
+            if ($definition->presentation === Presentation::Composite) {
+                error('nested-composite-not-supported');
+            }
+
+            $title = array_get_value($bundle, $name);
+
+            $shapes[] = [
+                'name' => $name,
+                'title' => is_string($title) ? $title : "{{$name}}",
+                'translatable' => $definition->translatable,
+                'type' => $definition->type->value,
+                'presentation' => $definition->presentation instanceof Presentation ? $definition->presentation->value : $definition->presentation,
+                'options' => $definition->options === null ? null : (is_string($definition->options) ? app($definition->options) : $definition->options)->options(),
+                'required' => $definition->required,
+                'rule' => $definition->rule instanceof Closure ? ($definition->rule)() : $definition->rule
+            ];
+        }
+
+        return $shapes;
     }
 
     /**
@@ -497,6 +582,31 @@ abstract class CrudService {
         $url = $this->resolvedUrl(app(Actions::class)->define($type), $prefix);
 
         return $url !== null && app(AdminPermission::class)->reaches($url);
+    }
+
+    /**
+     * @param array<string, list<string|Unique>> $rules
+     */
+    private function expand(array &$rules, string $name, string $group, mixed $input, ?Model $model): void {
+        $variant = $this->variant($group, $input, $model);
+
+        if ($variant === null) {
+            return;
+        }
+
+        foreach ($variant->definitions() as $field => $definition) {
+            $rule = $definition->rule instanceof Closure ? ($definition->rule)() : $definition->rule;
+            $rule = $rule === [] ? [$definition->type->rule()] : $rule;
+            $prefix = $definition->required ? ['required'] : ['present', 'nullable'];
+
+            if ($definition->translatable) {
+                foreach (locales() as $locale) {
+                    $rules["{$name}.{$field}.{$locale}"] = [...$prefix, ...$rule];
+                }
+            } else {
+                $rules["{$name}.{$field}"] = [...$prefix, ...$rule];
+            }
+        }
     }
 
     private function frontendFormat(string $format): string {
@@ -592,6 +702,20 @@ abstract class CrudService {
         $rule = Rule::unique($this->model->getTable(), $field);
 
         return $ignoreId === null ? $rule : $rule->ignore($ignoreId);
+    }
+
+    private function variant(string $group, mixed $input, ?Model $model): ?Variant {
+        $resolver = resolve_driver($group, TypeResolver::class, 'invalid-type-resolver');
+        $type = $resolver?->resolve($model, $input);
+        $class = is_string($type) ? cfg("{$group}.{$type}") : null;
+
+        if (!is_string($class) || !is_a($class, Variant::class, true)) {
+            return null;
+        }
+
+        $instance = app($class);
+
+        return $instance instanceof Variant ? $instance : null;
     }
 
 }

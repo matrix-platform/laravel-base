@@ -74,6 +74,8 @@ return [
 
     'invalid-translation-driver' => '翻訳サービスの設定が不正です',
 
+    'invalid-type-resolver' => '複合フィールドのタイプリゾルバー設定が不正です',
+
     'message-provider-has-no-driver' => 'メッセージプロバイダーに送信ドライバーが設定されていません',
 
     'message-refused-by-provider' => 'プロバイダーによってメッセージが拒否されました',

@@ -42,4 +42,12 @@ class DefinitionTest extends TestCase {
         $this->assertSame($options, $definition->options);
     }
 
+    public function test_composite_locks_the_type_and_presentation_and_carries_the_group(): void {
+        $definition = Definition::composite('menu-data');
+
+        $this->assertSame(ColumnType::Json, $definition->type);
+        $this->assertSame(Presentation::Composite, $definition->presentation);
+        $this->assertSame('menu-data', $definition->group);
+    }
+
 }

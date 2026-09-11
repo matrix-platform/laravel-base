@@ -392,6 +392,16 @@ class WidgetDeclaration implements Declares {
 
 沒有 `#[Declared]` 的 model 一進 CRUD 端點就是 `undeclared-model`。
 
+**JSON 欄位形狀依情境動態變動,用 `Definition::composite()`。**
+
+```php
+'data' => Definition::composite('announcement-data')
+```
+
+參數是一個 cfg group 名稱,對應 `resources/cfg/{group}.php`。這份 cfg 檔案要有一個 `driver` key,指向你自己實作的 `TypeResolver`(`resolve(?Model $model, mixed $input): ?string`,沿用既有 `resolve_driver()` 慣例),負責當下算出一個「type 字串」;其餘 key 是「type 字串 → 子欄位定義 class」的對照表,每個子欄位定義 class 實作 `Variant`(格式跟 `Declares::definitions()` 一樣,但不用寫 `metadata()`)。表單裡會依 driver 算出的 type 展開對應的子欄位、送出時驗證、存檔轉回單一 JSON。
+
+**這個欄位不需要對應到任何真實的 DB 欄位存 type 值**——`TypeResolver::resolve()` 要依據什麼判斷(另一個欄位的值、目前操作者、資料庫查詢……)完全是你的邏輯,引擎只在需要知道「這次要用哪個 variant」的當下呼叫它。沒有設定 `driver` 時安全降級成不展開、不驗證,不會出錯。只支援一層,子欄位不能再是 `Definition::composite()`。
+
 ### 4. Controller
 
 ```php
@@ -843,6 +853,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `invalid-sort-order` | 排序內容與資料不符 |
 | `invalid-token` | 登入憑證無效或已過期 |
 | `invalid-translation-driver` | 翻譯服務設定錯誤 |
+| `invalid-type-resolver` | 複合欄位的型別判斷器設定錯誤 |
 | `message-provider-has-no-driver` | 訊息供應商未設定傳送器 |
 | `message-refused-by-provider` | 訊息被供應商拒絕 |
 | `message-template-not-found` | 查無訊息樣板 |

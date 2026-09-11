@@ -9,7 +9,7 @@ class InsertService extends CrudService {
      */
     public function insert(mixed $input): array {
         $model = $this->model->newInstance();
-        $values = $this->validated($input);
+        $values = $this->validated($input, $model);
 
         foreach ($this->local() as $column) {
             if (!$column->readonly && $column->translatable) {
@@ -23,7 +23,11 @@ class InsertService extends CrudService {
             }
 
             if (!$column->readonly) {
-                $model->setAttribute($column->name, $this->driveResolved($column, $values[$column->name]));
+                $resolved = $column->variantGroup === null
+                    ? $this->driveResolved($column, $values[$column->name])
+                    : $this->compositeResolved($column, $values[$column->name], $input, $model);
+
+                $model->setAttribute($column->name, $resolved);
             }
         }
 

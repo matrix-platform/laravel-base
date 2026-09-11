@@ -21,7 +21,7 @@ class NewService extends CrudService {
     /**
      * @return array<string, mixed>
      */
-    public function new(): array {
+    public function new(mixed $input = null): array {
         $model = $this->model->newInstance();
 
         $this->attach($model);
@@ -34,7 +34,7 @@ class NewService extends CrudService {
             'subtitle' => $this->subtitle($parents),
             'breadcrumbs' => $this->breadcrumbs([$model, ...$parents], $model),
             'data' => array_merge($blank, $model->toArray()),
-            'columns' => $this->payload($this->columns, $model),
+            'columns' => $this->payload($this->columns, $model, $input),
             'actions' => $this->operations($this->passing($this->actions, $model), $this->prefix())
         ];
     }
