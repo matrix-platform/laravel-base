@@ -191,7 +191,7 @@ class QueryPlanTest extends FeatureTestCase {
             ->toSql();
 
         $this->assertSame(
-            'select "stub_widget"."id", "trinkets"."trinkets_count" as "trinkets_count" from "stub_widget" '
+            'select "stub_widget"."id", coalesce("trinkets"."trinkets_count", 0) as "trinkets_count" from "stub_widget" '
                 . 'left join (select "trinkets"."widget_id", count(*) as "trinkets_count" '
                 . 'from "stub_trinket" as "trinkets" group by "trinkets"."widget_id") as "trinkets" '
                 . 'on "trinkets"."widget_id" = "stub_widget"."id"',
@@ -215,7 +215,7 @@ class QueryPlanTest extends FeatureTestCase {
             ->orderBy('title')
             ->get();
 
-        $this->assertSame([2, 1, null], $rows->pluck('trinkets_count')->all());
+        $this->assertSame([2, 1, 0], $rows->pluck('trinkets_count')->all());
     }
 
     public function test_the_other_aggregates_use_the_qualified_column(): void {
@@ -269,7 +269,7 @@ class QueryPlanTest extends FeatureTestCase {
             ->orderBy('title')
             ->get();
 
-        $this->assertSame([2, 1, null], $rows->pluck('camelCasedTrinkets_count')->all());
+        $this->assertSame([2, 1, 0], $rows->pluck('camelCasedTrinkets_count')->all());
     }
 
     public function test_a_mixed_case_relation_name_survives_a_filtered_aggregate(): void {
@@ -312,7 +312,7 @@ class QueryPlanTest extends FeatureTestCase {
             ->toSql();
 
         $this->assertSame(
-            'select "stub_widget"."id", "trinkets__trinket"."trinkets__trinket_count" as "trinkets__trinket_count" '
+            'select "stub_widget"."id", coalesce("trinkets__trinket"."trinkets__trinket_count", 0) as "trinkets__trinket_count" '
                 . 'from "stub_widget" left join (select "trinkets"."widget_id", count(*) as "trinkets__trinket_count" '
                 . 'from "stub_trinket" as "trinkets__trinket" '
                 . 'inner join "stub_trinket" as "trinkets" on "trinkets__trinket"."id" = "trinkets"."trinket_id" '
