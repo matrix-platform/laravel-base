@@ -58,7 +58,7 @@ class PermissionTree implements OptionProvider {
         $sections = [];
 
         foreach ($this->nodes() as $path => $node) {
-            if (!$node->group || $owners[$path] !== null) {
+            if (!$node->group || $owners[$path] !== null || $this->grantedToEveryone($node)) {
                 continue;
             }
 
@@ -136,10 +136,18 @@ class PermissionTree implements OptionProvider {
         }
 
         foreach (array_key_exists($node->path, $children) ? $children[$node->path] : [] as $child) {
+            if ($this->grantedToEveryone($child)) {
+                continue;
+            }
+
             $items[] = $this->entry($grants, $children, $child);
         }
 
         return new Option($items, $node->path, $this->ranking($node), i18n($node->token()));
+    }
+
+    private function grantedToEveryone(MenuNode $node): bool {
+        return $node->tag === ReservedTag::User->value;
     }
 
     /**

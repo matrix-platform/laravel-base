@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Routing\Route as RouteInstance;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
+use MatrixPlatform\Support\Menus;
 use MatrixPlatform\Support\PackageRegistry;
 use Tests\FeatureTestCase;
 
@@ -89,9 +91,11 @@ class ReadmeTest extends FeatureTestCase {
      */
     private function endpoints(): array {
         $paths = [];
+        $menus = app(Menus::class);
+        $prefix = (is_string(config('matrix.admin-api-prefix')) ? config('matrix.admin-api-prefix') : '') . '/';
 
         foreach (Route::getRoutes()->getRoutes() as $route) {
-            if (!$route->isFallback) {
+            if (!$route->isFallback && !$this->unreachable($route, $menus, $prefix)) {
                 $paths[] = implode('|', $route->methods()) . ' ' . $route->uri();
             }
         }
@@ -99,6 +103,21 @@ class ReadmeTest extends FeatureTestCase {
         sort($paths);
 
         return $paths;
+    }
+
+    /**
+     * A route guarded by `permission-api` but absent from every permission menu (e.g. `export`, which
+     * `CrudController` registers unconditionally on every resource but no resource ever grants) can never
+     * actually be reached by anyone, so it is excluded rather than documented as a dead route.
+     */
+    private function unreachable(RouteInstance $route, Menus $menus, string $prefix): bool {
+        if (!in_array('permission-api', $route->gatherMiddleware(), true)) {
+            return false;
+        }
+
+        $uri = $route->uri();
+
+        return str_starts_with($uri, $prefix) && !$menus->has(substr($uri, strlen($prefix)));
     }
 
     private function path(string $relative): string {

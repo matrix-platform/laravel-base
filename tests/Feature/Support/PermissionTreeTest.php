@@ -112,10 +112,10 @@ class PermissionTreeTest extends FeatureTestCase {
         $this->assertSame([], $this->pick($section->children, 'console')->children);
     }
 
-    public function test_an_always_allowed_resource_offers_no_actions(): void {
+    public function test_an_always_allowed_resource_is_excluded_from_the_tree(): void {
         $section = $this->pick($this->tree('authority'), 'system');
 
-        $this->assertSame([], $this->pick($section->children, 'preference')->children);
+        $this->assertNotContains('preference', $this->ids($section->children));
     }
 
     public function test_a_nested_resource_becomes_a_child_of_its_owner(): void {
