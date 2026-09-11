@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Arr;
 use MatrixPlatform\Attributes\Action;
+use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Declarations\Definitions;
 use MatrixPlatform\Columns\Presentation;
@@ -156,7 +157,7 @@ abstract class CrudController extends BaseController {
      */
     #[Action]
     public function new(Request $request): array {
-        return $this->onNew($this->prepare(new NewService($this->model), $request))->new();
+        return $this->onNew($this->prepare(new NewService($this->model), $request))->new($request->all());
     }
 
     /**
@@ -265,7 +266,7 @@ abstract class CrudController extends BaseController {
     }
 
     private function complex(Definition $definition): bool {
-        return is_string($definition->presentation) || $definition->presentation === Presentation::Password;
+        return is_string($definition->presentation) || in_array($definition->presentation, [Presentation::Composite, Presentation::Password], true);
     }
 
     /**
@@ -290,7 +291,7 @@ abstract class CrudController extends BaseController {
         $excluded = Arr::whereNotNull([...$reserved, $this->ranking(), $foreign]);
         $names = array_diff(array_keys($definitions), $excluded);
 
-        return array_values(array_filter($names, fn (string $name): bool => $definitions[$name]->presentation !== Presentation::Hidden));
+        return array_values(array_filter($names, fn (string $name): bool => $this->shown($definitions[$name])));
     }
 
     /**
@@ -376,6 +377,14 @@ abstract class CrudController extends BaseController {
 
     private function ranking(): ?string {
         return app(MetadataRegistry::class)->of($this->model)?->ranking;
+    }
+
+    private function shown(Definition $definition): bool {
+        if ($definition->presentation === Presentation::Hidden) {
+            return false;
+        }
+
+        return $definition->presentation !== null || $definition->type !== ColumnType::Json;
     }
 
     private function sortable(): bool {

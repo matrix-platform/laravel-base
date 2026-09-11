@@ -4,6 +4,7 @@ namespace MatrixPlatform\Columns;
 
 enum Presentation: string {
 
+    case Composite = 'composite';
     case Count = 'count';
     case DriveFile = 'drive-file';
     case DriveImage = 'drive-image';

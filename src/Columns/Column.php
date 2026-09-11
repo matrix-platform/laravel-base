@@ -29,6 +29,7 @@ class Column {
         public readonly bool $translatable,
         public readonly ColumnType $type,
         public readonly bool $unique,
+        public readonly ?string $variantGroup,
         public readonly bool $virtual
     ) {}
 

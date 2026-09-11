@@ -74,6 +74,8 @@ return [
 
     'invalid-translation-driver' => '翻译服务设置错误',
 
+    'invalid-type-resolver' => '复合字段的类型判断器设置错误',
+
     'message-provider-has-no-driver' => '消息提供商未设置发送器',
 
     'message-refused-by-provider' => '消息被提供商拒绝',

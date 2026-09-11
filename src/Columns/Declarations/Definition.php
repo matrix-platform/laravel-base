@@ -19,6 +19,13 @@ class Definition {
 
     /**
      * @param list<string>|Closure(): list<string> $rule
+     */
+    public static function composite(string $group, array|Closure $rule = [], bool $required = false): self {
+        return new self(ColumnType::Json, Presentation::Composite, $rule, null, false, $required, false, $group);
+    }
+
+    /**
+     * @param list<string>|Closure(): list<string> $rule
      * @param OptionProvider|class-string<OptionProvider>|null $options
      */
     public static function date(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false): self {
@@ -76,7 +83,8 @@ class Definition {
         public readonly OptionProvider|string|null $options,
         public readonly bool $translatable,
         public readonly bool $required,
-        public readonly bool $unique
+        public readonly bool $unique,
+        public readonly ?string $group = null
     ) {}
 
 }

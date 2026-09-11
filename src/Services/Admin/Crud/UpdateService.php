@@ -9,7 +9,7 @@ class UpdateService extends CrudService {
      */
     public function update(int|string $id, mixed $input): array {
         $model = $this->complete()->findOrFail($id);
-        $values = $this->validated($input, $id);
+        $values = $this->validated($input, $model, $id);
         $before = $model->toArray();
 
         foreach ($this->local() as $column) {
@@ -20,7 +20,11 @@ class UpdateService extends CrudService {
             }
 
             if (!$column->readonly && array_key_exists($column->name, $values)) {
-                $model->setAttribute($column->name, $this->driveResolved($column, $values[$column->name]));
+                $resolved = $column->variantGroup === null
+                    ? $this->driveResolved($column, $values[$column->name])
+                    : $this->compositeResolved($column, $values[$column->name], $input, $model);
+
+                $model->setAttribute($column->name, $resolved);
             }
         }
 

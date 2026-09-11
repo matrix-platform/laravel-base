@@ -74,6 +74,8 @@ return [
 
     'invalid-translation-driver' => '翻譯服務設定錯誤',
 
+    'invalid-type-resolver' => '複合欄位的型別判斷器設定錯誤',
+
     'message-provider-has-no-driver' => '訊息供應商未設定傳送器',
 
     'message-refused-by-provider' => '訊息被供應商拒絕',

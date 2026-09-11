@@ -58,6 +58,7 @@ class ColumnResolver {
             $definition === null ? false : $definition->translatable,
             $type,
             $definition !== null && $definition->unique,
+            $definition?->group,
             $column->virtual
         );
     }

@@ -179,7 +179,6 @@ class CrudControllerTest extends FeatureTestCase {
         app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget'), [
             'id' => Definition::integer(),
             'title' => Definition::text(),
-            'attachments' => Definition::json(),
             'permissions' => Definition::json('permissions'),
             'password' => Definition::text(Presentation::Password),
             'creator_id' => Definition::integer(),
@@ -189,8 +188,25 @@ class CrudControllerTest extends FeatureTestCase {
         $listNames = array_column($this->admin('admin/gadget')->json('data.columns'), 'name');
         $newNames = array_column($this->admin('admin/gadget/new')->json('data.columns'), 'name');
 
+        $this->assertSame(['title'], $listNames);
+        $this->assertSame(['title', 'permissions', 'password'], $newNames);
+    }
+
+    public function test_a_json_column_without_a_presentation_is_hidden_from_both_the_list_and_the_form(): void {
+        app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget'), [
+            'id' => Definition::integer(),
+            'title' => Definition::text(),
+            'unrenderable' => Definition::json(),
+            'attachments' => Definition::json(Presentation::Plain),
+            'creator_id' => Definition::integer(),
+            'create_time' => Definition::dateTime()
+        ]));
+
+        $listNames = array_column($this->admin('admin/gadget')->json('data.columns'), 'name');
+        $newNames = array_column($this->admin('admin/gadget/new')->json('data.columns'), 'name');
+
         $this->assertSame(['title', 'attachments'], $listNames);
-        $this->assertSame(['title', 'attachments', 'permissions', 'password'], $newNames);
+        $this->assertSame(['title', 'attachments'], $newNames);
     }
 
     public function test_the_auto_derived_listing_omits_the_enable_and_disable_columns_when_arrangeable(): void {
