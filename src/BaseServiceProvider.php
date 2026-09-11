@@ -8,6 +8,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use MatrixPlatform\Console\Commands\ClearResourceCacheCommand;
 use MatrixPlatform\Console\Commands\DispatchMessagesCommand;
 use MatrixPlatform\Console\Commands\MakeCrudCommand;
 use MatrixPlatform\Console\Commands\PruneDriveFilesCommand;
@@ -45,6 +46,7 @@ class BaseServiceProvider extends ServiceProvider {
     public function boot(): void {
         if ($this->app->runningInConsole()) {
             $this->commands([
+                ClearResourceCacheCommand::class,
                 DispatchMessagesCommand::class,
                 MakeCrudCommand::class,
                 PruneDriveFilesCommand::class,
