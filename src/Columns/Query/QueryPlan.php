@@ -195,7 +195,8 @@ class QueryPlan {
             }
 
             $aggregated[$alias][] = new Aggregate($expression->aggregate, $column->name, $expression->field, $expression->conditions);
-            $this->fields[$column->name] = $this->wrap($qualifier, $column->name);
+            $qualified = $this->wrap($qualifier, $column->name);
+            $this->fields[$column->name] = $expression->aggregate === 'count' && $expression->conditions === [] ? "coalesce({$qualified}, 0)" : $qualified;
         }
 
         foreach ($structure as $alias => $node) {

@@ -41,6 +41,12 @@ class CityControllerTest extends FeatureTestCase {
         $response->assertJsonPath('data.rows.0.areas_count', 2);
     }
 
+    public function test_a_city_without_areas_reports_a_zero_count_rather_than_null(): void {
+        CityFactory::new()->createOne(['title__tw' => 'Keelung', 'title__en' => 'Keelung']);
+
+        $this->send('admin/city')->assertJsonPath('data.rows.0.areas_count', 0);
+    }
+
     public function test_the_new_form_only_exposes_the_title(): void {
         $names = array_column($this->send('admin/city/new')->json('data.columns'), 'name');
 
