@@ -11,6 +11,9 @@ return [
     'appearanceDark' => 'Dark',
     'appearanceLight' => 'Light',
 
+    'arrange.published' => 'Published',
+    'arrange.unpublished' => 'Unpublished',
+
     'colorConfirm' => 'Confirm',
 
     'common.cancel' => 'Cancel',

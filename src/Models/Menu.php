@@ -2,6 +2,8 @@
 
 namespace MatrixPlatform\Models;
 
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use MatrixPlatform\Attributes\Declared;
 use MatrixPlatform\Models\Declarations\MenuDeclaration;
@@ -24,6 +26,20 @@ use MatrixPlatform\Models\Declarations\MenuDeclaration;
 class Menu extends BaseModel {
 
     protected $table = 'base_menu';
+
+    /**
+     * @return HasMany<Menu, $this>
+     */
+    public function children(): HasMany {
+        return $this->hasMany(self::class, 'parent_id');
+    }
+
+    /**
+     * @return BelongsTo<Menu, $this>
+     */
+    public function parent(): BelongsTo {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
 
     /**
      * @return array<string, string>

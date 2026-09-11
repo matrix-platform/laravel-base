@@ -14,6 +14,18 @@ return [
                 'city/{city_id}/area/{id}' => 'Edit District',
                 'city/{city_id}/area/new' => 'New District',
 
+    'website' => 'Website',
+
+        'menu' => 'Menu',
+
+            'menu/{id}' => 'Edit Menu',
+            'menu/new' => 'New Menu',
+
+            'menu/{parent_id}/children' => 'Submenus',
+
+                'menu/{parent_id}/children/{id}' => 'Edit Submenu',
+                'menu/{parent_id}/children/new' => 'New Submenu',
+
     'system' => 'System',
 
         'authority' => 'Authority',

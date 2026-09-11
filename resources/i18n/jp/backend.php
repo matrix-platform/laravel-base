@@ -11,6 +11,9 @@ return [
     'appearanceDark' => 'ダーク',
     'appearanceLight' => 'ライト',
 
+    'arrange.published' => '公開済み',
+    'arrange.unpublished' => '未公開',
+
     'colorConfirm' => '確定',
 
     'common.cancel' => 'キャンセル',

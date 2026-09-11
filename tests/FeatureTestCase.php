@@ -174,6 +174,10 @@ class FeatureTestCase extends TestCase {
         $this->usePackageFixtures('geolocation-fixture', 'package-geolocation');
     }
 
+    protected function useMenuDataFixtures(): void {
+        $this->usePackageFixtures('menu-data-fixture', 'package-menu-data');
+    }
+
     protected function useMenuFixtures(string $menus): void {
         $this->usePackageFixtures('menu-fixture', 'package-menu');
 

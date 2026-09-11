@@ -14,6 +14,18 @@ return [
                 'city/{city_id}/area/{id}' => '编辑地区',
                 'city/{city_id}/area/new' => '新增地区',
 
+    'website' => '网站管理',
+
+        'menu' => '菜单管理',
+
+            'menu/{id}' => '编辑菜单',
+            'menu/new' => '新增菜单',
+
+            'menu/{parent_id}/children' => '子菜单',
+
+                'menu/{parent_id}/children/{id}' => '编辑子菜单',
+                'menu/{parent_id}/children/new' => '新增子菜单',
+
     'system' => '系统管理',
 
         'authority' => '权限管理',
