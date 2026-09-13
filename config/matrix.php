@@ -13,6 +13,8 @@ return [
 
     'admin-api-prefix' => 'admin',
 
+    'admin-captcha-provider' => 'captcha-none',
+
     'admin-menus' => 'base',
 
     'api-encryption' => false,

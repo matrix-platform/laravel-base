@@ -4,6 +4,8 @@ return [
 
     'actor-already-assigned' => '身分已設定，不可重複指派',
 
+    'captcha-request-failed' => '驗證碼請求失敗',
+
     'data-conflicted' => '資料已被修改',
 
     'data-in-use' => '這筆資料仍被其他資料參照，無法刪除',
@@ -27,6 +29,8 @@ return [
     'image-decode-failed' => '無法解析圖片',
 
     'invalid-arrange-order' => '上下架選擇與資料不符',
+
+    'invalid-captcha-driver' => '驗證碼服務設定錯誤',
 
     'invalid-cascade-relation' => '連動關聯必須是 hasOne、hasMany 或其 morph 形式',
 

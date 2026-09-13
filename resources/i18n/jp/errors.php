@@ -4,6 +4,8 @@ return [
 
     'actor-already-assigned' => 'この身元情報はすでに割り当てられています',
 
+    'captcha-request-failed' => 'キャプチャのリクエストに失敗しました',
+
     'data-conflicted' => 'データが他の操作によって変更されました',
 
     'data-in-use' => 'このデータは他のデータから参照されているため削除できません',
@@ -27,6 +29,8 @@ return [
     'image-decode-failed' => '画像を解析できませんでした',
 
     'invalid-arrange-order' => '公開設定の選択内容がデータと一致しません',
+
+    'invalid-captcha-driver' => '認証コードサービスの設定が不正です',
 
     'invalid-cascade-relation' => '連動リレーションは hasOne、hasMany またはその morph 形式である必要があります',
 

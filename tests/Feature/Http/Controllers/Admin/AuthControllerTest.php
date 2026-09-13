@@ -133,6 +133,8 @@ class AuthControllerTest extends FeatureTestCase {
     }
 
     public function test_the_captcha_endpoint_returns_a_token_and_a_rendered_image(): void {
+        config(['matrix.admin-captcha-provider' => 'captcha-image']);
+
         $prefix = 'data:image/png;base64,';
 
         $response = $this->postJson('admin/auth/captcha');
@@ -144,6 +146,32 @@ class AuthControllerTest extends FeatureTestCase {
         $this->assertNotNull(Cache::get('captcha:' . strval($response->json('data.token'))));
         $this->assertStringStartsWith($prefix, $image);
         $this->assertStringStartsWith("\x89PNG", strval(base64_decode(substr($image, strlen($prefix)), true)));
+    }
+
+    public function test_the_captcha_endpoint_returns_null_when_the_captcha_provider_is_disabled(): void {
+        config(['matrix.admin-captcha-provider' => 'captcha-none']);
+
+        $this->postJson('admin/auth/captcha')->assertJsonPath('data', null);
+    }
+
+    public function test_a_login_without_a_captcha_code_succeeds_when_the_captcha_provider_is_disabled(): void {
+        config(['matrix.admin-captcha-provider' => 'captcha-none']);
+
+        $this->user();
+
+        $response = $this->postJson('admin/auth/login', ['username' => 'alice', 'password' => self::PASSWORD]);
+
+        $response->assertJsonStructure(['data' => ['token']]);
+    }
+
+    public function test_a_login_missing_the_captcha_token_names_the_field_instead_of_failing_the_captcha(): void {
+        config(['matrix.admin-captcha-provider' => 'captcha-turnstile']);
+
+        $this->user();
+
+        $response = $this->postJson('admin/auth/login', ['username' => 'alice', 'password' => self::PASSWORD]);
+
+        $response->assertJson(['error' => 'validation-failed'])->assertJsonStructure(['fields' => ['token']]);
     }
 
     public function test_a_successful_login_returns_a_token_and_sets_the_cookie(): void {
@@ -412,6 +440,8 @@ class AuthControllerTest extends FeatureTestCase {
     }
 
     public function test_a_captcha_token_is_burned_even_when_the_answer_is_wrong(): void {
+        config(['matrix.admin-captcha-provider' => 'captcha-image']);
+
         $this->user();
 
         $this->login(code: '00000')->assertJson(['error' => 'validation-failed']);

@@ -4,38 +4,39 @@ namespace MatrixPlatform\Services\Admin;
 
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use MatrixPlatform\Captcha\CaptchaService;
+use MatrixPlatform\Captcha\Driver;
 use MatrixPlatform\Models\AuthToken;
 use MatrixPlatform\Models\IdentityType;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Models\UserLogType;
 use MatrixPlatform\Services\FileService;
 use MatrixPlatform\Support\AdminPermission;
-use MatrixPlatform\Support\Captcha;
 use MatrixPlatform\Support\RollbackCallbacks;
 
 class AuthService {
 
-    public function __construct(private PasswordService $passwords, private MfaService $mfa) {}
+    public function __construct(private CaptchaService $captcha, private PasswordService $passwords, private MfaService $mfa) {}
 
     /**
-     * @return array{token: string, image: string}
+     * @return array<string, mixed>|null
      */
-    public function captcha(): array {
-        $code = Str::password(5, false, true, false);
-        $token = (string) Str::uuid();
+    public function captcha(): ?array {
+        return $this->captchaDriver()->generate();
+    }
 
-        Cache::put("captcha:{$token}", hash('sha256', $code), (int) cfg('admin.captcha-ttl'));
-
-        return ['token' => $token, 'image' => Captcha::generate($code)];
+    /**
+     * @return array<string, array<int, string>>
+     */
+    public function captchaRules(): array {
+        return $this->captchaDriver()->rules();
     }
 
     /**
      * @return array{token: string}|array{mfa: true, challenge: string}
      */
     public function login(string $username, string $password, string $token, string $code, ?string $trust): array {
-        $expected = Cache::pull("captcha:{$token}");
-
-        if (!is_string($expected) || !hash_equals($expected, hash('sha256', $code))) {
+        if (!$this->captchaDriver()->verify($token, $code)) {
             invalid('code', 'invalid-captcha');
         }
 
@@ -132,6 +133,10 @@ class AuthService {
         }
 
         return ['nodes' => app(AdminPermission::class)->getMenuNodes(), 'profile' => $user->makeHidden('permissions'), 'max_upload_size' => $maxUploadSize];
+    }
+
+    private function captchaDriver(): Driver {
+        return $this->captcha->driver(config()->string('matrix.admin-captcha-provider'));
     }
 
     private function findUser(string $username): ?User {

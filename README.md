@@ -28,7 +28,7 @@ class WidgetController extends CrudController {
 - [前台身分（member / vendor）](#前台身分member--vendor) —— 套件只給零件
 - [訊息](#訊息) —— [送訊息](#送訊息)、[派送與 worker](#派送與-worker)、[後台查詢、重發與取消](#後台查詢重發與取消)、[Push 訂閱(Member)](#push-訂閱member)、[Telegram 綁定與 Webhook](#telegram-綁定與-webhook)、[自訂訊息通道](#自訂訊息通道)
 - [參考](#參考) —— [端點](#端點)、[設定鍵](#設定鍵)、[cfg 設定鍵](#cfg-設定鍵)、[主控台指令](#主控台指令)、[錯誤代碼](#錯誤代碼)、[資料表](#資料表)
-- [給前端](#給前端) —— [請求形狀](#請求形狀)、[回應形狀](#回應形狀)、[語系](#語系)
+- [給前端](#給前端) —— [請求形狀](#請求形狀)、[回應形狀](#回應形狀)、[語系](#語系)、[驗證碼](#驗證碼)
 - [沿用套件的 lint](#沿用套件的-lint) —— 選用,共用同一套風格檢查
 - [已知限制與取捨](#已知限制與取捨) —— [安全](#安全)、[規模與效能](#規模與效能)、[資料生命週期](#資料生命週期)、[行為細節](#行為細節)
 - [從舊版升級](#從舊版升級)
@@ -63,8 +63,8 @@ class WidgetController extends CrudController {
 | PHP 8.3+ | —— | composer 會擋 |
 | Laravel 13.23+ | `composer.json` 宣告 `^13.23`,那也是 `--prefer-lowest` 實際跑過完整測試的版本;低於它的 13.x 沒有驗證過 | composer 會擋 |
 | `ext-pdo_pgsql` | 上面那條的驅動,由 `composer.json` 強制檢查 | composer 會擋 |
-| `ext-gd`，**且編譯時帶 FreeType** | 後台登入的驗證碼用 `imagettftext()` 畫字 | `admin/auth/captcha` 回 500,而登入**強制**要驗證碼 —— 完全登不進去 |
-| 一個**跨請求共用**的 cache store | 驗證碼答案寫在 cache,下一個請求才比對 | `CACHE_STORE=array` 的話每次登入都是 `invalid-captcha`。多台機器沒有共用 cache 會隨機失敗 |
+| `ext-gd`，**且編譯時帶 FreeType**（**只有**把 `matrix.admin-captcha-provider` 設成 `captcha-image` 才要,預設不要） | 圖形驗證碼用 `imagettftext()` 畫字 | `admin/auth/captcha` 回 500,而驗證碼開著的時候登入一定要 code —— 完全登不進去。裝不了 GD 就改用 `captcha-turnstile` / `captcha-recaptcha`,或維持預設的 `captcha-none` |
+| 一個**跨請求共用**的 cache store（同上,只有 `captcha-image` 才要） | 驗證碼答案寫在 cache,下一個請求才比對 | `CACHE_STORE=array` 的話每次登入都是 `invalid-captcha`。多台機器沒有共用 cache 會隨機失敗 |
 
 **驗證:**
 
@@ -473,7 +473,7 @@ return [
 | **沒有登入端點** | 自己用 `AuthToken::issue()` + `IdentityToken::attach()` + `login-throttle-api:{bundle}` 組 |
 | **你的 member / vendor 資料表必須用 `primaryKey()`** | 用 `$table->id()` 會拿到 id = 1 的第一筆 —— 而 id 1 是 ROOT,稽核歸屬會靜默錯亂 |
 | 那兩張表也必須帶 `auditings()` 四個欄位 | 稽核軌跡與建立者推導都靠它們 |
-| 登出的語義、驗證碼生命週期、密碼規則 | 全部由你決定 |
+| 登出的語義、驗證碼生命週期、密碼規則 | 全部由你決定。要驗證碼的話不用自己接 driver:`app(CaptchaService::class)->driver('captcha-turnstile')` 給你一個 driver,`generate()` 發、`verify()` 收。bundle 名是**必填**的——套件沒有替前台準備設定鍵,要嘛寫死,要嘛自己開一個 config 讓它可調。解不出 driver 一律 `invalid-captcha-driver`,不會靜默放行 |
 
 ---
 
@@ -719,6 +719,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 |---|---|---|
 | `matrix.admin-api-encryption` | `true` | `admin` 前綴要不要傳輸加密。三組前綴各有各的開關,互不影響。**這是明確開關,伺服器不會自動偵測環境** |
 | `matrix.admin-api-prefix` | `'admin'` | 後台路由前綴 |
+| `matrix.admin-captcha-provider` | `'captcha-none'` | 後台登入要用哪個驗證碼 driver,對應 `resources/cfg/{值}.php`。出貨四個:**`captcha-none`(預設,不要驗證碼——`captcha` 回 `data: null`、`login` 不再要求 token/code)**、`captcha-image`(圖形)、`captcha-turnstile`(Cloudflare Turnstile)、`captcha-recaptcha`(Google reCAPTCHA)。**預設是關的,因為前端的 `config.captcha` 也預設不畫任何驗證碼**——兩邊不成對的話登入一律 422(driver 宣告自己要的憑證欄位,所以 `fields` 會指名缺的是 `token` 還是 `code`),所以要驗證碼就兩邊一起開。解不出 driver 一律 `invalid-captcha-driver`,不會靜默放行。這個鍵只管後台;前台要驗證碼是你自己呼叫 `CaptchaService`,見[前台身分](#前台身分member--vendor) |
 | `matrix.admin-menus` | `'base'` | 要載入哪些選單 bundle,空白分隔,排前面的覆蓋排後面的 |
 | `matrix.api-encryption` | `false` | `api` 前綴要不要傳輸加密。出貨關著,因為這一組的呼叫方包含 Telegram 這種不可能配合的第三方 |
 | `matrix.api-prefix` | `'api'` | 前台路由前綴 |
@@ -767,6 +768,17 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `admin.passkey-timeout` | `60000` | 前端 ceremony 逾時毫秒數(供前端顯示,伺服器不強制) |
 | `admin.password-pattern` | `'/^(?=.*\d)(?=.*[a-zA-Z]).{8,}$/'` | 自助改密碼、`matrix:passwd` 與使用者表單共用的密碼規則 |
 | `admin.token-idle-minutes` | `30` | 後台 token 閒置多久失效 |
+| `captcha-image.driver` | `ImageDriver::class` | 圖形驗證碼。答案存 cache,所以需要 `ext-gd`(含 FreeType)與跨請求共用的 cache store |
+| `captcha-none.driver` | `NoneDriver::class` | 不要驗證碼。`generate()` 回 `null`、`verify()` 一律通過 |
+| `captcha-recaptcha.driver` | `RecaptchaDriver::class` | Google reCAPTCHA |
+| `captcha-recaptcha.action` | `'login'` | 要比對的 `action`,與回應對不上就算失敗 |
+| `captcha-recaptcha.endpoint` | `'https://www.google.com/recaptcha/api/siteverify'` | 驗證端點 |
+| `captcha-recaptcha.secret` | `''` | 後端密鑰,**出貨是空的,自己填**。空字串不會放行——驗證一律失敗,登入擋下 |
+| `captcha-recaptcha.threshold` | `0.5` | 分數門檻,低於就擋。回應沒有 `score` 時當成 `0.0`(擋下) |
+| `captcha-turnstile.driver` | `TurnstileDriver::class` | Cloudflare Turnstile |
+| `captcha-turnstile.action` | `'login'` | 同 `captcha-recaptcha.action` |
+| `captcha-turnstile.endpoint` | `'https://challenges.cloudflare.com/turnstile/v0/siteverify'` | 驗證端點 |
+| `captcha-turnstile.secret` | `''` | 同 `captcha-recaptcha.secret` |
 | `encryption.grace-period` | `86400` | 輪替後舊金鑰還能解密多久(秒);`matrix:rotate-encryption-key --grace` 可以單次覆蓋 |
 | `encryption.window` | `300` | 加密信封的 `ts` 容許誤差(秒),同時是同一個 `epk` 的去重保留時間(2 倍) |
 | `member.login-throttle-max` | `5` | 同上,前台會員 |
@@ -834,6 +846,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | 代碼 | 意思 |
 |---|---|
 | `actor-already-assigned` | 身分已設定，不可重複指派 |
+| `captcha-request-failed` | 驗證碼請求失敗 |
 | `data-conflicted` | 資料已被修改 |
 | `data-in-use` | 這筆資料仍被其他資料參照，無法刪除 |
 | `data-not-found` | 查無資料 |
@@ -846,6 +859,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `geolocation-request-failed` | 地理位置查詢請求失敗 |
 | `image-decode-failed` | 無法解析圖片 |
 | `invalid-arrange-order` | 上下架選擇與資料不符 |
+| `invalid-captcha-driver` | 驗證碼服務設定錯誤 |
 | `invalid-cascade-relation` | 連動關聯必須是 hasOne、hasMany 或其 morph 形式 |
 | `invalid-column-condition` | 欄位條件語法錯誤 |
 | `invalid-column-expression` | 欄位運算式語法錯誤 |
@@ -976,6 +990,53 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 
 送 `Matrix-Locale: en` header。值必須在 `matrix.locales` 裡,否則退回應用程式的預設語系。
 
+### 驗證碼
+
+**前後端必須成對。** 後端的 `matrix.admin-captcha-provider` 決定驗哪一種憑證,前端的 `config.captcha` 決定畫哪一種元件——兩邊對不上的話登入一律 422。每個 driver 會宣告自己要哪些憑證欄位(`captcha-image` 要 `token` + `code`,Turnstile / reCAPTCHA 只要 `token`,`captcha-none` 兩個都不要),所以前端少送的時候錯誤是 `validation-failed` 並在 `fields` 裡指名缺的是 `token` 還是 `code`,而不是含糊的驗證碼錯誤。
+
+| 後端 `matrix.admin-captcha-provider` | 前端 `initConfig({ captcha })` | 還要準備什麼 |
+|---|---|---|
+| `captcha-none`(出貨預設) | `MxCaptchaNone`(出貨預設) | 無 |
+| `captcha-image` | `MxCaptchaImage` | `ext-gd`(含 FreeType)、跨請求共用的 cache store |
+| `captcha-turnstile` | `MxCaptchaTurnstile` | site key + `cfg('captcha-turnstile.secret')` |
+| `captcha-recaptcha` | `MxCaptchaRecaptcha` | site key + `cfg('captcha-recaptcha.secret')` |
+
+這個鍵只管後台登入。前台(member / vendor)的登入端點本來就要你自己做,要驗證碼就自己呼叫 `app(CaptchaService::class)->driver('captcha-turnstile')`——bundle 名必填,套件沒有替前台準備設定鍵,所以前後台要不要用同一個 driver 完全由你決定。
+
+前端那半邊在宿主應用的 `src/router/index.js`:
+
+```js
+initConfig({
+    captcha: MxCaptchaTurnstile,
+    captchaSiteKey: "0x4AAAAAAA..."
+});
+```
+
+site key 是**公開值**,本來就會出現在前端 bundle 裡;secret 相反,只放後端。兩個 cfg bundle 的 `secret` **出貨都是空字串**,自己填——空著不會放行,而是每次驗證都失敗、登入一律擋下。不想改檔就用 `base_resource_override` 存(見[驗證碼服務掛掉時怎麼進後台](#驗證碼服務掛掉時怎麼進後台)),那張表同樣吃得下 secret。
+
+⚠️ **`action` 兩邊都寫死成 `login`。** 前端的 `turnstile.js` / `recaptcha.js` 裡是常數、不吃設定,後端 `cfg('captcha-{turnstile,recaptcha}.action')` 的出貨值也是 `login`。只改後端那一個會讓每次驗證都失敗——要改就兩邊一起改,不然別動。
+
+#### Cloudflare Turnstile
+
+1. Cloudflare 儀表板 → Turnstile → 新增 widget,**Widget Mode 選 Managed**。
+2. 把要跑後台的網域加進 widget 的 hostname 清單(本機開發另外加 `localhost`)。
+3. Site Key 填進前端的 `captchaSiteKey`,Secret Key 填進 `cfg('captcha-turnstile.secret')`。
+
+前端 render 時帶 `appearance: "interaction-only"`,所以多數訪客什麼都不會看到,只有被判定可疑的才跳挑戰。這個外觀設定**只對 Managed 與 Non-Interactive 生效**——widget 建成 Invisible 的話它不起作用。
+
+#### Google reCAPTCHA
+
+前端載的是 `enterprise.js`、呼叫 `grecaptcha.enterprise.execute()`,所以要建的是 **reCAPTCHA Enterprise 的 score-based key**(傳統 v2 那種勾選框已經無法申請新金鑰)。
+
+1. Google Cloud Console → **Fraud Defense**(reCAPTCHA 現在的所在)→ Keys → 新增 website key,類型選 **Score-based**。
+2. 網域加進該 key 的 domain 清單。
+3. Key ID 就是 site key,填進前端的 `captchaSiteKey`。
+4. Secret 要另外拿:Key details → **Integration** 分頁 → **Use Legacy Key**,對話框裡那把才是 `cfg('captcha-recaptcha.secret')` 要的值。
+
+⚠️ 第 4 步是最容易卡住的地方。Enterprise 的 key 詳情頁**預設不顯示 secret key**,因為 Google 假設你會用 `CreateAssessment` API(要 service account)。這個 driver 走的是舊的 `siteverify` 端點,吃的是那把 legacy secret——每一把 Enterprise key 都有,只是藏在 Use Legacy Key 後面。
+
+分數門檻是 `cfg('captcha-recaptcha.threshold')`,出貨 `0.5`。調它之前先看[已知限制與取捨](#安全)裡關於「分數不夠的真人沒有自證管道」那條。
+
 ### 傳輸加密
 
 三組前綴各有各的開關,出貨值是 `admin` 開、`vendor` 開、`api` 關。開關關著的那一組一切照舊,以下完全不存在。開著的那一組,**該前綴底下所有 POST 端點**(除了宣告 `#[Action(encrypted: false)]` 的 action)的 request 與 response body 都是加密信封,明文請求一律回 `invalid-envelope`。
@@ -1090,6 +1151,8 @@ parameters:
 |---|---|
 | **`admin/i18n/get` 是匿名端點,任何人可以讀走任何一份翻譯檔** —— 包含 `template/*`（郵件與簡訊樣板全文）。登入畫面需要它,所以不能關 | 不要在 i18n 資源裡放非公開內容 |
 | **驗證碼端點匿名且沒有節流** | 需要的話自己加 |
+| **`captcha-recaptcha` 是 Enterprise 分數式的,低於 `captcha-recaptcha.threshold` 的真人沒有任何自證管道** —— 它不跳挑戰,分數不夠就是進不去(傳統的 v2 隱形式已無法申請新金鑰) | 用這顆就要求管理員都註冊 passkey(passkey 登入完全不經過驗證碼),否則唯一的出路是下方的 cfg override。要「可疑時才要求互動、互動完就過」請改用 `captcha-turnstile` |
+| **第三方驗證碼 driver(`captcha-turnstile` / `captcha-recaptcha`)是 fail-closed 的** —— 對方服務打不通時回 `captcha-request-failed`,登入一律擋下。而且每一次被擋都吃掉一格登入節流(`afterCallback` 只計失敗),五次之後同一組 IP+帳號連 `too-many-requests` 都會拿到 | 接受它,但事先知道逃生門怎麼走:見下方〈驗證碼服務掛掉時怎麼進後台〉。**不要改成「打不通就放行」**,那等於給攻擊者一個把驗證碼關掉的開關 |
 | **`api/common/*` 兩個端點匿名且沒有節流**,`base_menu.data` 的內容會原樣出現在回應裡 | 不要在 `base_menu.data` 放非公開資料 |
 | **登入節流的鍵是「IP + 帳號」** —— 同一個 IP 換帳號就換一份配額,擋不住拿一組密碼掃一堆帳號 | 要擋就在應用層之外做（WAF / 反向代理） |
 | **Passkey 登入端點沒有帳號欄位,節流退化成近似純 IP** | 比密碼登入更粗放的取捨,若濫用明顯可考慮改用 `IP + credential_id 前綴` 當節流鍵 |
@@ -1112,6 +1175,35 @@ parameters:
 | **欄位 DSL 是開發者輸入**,識別字會被插值進 SQL | 絕對不要把使用者輸入拼進 `$lists` / `$updates` |
 | **權限白名單只覆蓋 CRUD 的寫入路徑**。`replicate()`、`setRawAttributes()`、query builder 的 `update()` 都繞得過去 | 白名單防的是請求輸入,不是程式碼 |
 | **訊息樣板的變數會原樣進入 HTML,不逸出** | 把使用者輸入當變數傳進去之前自己逸出。開放樣板編輯 = 把那個人當成信任的 HTML 作者 |
+
+#### 驗證碼服務掛掉時怎麼進後台
+
+`config/matrix.php` **出貨模板**裡沒有任何 `env()`,所以照抄的話改 provider 等於改檔加重新部署 —— 凌晨三點那不是逃生門。**資源後台的 cfg 編輯介面也不能用,因為它要先登入**,而登入正是被擋住的那件事。
+
+第一道逃生門其實很便宜:那個檔案是**你自己應用的**(套件只 `mergeConfigFrom` 預設值,見[安裝](#3-建立-configmatrixphp)),所以你大可自己寫成 `'admin-captcha-provider' => env('MATRIX_ADMIN_CAPTCHA_PROVIDER', 'captcha-none')`,事後只要改 `.env`。代價是若有 `config:cache` 就得再跑一次 `php artisan config:cache` —— 零改碼,但不是零操作。
+
+沒事先鋪這條線、而且現在不能部署的話,才輪到下面這個:
+
+實際可用的是 DB override(`Resources::overrides()` 會把 `base_resource_override` 疊在 cfg 預設值上):
+
+```sql
+INSERT INTO base_resource_override (bundle, data, create_time)
+VALUES ('cfg/captcha-turnstile', '{"driver":"MatrixPlatform\\Captcha\\NoneDriver"}', NOW());
+```
+
+⚠️ **那是兩個反斜線,不是四個,而且 `create_time` 不能省。** PostgreSQL 的 `standard_conforming_strings` 預設是 `on`,字串字面量裡的反斜線不再被跳脫,所以 JSON 的 `\\` 剛好解成一個反斜線;寫成四個會存進 `MatrixPlatform\\Captcha\\NoneDriver`,那不是合法的類別名稱,`resolve_driver()` 會改丟 `invalid-captcha-driver` —— **逃生門反而把門鎖得更死**。`create_time` 是 NOT NULL 且沒有預設值,漏掉會直接被資料庫擋下(這個至少是大聲失敗)。
+
+```bash
+php artisan matrix:clear-resource-cache
+```
+
+驗證碼立刻放行,零部署、零改檔。**清快取那一步不能省** —— `overrides()` 是 `rememberForever`。
+
+同一張表也可以只調參數而不整個關掉,例如把 reCAPTCHA 的分數門檻放寬:`{"threshold":0.1}`。
+
+⚠️ 服務恢復之後,先前被擋掉的失敗仍然佔著登入節流的配額,可能還要等一個 `admin.login-throttle-window` 或自己清掉 rate limiter。
+
+⚠️ 新增或改動 cfg bundle 的檔案之後也要跑同一個指令 —— `Resources::merge()` 把「這個 bundle 不存在」也一起 `forever` 快取了,不清的話會一直拿到 `invalid-captcha-driver`。
 
 ### 規模與效能
 

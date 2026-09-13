@@ -4,6 +4,8 @@ return [
 
     'actor-already-assigned' => '身份已设置，不可重复指派',
 
+    'captcha-request-failed' => '验证码请求失败',
+
     'data-conflicted' => '数据已被修改',
 
     'data-in-use' => '该数据仍被其他数据引用，无法删除',
@@ -27,6 +29,8 @@ return [
     'image-decode-failed' => '无法解析图片',
 
     'invalid-arrange-order' => '上下架选择与数据不符',
+
+    'invalid-captcha-driver' => '验证码服务设置错误',
 
     'invalid-cascade-relation' => '级联关联必须是 hasOne、hasMany 或其 morph 形式',
 

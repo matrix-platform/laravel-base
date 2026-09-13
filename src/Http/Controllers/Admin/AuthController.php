@@ -22,10 +22,10 @@ class AuthController extends BaseController {
     public function __construct(private AuthService $service, private MfaService $mfa, private PasswordService $passwords, private PasskeyService $passkeys) {}
 
     /**
-     * @return array{token: string, image: string}
+     * @return array<string, mixed>|null
      */
     #[Action(scope: 'anonymous')]
-    public function captcha(): array {
+    public function captcha(): ?array {
         return $this->service->captcha();
     }
 
@@ -59,8 +59,7 @@ class AuthController extends BaseController {
         $request->validate([
             'username' => ['required'],
             'password' => ['required'],
-            'token' => ['required'],
-            'code' => ['required']
+            ...$this->service->captchaRules()
         ]);
 
         $trust = $request->cookie(self::TRUST_COOKIE);

@@ -4,6 +4,8 @@ return [
 
     'actor-already-assigned' => 'Identity has already been assigned',
 
+    'captcha-request-failed' => 'Captcha request failed',
+
     'data-conflicted' => 'Data has been modified by someone else',
 
     'data-in-use' => 'This record is still referenced by other data',
@@ -27,6 +29,8 @@ return [
     'image-decode-failed' => 'Image could not be decoded',
 
     'invalid-arrange-order' => 'Arrange selection does not match the data',
+
+    'invalid-captcha-driver' => 'Invalid captcha driver configuration',
 
     'invalid-cascade-relation' => 'Cascade relation must be a hasOne, hasMany or their morph form',
 
