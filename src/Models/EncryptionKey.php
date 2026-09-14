@@ -3,6 +3,7 @@
 namespace MatrixPlatform\Models;
 
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use MatrixPlatform\Support\ApiEncryption;
 
@@ -17,6 +18,8 @@ use MatrixPlatform\Support\ApiEncryption;
  */
 class EncryptionKey extends BaseModel {
 
+    const ACTIVE_CACHE_KEY = 'encryption-key:active';
+    const ACTIVE_CACHE_TTL = 60;
     const TRACEABLE = false;
     const UPDATED_AT = null;
     const UPDATED_BY = null;
@@ -48,6 +51,8 @@ class EncryptionKey extends BaseModel {
         $key->private_key = $pair['private'];
 
         $key->save();
+
+        Cache::forget(self::ACTIVE_CACHE_KEY);
 
         return $key;
     }

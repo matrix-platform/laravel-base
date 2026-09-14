@@ -50,6 +50,8 @@ return [
 
     'passkey-rp-id' => null,
 
+    'resource-cache-enabled' => false,
+
     'resource-cache-store' => null,
 
     'resource-cfg' => [],

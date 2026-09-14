@@ -734,6 +734,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `matrix.messaging` | 見範本 | channel 註冊。每個 channel 都要有 `model` 與 `queue`。**巢狀 key,宣告就整份取代** |
 | `matrix.packages` | `'app base'` | 資源疊層順序 |
 | `matrix.passkey-rp-id` | `null` | Passkey Relying Party ID。`null` 時 fallback 用當次請求的主機名稱——若後台前端與此 API 不同源,務必明確設定,見[已知限制與取捨](#已知限制與取捨)。允許的 origin 由此值(加上 `admin.passkey-allow-subdomains`)推導,預設一律要求 `https://{rp-id}`;此值出現在 `admin.passkey-http-rp-ids` 白名單裡才會額外放行 `http://{rp-id}`(本機開發用) |
+| `matrix.resource-cache-enabled` | `false` | 是否快取資源 bundle defaults(檔案)與 override(DB)。預設不快取,每次都直接讀檔案/DB;設 `true` 才會讀寫 cache store |
 | `matrix.resource-cache-store` | `null` | 資源 bundle defaults(檔案)與 override(DB)要快取到哪個 cache store,`null` = 用預設 store(`cache.default`)。清快取見 `matrix:clear-resource-cache` |
 | `matrix.resource-cfg` | `[]` | 資源後台開放編輯的 cfg bundle 白名單,**空 = 全部不開放** |
 | `matrix.resource-i18n` | `[]` | 同上,一般翻譯 |

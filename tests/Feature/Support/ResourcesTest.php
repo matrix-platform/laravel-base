@@ -19,6 +19,7 @@ class ResourcesTest extends FeatureTestCase {
         $packages->register('b', __DIR__ . '/../../fixtures/package-b');
 
         config()->set('matrix.packages', $order);
+        config()->set('matrix.resource-cache-enabled', true);
 
         return new Resources($packages);
     }
@@ -364,6 +365,7 @@ class ResourcesTest extends FeatureTestCase {
         $packages->register('t', $path);
 
         config()->set('matrix.packages', 't');
+        config()->set('matrix.resource-cache-enabled', true);
 
         return new Resources($packages);
     }

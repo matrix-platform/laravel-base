@@ -191,6 +191,10 @@ class Resources {
         return Cache::store(config('matrix.resource-cache-store'));
     }
 
+    private function enabled(): bool {
+        return (bool) config('matrix.resource-cache-enabled');
+    }
+
     /**
      * @return array<string, mixed>|null
      */
@@ -205,6 +209,23 @@ class Resources {
     }
 
     /**
+     * @return array<string, array<string, mixed>>
+     */
+    private function loadOverrides(): array {
+        $overrides = [];
+
+        foreach (DB::table('base_resource_override')->get(['bundle', 'data']) as $row) {
+            $data = json_decode(strval($row->data), true);
+
+            if (is_array($data)) {
+                $overrides[strval($row->bundle)] = $data;
+            }
+        }
+
+        return $overrides;
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     private function merge(string $name): ?array {
@@ -213,10 +234,13 @@ class Resources {
         }
 
         $key = self::defaultsCacheKey($name);
-        $cached = $this->cache()->get($key);
 
-        if ($cached !== null) {
-            return $cached === self::MISSING ? null : $cached;
+        if ($this->enabled()) {
+            $cached = $this->cache()->get($key);
+
+            if ($cached !== null) {
+                return $cached === self::MISSING ? null : $cached;
+            }
         }
 
         $bundle = null;
@@ -229,7 +253,9 @@ class Resources {
             }
         }
 
-        $this->cache()->forever($key, $bundle === null ? self::MISSING : $bundle);
+        if ($this->enabled()) {
+            $this->cache()->forever($key, $bundle === null ? self::MISSING : $bundle);
+        }
 
         return $bundle;
     }
@@ -239,19 +265,9 @@ class Resources {
      */
     private function overrides(): array {
         if ($this->overrides === null) {
-            $this->overrides = $this->cache()->rememberForever(self::overridesCacheKey(), function (): array {
-                $overrides = [];
-
-                foreach (DB::table('base_resource_override')->get(['bundle', 'data']) as $row) {
-                    $data = json_decode(strval($row->data), true);
-
-                    if (is_array($data)) {
-                        $overrides[strval($row->bundle)] = $data;
-                    }
-                }
-
-                return $overrides;
-            });
+            $this->overrides = $this->enabled()
+                ? $this->cache()->rememberForever(self::overridesCacheKey(), $this->loadOverrides(...))
+                : $this->loadOverrides();
         }
 
         return $this->overrides;
