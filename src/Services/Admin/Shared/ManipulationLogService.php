@@ -2,22 +2,26 @@
 
 namespace MatrixPlatform\Services\Admin\Shared;
 
+use Illuminate\Database\Eloquent\Model;
+use MatrixPlatform\Columns\ColumnResolver;
+use MatrixPlatform\Columns\Syntax\ColumnParser;
 use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\Operator;
+use MatrixPlatform\Support\MetadataRegistry;
 
 class ManipulationLogService {
 
-    public function __construct(private SharedModelResolver $resolver) {}
+    public function __construct(private SharedModelResolver $resolver, private ColumnResolver $columns, private MetadataRegistry $registry) {}
 
     /**
      * @return array<string, mixed>
      */
     public function query(string $prefix, int $id, int $page, int $size): array {
         $class = $this->resolver->permit($prefix, 'query');
-        $table = (new $class())->getTable();
+        $model = new $class();
 
         $query = ManipulationLog::query()
-            ->where('data_type', $table)
+            ->where('data_type', $model->getTable())
             ->where('data_id', $id)
             ->orderByDesc('id');
 
@@ -42,7 +46,31 @@ class ManipulationLogService {
             ];
         });
 
-        return ['rows' => $rows, 'pagination' => ['page' => $page, 'size' => $size, 'total' => $total]];
+        return ['rows' => $rows, 'options' => $this->options($model), 'pagination' => ['page' => $page, 'size' => $size, 'total' => $total]];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function options(Model $model): array {
+        $definitions = $this->registry->definitions($model::class);
+
+        if ($definitions === null) {
+            error('undeclared-model');
+        }
+
+        $parser = new ColumnParser();
+        $options = [];
+
+        foreach (array_keys($definitions) as $name) {
+            $provider = $this->columns->resolve($parser->parse($name), $model)->options;
+
+            if ($provider !== null) {
+                $options[$name] = $provider->options(null, true);
+            }
+        }
+
+        return $options;
     }
 
 }

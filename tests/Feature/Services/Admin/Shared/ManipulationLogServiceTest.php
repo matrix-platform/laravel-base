@@ -2,23 +2,47 @@
 
 namespace Tests\Feature\Services\Admin\Shared;
 
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\DB;
+use MatrixPlatform\Columns\Declarations\Definition;
+use MatrixPlatform\Columns\Options\Option;
 use MatrixPlatform\Models\Group;
 use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\Operator;
+use MatrixPlatform\Routing\ActionRoutes;
 use MatrixPlatform\Services\Admin\Shared\ManipulationLogService;
+use MatrixPlatform\Support\Metadata;
+use MatrixPlatform\Support\MetadataRegistry;
 use Tests\Factories\GroupFactory;
 use Tests\Factories\MemberFactory;
 use Tests\Factories\UserFactory;
 use Tests\Factories\VendorFactory;
 use Tests\FeatureTestCase;
+use Tests\Stubs\Relic;
+use Tests\Stubs\StubDeclaration;
+use Tests\Stubs\Widget;
+use Tests\Stubs\WidgetController;
 
 class ManipulationLogServiceTest extends FeatureTestCase {
+
+    /**
+     * @param Router $router
+     */
+    protected function defineRoutes($router): void {
+        $router->middleware(['envelope-api', 'user-api'])
+            ->prefix('admin')
+            ->group(fn () => ActionRoutes::mount('widget', WidgetController::class));
+    }
 
     protected function setUp(): void {
         parent::setUp();
 
         $this->actAsRoot();
+    }
+
+    private function declareRelicColumn(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget'), ['relic_id' => Definition::integer()]));
+        app(MetadataRegistry::class)->register(Relic::class, new StubDeclaration(new Metadata('relic', 'label')));
     }
 
     private function service(): ManipulationLogService {
@@ -133,6 +157,40 @@ class ManipulationLogServiceTest extends FeatureTestCase {
         $this->assertNull($row['creator_id']);
         $this->assertNull($row['creator']);
         $this->assertNull($row['creator_type']);
+    }
+
+    public function test_the_options_carry_the_relation_choices_of_each_column(): void {
+        $this->declareRelicColumn();
+
+        Relic::forceCreate(['label' => 'kept']);
+
+        $widget = Widget::forceCreate(['title' => 'Alpha']);
+        $options = $this->service()->query('widget', $widget->id, 1, 20)['options'];
+
+        $this->assertSame(['relic_id'], array_keys($options));
+        $this->assertSame(['kept'], array_map(fn (Option $option): string => $option->title, $options['relic_id']));
+    }
+
+    public function test_the_options_still_name_a_relation_that_was_soft_deleted_after_the_change(): void {
+        $this->declareRelicColumn();
+
+        $relic = Relic::forceCreate(['label' => 'gone']);
+        $widget = Widget::forceCreate(['title' => 'Alpha', 'relic_id' => $relic->id]);
+
+        $relic->delete();
+
+        $options = $this->service()->query('widget', $widget->id, 1, 20)['options']['relic_id'];
+
+        $this->assertSame(['gone'], array_map(fn (Option $option): string => $option->title, $options));
+        $this->assertTrue($options[0]->deleted);
+    }
+
+    public function test_a_model_without_option_columns_reports_no_options(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget'), ['title' => Definition::text()]));
+
+        $widget = Widget::forceCreate(['title' => 'Alpha']);
+
+        $this->assertSame([], $this->service()->query('widget', $widget->id, 1, 20)['options']);
     }
 
     public function test_resolving_creators_runs_a_single_query_no_matter_how_many_rows_there_are(): void {

@@ -12,7 +12,7 @@ class BundleOptions implements OptionProvider {
     /**
      * @return list<Option>
      */
-    public function options(?Model $model = null): array {
+    public function options(?Model $model = null, bool $trashed = false): array {
         $bundle = app(Resources::class)->getI18nBundle("options/{$this->name}");
         $options = [];
 

@@ -51,7 +51,7 @@ class PermissionTree implements OptionProvider {
     /**
      * @return list<Option>
      */
-    public function options(?Model $model = null): array {
+    public function options(?Model $model = null, bool $trashed = false): array {
         $children = $this->nesting();
         $grants = $this->grants();
         $owners = $this->owners();

@@ -13,10 +13,10 @@ class CountingOptions extends StaticOptions {
     /**
      * @return list<Option>
      */
-    public function options(?Model $model = null): array {
+    public function options(?Model $model = null, bool $trashed = false): array {
         $this->calls++;
 
-        return parent::options($model);
+        return parent::options($model, $trashed);
     }
 
 }

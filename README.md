@@ -1172,6 +1172,7 @@ parameters:
 | **雲端硬碟(`drive/*`)上傳不檢查型別或大小**,沒有等同 `file.max-size` / `file.mime-patterns` 的設定 | 要限制就自己在 `DriveService::upload()` 前面加檢查 |
 | **`drive/*` 沒有選單節點,只掛 `user-api`**(比照 `admin/auth/passwd`、`admin/file/*`)——任何登入的後台 User 都能呼叫,不需要選單授權 | 節點層級的 owner/群組存取完全交給 `DrivePermissionService` 這一層把關,不是靠選單權限 |
 | **`manipulation-log/query`、`schedule/toggle` 同樣沒有專屬選單節點、只掛 `user-api`**,但跟上面兩列不同——這兩支端點呼叫時會依請求帶的 `prefix` 找出目標資料實際所屬的既有選單節點,動態呼叫 `AdminPermission::permits()` 檢查 `query`/`update` 權限,行為上等同「借用」該資料原本的選單授權,不是完全不設防 | `prefix` 必須是某個已掛載 `ActionRoutes::mount()` 的 CRUD 資源的路由前綴(如 `group`);對應不到就回 `unsupported-model`,對應得到但沒權限一律 403 |
+| **`manipulation-log/query` 的回應帶一份 `options`**(欄位名 → 選項清單,與 CRUD `columns[].options` 同構),而且**含已被軟刪除的關聯**,那些選項的 `deleted` 是 `true` | 歷史紀錄裡存的是 id,要翻得出名字就不能像表單那樣把軟刪除的關聯濾掉。CRUD 自己的 `new` / `{id}` / 清單 / 匯出維持原樣(只給沒刪除的),不受影響 |
 | **`drive/{id}/delete` 只軟刪除目標本身,不遞迴子項目**;但被刪節點底下**沒被動到**的子孫會變成整體不可操作——`DrivePermissionService::allowed()` 往上爬錨點時遇到已軟刪除的祖先就直接判定沒有權限,**`User::ROOT` 也不例外** | 這是刻意的設計:不用遞迴刪除/還原,單純靠「祖先鏈斷在已軟刪除的節點」讓整個子樹自然變成不可操作;`restore()` 也只還原目標本身,把祖先救回來,子孫的可操作性就自動恢復。**但「看不看得到」是另一回事**——`drive/trashed` 跟 `drive/{id}/path` 用的是 `visible()`,爬的時候會穿過軟刪除的祖先繼續找,所以子孫依然會出現在垃圾桶列表、路徑依然查得到,只是在祖先還原之前 `restore()` 會報 `permission-denied` |
 | **欄位 DSL 是開發者輸入**,識別字會被插值進 SQL | 絕對不要把使用者輸入拼進 `$lists` / `$updates` |
 | **權限白名單只覆蓋 CRUD 的寫入路徑**。`replicate()`、`setRawAttributes()`、query builder 的 `update()` 都繞得過去 | 白名單防的是請求輸入,不是程式碼 |

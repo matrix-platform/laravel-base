@@ -11,7 +11,8 @@ class Option {
         public readonly array $children,
         public readonly int|string $id,
         public readonly int $ranking,
-        public readonly string $title
+        public readonly string $title,
+        public readonly bool $deleted = false
     ) {}
 
 }

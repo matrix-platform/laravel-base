@@ -9,6 +9,7 @@ use MatrixPlatform\Columns\Options\StaticOptions;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
 use Tests\FeatureTestCase;
+use Tests\Stubs\Relic;
 use Tests\Stubs\StubDeclaration;
 use Tests\Stubs\Trinket;
 
@@ -18,6 +19,10 @@ class OptionProviderTest extends FeatureTestCase {
         parent::setUp();
 
         $this->useMenuFixtures('authority');
+    }
+
+    private function relic(string $label, ?int $parent = null): Relic {
+        return Relic::forceCreate(['label' => $label, 'relic_id' => $parent]);
     }
 
     private function trinket(string $label, ?int $parent = null, int $ranking = 0): Trinket {
@@ -82,6 +87,66 @@ class OptionProviderTest extends FeatureTestCase {
         $this->expectExceptionMessage('undeclared-model');
 
         (new RelationOptions(Trinket::class))->options();
+    }
+
+    public function test_a_soft_deleted_relation_is_left_out_by_default(): void {
+        app(MetadataRegistry::class)->register(Relic::class, new StubDeclaration(new Metadata('relic', 'label')));
+
+        $this->relic('kept');
+
+        $gone = $this->relic('gone');
+
+        $gone->delete();
+
+        $options = (new RelationOptions(Relic::class))->options();
+
+        $this->assertCount(1, $options);
+        $this->assertSame('kept', $options[0]->title);
+        $this->assertFalse($options[0]->deleted);
+    }
+
+    public function test_asking_for_trashed_includes_soft_deleted_relations_and_flags_them(): void {
+        app(MetadataRegistry::class)->register(Relic::class, new StubDeclaration(new Metadata('relic', 'label')));
+
+        $this->relic('kept');
+
+        $gone = $this->relic('gone');
+
+        $gone->delete();
+
+        $options = (new RelationOptions(Relic::class))->options(null, true);
+
+        $this->assertCount(2, $options);
+        $this->assertSame([false, true], [$options[0]->deleted, $options[1]->deleted]);
+        $this->assertSame('gone', $options[1]->title);
+    }
+
+    public function test_a_trashed_tree_keeps_the_children_of_a_soft_deleted_parent(): void {
+        app(MetadataRegistry::class)->register(Relic::class, new StubDeclaration(new Metadata('relic', 'label', 'relic')));
+
+        $root = $this->relic('root');
+
+        $this->relic('child', $root->id);
+
+        $root->delete();
+
+        $options = (new RelationOptions(Relic::class))->options(null, true);
+
+        $this->assertCount(1, $options);
+        $this->assertTrue($options[0]->deleted);
+        $this->assertSame('child', $options[0]->children[0]->title);
+        $this->assertFalse($options[0]->children[0]->deleted);
+    }
+
+    public function test_a_model_without_soft_deletes_ignores_the_trashed_flag(): void {
+        app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label')));
+
+        $this->trinket('alpha');
+
+        $options = (new RelationOptions(Trinket::class))->options(null, true);
+
+        $this->assertCount(1, $options);
+        $this->assertFalse($options[0]->deleted);
     }
 
     public function test_a_missing_ranking_falls_back_to_zero(): void {

@@ -53,11 +53,11 @@ class PermissionTreeTest extends FeatureTestCase {
         $this->assertSame([], $action->children);
     }
 
-    public function test_an_option_serializes_to_four_keys(): void {
+    public function test_an_option_serializes_to_five_keys(): void {
         $section = $this->pick($this->tree('authority'), 'authority');
         $action = $this->pick($this->pick($section->children, 'group')->children, 'query');
 
-        $this->assertSame(['children' => [], 'id' => 'query', 'ranking' => 0, 'title' => i18n('permission.query')], json_decode(strval(json_encode($action)), true));
+        $this->assertSame(['children' => [], 'id' => 'query', 'ranking' => 0, 'title' => i18n('permission.query'), 'deleted' => false], json_decode(strval(json_encode($action)), true));
     }
 
     public function test_the_production_menu_files_every_resource_under_its_own_section(): void {

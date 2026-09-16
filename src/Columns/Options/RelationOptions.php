@@ -2,7 +2,9 @@
 
 namespace MatrixPlatform\Columns\Options;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use MatrixPlatform\Support\MetadataRegistry;
 use MatrixPlatform\Support\Subject;
 
@@ -16,14 +18,14 @@ class RelationOptions implements OptionProvider {
     /**
      * @return list<Option>
      */
-    public function options(?Model $model = null): array {
-        return $this->tree($this->collect(), null);
+    public function options(?Model $model = null, bool $trashed = false): array {
+        return $this->tree($this->collect($trashed), null);
     }
 
     /**
      * @return array<string, list<Option>>
      */
-    private function collect(): array {
+    private function collect(bool $trashed): array {
         $current = new $this->related();
         $mapping = [];
         $registry = app(MetadataRegistry::class);
@@ -40,7 +42,7 @@ class RelationOptions implements OptionProvider {
             $relation = $parent === null ? null : $current->{$parent}();
             $foreign = $relation === null ? null : $relation->getForeignKeyName();
 
-            foreach ($current::query()->get() as $item) {
+            foreach ($this->query($current, $trashed)->get() as $item) {
                 $mapping[$this->key($foreign === null ? null : $item->getAttribute($foreign))][] = $this->option($subject, $item);
             }
 
@@ -60,6 +62,10 @@ class RelationOptions implements OptionProvider {
         return $mapping;
     }
 
+    private function deleted(Model $item): bool {
+        return method_exists($item, 'trashed') && $item->trashed();
+    }
+
     private function identifier(Model $item): int|string {
         $key = $item->getKey();
 
@@ -74,7 +80,20 @@ class RelationOptions implements OptionProvider {
         $label = $subject->title($item);
         $ranking = $item->getAttribute('ranking');
 
-        return new Option([], $this->identifier($item), is_int($ranking) ? $ranking : 0, is_string($label) ? $label : '');
+        return new Option([], $this->identifier($item), is_int($ranking) ? $ranking : 0, is_string($label) ? $label : '', $this->deleted($item));
+    }
+
+    /**
+     * @return Builder<Model>
+     */
+    private function query(Model $model, bool $trashed): Builder {
+        $query = $model::query();
+
+        if ($trashed && method_exists($model, 'trashed')) {
+            $query->withoutGlobalScope(SoftDeletingScope::class);
+        }
+
+        return $query;
     }
 
     /**
@@ -85,7 +104,7 @@ class RelationOptions implements OptionProvider {
         $nodes = [];
 
         foreach (array_get_value($mapping, $this->key($id), []) as $node) {
-            $nodes[] = new Option($this->tree($mapping, $node->id), $node->id, $node->ranking, $node->title);
+            $nodes[] = new Option($this->tree($mapping, $node->id), $node->id, $node->ranking, $node->title, $node->deleted);
         }
 
         return $nodes;

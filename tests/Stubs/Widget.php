@@ -17,6 +17,7 @@ use MatrixPlatform\Models\Generators\CreatorAddress;
  * @property ?string $secret
  * @property ?string $ip
  * @property ?int $trinket_id
+ * @property ?int $relic_id
  * @property ?array<string, mixed> $payload
  * @property ?string $translated__tw
  * @property ?string $translated__en
@@ -54,6 +55,13 @@ class Widget extends BaseModel {
      */
     public function pinned(): BelongsTo {
         return $this->belongsTo(Trinket::class, 'trinket_id');
+    }
+
+    /**
+     * @return BelongsTo<Relic, $this>
+     */
+    public function relic(): BelongsTo {
+        return $this->belongsTo(Relic::class);
     }
 
     /**

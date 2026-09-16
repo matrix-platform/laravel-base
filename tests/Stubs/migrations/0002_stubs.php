@@ -13,6 +13,7 @@ return new class extends Migration {
             $table->text('secret')->nullable();
             $table->text('ip')->nullable();
             $table->integer('trinket_id')->nullable();
+            $table->integer('relic_id')->nullable();
             $table->jsonb('payload')->nullable();
             $table->translatable('translated');
             $table->ranking();
@@ -38,6 +39,15 @@ return new class extends Migration {
             $table->integer('widget_id');
         });
 
+        Schema::create('stub_relic', function (BaseBlueprint $table) {
+            $table->primaryKey();
+            $table->text('label');
+            $table->integer('relic_id')->nullable();
+            $table->ranking();
+            $table->auditings();
+            $table->timestamp('deleted_at')->nullable();
+        });
+
         Schema::create('stub_gadget', function (BaseBlueprint $table) {
             $table->primaryKey();
             $table->text('title')->nullable();
@@ -51,6 +61,7 @@ return new class extends Migration {
 
     public function down(): void {
         Schema::dropIfExists('stub_gadget');
+        Schema::dropIfExists('stub_relic');
         Schema::dropIfExists('stub_trinket_widget');
         Schema::dropIfExists('stub_trinket');
         Schema::dropIfExists('stub_widget');
