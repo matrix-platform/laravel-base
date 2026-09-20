@@ -3,6 +3,8 @@
 namespace MatrixPlatform\Support;
 
 use FilesystemIterator;
+use Illuminate\Cache\NullStore;
+use Illuminate\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -80,8 +82,7 @@ class Resources {
     }
 
     public function forget(): void {
-        $this->bundles = [];
-        $this->overrides = null;
+        $this->reset();
 
         $this->cache()->forget(self::overridesCacheKey());
     }
@@ -152,6 +153,11 @@ class Resources {
         $bundle = $this->getBundle("style/{$id}");
 
         return $bundle === null ? [] : $bundle;
+    }
+
+    public function reset(): void {
+        $this->bundles = [];
+        $this->overrides = null;
     }
 
     public function translate(string $token, ?string $locale = null): string {
@@ -234,13 +240,11 @@ class Resources {
         }
 
         $key = self::defaultsCacheKey($name);
+        $store = $this->store();
+        $cached = $store->get($key);
 
-        if ($this->enabled()) {
-            $cached = $this->cache()->get($key);
-
-            if ($cached !== null) {
-                return $cached === self::MISSING ? null : $cached;
-            }
+        if ($cached !== null) {
+            return $cached === self::MISSING ? null : $cached;
         }
 
         $bundle = null;
@@ -253,9 +257,7 @@ class Resources {
             }
         }
 
-        if ($this->enabled()) {
-            $this->cache()->forever($key, $bundle === null ? self::MISSING : $bundle);
-        }
+        $store->forever($key, $bundle === null ? self::MISSING : $bundle);
 
         return $bundle;
     }
@@ -265,9 +267,7 @@ class Resources {
      */
     private function overrides(): array {
         if ($this->overrides === null) {
-            $this->overrides = $this->enabled()
-                ? $this->cache()->rememberForever(self::overridesCacheKey(), $this->loadOverrides(...))
-                : $this->loadOverrides();
+            $this->overrides = $this->store()->rememberForever(self::overridesCacheKey(), $this->loadOverrides(...));
         }
 
         return $this->overrides;
@@ -284,6 +284,10 @@ class Resources {
         }
 
         return [$parts[0], $parts[1]];
+    }
+
+    private function store(): Repository {
+        return $this->enabled() ? $this->cache() : new CacheRepository(new NullStore());
     }
 
 }

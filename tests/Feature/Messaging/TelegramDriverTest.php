@@ -68,6 +68,44 @@ class TelegramDriverTest extends FeatureTestCase {
         Http::assertSent(fn (Request $request) => $request['parse_mode'] === 'HTML');
     }
 
+    public function test_the_data_payload_cannot_override_the_resolved_chat_id(): void {
+        Http::fake(['*' => Http::response(['ok' => true, 'result' => ['message_id' => 1]])]);
+
+        $log = $this->log('-1001234567890');
+
+        $log->data = ['chat_id' => '-999999999', 'parse_mode' => 'HTML'];
+
+        (new TelegramDriver())->send($log);
+
+        Http::assertSent(fn (Request $request) => $request['chat_id'] === '-1001234567890' && $request['parse_mode'] === 'HTML');
+    }
+
+    public function test_the_data_payload_cannot_override_the_recorded_text(): void {
+        Http::fake(['*' => Http::response(['ok' => true, 'result' => ['message_id' => 1]])]);
+
+        $log = $this->log('-1001234567890');
+
+        $log->data = ['text' => 'something else entirely'];
+
+        (new TelegramDriver())->send($log);
+
+        Http::assertSent(fn (Request $request) => $request['text'] === 'Hello');
+    }
+
+    public function test_the_data_payload_cannot_escape_the_sandbox_sink(): void {
+        Http::fake(['*' => Http::response(['ok' => true, 'result' => ['message_id' => 1]])]);
+
+        $log = $this->log('42', 'telegram-sandboxed');
+
+        $log->data = ['chat_id' => '-999999999'];
+
+        $response = (new TelegramDriver())->send($log);
+
+        $this->assertStringStartsWith('sandbox:', $response);
+
+        Http::assertSent(fn (Request $request) => $request['chat_id'] !== '-999999999');
+    }
+
     public function test_a_blocked_bot_deletes_the_subscription_it_was_found_through(): void {
         $subscription = $this->subscription(42, '555666');
 

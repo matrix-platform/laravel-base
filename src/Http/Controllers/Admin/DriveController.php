@@ -10,6 +10,7 @@ use MatrixPlatform\Http\Controllers\BaseController;
 use MatrixPlatform\Models\DriveNode;
 use MatrixPlatform\Models\DriveNodeType;
 use MatrixPlatform\Services\Admin\DriveService;
+use MatrixPlatform\Services\FileService;
 use MatrixPlatform\Support\Thumbnails;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -87,7 +88,11 @@ class DriveController extends BaseController {
      */
     #[Action('{id}')]
     public function get(Request $request): array {
-        return $this->present($this->node($request));
+        $node = $this->node($request);
+
+        $this->service->requireAllowed($node, actor()->requireUser());
+
+        return $this->present($node);
     }
 
     /**
@@ -140,6 +145,16 @@ class DriveController extends BaseController {
         }
 
         return $payload;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[Action('{id}/publish')]
+    public function publish(Request $request): array {
+        $node = $this->node($request);
+
+        return app(FileService::class)->resolveDriveReferences([['id' => $node->id]], actor()->requireUser())[0];
     }
 
     /**

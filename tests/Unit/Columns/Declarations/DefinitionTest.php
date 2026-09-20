@@ -50,4 +50,20 @@ class DefinitionTest extends TestCase {
         $this->assertSame('menu-data', $definition->group);
     }
 
+    public function test_virtual_defaults_to_false(): void {
+        $this->assertFalse(Definition::text()->virtual);
+    }
+
+    public function test_virtual_can_be_turned_on(): void {
+        $this->assertTrue(Definition::text(virtual: true)->virtual);
+    }
+
+    public function test_tab_defaults_to_null(): void {
+        $this->assertNull(Definition::text()->tab);
+    }
+
+    public function test_tab_can_be_named(): void {
+        $this->assertSame('other', Definition::dateTime(tab: 'other')->tab);
+    }
+
 }

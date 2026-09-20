@@ -5,11 +5,17 @@ namespace MatrixPlatform\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use MatrixPlatform\Services\FileStorage;
 use ZipArchive;
 
 class UpdateGeolocationDatabaseCommand extends Command {
 
     private const ENDPOINT = 'https://www.ip2location.com/download';
+
+    /**
+     * The number of leading bytes kept for the archive signature check and the failure message.
+     */
+    private const HEAD_LENGTH = 200;
 
     /**
      * The local file header signature every non-empty zip archive starts with.
@@ -29,36 +35,38 @@ class UpdateGeolocationDatabaseCommand extends Command {
             return self::FAILURE;
         }
 
-        $body = $this->download($token);
+        $zipPath = tempnam(sys_get_temp_dir(), 'ip2location');
 
-        if ($body === null) {
+        if ($zipPath === false) {
+            $this->error('Failed to create a temporary file for the download');
+
             return self::FAILURE;
         }
 
-        $extracted = $this->extract($body);
+        $updated = $this->download($token, $zipPath) && $this->extract($zipPath);
 
-        if ($extracted === null) {
+        unlink($zipPath);
+
+        if (!$updated) {
             return self::FAILURE;
         }
-
-        $this->replace($extracted);
 
         $this->info('Geolocation database updated');
 
         return self::SUCCESS;
     }
 
-    private function download(string $token): ?string {
-        $response = Http::get(self::ENDPOINT, ['token' => $token, 'file' => strval(cfg('ip2location-bin.db-code'))]);
-        $body = $response->body();
+    private function download(string $token, string $path): bool {
+        $response = Http::sink($path)->get(self::ENDPOINT, ['token' => $token, 'file' => strval(cfg('ip2location-bin.db-code'))]);
+        $head = strval(file_get_contents($path, false, null, 0, self::HEAD_LENGTH));
 
-        if ($response->failed() || !str_starts_with($body, self::ZIP_SIGNATURE)) {
-            $this->error('The download did not return a valid archive: ' . trim(substr($body, 0, 200)));
+        if ($response->failed() || !str_starts_with($head, self::ZIP_SIGNATURE)) {
+            $this->error('The download did not return a valid archive: ' . trim($head));
 
-            return null;
+            return false;
         }
 
-        return $body;
+        return true;
     }
 
     private function entry(ZipArchive $archive): ?string {
@@ -73,48 +81,52 @@ class UpdateGeolocationDatabaseCommand extends Command {
         return null;
     }
 
-    private function extract(string $body): ?string {
-        $zipPath = tempnam(sys_get_temp_dir(), 'ip2location');
-
-        file_put_contents($zipPath, $body);
-
+    private function extract(string $path): bool {
         $archive = new ZipArchive();
 
-        if ($archive->open($zipPath) !== true) {
-            unlink($zipPath);
-
+        if ($archive->open($path) !== true) {
             $this->error('The downloaded file is not a valid zip archive');
 
-            return null;
+            return false;
         }
 
         $name = $this->entry($archive);
-        $extracted = $name === null ? false : $archive->getFromName($name);
-
-        $archive->close();
-        unlink($zipPath);
 
         if ($name === null) {
+            $archive->close();
+
             $this->error('No .BIN file was found inside the downloaded archive');
 
-            return null;
+            return false;
         }
 
-        if ($extracted === false) {
+        $stream = $archive->getStream($name);
+
+        if ($stream === false) {
+            $archive->close();
+
             $this->error('Failed to extract the .BIN file from the downloaded archive');
 
-            return null;
+            return false;
         }
 
-        return $extracted;
+        $this->replace($stream);
+
+        fclose($stream);
+        $archive->close();
+
+        return true;
     }
 
-    private function replace(string $contents): void {
-        $disk = config()->string('matrix.file-private-disk');
+    /**
+     * @param resource $stream
+     */
+    private function replace($stream): void {
+        $disk = app(FileStorage::class)->requireLocal(config()->string('matrix.file-private-disk'));
         $path = strval(cfg('ip2location-bin.bin-path'));
         $temporary = "{$path}.tmp";
 
-        Storage::disk($disk)->put($temporary, $contents);
+        Storage::disk($disk)->writeStream($temporary, $stream);
         Storage::disk($disk)->move($temporary, $path);
     }
 

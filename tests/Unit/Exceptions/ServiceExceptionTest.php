@@ -38,4 +38,16 @@ class ServiceExceptionTest extends TestCase {
         $this->assertSame(['fields' => ['current' => ['invalid-password']]], $exception->getExtra());
     }
 
+    public function test_a_client_error_reports_itself_as_handled_so_laravel_does_not_log_it(): void {
+        $this->assertTrue((new ServiceException('invalid-token', 401))->report());
+        $this->assertTrue((new ServiceException('permission-denied', 403))->report());
+        $this->assertTrue((new ServiceException('data-not-found', 404))->report());
+        $this->assertTrue((new ServiceException('validation-failed', 422))->report());
+    }
+
+    public function test_a_server_error_falls_through_to_the_default_logger(): void {
+        $this->assertFalse((new ServiceException('server-error', 500))->report());
+        $this->assertFalse((new ServiceException('data-not-found'))->report());
+    }
+
 }

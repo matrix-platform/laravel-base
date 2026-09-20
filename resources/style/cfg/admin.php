@@ -18,7 +18,7 @@ return [
 
     'passkey-challenge-ttl' => ['type' => 'integer', 'rule' => ['integer', 'min:1']],
 
-    'passkey-http-rp-ids' => ['type' => 'text'],
+    'passkey-http-rp-ids' => ['type' => 'text', 'readonly' => true],
 
     'passkey-timeout' => ['type' => 'integer', 'rule' => ['integer', 'min:1000']],
 

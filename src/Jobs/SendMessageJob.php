@@ -13,6 +13,7 @@ use MatrixPlatform\Messaging\Channels;
 use MatrixPlatform\Messaging\Driver;
 use MatrixPlatform\Messaging\MessageStatus;
 use MatrixPlatform\Models\MessageLog;
+use MatrixPlatform\Support\Resources;
 use Throwable;
 
 class SendMessageJob implements ShouldQueue {
@@ -28,6 +29,8 @@ class SendMessageJob implements ShouldQueue {
     }
 
     public function handle(): void {
+        app(Resources::class)->reset();
+
         $channel = app(Channels::class)->get($this->channel);
         $log = $this->next($channel);
 

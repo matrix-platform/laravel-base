@@ -13,7 +13,9 @@ use MatrixPlatform\Models\DriveNodeType;
 use MatrixPlatform\Models\File;
 use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\User;
+use MatrixPlatform\Services\Admin\DriveService;
 use MatrixPlatform\Services\FileService;
+use MatrixPlatform\Services\FileStorage;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
 
@@ -126,6 +128,31 @@ class FileServiceTest extends FeatureTestCase {
         copy(__DIR__ . '/../../fixtures/media/tone.wav', $path);
 
         return new UploadedFile($path, 'tone.wav', null, null, true);
+    }
+
+    public function test_a_local_disk_passes_the_driver_check(): void {
+        $this->assertSame('public', app(FileStorage::class)->requireLocal('public'));
+        $this->assertSame('public', $this->service()->disk(File::PUBLIC));
+    }
+
+    public function test_a_non_local_disk_is_refused_rather_than_silently_writing_to_the_working_directory(): void {
+        config()->set('filesystems.disks.remote', ['driver' => 's3', 'bucket' => 'probe']);
+
+        $this->refuses('unsupported-disk-driver', fn () => app(FileStorage::class)->requireLocal('remote'));
+    }
+
+    public function test_the_file_service_refuses_a_non_local_public_disk(): void {
+        config()->set('filesystems.disks.remote', ['driver' => 's3', 'bucket' => 'probe']);
+        config()->set('matrix.file-public-disk', 'remote');
+
+        $this->refuses('unsupported-disk-driver', fn () => $this->service()->disk(File::PUBLIC));
+    }
+
+    public function test_the_drive_service_refuses_a_non_local_disk(): void {
+        config()->set('filesystems.disks.remote', ['driver' => 's3', 'bucket' => 'probe']);
+        config()->set('matrix.drive-disk', 'remote');
+
+        $this->refuses('unsupported-disk-driver', fn () => app(DriveService::class)->disk());
     }
 
     public function test_bytes_parses_php_ini_shorthand_units(): void {

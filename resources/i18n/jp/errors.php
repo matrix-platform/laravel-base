@@ -114,6 +114,8 @@ return [
 
     'unknown-package' => '未登録のパッケージです',
 
+    'unsupported-disk-driver' => 'ディスクドライバーの設定に誤りがあります',
+
     'validation-failed' => '入力内容に誤りがあります',
 
 ];

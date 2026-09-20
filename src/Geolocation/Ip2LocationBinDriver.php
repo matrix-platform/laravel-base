@@ -4,6 +4,7 @@ namespace MatrixPlatform\Geolocation;
 
 use Illuminate\Support\Facades\Storage;
 use IP2Location\Database;
+use MatrixPlatform\Services\FileStorage;
 
 class Ip2LocationBinDriver implements Driver {
 
@@ -47,7 +48,7 @@ class Ip2LocationBinDriver implements Driver {
     }
 
     private function path(): string {
-        $disk = config()->string('matrix.file-private-disk');
+        $disk = app(FileStorage::class)->requireLocal(config()->string('matrix.file-private-disk'));
         $relative = strval(cfg('ip2location-bin.bin-path'));
 
         if (!Storage::disk($disk)->exists($relative)) {

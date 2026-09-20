@@ -35,7 +35,17 @@ class RecaptchaDriver implements Driver {
             return false;
         }
 
+        if (!$this->permitted($response->json('hostname'))) {
+            return false;
+        }
+
         return floatval($response->json('score')) >= floatval(cfg('captcha-recaptcha.threshold'));
+    }
+
+    private function permitted(mixed $hostname): bool {
+        $allowed = tokenize(strval(cfg('captcha-recaptcha.hostnames')));
+
+        return $allowed === [] || in_array(strval($hostname), $allowed, true);
     }
 
 }

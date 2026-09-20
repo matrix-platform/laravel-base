@@ -5,6 +5,7 @@ namespace MatrixPlatform\Models\Declarations;
 use MatrixPlatform\Columns\Declarations\Declares;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Declarations\Definitions;
+use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Support\Metadata;
 
 class AuthTokenDeclaration implements Declares {
@@ -16,7 +17,7 @@ class AuthTokenDeclaration implements Declares {
         return array_merge(
             Definitions::primaryKey(),
             [
-                'token' => Definition::text(),
+                'token' => Definition::text(Presentation::Hidden),
                 'type' => Definition::text(),
                 'target_id' => Definition::integer(),
                 'ip' => Definition::text(),
@@ -28,7 +29,7 @@ class AuthTokenDeclaration implements Declares {
     }
 
     public function metadata(): Metadata {
-        return new Metadata('auth-token', 'token');
+        return new Metadata('auth-token', 'type');
     }
 
 }

@@ -2,6 +2,7 @@
 
 namespace MatrixPlatform\Services\Admin;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Models\ResourceOverride;
@@ -12,6 +13,8 @@ use MatrixPlatform\Support\ResourceGroup;
 use MatrixPlatform\Support\Resources;
 
 class ResourceService {
+
+    private const MASK = '••••••••';
 
     private bool $pinned = false;
 
@@ -102,7 +105,7 @@ class ResourceService {
 
         $this->save($relative, $record, $override);
 
-        return $this->payload($id, $name, $relative, $defaults, $columns);
+        return $this->payload($id, $name, $relative, $defaults, $columns, $override);
     }
 
     public function whitelisted(ResourceGroup $group, string $name): bool {
@@ -182,15 +185,18 @@ class ResourceService {
             $rule = array_get_value($meta, 'rule');
             $presentation = array_get_value($meta, 'presentation');
 
+            $secret = array_get_value($meta, 'secret') === true;
+
             $columns[] = [
                 'name' => strval($key),
                 'title' => $this->title("{$id}.{$key}", strval($key)),
                 'type' => $type->value,
                 'presentation' => is_string($presentation) ? $presentation : 'plain',
                 'readonly' => array_get_value($meta, 'readonly') === true,
+                'secret' => $secret,
                 'rule' => is_array($rule) ? array_map(strval(...), array_values($rule)) : [$type->rule()],
-                'default' => $value,
-                'placeholder' => strval($value)
+                'default' => $secret ? '' : $value,
+                'placeholder' => $secret ? '' : strval($value)
             ];
         }
 
@@ -224,19 +230,28 @@ class ResourceService {
     }
 
     /**
+     * @param array<string, mixed> $column
+     */
+    private function masked(array $column, mixed $value): bool {
+        return array_get_value($column, 'secret') === true && $value === self::MASK;
+    }
+
+    /**
      * @param array<string, mixed> $defaults
      * @param list<array<string, mixed>> $columns
+     * @param array<string, mixed>|null $override the values just written, so a write inside a transaction never reads them back through the cache
      * @return array<string, mixed>
      */
-    private function payload(string $id, string $name, string $relative, array $defaults, array $columns): array {
-        $override = $this->resources->getOverrides($relative);
+    private function payload(string $id, string $name, string $relative, array $defaults, array $columns, ?array $override = null): array {
+        $override = $override === null ? $this->resources->getOverrides($relative) : $override;
         $override = $override === null ? [] : $override;
         $data = ['id' => $name];
 
         foreach ($columns as $column) {
             $key = strval($column['name']);
+            $value = array_key_exists($key, $override) ? $override[$key] : $column['default'];
 
-            $data[$key] = array_key_exists($key, $override) ? $override[$key] : $column['default'];
+            $data[$key] = $column['secret'] === true && !$this->cleared($value) ? self::MASK : $value;
         }
 
         return [
@@ -246,9 +261,24 @@ class ResourceService {
             'id' => $id,
             'columns' => $columns,
             'data' => $data,
-            'default' => $defaults,
+            'default' => $this->redacted($defaults, $columns),
             'actions' => [$this->action('update', $this->pinned ? 'update' : '{id}/update')]
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $defaults
+     * @param list<array<string, mixed>> $columns
+     * @return array<string, mixed>
+     */
+    private function redacted(array $defaults, array $columns): array {
+        foreach ($columns as $column) {
+            if ($column['secret'] === true) {
+                $defaults[strval($column['name'])] = '';
+            }
+        }
+
+        return $defaults;
     }
 
     private function relative(ResourceGroup $group, string $name): string {
@@ -281,7 +311,7 @@ class ResourceService {
             $target->save();
         }
 
-        $this->resources->forget();
+        DB::afterCommit(fn () => $this->resources->forget());
     }
 
     private function title(string $token, string $fallback): string {
@@ -332,7 +362,7 @@ class ResourceService {
         foreach ($columns as $column) {
             $key = strval(array_get_value($column, 'name'));
 
-            if (array_get_value($column, 'readonly') !== true && array_key_exists($key, $values)) {
+            if (array_get_value($column, 'readonly') !== true && array_key_exists($key, $values) && !$this->masked($column, $values[$key])) {
                 $writable[$key] = $column;
             }
         }

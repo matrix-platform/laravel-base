@@ -5,6 +5,7 @@ namespace Tests\Feature\Console;
 use Illuminate\Testing\PendingCommand;
 use MatrixPlatform\Models\EncryptionKey;
 use MatrixPlatform\Support\ApiEncryption;
+use RuntimeException;
 use Tests\FeatureTestCase;
 
 class RotateEncryptionKeyCommandTest extends FeatureTestCase {
@@ -53,6 +54,22 @@ class RotateEncryptionKeyCommandTest extends FeatureTestCase {
         $this->command()->assertExitCode(0);
 
         $this->assertNull(EncryptionKey::query()->find($stale->id));
+    }
+
+    public function test_a_failed_rotation_leaves_the_previous_key_active(): void {
+        $previous = EncryptionKey::issue();
+
+        EncryptionKey::creating(function (): void {
+            throw new RuntimeException('injected failure');
+        });
+
+        try {
+            $this->command()->run();
+            $this->fail('the rotation should have failed');
+        } catch (RuntimeException) {
+        }
+
+        $this->assertSame($previous->kid, EncryptionKey::active()?->kid);
     }
 
     public function test_a_non_numeric_grace_period_fails(): void {

@@ -3,6 +3,7 @@
 namespace MatrixPlatform\Console\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Models\EncryptionKey;
 
 class RotateEncryptionKeyCommand extends Command {
@@ -20,7 +21,7 @@ class RotateEncryptionKeyCommand extends Command {
             return self::FAILURE;
         }
 
-        $key = EncryptionKey::rotate($grace);
+        $key = DB::transaction(fn () => EncryptionKey::rotate($grace));
 
         $this->info("Issued encryption key {$key->kid} with a {$grace} second grace period");
 

@@ -6,7 +6,7 @@ return [
 
     'bin-path' => ['type' => 'text', 'readonly' => true],
 
-    'download-token' => ['type' => 'text'],
+    'download-token' => ['type' => 'text', 'presentation' => 'password', 'secret' => true],
 
     'db-code' => ['type' => 'text'],
 

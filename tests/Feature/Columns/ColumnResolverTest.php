@@ -50,6 +50,12 @@ class ColumnResolverTest extends FeatureTestCase {
         return app(ColumnResolver::class)->resolve((new ColumnParser())->parse($column), $root === null ? new Widget() : $root);
     }
 
+    public function test_the_tab_a_definition_declares_reaches_the_column(): void {
+        $this->declare(['title' => Definition::text(tab: 'other')]);
+
+        $this->assertSame('other', $this->resolve('title')->tab);
+    }
+
     public function test_a_declared_class_string_provider_is_resolved_to_an_instance(): void {
         $this->declare(['title' => Definition::json('permissions', [], PermissionTree::class)]);
 
@@ -136,6 +142,12 @@ class ColumnResolverTest extends FeatureTestCase {
         $this->assertFalse($column->required);
         $this->assertFalse($column->readonly);
         $this->assertFalse($column->virtual);
+    }
+
+    public function test_a_declaration_can_mark_a_column_virtual_without_a_plus_prefix(): void {
+        $this->declare(['title' => Definition::text(virtual: true)]);
+
+        $this->assertTrue($this->resolve('title')->virtual);
     }
 
     public function test_an_aggregate_wins_over_the_declaration(): void {

@@ -13,20 +13,17 @@ class UpdateGeolocationDatabaseCommandTest extends FeatureTestCase {
     protected function setUp(): void {
         parent::setUp();
 
-        Storage::fake('local');
+        Storage::fake(config()->string('matrix.file-private-disk'));
     }
 
-    private function dispatch(): PendingCommand {
-        return $this->artisanCommand('geolocation:update-database');
-    }
-
-    private function zip(string $entry, string $contents): string {
-        $path = tempnam(sys_get_temp_dir(), 'zip-fixture');
-
+    private function archive(?string $name, string $contents): string {
+        $path = tempnam(sys_get_temp_dir(), 'archive') . '.zip';
         $archive = new ZipArchive();
 
-        $archive->open($path, ZipArchive::OVERWRITE);
-        $archive->addFromString($entry, $contents);
+        $archive->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+
+        $archive->addFromString($name === null ? 'readme.txt' : $name, $contents);
+
         $archive->close();
 
         $bytes = strval(file_get_contents($path));
@@ -36,37 +33,79 @@ class UpdateGeolocationDatabaseCommandTest extends FeatureTestCase {
         return $bytes;
     }
 
-    public function test_a_successful_download_replaces_the_stored_database_file(): void {
-        $this->useCfg('ip2location-bin', ['bin-path' => 'ip2location-update-test.bin', 'download-token' => 'test-token']);
-
-        Http::fake(['*' => Http::response($this->zip('IP2LOCATION-LITE-DB11.BIN', 'new-bin-contents'))]);
-
-        $this->dispatch()->assertSuccessful();
-
-        $this->assertSame('new-bin-contents', Storage::disk('local')->get('ip2location-update-test.bin'));
-        $this->assertFalse(Storage::disk('local')->exists('ip2location-update-test.bin.tmp'));
+    private function command(): PendingCommand {
+        return $this->artisanCommand('geolocation:update-database');
     }
 
-    public function test_a_download_that_is_not_a_zip_archive_leaves_the_existing_database_file_untouched(): void {
-        $this->useCfg('ip2location-bin', ['bin-path' => 'ip2location-update-test.bin', 'download-token' => 'test-token']);
-
-        Storage::disk('local')->put('ip2location-update-test.bin', 'old-bin-contents');
-
-        Http::fake(['*' => Http::response('NO PERMISSION')]);
-
-        $this->dispatch()->assertFailed();
-
-        $this->assertSame('old-bin-contents', Storage::disk('local')->get('ip2location-update-test.bin'));
+    private function disk(): string {
+        return config()->string('matrix.file-private-disk');
     }
 
-    public function test_an_empty_download_token_fails_before_any_request_is_sent(): void {
+    public function test_a_download_that_is_not_an_archive_fails(): void {
+        $this->useCfg('ip2location-bin', ['download-token' => 'a-token']);
+
+        Http::fake(['www.ip2location.com/*' => Http::response('INVALID DOWNLOAD TOKEN')]);
+
+        $this->command()->assertExitCode(1);
+
+        Storage::disk($this->disk())->assertMissing(strval(cfg('ip2location-bin.bin-path')));
+    }
+
+    public function test_a_failed_request_fails(): void {
+        $this->useCfg('ip2location-bin', ['download-token' => 'a-token']);
+
+        Http::fake(['www.ip2location.com/*' => Http::response('nope', 503)]);
+
+        $this->command()->assertExitCode(1);
+
+        Storage::disk($this->disk())->assertMissing(strval(cfg('ip2location-bin.bin-path')));
+    }
+
+    public function test_an_archive_without_a_bin_file_fails(): void {
+        $this->useCfg('ip2location-bin', ['download-token' => 'a-token']);
+
+        Http::fake(['www.ip2location.com/*' => Http::response($this->archive(null, 'nothing useful here'))]);
+
+        $this->command()->assertExitCode(1);
+
+        Storage::disk($this->disk())->assertMissing(strval(cfg('ip2location-bin.bin-path')));
+    }
+
+    public function test_an_empty_download_token_fails(): void {
         $this->useCfg('ip2location-bin', ['download-token' => '']);
 
         Http::fake();
 
-        $this->dispatch()->assertFailed();
+        $this->command()->assertExitCode(1);
 
         Http::assertNothingSent();
+    }
+
+    public function test_the_bin_file_is_written_to_the_configured_path(): void {
+        $this->useCfg('ip2location-bin', ['download-token' => 'a-token']);
+
+        $contents = random_bytes(4096);
+
+        Http::fake(['www.ip2location.com/*' => Http::response($this->archive('IP2LOCATION-LITE-DB11.BIN', $contents))]);
+
+        $this->command()->assertExitCode(0);
+
+        $path = strval(cfg('ip2location-bin.bin-path'));
+
+        Storage::disk($this->disk())->assertExists($path);
+        Storage::disk($this->disk())->assertMissing("{$path}.tmp");
+
+        $this->assertSame($contents, Storage::disk($this->disk())->get($path));
+    }
+
+    public function test_the_configured_token_and_db_code_are_sent(): void {
+        $this->useCfg('ip2location-bin', ['download-token' => 'a-token', 'db-code' => 'DB99BIN']);
+
+        Http::fake(['www.ip2location.com/*' => Http::response($this->archive('DB99.BIN', 'payload'))]);
+
+        $this->command()->assertExitCode(0);
+
+        Http::assertSent(fn ($request): bool => $request['token'] === 'a-token' && $request['file'] === 'DB99BIN');
     }
 
 }

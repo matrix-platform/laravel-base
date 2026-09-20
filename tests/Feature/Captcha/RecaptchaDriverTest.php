@@ -32,6 +32,36 @@ class RecaptchaDriverTest extends FeatureTestCase {
         $this->useCfg('captcha-recaptcha', ['secret' => 'test-secret']);
     }
 
+    private function useHostnames(string $hostnames): void {
+        config(['matrix.admin-captcha-provider' => 'captcha-recaptcha']);
+
+        $this->useCfg('captcha-recaptcha', ['secret' => 'test-secret', 'hostnames' => $hostnames]);
+    }
+
+    // The site key is public, so an attacker can mint valid, well-scored tokens from a page they control. The hostname is the only
+    // field that tells those apart from tokens minted on our own login page.
+    public function test_a_token_minted_on_a_host_outside_the_allow_list_is_rejected(): void {
+        $this->useHostnames('admin.example.com');
+        $this->siteverify(['success' => true, 'action' => 'login', 'hostname' => 'attacker.example.net', 'score' => 0.9]);
+
+        $this->refusesField('code', 'invalid-captcha', fn () => $this->attempt());
+    }
+
+    public function test_a_token_minted_on_an_allowed_host_logs_the_user_in(): void {
+        $this->useHostnames('staging.example.com admin.example.com');
+        $this->siteverify(['success' => true, 'action' => 'login', 'hostname' => 'admin.example.com', 'score' => 0.9]);
+
+        $this->assertArrayHasKey('token', $this->attempt());
+    }
+
+    // Shipping default: an empty list means the check is off, so upgrading does not lock anybody out.
+    public function test_an_empty_allow_list_accepts_any_host(): void {
+        $this->useRecaptcha();
+        $this->siteverify(['success' => true, 'action' => 'login', 'hostname' => 'anything.example.net', 'score' => 0.9]);
+
+        $this->assertArrayHasKey('token', $this->attempt());
+    }
+
     public function test_a_token_scoring_above_the_threshold_logs_the_user_in(): void {
         $this->useRecaptcha();
         $this->siteverify(['success' => true, 'action' => 'login', 'score' => 0.9]);

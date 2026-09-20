@@ -114,6 +114,8 @@ return [
 
     'unknown-package' => '包未注册',
 
+    'unsupported-disk-driver' => '磁盘驱动设置错误',
+
     'validation-failed' => '输入数据有误',
 
 ];

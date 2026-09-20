@@ -3,7 +3,9 @@
 namespace Tests\Feature\Columns\Query;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Columns\ColumnResolver;
+use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Query\Filtering;
 use MatrixPlatform\Columns\Query\QueryPlan;
 use MatrixPlatform\Columns\Syntax\ColumnParser;
@@ -70,6 +72,140 @@ class FilteringTest extends FeatureTestCase {
         Trinket::forceCreate(['label' => 'alpha', 'amount' => 10]);
         Trinket::forceCreate(['label' => 'Beta', 'amount' => 20]);
         Trinket::forceCreate(['label' => 'gamma', 'amount' => null]);
+    }
+
+    private function declareTypedTrinket(): void {
+        app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label'), [
+            'amount' => Definition::integer(),
+            'create_time' => Definition::dateTime(),
+            'label' => Definition::text()
+        ]));
+    }
+
+    private function refusesDate(string $column, string $value): void {
+        $this->refuses('invalid-filter-value', fn () => $this->labels(['label', ['name' => $column, 'op' => 'eq']], [$column => ['op' => 'eq', 'value' => $value]]));
+    }
+
+    public function test_a_non_numeric_value_on_an_integer_column_is_refused_before_it_reaches_postgresql(): void {
+        $this->declareTypedTrinket();
+        $this->trinkets();
+
+        $this->refuses('invalid-filter-value', fn () => $this->labels([['name' => 'amount', 'op' => 'eq']], ['amount' => ['op' => 'eq', 'value' => 'not-a-number']]));
+    }
+
+    public function test_a_rejected_filter_leaves_the_surrounding_transaction_usable(): void {
+        $this->declareTypedTrinket();
+        $this->trinkets();
+
+        DB::beginTransaction();
+
+        $this->refuses('invalid-filter-value', fn () => $this->labels([['name' => 'amount', 'op' => 'eq']], ['amount' => ['op' => 'eq', 'value' => 'not-a-number']]));
+
+        $probe = DB::select('select 1 as probe');
+
+        DB::rollBack();
+
+        $this->assertSame(1, $probe[0]->probe, 'a malformed filter must not abort the action transaction');
+    }
+
+    public function test_an_integer_column_still_accepts_numeric_strings_and_integers(): void {
+        $this->declareTypedTrinket();
+        $this->trinkets();
+
+        $columns = ['label', ['name' => 'amount', 'op' => ['eq', 'gt']]];
+
+        $this->assertSame(['alpha'], $this->labels($columns, ['amount' => ['op' => 'eq', 'value' => '10']]));
+        $this->assertSame(['alpha'], $this->labels($columns, ['amount' => ['op' => 'eq', 'value' => 10]]));
+        $this->assertSame(['Beta'], $this->labels($columns, ['amount' => ['op' => 'gt', 'value' => '15']]));
+    }
+
+    public function test_a_malformed_bound_on_an_integer_between_is_refused(): void {
+        $this->declareTypedTrinket();
+        $this->trinkets();
+
+        $this->refuses('invalid-filter-value', fn () => $this->labels([['name' => 'amount', 'op' => 'between']], ['amount' => ['op' => 'between', 'from' => '5', 'to' => 'abc']]));
+    }
+
+    public function test_a_malformed_entry_inside_an_integer_in_list_is_refused(): void {
+        $this->declareTypedTrinket();
+        $this->trinkets();
+
+        $this->refuses('invalid-filter-value', fn () => $this->labels([['name' => 'amount', 'op' => 'in']], ['amount' => ['op' => 'in', 'value' => [10, 'abc']]]));
+    }
+
+    public function test_a_text_column_is_unaffected_by_the_type_check(): void {
+        $this->declareTypedTrinket();
+        $this->trinkets();
+
+        $this->assertSame(['alpha', 'Beta', 'gamma'], $this->labels([['name' => 'label', 'op' => 'contains']], ['label' => ['op' => 'contains', 'value' => 'a']]));
+    }
+
+    public function test_a_datetime_column_refuses_values_that_postgresql_would_reject(): void {
+        $this->declareTypedTrinket();
+        $this->trinkets();
+
+        foreach (['2026-02-31 00:00:00', '+1 day', 'next monday', 'abc'] as $value) {
+            $this->refusesDate('create_time', $value);
+        }
+    }
+
+    public function test_a_datetime_column_refuses_the_postgresql_keywords_that_used_to_slip_through(): void {
+        $this->declareTypedTrinket();
+        $this->trinkets();
+
+        $this->refusesDate('create_time', 'now');
+        $this->refusesDate('create_time', 'tomorrow');
+    }
+
+    public function test_a_datetime_column_refuses_a_bare_date(): void {
+        $this->declareTypedTrinket();
+        $this->trinkets();
+
+        $this->refusesDate('create_time', '2026-01-01');
+    }
+
+    public function test_a_datetime_column_accepts_its_declared_format(): void {
+        $this->declareTypedTrinket();
+
+        Trinket::forceCreate(['label' => 'alpha', 'create_time' => '2026-01-15 09:30:00']);
+
+        $columns = ['label', ['name' => 'create_time', 'op' => ['eq', 'between']]];
+
+        $this->assertSame(['alpha'], $this->labels($columns, ['create_time' => ['op' => 'eq', 'value' => '2026-01-15 09:30:00']]));
+        $this->assertSame(['alpha'], $this->labels($columns, ['create_time' => ['op' => 'between', 'from' => '2026-01-01 00:00:00', 'to' => '2026-01-31 23:59:59']]));
+    }
+
+    public function test_a_date_column_refuses_a_datetime_value(): void {
+        app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label'), [
+            'create_time' => Definition::date(),
+            'label' => Definition::text()
+        ]));
+
+        $this->trinkets();
+
+        $this->refusesDate('create_time', '2026-01-15 09:30:00');
+        $this->refusesDate('create_time', '2026-02-31');
+    }
+
+    public function test_a_rejected_date_filter_also_leaves_the_transaction_usable(): void {
+        $this->declareTypedTrinket();
+        $this->trinkets();
+
+        DB::beginTransaction();
+
+        $this->refusesDate('create_time', 'next monday');
+
+        $probe = DB::select('select 1 as probe');
+
+        DB::rollBack();
+
+        $this->assertSame(1, $probe[0]->probe);
+    }
+
+    public function test_the_type_check_follows_the_declared_type_so_an_undeclared_column_is_not_covered(): void {
+        $this->trinkets();
+
+        $this->refuses('invalid-filter-value', fn () => $this->labels([['name' => 'amount:integer', 'op' => 'eq']], ['amount' => ['op' => 'eq', 'value' => 'not-a-number']]));
     }
 
     public function test_every_operator_compiles_into_a_where_clause(): void {

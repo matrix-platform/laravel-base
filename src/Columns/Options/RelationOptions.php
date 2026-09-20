@@ -2,7 +2,6 @@
 
 namespace MatrixPlatform\Columns\Options;
 
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use MatrixPlatform\Support\MetadataRegistry;
@@ -42,7 +41,13 @@ class RelationOptions implements OptionProvider {
             $relation = $parent === null ? null : $current->{$parent}();
             $foreign = $relation === null ? null : $relation->getForeignKeyName();
 
-            foreach ($this->query($current, $trashed)->get() as $item) {
+            $query = $current::query();
+
+            if ($trashed) {
+                $query->withoutGlobalScope(SoftDeletingScope::class);
+            }
+
+            foreach ($query->get() as $item) {
                 $mapping[$this->key($foreign === null ? null : $item->getAttribute($foreign))][] = $this->option($subject, $item);
             }
 
@@ -81,19 +86,6 @@ class RelationOptions implements OptionProvider {
         $ranking = $item->getAttribute('ranking');
 
         return new Option([], $this->identifier($item), is_int($ranking) ? $ranking : 0, is_string($label) ? $label : '', $this->deleted($item));
-    }
-
-    /**
-     * @return Builder<Model>
-     */
-    private function query(Model $model, bool $trashed): Builder {
-        $query = $model::query();
-
-        if ($trashed && method_exists($model, 'trashed')) {
-            $query->withoutGlobalScope(SoftDeletingScope::class);
-        }
-
-        return $query;
     }
 
     /**

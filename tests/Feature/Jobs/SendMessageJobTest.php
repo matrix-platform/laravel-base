@@ -9,6 +9,7 @@ use Illuminate\Support\Sleep;
 use MatrixPlatform\Jobs\SendMessageJob;
 use MatrixPlatform\Messaging\MessageStatus;
 use MatrixPlatform\Models\MailLog;
+use MatrixPlatform\Models\ResourceOverride;
 use Mockery;
 use Tests\FeatureTestCase;
 use Tests\Stubs\FailDriver;
@@ -30,6 +31,25 @@ class SendMessageJobTest extends FeatureTestCase {
 
     private function execute(): void {
         (new SendMessageJob('mail'))->handle();
+    }
+
+    public function test_a_cfg_override_written_outside_the_worker_takes_effect_on_the_next_job(): void {
+        $this->stored();
+
+        $this->assertSame('stub@example.com', cfg('stub.from-address'));
+
+        $override = new ResourceOverride();
+
+        $override->bundle = 'cfg/stub';
+        $override->data = ['from-address' => 'changed@example.com'];
+
+        $override->save();
+
+        $this->assertSame('stub@example.com', cfg('stub.from-address'), 'the running process has not seen it yet');
+
+        $this->execute();
+
+        $this->assertSame('changed@example.com', cfg('stub.from-address'), 'the job must drop the cached bundles so an admin edit needs no worker restart');
     }
 
     private function stored(MessageStatus $status = MessageStatus::Scheduled, string $provider = 'stub', ?string $at = null): MailLog {

@@ -18,10 +18,10 @@ class TelegramDriver implements Driver {
         $sandbox = Sandbox::recipient($bundle);
         $target = $sandbox === null ? $chatId : $sandbox;
 
-        $response = Http::post('https://api.telegram.org/bot' . strval(cfg("{$bundle}.bot-token")) . '/sendMessage', array_merge([
+        $response = Http::post('https://api.telegram.org/bot' . strval(cfg("{$bundle}.bot-token")) . '/sendMessage', array_merge($log->data === null ? [] : $log->data, [
             'chat_id' => $target,
             'text' => $log->content
-        ], $log->data === null ? [] : $log->data));
+        ]));
 
         $body = $response->json();
 

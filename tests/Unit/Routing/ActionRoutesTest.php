@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Routing;
 
+use MatrixPlatform\Http\Controllers\Admin\GroupController;
 use MatrixPlatform\Routing\ActionRoutes;
 use PHPUnit\Framework\TestCase;
 use Tests\Stubs\LeafController;
@@ -61,6 +62,19 @@ class ActionRoutesTest extends TestCase {
         sort($sorted);
 
         $this->assertSame($sorted, $paths);
+    }
+
+    // This is what the sort is for. Laravel matches in registration order, so a `{id}` route registered before the
+    // literal ones swallows `admin/group/delete` as id = "delete". ASCII ordering gives that for free because '{' is
+    // 0x7B, past every lowercase letter — which is also why the ordering is easy to break by accident.
+    public function test_every_parameter_path_registers_after_every_literal_path(): void {
+        $paths = array_column(ActionRoutes::resolve(GroupController::class, null), 'path');
+        $literals = array_values(array_filter($paths, fn (string $path): bool => !str_starts_with($path, '{')));
+        $parameters = array_values(array_filter($paths, fn (string $path): bool => str_starts_with($path, '{')));
+
+        $this->assertNotSame([], $literals);
+        $this->assertNotSame([], $parameters);
+        $this->assertSame([...$literals, ...$parameters], $paths);
     }
 
     public function test_an_override_without_the_attribute_keeps_the_inherited_route(): void {

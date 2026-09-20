@@ -6,9 +6,20 @@ use Illuminate\Support\Facades\Log;
 use MatrixPlatform\Translation\TranslationService;
 use Mockery;
 use Tests\FeatureTestCase;
+use Tests\Stubs\ManglingTranslationDriver;
 use Tests\Stubs\OkTranslationDriver;
 
 class TranslationServiceTest extends FeatureTestCase {
+
+    private function mangled(string $mangle, string $text): ?string {
+        $this->useTranslationFixtures();
+
+        config()->set('matrix.translation-provider', 'mangling');
+
+        ManglingTranslationDriver::$mangle = $mangle;
+
+        return $this->service()->translate($text, 'en', 'tw');
+    }
 
     private function service(): TranslationService {
         return app(TranslationService::class);
@@ -70,6 +81,27 @@ class TranslationServiceTest extends FeatureTestCase {
         $this->service()->translate('<a href="/reset?token={code}">Reset</a>', 'en', 'tw');
 
         $this->assertSame('<a href="/reset?token={code}">Reset</a>', OkTranslationDriver::$requestedText);
+    }
+
+    public function test_a_placeholder_survives_the_driver_rewriting_the_marker_tag(): void {
+        $rewrites = ['attribute-before', 'reordered', 'spaced-equals', 'uppercase-tag'];
+
+        foreach ($rewrites as $rewrite) {
+            $translated = strval($this->mangled($rewrite, 'Hi {name}, your order {no} shipped.'));
+
+            $this->assertStringContainsString('{name}', $translated, "the {$rewrite} rewrite lost {name}");
+            $this->assertStringContainsString('{no}', $translated, "the {$rewrite} rewrite lost {no}");
+            $this->assertStringNotContainsString('data-token', $translated, "the {$rewrite} rewrite leaked the marker");
+        }
+    }
+
+    public function test_a_translation_that_loses_a_placeholder_is_refused_rather_than_returned_broken(): void {
+        $spy = Log::spy();
+
+        $this->assertNull($this->mangled('dropped-attribute', 'Hi {name}!'));
+
+        $spy->shouldHaveReceived('info', ['translation.failed', Mockery::on(fn (array $context) => array_get_value($context, 'action') === 'failed'
+            && array_get_value($context, 'error') === 'placeholder-lost')]);
     }
 
     public function test_a_successful_translation_is_recorded_to_the_application_log(): void {

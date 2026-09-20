@@ -4,6 +4,7 @@ namespace MatrixPlatform\Models;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use MatrixPlatform\Support\ApiEncryption;
 
@@ -52,7 +53,7 @@ class EncryptionKey extends BaseModel {
 
         $key->save();
 
-        Cache::forget(self::ACTIVE_CACHE_KEY);
+        DB::afterCommit(fn () => Cache::forget(self::ACTIVE_CACHE_KEY));
 
         return $key;
     }

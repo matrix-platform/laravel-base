@@ -14,10 +14,14 @@ return [
     'arrange.published' => '已上架',
     'arrange.unpublished' => '未上架',
 
+    'clear' => '清除',
+
     'colorConfirm' => '确定',
 
     'common.cancel' => '取消',
     'common.goto' => '跳转',
+    'common.leave' => '离开',
+    'common.leave_confirm' => '尚有未保存的修改,确定要离开吗?',
     'common.page' => '页码',
     'common.page_size' => '每页条数',
     'common.save' => '保存',
@@ -81,6 +85,7 @@ return [
     'drive.kind_image' => '图片',
     'drive.kind_pdf' => 'PDF',
     'drive.kind_video' => '视频',
+    'drive.load_failed' => '加载失败',
     'drive.move' => '移动',
     'drive.move_target' => '移动目标',
     'drive.name' => '名称',
@@ -115,10 +120,13 @@ return [
     'drive.view_grid' => '网格',
     'drive.view_list' => '列表',
 
+    'errors.request_failed' => '连接失败, 请稍后再试',
+
     'fileChoose' => '选择文件, 或把文件拖到这里',
     'fileDownload' => '下载',
     'fileDrag' => '调整顺序',
     'fileInfo' => '信息',
+    'filePick' => '选择既有文件',
     'filePreview' => '预览',
     'fileRemove' => '删除',
     'fileSizeError' => '{name} 超过 {max} 字节',
@@ -211,6 +219,9 @@ return [
 
     'modalClose' => '关闭',
 
+    'numberDecrease' => '减少',
+    'numberIncrease' => '增加',
+
     'passkey.add' => '新增 Passkey',
     'passkey.delete' => '删除',
     'passkey.delete_confirm' => '确定要删除这把 Passkey? 删除后无法恢复',
@@ -220,6 +231,9 @@ return [
     'passkey.never_used' => '尚未使用',
     'passkey.rename' => '重命名',
     'passkey.unsupported' => '此浏览器不支持 Passkey',
+
+    'passwordHide' => '隐藏密码',
+    'passwordShow' => '显示密码',
 
     'popconfirmCancel' => '取消',
     'popconfirmConfirm' => '确定',
@@ -242,6 +256,12 @@ return [
     'sortableDown' => '下移',
     'sortableDrag' => '拖拽排序',
     'sortableUp' => '上移',
+
+    'splitButtonCaret' => '更多操作',
+
+    'tab.general' => '一般资料',
+    'tab.other' => '其他',
+    'tab.seo' => 'SEO',
 
     'tableActions' => '操作',
     'tableEmpty' => '未找到数据',

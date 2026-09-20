@@ -16,6 +16,8 @@ use Illuminate\Support\Carbon;
  */
 class Preference extends BaseModel {
 
+    const TRACEABLE = false;
+
     protected $attributes = [
         'data' => '{}'
     ];

@@ -54,14 +54,31 @@ class FileControllerTest extends FeatureTestCase {
 
         $response->assertJsonPath('success', true);
         $response->assertJsonPath('data.name', 'photo.png');
+        $response->assertJsonPath('data.mime_type', 'image/png');
         $response->assertJsonPath('data.width', 10);
         $response->assertJsonPath('data.height', 10);
         $response->assertJsonPath('data.seconds', null);
+
+        $this->assertIsInt($response->json('data.size'));
+        $this->assertGreaterThan(0, $response->json('data.size'));
 
         $path = $response->json('data.path');
 
         $this->assertIsString($path);
         Storage::disk('public')->assertExists("files/{$path}");
+    }
+
+    public function test_an_upload_with_a_privilege_outside_the_enum_is_rejected(): void {
+        $response = $this->send($this->token(), 'admin/file/upload', [
+            'file' => UploadedFile::fake()->image('photo.png', 10, 10),
+            'privilege' => 99
+        ]);
+
+        $response->assertJsonPath('code', 422);
+        $response->assertJsonPath('error', 'validation-failed');
+        $response->assertJsonPath('fields.privilege.0', 'in');
+
+        $this->assertSame(0, File::query()->count());
     }
 
     public function test_an_upload_without_a_file_is_rejected_on_that_field(): void {

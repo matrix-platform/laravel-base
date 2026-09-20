@@ -34,7 +34,7 @@ class FileService {
     }
 
     public function disk(int $privilege): string {
-        return config()->string($privilege === File::PUBLIC ? 'matrix.file-public-disk' : 'matrix.file-private-disk');
+        return app(FileStorage::class)->requireLocal(config()->string($privilege === File::PUBLIC ? 'matrix.file-public-disk' : 'matrix.file-private-disk'));
     }
 
     public function find(string $path): File {

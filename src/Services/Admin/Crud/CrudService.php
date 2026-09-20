@@ -275,8 +275,28 @@ abstract class CrudService {
         return $entries;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    protected function driveProps(Column $column): array {
+        if (!$this->drives($column)) {
+            return [];
+        }
+
+        $multiple = in_array('array', $column->rule, true);
+        $max = null;
+
+        foreach ($multiple ? $column->rule : [] as $rule) {
+            if (str_starts_with($rule, 'max:')) {
+                $max = (int) substr($rule, 4);
+            }
+        }
+
+        return ['max' => $max, 'multiple' => $multiple];
+    }
+
     protected function driveResolved(Column $column, mixed $value): mixed {
-        if (!in_array($column->presentation, [Presentation::DriveFile, Presentation::DriveImage], true) || !is_array($value)) {
+        if (!$this->drives($column) || !is_array($value)) {
             return $value;
         }
 
@@ -367,6 +387,7 @@ abstract class CrudService {
     protected function payload(array $columns, ?Model $record, mixed $input): array {
         return array_map(fn (Column $column): array => [
             ...$this->shape($column),
+            ...$this->driveProps($column),
             'group' => $column->group,
             'op' => $column->op,
             'options' => $column->options === null ? null : $column->options->options($record),
@@ -377,6 +398,7 @@ abstract class CrudService {
             'required' => $column->required,
             'rule' => $column->rule,
             'sortable' => $column->sortable,
+            'tab' => $column->tab,
             'variant' => $this->resolvedVariant($column, $input, $record),
             'writable' => $this->writable($column)
         ], $columns);
@@ -593,13 +615,17 @@ abstract class CrudService {
     }
 
     protected function writable(Column $column): bool {
-        return $this->isLocal($column) && !$column->readonly;
+        return $this->rooted($column) && !$column->readonly;
     }
 
     private function allowed(string $type, string $prefix): bool {
         $url = $this->resolvedUrl(app(Actions::class)->define($type), $prefix);
 
         return $url !== null && app(AdminPermission::class)->reaches($url);
+    }
+
+    private function drives(Column $column): bool {
+        return in_array($column->presentation, [Presentation::DriveFile, Presentation::DriveImage], true);
     }
 
     /**
@@ -644,7 +670,7 @@ abstract class CrudService {
     }
 
     private function isLocal(Column $column): bool {
-        return !$column->virtual && $column->expression->path === [];
+        return !$column->virtual && $this->rooted($column);
     }
 
     private function mounted(): ?string {
@@ -725,6 +751,10 @@ abstract class CrudService {
         $url = array_get_value($action, 'url');
 
         return is_string($url) ? str_replace('{prefix}', $prefix, $url) : null;
+    }
+
+    private function rooted(Column $column): bool {
+        return $column->expression->path === [];
     }
 
     private function uniqueRule(string $field, int|string|null $ignoreId): Unique {

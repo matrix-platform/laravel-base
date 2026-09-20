@@ -31,7 +31,17 @@ class TurnstileDriver implements Driver {
             error('captcha-request-failed');
         }
 
-        return $response->json('success') === true && $response->json('action') === strval(cfg('captcha-turnstile.action'));
+        if ($response->json('success') !== true || $response->json('action') !== strval(cfg('captcha-turnstile.action'))) {
+            return false;
+        }
+
+        return $this->permitted($response->json('hostname'));
+    }
+
+    private function permitted(mixed $hostname): bool {
+        $allowed = tokenize(strval(cfg('captcha-turnstile.hostnames')));
+
+        return $allowed === [] || in_array(strval($hostname), $allowed, true);
     }
 
 }

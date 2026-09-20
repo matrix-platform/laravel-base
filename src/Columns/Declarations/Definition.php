@@ -13,63 +13,63 @@ class Definition {
      * @param list<string>|Closure(): list<string> $rule
      * @param OptionProvider|class-string<OptionProvider>|null $options
      */
-    public static function boolean(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false): self {
-        return new self(ColumnType::Boolean, $presentation, $rule, $options, $translatable, $required, $unique);
+    public static function boolean(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false, bool $virtual = false, ?string $tab = null): self {
+        return new self(ColumnType::Boolean, $presentation, $rule, $options, $translatable, $required, $unique, virtual: $virtual, tab: $tab);
     }
 
     /**
      * @param list<string>|Closure(): list<string> $rule
      */
-    public static function composite(string $group, array|Closure $rule = [], bool $required = false): self {
-        return new self(ColumnType::Json, Presentation::Composite, $rule, null, false, $required, false, $group);
-    }
-
-    /**
-     * @param list<string>|Closure(): list<string> $rule
-     * @param OptionProvider|class-string<OptionProvider>|null $options
-     */
-    public static function date(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false): self {
-        return new self(ColumnType::Date, $presentation, $rule, $options, $translatable, $required, $unique);
+    public static function composite(string $group, array|Closure $rule = [], bool $required = false, ?string $tab = null): self {
+        return new self(ColumnType::Json, Presentation::Composite, $rule, null, false, $required, false, $group, tab: $tab);
     }
 
     /**
      * @param list<string>|Closure(): list<string> $rule
      * @param OptionProvider|class-string<OptionProvider>|null $options
      */
-    public static function dateTime(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false): self {
-        return new self(ColumnType::DateTime, $presentation, $rule, $options, $translatable, $required, $unique);
+    public static function date(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false, bool $virtual = false, ?string $tab = null): self {
+        return new self(ColumnType::Date, $presentation, $rule, $options, $translatable, $required, $unique, virtual: $virtual, tab: $tab);
     }
 
     /**
      * @param list<string>|Closure(): list<string> $rule
      * @param OptionProvider|class-string<OptionProvider>|null $options
      */
-    public static function float(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false): self {
-        return new self(ColumnType::Float, $presentation, $rule, $options, $translatable, $required, $unique);
+    public static function dateTime(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false, bool $virtual = false, ?string $tab = null): self {
+        return new self(ColumnType::DateTime, $presentation, $rule, $options, $translatable, $required, $unique, virtual: $virtual, tab: $tab);
     }
 
     /**
      * @param list<string>|Closure(): list<string> $rule
      * @param OptionProvider|class-string<OptionProvider>|null $options
      */
-    public static function integer(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false): self {
-        return new self(ColumnType::Integer, $presentation, $rule, $options, $translatable, $required, $unique);
+    public static function float(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false, bool $virtual = false, ?string $tab = null): self {
+        return new self(ColumnType::Float, $presentation, $rule, $options, $translatable, $required, $unique, virtual: $virtual, tab: $tab);
     }
 
     /**
      * @param list<string>|Closure(): list<string> $rule
      * @param OptionProvider|class-string<OptionProvider>|null $options
      */
-    public static function json(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false): self {
-        return new self(ColumnType::Json, $presentation, $rule, $options, $translatable, $required, $unique);
+    public static function integer(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false, bool $virtual = false, ?string $tab = null): self {
+        return new self(ColumnType::Integer, $presentation, $rule, $options, $translatable, $required, $unique, virtual: $virtual, tab: $tab);
     }
 
     /**
      * @param list<string>|Closure(): list<string> $rule
      * @param OptionProvider|class-string<OptionProvider>|null $options
      */
-    public static function text(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false): self {
-        return new self(ColumnType::Text, $presentation, $rule, $options, $translatable, $required, $unique);
+    public static function json(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false, bool $virtual = false, ?string $tab = null): self {
+        return new self(ColumnType::Json, $presentation, $rule, $options, $translatable, $required, $unique, virtual: $virtual, tab: $tab);
+    }
+
+    /**
+     * @param list<string>|Closure(): list<string> $rule
+     * @param OptionProvider|class-string<OptionProvider>|null $options
+     */
+    public static function text(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false, bool $virtual = false, ?string $tab = null): self {
+        return new self(ColumnType::Text, $presentation, $rule, $options, $translatable, $required, $unique, virtual: $virtual, tab: $tab);
     }
 
     /**
@@ -84,7 +84,9 @@ class Definition {
         public readonly bool $translatable,
         public readonly bool $required,
         public readonly bool $unique,
-        public readonly ?string $group = null
+        public readonly ?string $group = null,
+        public readonly bool $virtual = false,
+        public readonly ?string $tab = null
     ) {}
 
 }

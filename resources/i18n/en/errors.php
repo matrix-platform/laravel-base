@@ -114,6 +114,8 @@ return [
 
     'unknown-package' => 'Package is not registered',
 
+    'unsupported-disk-driver' => 'The disk driver is misconfigured',
+
     'validation-failed' => 'Invalid input',
 
 ];

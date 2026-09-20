@@ -10,6 +10,7 @@ use MatrixPlatform\Models\Generators\Creator;
 use MatrixPlatform\Models\Generators\Generates;
 use MatrixPlatform\Models\Generators\Regenerates;
 use MatrixPlatform\Models\Generators\Updater;
+use MatrixPlatform\Support\MetadataRegistry;
 
 abstract class BaseModel extends Model {
 
@@ -122,8 +123,10 @@ abstract class BaseModel extends Model {
      * @return array<string, mixed>
      */
     private function getTraceables(array $data, bool $truncate = true): array {
+        $ranking = app(MetadataRegistry::class)->of(static::class)?->ranking;
+
         Arr::forget($data, $this->untraceable);
-        Arr::forget($data, $this->reserved());
+        Arr::forget($data, Arr::whereNotNull([...$this->reserved(), $ranking]));
 
         return $truncate ? Arr::whereNotNull($data) : $data;
     }

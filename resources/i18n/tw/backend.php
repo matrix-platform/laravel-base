@@ -14,10 +14,14 @@ return [
     'arrange.published' => '已上架',
     'arrange.unpublished' => '未上架',
 
+    'clear' => '清除',
+
     'colorConfirm' => '確定',
 
     'common.cancel' => '取消',
     'common.goto' => '跳頁',
+    'common.leave' => '離開',
+    'common.leave_confirm' => '尚有未儲存的異動,確定要離開嗎?',
     'common.page' => '頁次',
     'common.page_size' => '每頁筆數',
     'common.save' => '儲存',
@@ -81,6 +85,7 @@ return [
     'drive.kind_image' => '圖片',
     'drive.kind_pdf' => 'PDF',
     'drive.kind_video' => '影片',
+    'drive.load_failed' => '載入失敗',
     'drive.move' => '移動',
     'drive.move_target' => '移動目標',
     'drive.name' => '名稱',
@@ -115,10 +120,13 @@ return [
     'drive.view_grid' => '格狀',
     'drive.view_list' => '列表',
 
+    'errors.request_failed' => '連線失敗, 請稍後再試',
+
     'fileChoose' => '選擇檔案, 或把檔案拖到這裡',
     'fileDownload' => '下載',
     'fileDrag' => '調整順序',
     'fileInfo' => '資訊',
+    'filePick' => '選擇既有檔案',
     'filePreview' => '預覽',
     'fileRemove' => '刪除',
     'fileSizeError' => '{name} 超過 {max} 位元組',
@@ -211,6 +219,9 @@ return [
 
     'modalClose' => '關閉',
 
+    'numberDecrease' => '減少',
+    'numberIncrease' => '增加',
+
     'passkey.add' => '新增 Passkey',
     'passkey.delete' => '刪除',
     'passkey.delete_confirm' => '確定要刪除這把 Passkey? 刪除後無法復原',
@@ -220,6 +231,9 @@ return [
     'passkey.never_used' => '尚未使用',
     'passkey.rename' => '重新命名',
     'passkey.unsupported' => '此瀏覽器不支援 Passkey',
+
+    'passwordHide' => '隱藏密碼',
+    'passwordShow' => '顯示密碼',
 
     'popconfirmCancel' => '取消',
     'popconfirmConfirm' => '確定',
@@ -242,6 +256,12 @@ return [
     'sortableDown' => '下移',
     'sortableDrag' => '拖曳排序',
     'sortableUp' => '上移',
+
+    'splitButtonCaret' => '更多操作',
+
+    'tab.general' => '一般資料',
+    'tab.other' => '其他',
+    'tab.seo' => 'SEO',
 
     'tableActions' => '操作',
     'tableEmpty' => '查無資料',

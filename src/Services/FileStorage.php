@@ -22,6 +22,14 @@ class FileStorage {
         return $folder . $path;
     }
 
+    public function requireLocal(string $disk): string {
+        if (config("filesystems.disks.{$disk}.driver") !== 'local') {
+            error('unsupported-disk-driver');
+        }
+
+        return $disk;
+    }
+
     public function store(UploadedFile $file, string $disk, string $folder): string {
         $path = date('Ym') . '/' . Str::random(32);
 

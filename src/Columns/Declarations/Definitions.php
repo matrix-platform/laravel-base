@@ -58,8 +58,8 @@ class Definitions {
      */
     public static function schedules(): array {
         return [
-            'enable_time' => Definition::dateTime(),
-            'disable_time' => Definition::dateTime()
+            'enable_time' => Definition::dateTime(tab: 'other'),
+            'disable_time' => Definition::dateTime(tab: 'other')
         ];
     }
 

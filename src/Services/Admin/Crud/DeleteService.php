@@ -17,6 +17,11 @@ class DeleteService extends CrudService {
     private array $cascade = [];
 
     /**
+     * @var array<class-string<Model>, list<string>>
+     */
+    private array $relations = [];
+
+    /**
      * @param list<string> $relations
      */
     public function cascade(array $relations): static {
@@ -96,19 +101,24 @@ class DeleteService extends CrudService {
      * @return list<string>
      */
     private function referencingRelations(Model $model): array {
+        if (array_key_exists($model::class, $this->relations)) {
+            return $this->relations[$model::class];
+        }
+
         $names = [];
 
         foreach ((new ReflectionClass($model))->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
             $type = $method->getReturnType();
 
-            if ($method->getDeclaringClass()->getName() === $model::class
-                && $method->getNumberOfParameters() === 0
+            if ($method->getNumberOfParameters() === 0
                 && $type instanceof ReflectionNamedType
                 && !$type->isBuiltin()
                 && is_a($type->getName(), HasOneOrMany::class, true)) {
                 $names[] = $method->getName();
             }
         }
+
+        $this->relations[$model::class] = $names;
 
         return $names;
     }

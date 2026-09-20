@@ -10,6 +10,8 @@ return [
 
     'endpoint' => 'https://www.google.com/recaptcha/api/siteverify',
 
+    'hostnames' => '',
+
     'secret' => '',
 
     'threshold' => 0.5,

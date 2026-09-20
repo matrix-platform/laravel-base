@@ -120,7 +120,7 @@ class DriveService {
     }
 
     public function disk(): string {
-        return config()->string('matrix.drive-disk');
+        return app(FileStorage::class)->requireLocal(config()->string('matrix.drive-disk'));
     }
 
     public function find(string $id, bool $withTrashed = false): DriveNode {

@@ -25,7 +25,7 @@ class ServiceException extends Exception {
     }
 
     public function report(): bool {
-        return false;
+        return $this->getCode() < 500;
     }
 
 }

@@ -7,9 +7,12 @@ use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\ManipulationType;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Support\Actor;
+use MatrixPlatform\Support\Metadata;
+use MatrixPlatform\Support\MetadataRegistry;
 use Tests\FeatureTestCase;
 use Tests\Stubs\Doodad;
 use Tests\Stubs\Gadget;
+use Tests\Stubs\StubDeclaration;
 use Tests\Stubs\Widget;
 
 class BaseModelTest extends FeatureTestCase {
@@ -52,6 +55,27 @@ class BaseModelTest extends FeatureTestCase {
 
         $this->assertIsArray($after);
         $this->assertArrayNotHasKey('secret', $after);
+    }
+
+    public function test_creating_log_excludes_the_declared_ranking_column(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget', ranking: 'trinket_id')));
+
+        Widget::forceCreate(['title' => 'alpha', 'trinket_id' => 7, 'ranking' => 500]);
+
+        $after = $this->lastLog()->after;
+
+        $this->assertIsArray($after);
+        $this->assertArrayNotHasKey('trinket_id', $after);
+        $this->assertArrayHasKey('ranking', $after);
+    }
+
+    public function test_creating_log_keeps_a_ranking_column_that_is_not_declared(): void {
+        Widget::forceCreate(['title' => 'alpha', 'ranking' => 500]);
+
+        $after = $this->lastLog()->after;
+
+        $this->assertIsArray($after);
+        $this->assertArrayHasKey('ranking', $after);
     }
 
     public function test_updating_writes_a_log_of_type_updated_with_only_the_changed_columns(): void {
@@ -132,6 +156,18 @@ class BaseModelTest extends FeatureTestCase {
         $before = $this->logCount();
 
         $widget->setAttribute('secret', 'hunter2');
+        $widget->save();
+
+        $this->assertSame($before, $this->logCount());
+    }
+
+    public function test_updating_only_the_declared_ranking_column_writes_no_log(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget', ranking: 'ranking')));
+
+        $widget = Widget::forceCreate(['title' => 'alpha']);
+        $before = $this->logCount();
+
+        $widget->setAttribute('ranking', 9999);
         $widget->save();
 
         $this->assertSame($before, $this->logCount());

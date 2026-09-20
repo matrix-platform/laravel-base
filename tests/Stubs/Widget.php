@@ -68,7 +68,7 @@ class Widget extends BaseModel {
      * @return HasOne<Trinket, $this>
      */
     public function sole(): HasOne {
-        return $this->hasOne(Trinket::class);
+        return $this->hasOne(Trinket::class, 'widget_id');
     }
 
     /**
@@ -82,7 +82,7 @@ class Widget extends BaseModel {
      * @return HasMany<Trinket, $this>
      */
     public function trinkets(): HasMany {
-        return $this->hasMany(Trinket::class);
+        return $this->hasMany(Trinket::class, 'widget_id');
     }
 
     /**

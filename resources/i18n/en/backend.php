@@ -14,10 +14,14 @@ return [
     'arrange.published' => 'Published',
     'arrange.unpublished' => 'Unpublished',
 
+    'clear' => 'Clear',
+
     'colorConfirm' => 'Confirm',
 
     'common.cancel' => 'Cancel',
     'common.goto' => 'Go to',
+    'common.leave' => 'Leave',
+    'common.leave_confirm' => 'You have unsaved changes. Leave anyway?',
     'common.page' => 'Page',
     'common.page_size' => 'Page Size',
     'common.save' => 'Save',
@@ -81,6 +85,7 @@ return [
     'drive.kind_image' => 'Image',
     'drive.kind_pdf' => 'PDF',
     'drive.kind_video' => 'Video',
+    'drive.load_failed' => 'Failed to Load',
     'drive.move' => 'Move',
     'drive.move_target' => 'Move to',
     'drive.name' => 'Name',
@@ -115,10 +120,13 @@ return [
     'drive.view_grid' => 'Grid',
     'drive.view_list' => 'List',
 
+    'errors.request_failed' => 'Request failed, please try again later',
+
     'fileChoose' => 'Choose a file, or drag it here',
     'fileDownload' => 'Download',
     'fileDrag' => 'Drag to Reorder',
     'fileInfo' => 'Info',
+    'filePick' => 'Choose an existing file',
     'filePreview' => 'Preview',
     'fileRemove' => 'Remove',
     'fileSizeError' => '{name} exceeds {max} bytes',
@@ -211,6 +219,9 @@ return [
 
     'modalClose' => 'Close',
 
+    'numberDecrease' => 'Decrease',
+    'numberIncrease' => 'Increase',
+
     'passkey.add' => 'Add Passkey',
     'passkey.delete' => 'Delete',
     'passkey.delete_confirm' => 'Delete this passkey? This cannot be undone',
@@ -220,6 +231,9 @@ return [
     'passkey.never_used' => 'Never used',
     'passkey.rename' => 'Rename',
     'passkey.unsupported' => 'This browser does not support passkeys',
+
+    'passwordHide' => 'Hide Password',
+    'passwordShow' => 'Show Password',
 
     'popconfirmCancel' => 'Cancel',
     'popconfirmConfirm' => 'Confirm',
@@ -242,6 +256,12 @@ return [
     'sortableDown' => 'Move Down',
     'sortableDrag' => 'Drag to Sort',
     'sortableUp' => 'Move Up',
+
+    'splitButtonCaret' => 'More Actions',
+
+    'tab.general' => 'General',
+    'tab.other' => 'Other',
+    'tab.seo' => 'SEO',
 
     'tableActions' => 'Actions',
     'tableEmpty' => 'No Data Found',

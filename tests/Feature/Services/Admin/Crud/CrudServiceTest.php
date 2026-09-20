@@ -4,6 +4,7 @@ namespace Tests\Feature\Services\Admin\Crud;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\ValidationException;
+use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\ManipulationType;
@@ -18,6 +19,7 @@ use MatrixPlatform\Support\MetadataRegistry;
 use stdClass;
 use Tests\FeatureTestCase;
 use Tests\Stubs\Gizmo;
+use Tests\Stubs\PremiumWidget;
 use Tests\Stubs\StubDeclaration;
 use Tests\Stubs\Trinket;
 use Tests\Stubs\Widget;
@@ -32,6 +34,7 @@ class CrudServiceTest extends FeatureTestCase {
         app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
         app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'widget')));
         app(MetadataRegistry::class)->register(Gizmo::class, new StubDeclaration(new Metadata('gizmo')));
+        app(MetadataRegistry::class)->register(PremiumWidget::class, new StubDeclaration(new Metadata('widget')));
     }
 
     /**
@@ -149,9 +152,49 @@ class CrudServiceTest extends FeatureTestCase {
 
         $this->assertSame([
             'name', 'title', 'translatable', 'type', 'format', 'presentation', 'group', 'op',
-            'options', 'path', 'placeholder', 'remark', 'readonly', 'required', 'rule', 'sortable', 'variant',
+            'options', 'path', 'placeholder', 'remark', 'readonly', 'required', 'rule', 'sortable', 'tab', 'variant',
             'writable'
         ], array_keys($columns[0]));
+    }
+
+    public function test_the_payload_carries_the_tab_a_definition_declared(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget'), ['title' => Definition::text(tab: 'other')]));
+
+        $columns = (new ListService(Widget::class))->standalone(true)->columns(['title'])->list([])['columns'];
+
+        $this->assertSame('other', $columns[0]['tab']);
+    }
+
+    public function test_a_virtual_non_readonly_column_is_still_writable(): void {
+        $columns = (new ListService(Widget::class))->standalone(true)->columns(['+title'])->list([])['columns'];
+
+        $this->assertTrue($columns[0]['writable']);
+    }
+
+    public function test_a_joined_column_is_never_writable_even_when_not_virtual(): void {
+        $columns = (new ListService(Trinket::class))->standalone(true)->columns(['widget.title'])->list([])['columns'];
+
+        $this->assertFalse($columns[0]['writable']);
+    }
+
+    public function test_a_drive_image_column_with_an_array_rule_reports_itself_as_multiple(): void {
+        $columns = (new ListService(Widget::class))
+            ->standalone(true)
+            ->columns([['name' => 'payload', 'rule' => ['array', 'max:3'], 'type' => 'drive-image']])
+            ->list([])['columns'];
+
+        $this->assertTrue($columns[0]['multiple']);
+        $this->assertSame(3, $columns[0]['max']);
+    }
+
+    public function test_a_drive_image_column_without_an_array_rule_is_not_multiple(): void {
+        $columns = (new ListService(Widget::class))
+            ->standalone(true)
+            ->columns([['name' => 'payload', 'type' => 'drive-image']])
+            ->list([])['columns'];
+
+        $this->assertFalse($columns[0]['multiple']);
+        $this->assertNull($columns[0]['max']);
     }
 
     public function test_the_format_matches_the_declared_column_type(): void {
@@ -331,6 +374,24 @@ class CrudServiceTest extends FeatureTestCase {
             $this->assertSame('data-in-use', $exception->getError());
             $this->assertSame(['count' => 2], $exception->getExtra());
             $this->assertSame(1, Widget::query()->count());
+
+            return;
+        }
+
+        $this->fail('the delete was expected to be refused');
+    }
+
+    public function test_deleting_is_refused_when_a_relation_declared_on_a_parent_class_has_rows(): void {
+        $widget = PremiumWidget::forceCreate(['title' => 'Premium']);
+
+        $this->trinkets($widget->id, ['a']);
+
+        try {
+            (new DeleteService(PremiumWidget::class))->standalone(true)->delete(['id' => $widget->id]);
+        } catch (ServiceException $exception) {
+            $this->assertSame('data-in-use', $exception->getError());
+            $this->assertSame(['count' => 1], $exception->getExtra());
+            $this->assertSame(1, PremiumWidget::query()->count());
 
             return;
         }

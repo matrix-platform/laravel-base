@@ -10,6 +10,8 @@ return [
 
     'endpoint' => 'https://challenges.cloudflare.com/turnstile/v0/siteverify',
 
+    'hostnames' => '',
+
     'secret' => '',
 
 ];

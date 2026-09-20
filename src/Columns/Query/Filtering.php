@@ -2,9 +2,11 @@
 
 namespace MatrixPlatform\Columns\Query;
 
+use DateTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
+use MatrixPlatform\Columns\ColumnType;
 
 class Filtering {
 
@@ -22,7 +24,7 @@ class Filtering {
             $operators = array_values(Arr::wrap($column->op));
 
             if ($operators !== []) {
-                $allowed[$column->name] = $operators;
+                $allowed[$column->name] = ['op' => $operators, 'type' => $column->type];
             }
         }
 
@@ -32,10 +34,10 @@ class Filtering {
             }
 
             $field = $plan->field($name);
-            $operator = $this->operator($filter, $allowed[$name]);
+            $operator = $this->operator($filter, $allowed[$name]['op']);
 
             if ($field !== null && $operator !== null) {
-                $this->where($query, $field, $operator, $filter);
+                $this->where($query, $field, $operator, $filter, $allowed[$name]['type']);
             }
         }
     }
@@ -55,6 +57,16 @@ class Filtering {
 
     private function escape(mixed $value): string {
         return Conditions::escape(is_scalar($value) ? strval($value) : '');
+    }
+
+    private function formatted(mixed $value, string $format): bool {
+        if (!is_string($value)) {
+            return false;
+        }
+
+        $parsed = DateTime::createFromFormat($format, $value);
+
+        return $parsed !== false && $parsed->format($format) === $value;
     }
 
     /**
@@ -99,8 +111,25 @@ class Filtering {
         };
     }
 
-    private function shaped(mixed $value): void {
-        if ($value !== null && !is_scalar($value)) {
+    private function shaped(mixed $value, ColumnType $type): void {
+        if ($value === null) {
+            return;
+        }
+
+        if (!is_scalar($value)) {
+            error('invalid-filter-value', 422);
+        }
+
+        $valid = match ($type) {
+            ColumnType::Boolean => is_bool($value) || in_array($value, [0, 1, '0', '1'], true),
+            ColumnType::Date => $this->formatted($value, strval(config('matrix.date-format'))),
+            ColumnType::DateTime => $this->formatted($value, strval(config('matrix.datetime-format'))),
+            ColumnType::Float => is_numeric($value),
+            ColumnType::Integer => is_int($value) || (is_string($value) && preg_match('/\A-?\d+\z/', $value) === 1),
+            default => true
+        };
+
+        if (!$valid) {
             error('invalid-filter-value', 422);
         }
     }
@@ -109,13 +138,13 @@ class Filtering {
      * @param Builder<Model> $query
      * @param array<string, mixed> $filter
      */
-    private function where(Builder $query, string $field, string $operator, array $filter): void {
+    private function where(Builder $query, string $field, string $operator, array $filter, ColumnType $type): void {
         if ($operator === 'between') {
             $from = array_get_value($filter, 'from');
             $to = array_get_value($filter, 'to');
 
-            $this->shaped($from);
-            $this->shaped($to);
+            $this->shaped($from, $type);
+            $this->shaped($to, $type);
 
             $this->between($query, $field, $from, $to);
 
@@ -126,7 +155,7 @@ class Filtering {
 
         if ($operator === 'in' || $operator === 'notIn') {
             foreach (Arr::wrap($value) as $item) {
-                $this->shaped($item);
+                $this->shaped($item, $type);
             }
 
             $this->inside($query, $field, $operator, $value);
@@ -134,7 +163,7 @@ class Filtering {
             return;
         }
 
-        $this->shaped($value);
+        $this->shaped($value, $type);
 
         [$clause, $bindings] = match ($operator) {
             'eq' => ['= ?', [$value]],

@@ -43,9 +43,9 @@ class MailerMailDriverTest extends FeatureTestCase {
 
         (new MailerMailDriver())->send($log);
 
-        $this->assertSame('smtp.relay.example', config('mail.mailers.matrix-smtp.host'));
-        $this->assertSame(2525, config('mail.mailers.matrix-smtp.port'));
-        $this->assertSame('smtps', config('mail.mailers.matrix-smtp.scheme'));
+        $this->assertSame('smtp.relay.example', config('mail.mailers.matrix-smtp:relay.host'));
+        $this->assertSame(2525, config('mail.mailers.matrix-smtp:relay.port'));
+        $this->assertSame('smtps', config('mail.mailers.matrix-smtp:relay.scheme'));
     }
 
     public function test_a_second_provider_on_the_same_channel_is_reachable(): void {
@@ -53,8 +53,23 @@ class MailerMailDriverTest extends FeatureTestCase {
 
         (new MailerMailDriver())->send($this->log());
 
-        $this->assertSame(cfg('gmail.host'), config('mail.mailers.matrix-smtp.host'));
-        $this->assertSame('smtp', config('mail.mailers.matrix-smtp.transport'));
+        $this->assertSame(cfg('gmail.host'), config('mail.mailers.matrix-smtp:gmail.host'));
+        $this->assertSame('smtp', config('mail.mailers.matrix-smtp:gmail.transport'));
+    }
+
+    public function test_each_provider_gets_its_own_mailer_so_a_resolved_one_cannot_be_reused(): void {
+        $this->useMessagingFixtures();
+
+        $relay = $this->log();
+
+        $relay->provider = 'relay';
+
+        (new MailerMailDriver())->send($this->log());
+        (new MailerMailDriver())->send($relay);
+
+        $this->assertSame(cfg('gmail.host'), config('mail.mailers.matrix-smtp:gmail.host'));
+        $this->assertSame('smtp.relay.example', config('mail.mailers.matrix-smtp:relay.host'));
+        $this->assertNull(config('mail.mailers.matrix-smtp'));
     }
 
     public function test_the_body_is_delivered_as_html_without_escaping(): void {

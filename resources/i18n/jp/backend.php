@@ -14,10 +14,14 @@ return [
     'arrange.published' => '公開済み',
     'arrange.unpublished' => '未公開',
 
+    'clear' => 'クリア',
+
     'colorConfirm' => '確定',
 
     'common.cancel' => 'キャンセル',
     'common.goto' => '移動',
+    'common.leave' => '離れる',
+    'common.leave_confirm' => '未保存の変更があります。移動しますか?',
     'common.page' => 'ページ',
     'common.page_size' => '表示件数',
     'common.save' => '保存',
@@ -81,6 +85,7 @@ return [
     'drive.kind_image' => '画像',
     'drive.kind_pdf' => 'PDF',
     'drive.kind_video' => '動画',
+    'drive.load_failed' => '読み込みに失敗しました',
     'drive.move' => '移動',
     'drive.move_target' => '移動先',
     'drive.name' => '名前',
@@ -115,10 +120,13 @@ return [
     'drive.view_grid' => 'グリッド',
     'drive.view_list' => 'リスト',
 
+    'errors.request_failed' => '通信に失敗しました。しばらくしてからお試しください',
+
     'fileChoose' => 'ファイルを選択、またはここにドラッグ',
     'fileDownload' => 'ダウンロード',
     'fileDrag' => 'ドラッグで並び替え',
     'fileInfo' => '情報',
+    'filePick' => '既存のファイルを選択',
     'filePreview' => 'プレビュー',
     'fileRemove' => '削除',
     'fileSizeError' => '{name}は{max}バイトを超えています',
@@ -211,6 +219,9 @@ return [
 
     'modalClose' => '閉じる',
 
+    'numberDecrease' => '減らす',
+    'numberIncrease' => '増やす',
+
     'passkey.add' => 'パスキーを追加',
     'passkey.delete' => '削除',
     'passkey.delete_confirm' => 'このパスキーを削除しますか? 削除すると元に戻せません',
@@ -220,6 +231,9 @@ return [
     'passkey.never_used' => '未使用',
     'passkey.rename' => '名前を変更',
     'passkey.unsupported' => 'このブラウザは Passkey に対応していません',
+
+    'passwordHide' => 'パスワードを非表示',
+    'passwordShow' => 'パスワードを表示',
 
     'popconfirmCancel' => 'キャンセル',
     'popconfirmConfirm' => '確定',
@@ -242,6 +256,12 @@ return [
     'sortableDown' => '下へ移動',
     'sortableDrag' => 'ドラッグで並び替え',
     'sortableUp' => '上へ移動',
+
+    'splitButtonCaret' => 'その他の操作',
+
+    'tab.general' => '基本情報',
+    'tab.other' => 'その他',
+    'tab.seo' => 'SEO',
 
     'tableActions' => '操作',
     'tableEmpty' => 'データが見つかりません',

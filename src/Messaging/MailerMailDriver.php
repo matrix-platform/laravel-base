@@ -16,13 +16,14 @@ class MailerMailDriver implements Driver {
 
     public function send(MessageLog $log): string {
         $bundle = $log->provider;
+        $mailer = self::MAILER . ":{$bundle}";
         $sandbox = Sandbox::recipient($bundle);
         $to = $sandbox === null ? $log->receiver : $sandbox;
         $subject = $sandbox === null ? $log->subject : "{$log->subject} [{$log->receiver}]";
 
-        config()->set('mail.mailers.' . self::MAILER, $this->mailer($bundle));
+        config()->set("mail.mailers.{$mailer}", $this->mailer($bundle));
 
-        $sent = Mail::mailer(self::MAILER)
+        $sent = Mail::mailer($mailer)
             ->to($to)
             ->send(new MessageMail($subject, $log->content, strval(cfg("{$bundle}.from-address")), strval(cfg("{$bundle}.from-name"))));
 

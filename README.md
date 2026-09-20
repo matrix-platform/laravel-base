@@ -319,6 +319,16 @@ token 兩種帶法:`Authorization: Bearer {token}`,或登入時自動下的 `mat
 
 bundle 一律**扁平**:只有一層 key,key 本身可以含點,取值時當字面看待,不做巢狀路徑解析。
 
+`resources/style/cfg/{bundle}.php` 只是**欄位型別表**,不是欄位白名單——沒被它列到的 key 照樣會出現在資源後台,型別退回 `text`、呈現退回 `plain`。唯一的例外是標記了 `'secret' => true` 的 key:
+
+```php
+'password' => ['type' => 'text', 'presentation' => 'password', 'secret' => true],
+```
+
+機密欄位的實際值**永遠不離開伺服器**——`data` 回傳的是遮罩 `••••••••`(沒設定過則是空字串),`default` 與 `placeholder` 一律空白。寫回時遮罩值代表「不變更」,送新值才覆寫,送空字串才清除。出貨已標的是 `gmail.password`、`telegram.bot-token`、`telegram.webhook-secret`、`webpush.private-key`、`mitake.password`、`google-translate.api-key`、`ip2location-bin.download-token`、`ip2location-webservice.api-key`、`captcha-recaptcha.secret`、`captcha-turnstile.secret`;自訂 bundle 裡的憑證要自己標,**漏標的症狀是那把密鑰以明文出現在後台 API 回應裡**。
+
+這一層跟 `matrix.resource-cfg` 的 bundle 白名單是兩件事:白名單決定「這個 bundle 能不能編輯」,`secret` 決定「bundle 裡哪些 key 的值看得到」。有了後者,含憑證的混合型 bundle 才能安全地進白名單。
+
 合併是**逐 key 遞迴**的（排前的覆蓋排後的、key 對 key）,所以覆蓋一個選單節點時,低優先層那個節點多出來的 key（`icon`、`tag` 之類）會滲進合併結果,沒辦法個別移除。要**整個移除**一個節點,把該 key 的值設成 `null` —— 節點消失、端點對所有人 403、群組離開權限樹。但移除節點只擋端點與**新**授權:**已經授出的權限仍然有效**,因為授權檢查讀的是 `base_user.permissions` / `base_group.permissions` 存的 JSON,不是選單樹。
 
 ---
@@ -500,7 +510,7 @@ app(MailService::class)->cancel($id);
 | 回傳的列是 `Scheduled`,不是已送出 | 真正的送出在 worker。`schedule()` 只負責寫列 + 通知有東西要送 |
 | `$at` 到期了才派工 | 未來時間只寫列,等 `messages:dispatch` 那一輪撈到 |
 | **樣板可以是 `null`,provider 不行** | 樣板要嘛自己指名 `provider`,要嘛 `$options` 給。都沒有就 `invalid-message-provider`;供應商沒設 `driver` 就 `message-provider-has-no-driver` |
-| `$options` 覆蓋樣板的渲染結果 | 只認 `provider`、`subject`、`title`、`content`、`data` 五個 key。值是 `null` **不算**覆蓋。`title` 只有 push 用;`data` 給 push(額外 payload)與 telegram(`parse_mode` 等 Bot API 選項)用;mail / sms 不讀這兩個 key |
+| `$options` 覆蓋樣板的渲染結果 | 只認 `provider`、`subject`、`title`、`content`、`data` 五個 key。值是 `null` **不算**覆蓋。`title` 只有 push 用;`data` 給 push(額外 payload)與 telegram(`parse_mode` 等 Bot API 選項)用;mail / sms 不讀這兩個 key。telegram 的 `data` **蓋不掉 `chat_id` 與 `text`**——收件目標由訂閱解析與 sandbox 決定,內容一律是記錄下來的 `content`,否則 `base_telegram_log` 會對不上實際送出的東西,sandbox 也會被繞過 |
 | mail 的寄件者是當下快照 | `sender` 寫入時從 `cfg('{provider}.from-address')` 取,之後改設定不影響已排程的訊息 |
 | `resend()` 的 `ip` 是重發當下的 IP | 複製出來的新紀錄一樣會經過 `creating` 的 `ip` generator,存的是操作 `resend` 的人的 IP,不是原始訊息建立時的 IP |
 
@@ -598,6 +608,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | POST | `admin/drive/{id}/upload` | 登入 |
 | GET\|HEAD | `admin/drive/{id}/download` | 登入 |
 | POST | `admin/drive/{id}/download` | 登入 |
+| POST | `admin/drive/{id}/publish` | 登入 |
 | POST | `admin/drive/{id}/rename` | 登入 |
 | POST | `admin/drive/{id}/move` | 登入 |
 | POST | `admin/drive/{id}/path` | 登入 |
@@ -725,9 +736,9 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `matrix.api-prefix` | `'api'` | 前台路由前綴 |
 | `matrix.date-format` | `'Y-m-d'` | 日期顯示格式 |
 | `matrix.datetime-format` | `'Y-m-d H:i:s'` | 日期時間顯示格式 |
-| `matrix.drive-disk` | `'local'` | 雲端硬碟實體檔案的 disk,獨立於 `file-*-disk`,永遠不對外公開,只透過 `drive/{id}/download` 讀取 |
-| `matrix.file-private-disk` | `'local'` | 非公開檔案的 disk |
-| `matrix.file-public-disk` | `'public'` | 公開檔案的 disk |
+| `matrix.drive-disk` | `'local'` | 雲端硬碟實體檔案的 disk,獨立於 `file-*-disk`。**必須是 local driver**(見下方限制) |
+| `matrix.file-private-disk` | `'local'` | 非公開檔案的 disk。**必須是 local driver** |
+| `matrix.file-public-disk` | `'public'` | 公開檔案的 disk。**必須是 local driver** |
 | `matrix.geolocation-provider` | `'ip2location-bin'` | IP 地理位置查詢要用哪個 driver,對應 `resources/cfg/{值}.php` |
 | `matrix.locales` | `'tw en'` | 允許的語系,對應 `resources/i18n/{語系}/` |
 | `matrix.member-model` | `Member::class` | 會員 model,宿主可換成自己的 |
@@ -765,7 +776,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `admin.mfa-window` | `1` | TOTP 驗證時間漂移容忍度(±N 個 30 秒區間) |
 | `admin.passkey-allow-subdomains` | `false` | 是否允許子網域的 origin 通過驗證 |
 | `admin.passkey-challenge-ttl` | `120` | Passkey 註冊/登入 challenge 有效秒數 |
-| `admin.passkey-http-rp-ids` | `''` | 逗號分隔的 RP ID 清單,清單內的值額外放行 `http://` origin(本機開發用,本機以外不要設)。空字串 = 一律要求 `https://` |
+| `admin.passkey-http-rp-ids` | `''` | 逗號分隔的 RP ID 清單,清單內的值額外放行 `http://` origin(本機開發用,本機以外不要設)。空字串 = 一律要求 `https://`。**標記為 `readonly`,資源後台改不動**——放寬 origin 是降低認證強度的操作,只能改檔案(`resources/cfg/admin.php`) |
 | `admin.passkey-timeout` | `60000` | 前端 ceremony 逾時毫秒數(供前端顯示,伺服器不強制) |
 | `admin.password-pattern` | `'/^(?=.*\d)(?=.*[a-zA-Z]).{8,}$/'` | 自助改密碼、`matrix:passwd` 與使用者表單共用的密碼規則 |
 | `admin.token-idle-minutes` | `30` | 後台 token 閒置多久失效 |
@@ -774,11 +785,13 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `captcha-recaptcha.driver` | `RecaptchaDriver::class` | Google reCAPTCHA |
 | `captcha-recaptcha.action` | `'login'` | 要比對的 `action`,與回應對不上就算失敗 |
 | `captcha-recaptcha.endpoint` | `'https://www.google.com/recaptcha/api/siteverify'` | 驗證端點 |
+| `captcha-recaptcha.hostnames` | `''` | 允許的 token 來源網域清單(空白/逗號/分號分隔),對應 siteverify 回應的 `hostname`。**空字串 = 不檢查**,見[已知限制與取捨](#安全) |
 | `captcha-recaptcha.secret` | `''` | 後端密鑰,**出貨是空的,自己填**。空字串不會放行——驗證一律失敗,登入擋下 |
 | `captcha-recaptcha.threshold` | `0.5` | 分數門檻,低於就擋。回應沒有 `score` 時當成 `0.0`(擋下) |
 | `captcha-turnstile.driver` | `TurnstileDriver::class` | Cloudflare Turnstile |
 | `captcha-turnstile.action` | `'login'` | 同 `captcha-recaptcha.action` |
 | `captcha-turnstile.endpoint` | `'https://challenges.cloudflare.com/turnstile/v0/siteverify'` | 驗證端點 |
+| `captcha-turnstile.hostnames` | `''` | 同 `captcha-recaptcha.hostnames` |
 | `captcha-turnstile.secret` | `''` | 同 `captcha-recaptcha.secret` |
 | `encryption.grace-period` | `86400` | 輪替後舊金鑰還能解密多久(秒);`matrix:rotate-encryption-key --grace` 可以單次覆蓋 |
 | `encryption.window` | `300` | 加密信封的 `ts` 容許誤差(秒),同時是同一個 `epk` 的去重保留時間(2 倍) |
@@ -902,6 +915,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `undeclared-model` | Model 未宣告欄位 |
 | `unknown-message-channel` | 訊息管道未註冊 |
 | `unknown-package` | 套件未註冊 |
+| `unsupported-disk-driver` | disk 的 driver 不是 local |
 | `validation-failed` | 輸入資料有誤 |
 
 ### 資料表
@@ -947,7 +961,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
   "filters": {
     "title": { "op": "contains", "value": "abc" },
     "status": { "op": "in", "value": [1, 2] },
-    "create_time": { "op": "between", "from": "2026-01-01", "to": "2026-01-31" }
+    "create_time": { "op": "between", "from": "2026-01-01 00:00:00", "to": "2026-01-31 23:59:59" }
   },
   "sort": [{ "name": "create_time", "direction": "desc" }],
   "page": 1,
@@ -957,6 +971,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 
 - 每個欄位可以用哪些 `op`,由清單回應的 `columns[].op` 告訴你。送不被允許的欄位或運算子會**靜默忽略**,不會報錯。
 - `between` 用 `from` / `to`（可以只給一邊）,其餘用 `value`。
+- **`date` / `datetime` 欄位的值必須完全符合 `columns[].format` 給的格式**,一個字元都不能差:`date` 只收 `matrix.date-format`（出貨 `Y-m-d`）,`datetime` 只收 `matrix.datetime-format`（出貨 `Y-m-d H:i:s`）,兩者不互通。不符回 422 `invalid-filter-value`。所以查一整天要自己補時間:`from` 是 `00:00:00`、`to` 是 `23:59:59`——只送 `2026-01-31` 會被擋下,而**在舊版那樣送會漏掉當天所有資料**（`BETWEEN` 對 timestamp 欄位截在 `00:00:00`）。
 - `page` 或 `size` 給 0 以下 = 不分頁,一次全回。
 
 **詳情 / 編輯頁**（`POST admin/widget/{id}`）不需要 body。
@@ -981,7 +996,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 
 `type` 是 `date` 或 `datetime` 的欄位另外帶一個 `format`(例如 `YYYY-MM-DD`、`YYYY-MM-DD HH:mm:ss`,即 `matrix.date-format` / `matrix.datetime-format` 轉成前端慣用的日期格式代號),`rows`/`data` 裡該欄位的實際字串就是照這個格式輸出;其餘型別 `format` 是 `null`。
 
-**不可寫有三種原因:`readonly` 宣告、`virtual`(`+` 前綴)、以及跨關聯或聚合欄位(`group.title`、`count(orders)`)。** 只有第一種在 `columns[]` 上另有 `readonly` 鍵看得出來,所以**前端要看 `writable`,不要看 `readonly`** —— 否則後兩種會畫出一顆改了完全沒效果的輸入框,而使用者會看到「已儲存」。
+**不可寫有兩種原因:`readonly` 宣告、以及跨關聯或聚合欄位(`group.title`、`count(orders)`)。** 只有第一種在 `columns[]` 上另有 `readonly` 鍵看得出來,所以**前端要看 `writable`,不要看 `readonly`** —— 否則第二種會畫出一顆改了完全沒效果的輸入框,而使用者會看到「已儲存」。`virtual`(`+` 前綴)**不影響 `writable`**:虛擬欄位不落庫,但照樣可以收值交給 `guards` / 覆寫的 service 處理。
 
 `writable: false` 的欄位不在 `present` 驗證的範圍內,送不送都可以;`writable: true` 的**每一個都必須出現在 body 裡**,那與上面「更新是全量覆寫」是同一件事的兩面。
 
@@ -1152,6 +1167,7 @@ parameters:
 |---|---|
 | **`admin/i18n/get` 是匿名端點,任何人可以讀走任何一份翻譯檔** —— 包含 `template/*`（郵件與簡訊樣板全文）。登入畫面需要它,所以不能關 | 不要在 i18n 資源裡放非公開內容 |
 | **驗證碼端點匿名且沒有節流** | 需要的話自己加 |
+| **驗證碼的 site key 是公開的,不設 `hostnames` 就擋不住別人拿它在自己的網站養 token** —— 攻擊者把你的 site key 放進自己的頁面,訪客產生的 token 有 `success`、有正確的 `action`(那是他自己設的)、分數還是真人的高分,拿來打你的登入端點會完全穿透驗證碼這一關 | 設 `captcha-recaptcha.hostnames` / `captcha-turnstile.hostnames` 為後台登入頁的網域(可多個)。**出貨是空的 = 不檢查**,因為預設開啟會讓既有部署升級後全部登不進去,而症狀只會是「驗證碼錯誤」。這件事在本套件特別要緊——見下面那條,登入節流擋不住拿一組密碼掃一堆帳號,驗證碼是應用層唯一能讓 spraying 變貴的東西 |
 | **`captcha-recaptcha` 是 Enterprise 分數式的,低於 `captcha-recaptcha.threshold` 的真人沒有任何自證管道** —— 它不跳挑戰,分數不夠就是進不去(傳統的 v2 隱形式已無法申請新金鑰) | 用這顆就要求管理員都註冊 passkey(passkey 登入完全不經過驗證碼),否則唯一的出路是下方的 cfg override。要「可疑時才要求互動、互動完就過」請改用 `captcha-turnstile` |
 | **第三方驗證碼 driver(`captcha-turnstile` / `captcha-recaptcha`)是 fail-closed 的** —— 對方服務打不通時回 `captcha-request-failed`,登入一律擋下。而且每一次被擋都吃掉一格登入節流(`afterCallback` 只計失敗),五次之後同一組 IP+帳號連 `too-many-requests` 都會拿到 | 接受它,但事先知道逃生門怎麼走:見下方〈驗證碼服務掛掉時怎麼進後台〉。**不要改成「打不通就放行」**,那等於給攻擊者一個把驗證碼關掉的開關 |
 | **`api/common/*` 兩個端點匿名且沒有節流**,`base_menu.data` 的內容會原樣出現在回應裡 | 不要在 `base_menu.data` 放非公開資料 |
@@ -1177,6 +1193,7 @@ parameters:
 | **欄位 DSL 是開發者輸入**,識別字會被插值進 SQL | 絕對不要把使用者輸入拼進 `$lists` / `$updates` |
 | **權限白名單只覆蓋 CRUD 的寫入路徑**。`replicate()`、`setRawAttributes()`、query builder 的 `update()` 都繞得過去 | 白名單防的是請求輸入,不是程式碼 |
 | **訊息樣板的變數會原樣進入 HTML,不逸出** | 把使用者輸入當變數傳進去之前自己逸出。開放樣板編輯 = 把那個人當成信任的 HTML 作者 |
+| **`admin/translation` 送出去翻譯之前會保護佔位符**,但只保護**獨立出現**的 `{name}` / `{{name}}`——HTML 屬性值裡的(`<a href="?token={code}">`)原樣送給翻譯服務,翻回來可能已經被改掉 | 要翻的字串裡別把佔位符寫進屬性值。保護的作法是先換成一個標記元素、翻完再換回來;標記被翻譯服務改寫到認不出來時,整次翻譯回 `available: false`(**不會**回傳夾著標記殘骸的譯文),應用程式日誌記 `translation.failed` / `placeholder-lost` |
 
 #### 驗證碼服務掛掉時怎麼進後台
 
@@ -1217,7 +1234,8 @@ php artisan matrix:clear-resource-cache
 | 重排用最長遞增子序列找錨點,tie-break 是次佳選擇 | 最壞情況會把「只改一列」變成「整組重編」 |
 | `contains` / `endsWith` 走 `ILIKE`,本來就用不到 B-tree;**`startsWith` 也走 `ILIKE`,同樣用不到** | 要就自己加 `lower(col)` 運算式索引或 `pg_trgm` GIN |
 | **`api/common/city` 與 `menu` 沒有快取,而且是 POST** | CDN / proxy 快取不適用,要快取只能做在應用層 |
-| **`Resources` 是 singleton** | queue worker、Octane 這類長生命週期行程改了設定要重啟才看得到 |
+| **三個 disk 設定只能用 local driver** | 縮圖產生與 IP 資料庫讀取走的是原生檔案函式(`is_file`、`mkdir`、`file_put_contents`、`rename`),它們吃的是 `Storage::disk()->path()` 的回傳值——那個值對非 local driver 是**相對路徑**,會相對於行程當下的工作目錄解析,而 queue worker、artisan 指令與 php-fpm 的工作目錄各不相同,同一份縮圖可能寫在三個地方、讀的時候都找不到,而且全程沒有錯誤。套件本身也沒有安裝任何遠端 flysystem adapter。設成別的 driver 會在取用 disk 時直接回 `unsupported-disk-driver` |
+| **`Resources` 是 singleton** | Octane 這類長生命週期行程改了設定要重啟才看得到。**訊息 worker 例外**——`SendMessageJob` 每次執行前會先丟掉已快取的 bundle,所以在資源後台改了 cfg(SMTP 主機/帳密、`interval` 等)下一封信就生效,不必重啟 worker |
 | 級聯刪除會逐筆取出實例再刪（為了稽核） | 成本隨子資料列數成長 |
 
 ### 資料生命週期
@@ -1242,7 +1260,7 @@ php artisan matrix:clear-resource-cache
 | **每一個 action 都跑在一個交易裡** | `BaseController::callAction()` 用 `DB::transaction()` 包住整個動作。要在 rollback 之後仍然執行的副作用（寄信、打第三方、刪檔）請註冊到 `RollbackCallbacks`,不要直接做 |
 | **`#[Action]` 會沿繼承鏈繼承** | 覆寫 action 不需要重新宣告 attribute |
 | **`#[Action(encrypted: false)]` 讓那支 action 不受所屬前綴的加密開關約束** | 呼叫方不可能封信封的端點要標記它:出貨已標的是 telegram webhook、兩支 multipart 上傳(`file/upload`、`drive/{id}/upload`)與 `encryption-key`。自己的上傳端點也要自己標,漏標的症狀是開關一開就變 `invalid-envelope` |
-| **篩選值的格式會驗證** | op 要的是單一值卻送陣列(`eq` / `contains` / `between` 的 from、to 等)、`in` / `notIn` 的清單裡有陣列,一律回 422 `invalid-filter-value`。以前這幾種格式有的靜默回**全量**、有的靠 binding 攤平湊出一個結果。欄位或 op 不被允許仍是靜默忽略（行為不變）,`in` 清單裡的 null 也照舊（合法 SQL,永不匹配） |
+| **篩選值的格式與型別都會驗證** | op 要的是單一值卻送陣列(`eq` / `contains` / `between` 的 from、to 等)、`in` / `notIn` 的清單裡有陣列,一律回 422 `invalid-filter-value`。以前這幾種格式有的靜默回**全量**、有的靠 binding 攤平湊出一個結果。值也要對得上欄位型別:`integer` 要整數或純數字字串、`float` 要 numeric、`boolean` 要 `true`/`false`/`0`/`1`、`date` 要完全符合 `matrix.date-format`、`datetime` 要完全符合 `matrix.datetime-format`（兩者不互通,也不收 `now`、`tomorrow`、`+1 day` 這類 PostgreSQL 或 PHP 認得的相對值,以及 `2026-02-31` 這種會被 PHP 悄悄進位的日期）,不符同樣回 422。**這一道是必要的**——不擋的話那個值會原樣進 SQL,PostgreSQL 丟 `22P02`,而 action 跑在交易裡,整個交易會進 aborted 狀態(`25P02`),該請求之後每一個查詢都失敗,真正的原因還被蓋掉。型別依的是欄位**宣告**的型別(DSL 標註 → 聚合函式 → `#[Declared]` 的 definition → model cast),都沒有就當 `text` 不檢查。欄位或 op 不被允許仍是靜默忽略（行為不變）,`in` 清單裡的 null 也照舊（合法 SQL,永不匹配） |
 | **`get` / `update` / `delete` 會自動加上父層條件** | 巢狀資源不會誤動別人家的資料 |
 | **樂觀鎖要自己呼叫** | `BaseModel::lock()` 會重讀該列並逐欄比對,值被別人改過就回 `data-conflicted`。CRUD 引擎不會自動幫你呼叫 |
 | **`AdminPermission` 在信封範圍外解析會靜默失敗** | 在 web 路由、console、queue job 裡解析它,`ServiceException` 不會被回報 |

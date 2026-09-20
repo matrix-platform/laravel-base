@@ -163,6 +163,23 @@ class DriveControllerTest extends FeatureTestCase {
             ->assertJson(['success' => false, 'code' => 403, 'error' => 'permission-denied']);
     }
 
+    public function test_a_user_cannot_read_another_users_node_metadata(): void {
+        $owner = UserFactory::new()->createOne(['id' => self::REGULAR])->createToken();
+        $home = $this->withToken($owner)
+            ->postJson('admin/drive/home')
+            ->json('data.id');
+
+        $folder = $this->withToken($owner)
+            ->postJson("admin/drive/{$home}/folder", ['name' => 'private'])
+            ->json('data.id');
+
+        $stranger = UserFactory::new()->createOne(['id' => self::REGULAR + 1])->createToken();
+
+        $this->withToken($stranger)
+            ->postJson("admin/drive/{$folder}")
+            ->assertJson(['success' => false, 'code' => 403, 'error' => 'permission-denied']);
+    }
+
     public function test_downloading_a_folder_reports_not_found(): void {
         $root = $this->send('admin/drive/root')->json('data.id');
         $folder = $this->send("admin/drive/{$root}/folder", ['name' => 'folder'])->json('data.id');
@@ -301,6 +318,47 @@ class DriveControllerTest extends FeatureTestCase {
         $item = $this->send("admin/drive/{$root}/folder", ['name' => 'item'])->json('data.id');
 
         $this->send("admin/drive/{$item}/move", ['parent_id' => 999999])->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
+    }
+
+    public function test_publishing_a_drive_file_resolves_a_base_file_path_that_streams_the_same_content(): void {
+        $root = $this->send('admin/drive/root')->json('data.id');
+
+        $node = $this->withToken($this->token)
+            ->post("admin/drive/{$root}/upload", ['file' => UploadedFile::fake()->image('photo.png', 20, 10)])
+            ->json('data');
+
+        $response = $this->send("admin/drive/{$node['id']}/publish");
+
+        $response->assertJsonPath('success', true);
+        $response->assertJsonPath('data.name', $node['name']);
+        $response->assertJsonPath('data.mime_type', $node['mime_type']);
+        $response->assertJsonPath('data.width', 20);
+        $response->assertJsonPath('data.height', 10);
+
+        $path = $response->json('data.path');
+
+        $this->assertIsString($path);
+        $this->get("api/files/{$path}")->assertOk();
+    }
+
+    public function test_publishing_the_same_drive_file_twice_resolves_to_the_same_path(): void {
+        $root = $this->send('admin/drive/root')->json('data.id');
+
+        $node = $this->withToken($this->token)
+            ->post("admin/drive/{$root}/upload", ['file' => UploadedFile::fake()->createWithContent('note.txt', 'hello')])
+            ->json('data');
+
+        $first = $this->send("admin/drive/{$node['id']}/publish")->json('data.path');
+        $second = $this->send("admin/drive/{$node['id']}/publish")->json('data.path');
+
+        $this->assertSame($first, $second);
+    }
+
+    public function test_publishing_a_folder_is_rejected(): void {
+        $root = $this->send('admin/drive/root')->json('data.id');
+        $folder = $this->send("admin/drive/{$root}/folder", ['name' => 'a-folder'])->json('data.id');
+
+        $this->send("admin/drive/{$folder}/publish")->assertJsonPath('error', 'invalid-drive-file');
     }
 
 }

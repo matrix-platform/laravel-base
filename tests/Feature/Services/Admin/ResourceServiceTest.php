@@ -4,12 +4,14 @@ namespace Tests\Feature\Services\Admin;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\ManipulationType;
 use MatrixPlatform\Models\ResourceOverride;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Services\Admin\ResourceService;
 use MatrixPlatform\Support\ResourceGroup;
+use MatrixPlatform\Support\Resources;
 use MatrixPlatform\Support\Template;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
@@ -104,6 +106,128 @@ class ResourceServiceTest extends FeatureTestCase {
 
         $this->assertTrue($columns['driver']['readonly']);
         $this->assertFalse($columns['host']['readonly']);
+    }
+
+    public function test_a_readonly_cfg_field_cannot_be_written_through_the_backend(): void {
+        $this->useResourceWhitelist(['cfg' => ['admin']]);
+
+        $payload = $this->service()->update(ResourceGroup::Cfg, 'admin', ['passkey-http-rp-ids' => 'evil.example.com', 'mfa-window' => 3]);
+
+        $this->assertSame('', $payload['data']['passkey-http-rp-ids']);
+        $this->assertSame(3, $payload['data']['mfa-window']);
+        $this->assertSame('', strval(cfg('admin.passkey-http-rp-ids')));
+    }
+
+    public function test_a_credential_bearing_cfg_field_is_declared_secret(): void {
+        $credentials = [
+            'captcha-recaptcha' => 'secret',
+            'captcha-turnstile' => 'secret',
+            'gmail' => 'password',
+            'google-translate' => 'api-key',
+            'ip2location-bin' => 'download-token',
+            'ip2location-webservice' => 'api-key',
+            'mitake' => 'password',
+            'telegram' => 'bot-token',
+            'webpush' => 'private-key'
+        ];
+
+        foreach ($credentials as $bundle => $key) {
+            $this->useResourceWhitelist(['cfg' => [$bundle]]);
+            $this->useCfg($bundle, [$key => 'a-live-credential']);
+
+            $payload = $this->service()->get(ResourceGroup::Cfg, $bundle);
+            $columns = array_column($payload['columns'], null, 'name');
+
+            $this->assertTrue($columns[$key]['secret'], "cfg/{$bundle}.{$key} is not declared secret");
+            $this->assertSame('••••••••', $payload['data'][$key], "cfg/{$bundle}.{$key} leaks its stored value");
+            $this->assertSame('', $columns[$key]['placeholder'], "cfg/{$bundle}.{$key} leaks through its placeholder");
+        }
+    }
+
+    public function test_a_secret_field_never_returns_its_stored_value(): void {
+        $this->useResourceWhitelist(['cfg' => ['gmail']]);
+        $this->useCfg('gmail', ['password' => 'super-secret-smtp-pw', 'from-address' => 'ops@example.com']);
+
+        $payload = $this->service()->get(ResourceGroup::Cfg, 'gmail');
+
+        $this->assertSame('••••••••', $payload['data']['password']);
+        $this->assertSame('ops@example.com', $payload['data']['from-address']);
+        $this->assertNotContains('super-secret-smtp-pw', $payload['data']);
+    }
+
+    public function test_a_secret_field_leaks_through_neither_the_defaults_nor_the_placeholder(): void {
+        $this->useResourceWhitelist(['cfg' => ['google-translate']]);
+
+        $payload = $this->service()->get(ResourceGroup::Cfg, 'google-translate');
+        $columns = array_column($payload['columns'], null, 'name');
+
+        $this->assertTrue($columns['api-key']['secret']);
+        $this->assertSame('', $columns['api-key']['default']);
+        $this->assertSame('', $columns['api-key']['placeholder']);
+        $this->assertSame('', $payload['default']['api-key']);
+        $this->assertSame('https://translation.googleapis.com/language/translate/v2', $payload['default']['endpoint']);
+    }
+
+    public function test_an_unset_secret_field_stays_empty_rather_than_showing_a_mask(): void {
+        $this->useResourceWhitelist(['cfg' => ['gmail']]);
+
+        $payload = $this->service()->get(ResourceGroup::Cfg, 'gmail');
+
+        $this->assertSame('', $payload['data']['password']);
+    }
+
+    public function test_sending_the_mask_back_leaves_the_stored_secret_untouched(): void {
+        $this->useResourceWhitelist(['cfg' => ['gmail']]);
+        $this->useCfg('gmail', ['password' => 'super-secret-smtp-pw']);
+
+        $this->service()->update(ResourceGroup::Cfg, 'gmail', ['password' => '••••••••', 'from-address' => 'new@example.com']);
+
+        $stored = $this->override('cfg/gmail');
+
+        $this->assertSame('super-secret-smtp-pw', $stored['password']);
+        $this->assertSame('new@example.com', $stored['from-address']);
+    }
+
+    public function test_sending_a_new_value_replaces_the_stored_secret(): void {
+        $this->useResourceWhitelist(['cfg' => ['gmail']]);
+        $this->useCfg('gmail', ['password' => 'super-secret-smtp-pw']);
+
+        $this->service()->update(ResourceGroup::Cfg, 'gmail', ['password' => 'rotated-pw']);
+
+        $this->assertSame('rotated-pw', $this->override('cfg/gmail')['password']);
+    }
+
+    public function test_sending_an_empty_value_clears_the_stored_secret(): void {
+        $this->useResourceWhitelist(['cfg' => ['gmail']]);
+        $this->useCfg('gmail', ['password' => 'super-secret-smtp-pw']);
+
+        $this->service()->update(ResourceGroup::Cfg, 'gmail', ['password' => '']);
+
+        $this->assertNull($this->override('cfg/gmail'));
+    }
+
+    public function test_a_rolled_back_update_leaves_nothing_behind_in_the_cache(): void {
+        config()->set('matrix.resource-cache-enabled', true);
+
+        app(Resources::class)->forget();
+
+        $original = cfg('admin.captcha-ttl');
+
+        try {
+            DB::transaction(function (): void {
+                $this->service()->update(ResourceGroup::Cfg, 'admin', ['captcha-ttl' => 999]);
+
+                error('request-failed');
+            });
+        } catch (ServiceException $exception) {
+            $this->assertSame('request-failed', $exception->getError());
+        }
+
+        $this->assertSame(0, DB::table('base_resource_override')->where('bundle', 'cfg/admin')->count());
+
+        app()->forgetInstance(Resources::class);
+
+        $this->assertSame($original, cfg('admin.captcha-ttl'), 'a value that was never committed must not survive in the forever cache');
     }
 
     public function test_a_key_whose_value_is_an_array_gets_no_column(): void {
