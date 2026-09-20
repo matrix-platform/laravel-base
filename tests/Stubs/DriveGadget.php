@@ -11,6 +11,8 @@ use MatrixPlatform\Models\BaseModel;
  * @property ?list<array<string, mixed>> $attachments
  * @property ?string $translated__tw
  * @property ?string $translated__en
+ * @property ?list<array<string, mixed>> $gallery__tw
+ * @property ?list<array<string, mixed>> $gallery__en
  * @property ?int $creator_id
  * @property Carbon $create_time
  * @property ?int $updater_id
@@ -26,9 +28,13 @@ class DriveGadget extends BaseModel {
      * @return array<string, string>
      */
     protected function casts(): array {
-        return [
-            'attachments' => 'array'
-        ];
+        $casts = ['attachments' => 'array'];
+
+        foreach (locales() as $locale) {
+            $casts["gallery__{$locale}"] = 'array';
+        }
+
+        return $casts;
     }
 
 }

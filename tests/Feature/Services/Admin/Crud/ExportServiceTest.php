@@ -6,12 +6,14 @@ use Illuminate\Database\Eloquent\Builder;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Options\Option;
 use MatrixPlatform\Columns\Options\StaticOptions;
+use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Services\Admin\Crud\ExportService;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
 use Tests\FeatureTestCase;
 use Tests\Stubs\CountingOptions;
+use Tests\Stubs\DriveGadget;
 use Tests\Stubs\StubDeclaration;
 use Tests\Stubs\Trinket;
 use Tests\Stubs\Widget;
@@ -497,6 +499,25 @@ class ExportServiceTest extends FeatureTestCase {
             ->export([])['rows'];
 
         $this->assertSame([['translated__tw' => '[Alpha]', 'translated__en' => '[Beta]']], $rows);
+    }
+
+    public function test_a_translatable_drive_column_exports_the_same_way_a_plain_one_does(): void {
+        app(MetadataRegistry::class)->register(DriveGadget::class, new StubDeclaration(new Metadata('drive-gadget'), [
+            'attachments' => Definition::json(Presentation::DriveImage),
+            'gallery' => Definition::json(Presentation::DriveImage, translatable: true)
+        ]));
+
+        $entry = [['path' => 'drive/a', 'name' => 'a.jpg']];
+
+        DriveGadget::forceCreate(['attachments' => $entry, 'gallery__tw' => $entry, 'gallery__en' => $entry]);
+
+        $rows = (new ExportService(DriveGadget::class))
+            ->standalone(true)
+            ->columns(['attachments', 'gallery'])
+            ->locales(['tw', 'en'])
+            ->export([])['rows'];
+
+        $this->assertSame([['attachments' => '', 'gallery__tw' => '', 'gallery__en' => '']], $rows);
     }
 
 }

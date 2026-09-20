@@ -127,7 +127,7 @@ abstract class CrudService {
     protected function assignTranslated(Model $model, Column $column, array $values): void {
         foreach ($this->translated($column) as $key) {
             if (array_key_exists($key, $values)) {
-                $model->setAttribute($key, $values[$key]);
+                $model->setAttribute($key, $this->driveResolved($column, $values[$key]));
             }
         }
     }

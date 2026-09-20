@@ -49,6 +49,20 @@ class PruneDriveFilesCommandTest extends FeatureTestCase {
         return File::query()->where('path', $path)->exists();
     }
 
+    public function test_a_file_referenced_only_through_a_translatable_drive_field_is_kept(): void {
+        app(MetadataRegistry::class)->register(DriveProbe::class, new StubDeclaration(new Metadata('probe'), [
+            'gallery' => Definition::json(Presentation::DriveImage, translatable: true)
+        ]));
+
+        $this->linked(File::DRIVE_PREFIX . 'e');
+
+        DriveProbe::forceCreate(['gallery__tw' => [['path' => File::DRIVE_PREFIX . 'e', 'name' => 'linked.jpg']]]);
+
+        $this->artisanCommand('matrix:prune-drive-files')->assertExitCode(0);
+
+        $this->assertTrue($this->survived(File::DRIVE_PREFIX . 'e'));
+    }
+
     public function test_a_drive_linked_file_still_referenced_by_a_crud_record_is_kept(): void {
         $this->declared();
         $this->linked(File::DRIVE_PREFIX . 'a');

@@ -393,7 +393,7 @@ class ResourceServiceTest extends FeatureTestCase {
     public function test_the_edited_locale_follows_the_request(): void {
         app()->setLocale('tw');
 
-        $this->service()->update(ResourceGroup::I18n, 'widget', ['hello' => '嗨']);
+        $this->service()->update(ResourceGroup::I18n, 'widget', ['hello' => 'Hi']);
 
         $this->assertSame('i18n/tw/widget', ResourceOverride::query()->value('bundle'));
         $this->assertSame('Hello', i18n('widget.hello', 'en'));

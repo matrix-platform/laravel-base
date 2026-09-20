@@ -14,9 +14,13 @@ class DriveProbe extends BaseModel {
      * @return array<string, string>
      */
     protected function casts(): array {
-        return [
-            'payload' => 'array'
-        ];
+        $casts = ['payload' => 'array'];
+
+        foreach (locales() as $locale) {
+            $casts["gallery__{$locale}"] = 'array';
+        }
+
+        return $casts;
     }
 
 }

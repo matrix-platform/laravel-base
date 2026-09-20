@@ -49,8 +49,18 @@ class PruneDriveFilesCommand extends Command {
             }
 
             foreach ($definitions as $field => $definition) {
-                if (in_array($definition->presentation, [Presentation::DriveFile, Presentation::DriveImage], true)) {
+                if (!in_array($definition->presentation, [Presentation::DriveFile, Presentation::DriveImage], true)) {
+                    continue;
+                }
+
+                if (!$definition->translatable) {
                     yield [$model, $field];
+
+                    continue;
+                }
+
+                foreach (locales() as $locale) {
+                    yield [$model, "{$field}__{$locale}"];
                 }
             }
         }

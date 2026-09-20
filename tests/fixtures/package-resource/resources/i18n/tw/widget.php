@@ -2,6 +2,6 @@
 
 return [
 
-    'hello' => '哈囉',
+    'hello' => 'Hello TW',
 
 ];

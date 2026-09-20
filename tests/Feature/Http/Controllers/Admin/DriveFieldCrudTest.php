@@ -89,6 +89,69 @@ class DriveFieldCrudTest extends FeatureTestCase {
         $this->assertSame($node->name, $attachments[0]['name']);
     }
 
+    public function test_a_translatable_drive_field_resolves_every_locale_on_insert(): void {
+        app(MetadataRegistry::class)->register(DriveGadget::class, new StubDeclaration(new Metadata('drive-gadget'), [
+            'title' => Definition::text(),
+            'gallery' => Definition::json(Presentation::DriveImage, translatable: true)
+        ]));
+
+        $first = $this->driveFile('first.jpg');
+        $second = $this->driveFile('second.jpg');
+
+        $this->admin('admin/drive-gadget/insert', [
+            'title' => 'Alpha',
+            'gallery__tw' => [['id' => $first->id]],
+            'gallery__en' => [['id' => $second->id]]
+        ])->assertJsonPath('success', true);
+
+        $gadget = DriveGadget::query()->latest('id')->firstOrFail();
+        $tw = $gadget->gallery__tw;
+        $en = $gadget->gallery__en;
+
+        if ($tw === null || !array_key_exists(0, $tw) || $en === null || !array_key_exists(0, $en)) {
+            $this->fail('expected one resolved image per locale');
+        }
+
+        $this->assertSame(File::DRIVE_PREFIX . $first->path, $tw[0]['path']);
+        $this->assertSame(File::DRIVE_PREFIX . $second->path, $en[0]['path']);
+        $this->assertSame($first->name, $tw[0]['name']);
+    }
+
+    public function test_a_translatable_drive_field_resolves_a_newly_picked_node_on_update(): void {
+        app(MetadataRegistry::class)->register(DriveGadget::class, new StubDeclaration(new Metadata('drive-gadget'), [
+            'title' => Definition::text(),
+            'gallery' => Definition::json(Presentation::DriveImage, translatable: true)
+        ]));
+
+        $first = $this->driveFile('first.jpg');
+        $second = $this->driveFile('second.jpg');
+
+        $insert = $this->admin('admin/drive-gadget/insert', [
+            'title' => 'Alpha',
+            'gallery__tw' => [['id' => $first->id]],
+            'gallery__en' => []
+        ]);
+
+        $id = (int) $insert->json('data.id');
+        $existing = DriveGadget::query()->findOrFail($id)->gallery__tw;
+
+        $this->admin("admin/drive-gadget/{$id}/update", [
+            'title' => 'Alpha',
+            'gallery__tw' => $existing,
+            'gallery__en' => [['id' => $second->id]]
+        ])->assertJsonPath('success', true);
+
+        $gadget = DriveGadget::query()->findOrFail($id);
+        $en = $gadget->gallery__en;
+
+        if ($en === null || !array_key_exists(0, $en)) {
+            $this->fail('expected the second locale to be resolved on update');
+        }
+
+        $this->assertSame(File::DRIVE_PREFIX . $second->path, $en[0]['path']);
+        $this->assertSame($existing, $gadget->gallery__tw);
+    }
+
     public function test_updating_without_touching_an_existing_drive_field_does_not_error(): void {
         $node = $this->driveFile();
 

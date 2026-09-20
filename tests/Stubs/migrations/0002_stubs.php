@@ -16,6 +16,7 @@ return new class extends Migration {
             $table->integer('relic_id')->nullable();
             $table->jsonb('payload')->nullable();
             $table->translatable('translated');
+            $table->translatable('gallery', 'jsonb');
             $table->ranking();
             $table->schedules();
             $table->auditings();
@@ -54,6 +55,7 @@ return new class extends Migration {
             $table->integer('widget_id')->nullable();
             $table->jsonb('attachments')->nullable();
             $table->translatable('translated');
+            $table->translatable('gallery', 'jsonb');
             $table->schedules();
             $table->auditings();
         });

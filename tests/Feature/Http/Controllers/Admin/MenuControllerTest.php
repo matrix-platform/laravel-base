@@ -11,6 +11,8 @@ use MatrixPlatform\Models\Menu;
 use MatrixPlatform\Models\User;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
+use Tests\Stubs\TestGalleryFields;
+use Tests\Stubs\TestMenuTypeResolver;
 
 class MenuControllerTest extends FeatureTestCase {
 
@@ -44,13 +46,13 @@ class MenuControllerTest extends FeatureTestCase {
         return $this->withToken($this->token)->postJson($uri, $input);
     }
 
-    private function driveImage(): DriveNode {
+    private function driveImage(string $name = 'cover.jpg'): DriveNode {
         $node = new DriveNode();
 
         $node->parent_id = DriveNode::ROOT;
         $node->type = DriveNodeType::File;
-        $node->name = 'cover.jpg';
-        $node->hash = 'hash-cover.jpg';
+        $node->name = $name;
+        $node->hash = "hash-{$name}";
         $node->path = date('Ym') . '/' . str()->random(32);
         $node->size = 100;
         $node->mime_type = 'image/jpeg';
@@ -99,7 +101,7 @@ class MenuControllerTest extends FeatureTestCase {
         $root = $this->node(null, 'root', 100);
 
         $this->send("admin/menu/{$root->id}/children/insert", [
-            'title__tw' => '子選單',
+            'title__tw' => 'Child Menu TW',
             'title__en' => 'Child Menu',
             'enable_time' => null,
             'disable_time' => null
@@ -224,9 +226,9 @@ class MenuControllerTest extends FeatureTestCase {
 
         $this->send('admin/menu/insert', [
             'parent_id' => null,
-            'title__tw' => '頁尾選單',
+            'title__tw' => 'Footer Menu TW',
             'title__en' => 'Footer Menu',
-            'data' => ['caption' => ['tw' => '頁尾說明', 'en' => 'Footer caption'], 'image' => [['id' => $node->id]]],
+            'data' => ['caption' => ['tw' => 'Footer caption TW', 'en' => 'Footer caption'], 'image' => [['id' => $node->id]]],
             'enable_time' => null,
             'disable_time' => null
         ])->assertJsonPath('success', true);
@@ -235,15 +237,39 @@ class MenuControllerTest extends FeatureTestCase {
         $data = $menu->data;
 
         $this->assertIsArray($data);
-        $this->assertSame('頁尾說明', $data['caption']['tw']);
+        $this->assertSame('Footer caption TW', $data['caption']['tw']);
         $this->assertSame('Footer caption', $data['caption']['en']);
         $this->assertSame(File::DRIVE_PREFIX . $node->path, $data['image'][0]['path']);
+    }
+
+    public function test_a_translatable_drive_subfield_inside_a_composite_resolves_every_locale(): void {
+        $this->useMenuDataFixtures();
+        $this->useCfg('menu-data', ['driver' => TestMenuTypeResolver::class, 'header' => TestGalleryFields::class]);
+
+        $first = $this->driveImage('first.jpg');
+        $second = $this->driveImage('second.jpg');
+
+        $this->send('admin/menu/insert', [
+            'parent_id' => null,
+            'title__tw' => 'Gallery Menu TW',
+            'title__en' => 'Gallery Menu',
+            'data' => ['gallery' => ['tw' => [['id' => $first->id]], 'en' => [['id' => $second->id]]]],
+            'enable_time' => null,
+            'disable_time' => null
+        ])->assertJsonPath('success', true);
+
+        $menu = Menu::query()->where('title__en', 'Gallery Menu')->sole();
+        $data = $menu->data;
+
+        $this->assertIsArray($data);
+        $this->assertSame(File::DRIVE_PREFIX . $first->path, $data['gallery']['tw'][0]['path']);
+        $this->assertSame(File::DRIVE_PREFIX . $second->path, $data['gallery']['en'][0]['path']);
     }
 
     public function test_inserting_without_a_configured_driver_leaves_data_untouched(): void {
         $this->send('admin/menu/insert', [
             'parent_id' => null,
-            'title__tw' => '無設定選單',
+            'title__tw' => 'Unconfigured Menu TW',
             'title__en' => 'Unconfigured Menu',
             'enable_time' => null,
             'disable_time' => null
