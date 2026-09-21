@@ -9,28 +9,12 @@ class InsertService extends CrudService {
      */
     public function insert(mixed $input): array {
         $model = $this->model->newInstance();
-        $values = $this->validated($input, $model);
 
-        foreach ($this->local() as $column) {
-            if (!$column->readonly && $column->translatable) {
-                $this->assignTranslated($model, $column, $values);
+        $this->expandComposites($input, $model);
 
-                continue;
-            }
+        $values = $this->validated($input);
 
-            if (!array_key_exists($column->name, $values)) {
-                continue;
-            }
-
-            if (!$column->readonly) {
-                $resolved = $column->variantGroup === null
-                    ? $this->driveResolved($column, $values[$column->name])
-                    : $this->compositeResolved($column, $values[$column->name], $input, $model);
-
-                $model->setAttribute($column->name, $resolved);
-            }
-        }
-
+        $this->assign($model, $values);
         $this->attach($model);
         $this->inspect($model);
 

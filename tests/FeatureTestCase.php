@@ -19,6 +19,16 @@ use MatrixPlatform\Support\PackageRegistry;
 use MatrixPlatform\Support\ResourceGroup;
 use MatrixPlatform\Support\Resources;
 use Tests\Factories\UserFactory;
+use Tests\Stubs\TestBlockItemTypeResolver;
+use Tests\Stubs\TestBlockTypeResolver;
+use Tests\Stubs\TestEditorFields;
+use Tests\Stubs\TestGalleryBlockFields;
+use Tests\Stubs\TestGalleryItemFields;
+use Tests\Stubs\TestHeaderFields;
+use Tests\Stubs\TestMenuTypeResolver;
+use Tests\Stubs\TestPageFields;
+use Tests\Stubs\TestPageTypeResolver;
+use Tests\Stubs\TestSocialFields;
 
 class FeatureTestCase extends TestCase {
 
@@ -175,7 +185,13 @@ class FeatureTestCase extends TestCase {
     }
 
     protected function useMenuDataFixtures(): void {
-        $this->usePackageFixtures('menu-data-fixture', 'package-menu-data');
+        $this->useVariants([
+            'menu-data' => [
+                'driver' => TestMenuTypeResolver::class,
+                'header' => TestHeaderFields::class,
+                'social' => TestSocialFields::class
+            ]
+        ]);
     }
 
     protected function useMenuFixtures(string $menus): void {
@@ -192,6 +208,25 @@ class FeatureTestCase extends TestCase {
 
     protected function useMessagingFixtures(): void {
         $this->usePackageFixtures('messaging-fixture', 'package-messaging');
+    }
+
+    protected function useBlockDataFixtures(): void {
+        $this->usePackageFixtures('block-data-fixture', 'package-block-data');
+        $this->useVariants([
+            'block-data' => [
+                'driver' => TestBlockTypeResolver::class,
+                'editor' => TestEditorFields::class,
+                'gallery' => TestGalleryBlockFields::class
+            ],
+            'block-item-data' => [
+                'driver' => TestBlockItemTypeResolver::class,
+                'gallery' => TestGalleryItemFields::class
+            ]
+        ]);
+    }
+
+    protected function usePageDataFixtures(): void {
+        $this->useVariants(['page-data' => ['driver' => TestPageTypeResolver::class, 'page' => TestPageFields::class]]);
     }
 
     /**
@@ -211,6 +246,13 @@ class FeatureTestCase extends TestCase {
 
     protected function useTranslationFixtures(): void {
         $this->usePackageFixtures('translation-fixture', 'package-translation');
+    }
+
+    /**
+     * @param array<string, array<string, class-string>> $variants
+     */
+    protected function useVariants(array $variants): void {
+        config()->set('matrix.variants', array_merge(config()->array('matrix.variants'), $variants));
     }
 
     private function usePackageFixtures(string $package, string $directory): void {

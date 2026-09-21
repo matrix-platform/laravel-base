@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Columns\Options;
 
+use Illuminate\Support\Carbon;
 use MatrixPlatform\Columns\Options\BundleOptions;
 use MatrixPlatform\Columns\Options\Option;
 use MatrixPlatform\Columns\Options\RelationOptions;
@@ -9,6 +10,7 @@ use MatrixPlatform\Columns\Options\StaticOptions;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
 use Tests\FeatureTestCase;
+use Tests\Stubs\Gadget;
 use Tests\Stubs\Relic;
 use Tests\Stubs\StubDeclaration;
 use Tests\Stubs\Trinket;
@@ -19,6 +21,10 @@ class OptionProviderTest extends FeatureTestCase {
         parent::setUp();
 
         $this->useMenuFixtures('authority');
+    }
+
+    private function gadget(string $title, ?Carbon $enable, ?Carbon $disable = null): Gadget {
+        return Gadget::forceCreate(['title' => $title, 'enable_time' => $enable, 'disable_time' => $disable]);
     }
 
     private function relic(string $label, ?int $parent = null): Relic {
@@ -155,6 +161,47 @@ class OptionProviderTest extends FeatureTestCase {
         $this->trinket('alpha');
 
         $this->assertSame(0, (new RelationOptions(Trinket::class))->options()[0]->ranking);
+    }
+
+
+    public function test_rows_outside_their_schedule_are_hidden_by_default(): void {
+        app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget', 'title', enable: 'enable_time', disable: 'disable_time')));
+
+        $this->gadget('published', now()->subDay());
+        $this->gadget('not yet', now()->addDay());
+        $this->gadget('expired', now()->subWeek(), now()->subDay());
+        $this->gadget('draft', null);
+
+        $options = (new RelationOptions(Gadget::class))->options();
+
+        $this->assertSame(['published'], array_map(fn (Option $option): string => $option->title, $options));
+    }
+
+    public function test_turning_the_active_flag_off_offers_every_row(): void {
+        app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget', 'title', enable: 'enable_time', disable: 'disable_time')));
+
+        $this->gadget('published', now()->subDay());
+        $this->gadget('draft', null);
+
+        $this->assertCount(2, (new RelationOptions(Gadget::class, false))->options());
+    }
+
+    public function test_a_model_without_a_declared_schedule_is_never_filtered(): void {
+        app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget', 'title')));
+
+        $this->gadget('published', now()->subDay());
+        $this->gadget('draft', null);
+
+        $this->assertCount(2, (new RelationOptions(Gadget::class))->options());
+    }
+
+    public function test_asking_for_trashed_overrides_the_active_flag(): void {
+        app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget', 'title', enable: 'enable_time', disable: 'disable_time')));
+
+        $this->gadget('published', now()->subDay());
+        $this->gadget('draft', null);
+
+        $this->assertCount(2, (new RelationOptions(Gadget::class))->options(null, true));
     }
 
 }

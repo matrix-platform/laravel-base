@@ -15,6 +15,7 @@ class Column {
         public readonly Expression $expression,
         public readonly ?string $group,
         public readonly string $name,
+        public readonly bool $locked,
         public readonly string|array|null $op,
         public readonly ?OptionProvider $options,
         public readonly ?string $path,

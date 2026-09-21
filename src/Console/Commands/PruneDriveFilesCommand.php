@@ -22,7 +22,7 @@ class PruneDriveFilesCommand extends Command {
         $files = File::query()
             ->where('path', 'like', File::DRIVE_PREFIX . '%')
             ->get()
-            ->reject(fn (File $file) => in_array($file->path, $referenced, true));
+            ->reject(fn (File $file) => array_key_exists($file->path, $referenced));
 
         foreach ($files as $file) {
             $file->delete();
@@ -67,7 +67,7 @@ class PruneDriveFilesCommand extends Command {
     }
 
     /**
-     * @return list<string>
+     * @return array<string, true>
      */
     private function referencedPaths(): array {
         $columns = [];
@@ -83,14 +83,14 @@ class PruneDriveFilesCommand extends Command {
                 foreach ($fields as $field) {
                     foreach ((array) $row->{$field} as $entry) {
                         if (is_array($entry) && array_key_exists('path', $entry)) {
-                            $paths[] = $entry['path'];
+                            $paths[strval($entry['path'])] = true;
                         }
                     }
                 }
             }
         }
 
-        return array_values(array_unique($paths));
+        return $paths;
     }
 
 }

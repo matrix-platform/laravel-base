@@ -18,6 +18,7 @@ class ParsedColumn {
         public readonly string $name,
         public readonly string|array|null $op,
         public readonly bool $opGiven,
+        public readonly bool $locked,
         public readonly ?OptionProvider $options,
         public readonly ?string $optionsName,
         public readonly ?string $path,

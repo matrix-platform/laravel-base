@@ -4,6 +4,7 @@ namespace MatrixPlatform\Columns\Options;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use MatrixPlatform\Models\Builders\BaseBuilder;
 use MatrixPlatform\Support\MetadataRegistry;
 use MatrixPlatform\Support\Subject;
 
@@ -11,8 +12,9 @@ class RelationOptions implements OptionProvider {
 
     /**
      * @param class-string<Model> $related
+     * @param bool $active
      */
-    public function __construct(private string $related) {}
+    public function __construct(private string $related, private bool $active = true) {}
 
     /**
      * @return list<Option>
@@ -45,6 +47,8 @@ class RelationOptions implements OptionProvider {
 
             if ($trashed) {
                 $query->withoutGlobalScope(SoftDeletingScope::class);
+            } elseif ($this->active && $query instanceof BaseBuilder && $metadata->enable !== null && $metadata->disable !== null) {
+                $query->whereActive($metadata->enable, $metadata->disable);
             }
 
             foreach ($query->get() as $item) {

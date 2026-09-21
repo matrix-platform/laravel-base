@@ -26,6 +26,21 @@ return [
                 'menu/{parent_id}/children/{id}' => 'Edit Submenu',
                 'menu/{parent_id}/children/new' => 'New Submenu',
 
+        'page' => 'Pages',
+
+            'page/{id}' => 'Edit Page',
+            'page/new' => 'New Page',
+
+            'page/{page_id}/block' => 'Blocks',
+
+                'page/{page_id}/block/{id}' => 'Edit Block',
+                'page/{page_id}/block/new' => 'New Block',
+
+                'page/{page_id}/block/{block_id}/item' => 'Items',
+
+                    'page/{page_id}/block/{block_id}/item/{id}' => 'Edit Item',
+                    'page/{page_id}/block/{block_id}/item/new' => 'New Item',
+
     'system' => 'System',
 
         'authority' => 'Authority',

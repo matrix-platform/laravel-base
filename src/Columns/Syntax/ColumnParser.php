@@ -22,6 +22,7 @@ class ColumnParser {
             error('invalid-column-expression');
         }
 
+        $locked = array_get_value($given, 'locked') === true;
         $readonly = array_get_value($given, 'readonly') === true;
         $required = array_get_value($given, 'required') === true;
         $virtual = array_get_value($given, 'virtual') === true;
@@ -35,6 +36,10 @@ class ColumnParser {
         } elseif (str_starts_with($name, '+')) {
             $name = substr($name, 1);
             $virtual = true;
+        } elseif (str_starts_with($name, '=')) {
+            $name = substr($name, 1);
+            $locked = true;
+            $required = true;
         }
 
         $group = $this->text(array_get_value($given, 'group'));
@@ -70,6 +75,7 @@ class ColumnParser {
             $this->name($alias, $expression),
             $this->operator($given),
             array_key_exists('op', $given),
+            $locked,
             $this->provider(array_get_value($given, 'options')),
             $optionsName,
             $this->text(array_get_value($given, 'path')),

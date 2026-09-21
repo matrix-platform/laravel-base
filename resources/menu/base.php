@@ -46,6 +46,36 @@ return [
                 'menu/{parent_id}/children/insert' => ['parent' => 'menu/{parent_id}/children', 'tag' => 'insert'],
                 'menu/{parent_id}/children/new' => ['parent' => 'menu/{parent_id}/children', 'tag' => 'insert'],
 
+        'page' => ['icon' => 'fa-solid fa-file-lines', 'ranking' => 200, 'parent' => 'website', 'group' => true, 'tag' => 'query'],
+
+            'page/{id}' => ['parent' => 'page', 'tag' => 'query'],
+            'page/{id}/update' => ['parent' => 'page', 'tag' => 'update'],
+            'page/arrange' => ['parent' => 'page', 'tag' => 'update'],
+            'page/arrange/save' => ['parent' => 'page', 'tag' => 'update'],
+            'page/delete' => ['parent' => 'page', 'tag' => 'delete'],
+            'page/insert' => ['parent' => 'page', 'tag' => 'insert'],
+            'page/new' => ['parent' => 'page', 'tag' => 'insert'],
+
+            'page/{page_id}/block' => ['icon' => 'fa-solid fa-layer-group', 'parent' => 'page', 'group' => true, 'tag' => 'query'],
+
+                'page/{page_id}/block/{id}' => ['parent' => 'page/{page_id}/block', 'tag' => 'query'],
+                'page/{page_id}/block/{id}/update' => ['parent' => 'page/{page_id}/block', 'tag' => 'update'],
+                'page/{page_id}/block/arrange' => ['parent' => 'page/{page_id}/block', 'tag' => 'update'],
+                'page/{page_id}/block/arrange/save' => ['parent' => 'page/{page_id}/block', 'tag' => 'update'],
+                'page/{page_id}/block/delete' => ['parent' => 'page/{page_id}/block', 'tag' => 'delete'],
+                'page/{page_id}/block/insert' => ['parent' => 'page/{page_id}/block', 'tag' => 'insert'],
+                'page/{page_id}/block/new' => ['parent' => 'page/{page_id}/block', 'tag' => 'insert'],
+
+                'page/{page_id}/block/{block_id}/item' => ['icon' => 'fa-solid fa-list-ul', 'parent' => 'page/{page_id}/block', 'group' => true, 'tag' => 'query'],
+
+                    'page/{page_id}/block/{block_id}/item/{id}' => ['parent' => 'page/{page_id}/block/{block_id}/item', 'tag' => 'query'],
+                    'page/{page_id}/block/{block_id}/item/{id}/update' => ['parent' => 'page/{page_id}/block/{block_id}/item', 'tag' => 'update'],
+                    'page/{page_id}/block/{block_id}/item/arrange' => ['parent' => 'page/{page_id}/block/{block_id}/item', 'tag' => 'update'],
+                    'page/{page_id}/block/{block_id}/item/arrange/save' => ['parent' => 'page/{page_id}/block/{block_id}/item', 'tag' => 'update'],
+                    'page/{page_id}/block/{block_id}/item/delete' => ['parent' => 'page/{page_id}/block/{block_id}/item', 'tag' => 'delete'],
+                    'page/{page_id}/block/{block_id}/item/insert' => ['parent' => 'page/{page_id}/block/{block_id}/item', 'tag' => 'insert'],
+                    'page/{page_id}/block/{block_id}/item/new' => ['parent' => 'page/{page_id}/block/{block_id}/item', 'tag' => 'insert'],
+
     'system' => ['icon' => 'fa-solid fa-desktop', 'ranking' => 9000, 'parent' => null],
 
         'authority' => ['icon' => 'fa-solid fa-users-gear', 'ranking' => 100, 'parent' => 'system'],

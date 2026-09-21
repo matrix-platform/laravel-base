@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use MatrixPlatform\Http\Controllers\Admin\AuthController;
+use MatrixPlatform\Http\Controllers\Admin\BlockController;
+use MatrixPlatform\Http\Controllers\Admin\BlockItemController;
 use MatrixPlatform\Http\Controllers\Admin\CfgResourceController;
 use MatrixPlatform\Http\Controllers\Admin\CityAreaController;
 use MatrixPlatform\Http\Controllers\Admin\CityController;
@@ -18,6 +20,7 @@ use MatrixPlatform\Http\Controllers\Admin\MenuController;
 use MatrixPlatform\Http\Controllers\Admin\MenuResourceController;
 use MatrixPlatform\Http\Controllers\Admin\ModelResourceController;
 use MatrixPlatform\Http\Controllers\Admin\OptionsResourceController;
+use MatrixPlatform\Http\Controllers\Admin\PageController;
 use MatrixPlatform\Http\Controllers\Admin\PasskeyController;
 use MatrixPlatform\Http\Controllers\Admin\PushLogController;
 use MatrixPlatform\Http\Controllers\Admin\ScheduleController;
@@ -66,6 +69,9 @@ Route::middleware(['encrypted-api', 'envelope-api', 'locale-api'])->group(functi
                 ActionRoutes::mount('mail-log', MailLogController::class);
                 ActionRoutes::mount('menu', MenuController::class);
                 ActionRoutes::mount('menu/{parent_id}/children', MenuChildrenController::class);
+                ActionRoutes::mount('page', PageController::class);
+                ActionRoutes::mount('page/{page_id}/block', BlockController::class);
+                ActionRoutes::mount('page/{page_id}/block/{block_id}/item', BlockItemController::class);
                 ActionRoutes::mount('push-log', PushLogController::class);
                 ActionRoutes::mount('resource/cfg', CfgResourceController::class);
                 ActionRoutes::mount('resource/i18n/menu', MenuResourceController::class);

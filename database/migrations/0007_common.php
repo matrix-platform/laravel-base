@@ -40,6 +40,44 @@ return new class extends Migration {
             $table->foreign('parent_id')->references('id')->on('base_menu');
         });
 
+        Schema::create('base_page', function (BaseBlueprint $table) {
+            $table->primaryKey();
+            $table->text('path')->unique();
+            $table->text('title');
+            $table->translatable('seo_title');
+            $table->translatable('seo_description');
+            $table->translatable('og_image', 'jsonb');
+            $table->jsonb('data')->nullable();
+            $table->schedules();
+            $table->ranking();
+            $table->auditings();
+        });
+
+        Schema::create('base_block', function (BaseBlueprint $table) {
+            $table->primaryKey();
+            $table->integer('page_id');
+            $table->text('type');
+            $table->text('title');
+            $table->jsonb('data')->nullable();
+            $table->schedules();
+            $table->ranking();
+            $table->auditings();
+
+            $table->foreign('page_id')->references('id')->on('base_page');
+        });
+
+        Schema::create('base_block_item', function (BaseBlueprint $table) {
+            $table->primaryKey();
+            $table->integer('block_id');
+            $table->text('title');
+            $table->jsonb('data')->nullable();
+            $table->schedules();
+            $table->ranking();
+            $table->auditings();
+
+            $table->foreign('block_id')->references('id')->on('base_block');
+        });
+
         DB::statement('CREATE OR REPLACE VIEW base_operator AS
             SELECT id, \'User\' AS type, username FROM base_user
             UNION ALL
@@ -51,6 +89,9 @@ return new class extends Migration {
     public function down(): void {
         DB::statement('DROP VIEW IF EXISTS base_operator');
 
+        Schema::dropIfExists('base_block_item');
+        Schema::dropIfExists('base_block');
+        Schema::dropIfExists('base_page');
         Schema::dropIfExists('base_menu');
         Schema::dropIfExists('base_city_area');
         Schema::dropIfExists('base_city');

@@ -15,11 +15,10 @@ use MatrixPlatform\Columns\Column;
 use MatrixPlatform\Columns\ColumnResolver;
 use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Columns\Declarations\Definition;
-use MatrixPlatform\Columns\Declarations\TypeResolver;
-use MatrixPlatform\Columns\Declarations\Variant;
 use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Columns\Query\QueryPlan;
 use MatrixPlatform\Columns\Syntax\ColumnParser;
+use MatrixPlatform\Columns\Syntax\Expression;
 use MatrixPlatform\Models\BaseModel;
 use MatrixPlatform\Services\FileService;
 use MatrixPlatform\Support\Actions;
@@ -27,6 +26,7 @@ use MatrixPlatform\Support\AdminPermission;
 use MatrixPlatform\Support\Menus;
 use MatrixPlatform\Support\Resources;
 use MatrixPlatform\Support\Subject;
+use MatrixPlatform\Support\Variants;
 
 abstract class CrudService {
 
@@ -34,6 +34,11 @@ abstract class CrudService {
      * @var list<Column>
      */
     protected array $columns = [];
+
+    /**
+     * @var array<string, array<string, Column>>
+     */
+    protected array $composites = [];
 
     /**
      * @var list<Closure>
@@ -56,9 +61,16 @@ abstract class CrudService {
 
     protected Subject $subject;
 
+    /**
+     * @var array<string, true>
+     */
+    protected array $subnames = [];
+
     private ?QueryPlan $plan = null;
 
     private ColumnResolver $resolver;
+
+    private Variants $variants;
 
     /**
      * @param class-string<BaseModel> $model
@@ -67,6 +79,7 @@ abstract class CrudService {
         $this->model = new $model();
         $this->resolver = app(ColumnResolver::class);
         $this->subject = app(Subject::class);
+        $this->variants = app(Variants::class);
     }
 
     /**
@@ -119,6 +132,62 @@ abstract class CrudService {
         }
 
         return $this;
+    }
+
+    /**
+     * @param array<string, mixed> $values
+     */
+    protected function assign(Model $model, array $values): void {
+        foreach ($this->local() as $column) {
+            if ($column->readonly || $this->composed($column)) {
+                continue;
+            }
+
+            if ($column->translatable) {
+                $this->assignTranslated($model, $column, $values);
+
+                continue;
+            }
+
+            if (array_key_exists($column->name, $values)) {
+                $model->setAttribute($column->name, $this->driveResolved($column, $values[$column->name]));
+            }
+        }
+
+        $this->assignComposites($model, $values);
+    }
+
+    /**
+     * @param array<string, mixed> $values
+     */
+    protected function assignComposites(Model $model, array $values): void {
+        foreach ($this->composites as $group => $columns) {
+            $data = [];
+
+            foreach ($columns as $field => $column) {
+                if (!$column->translatable) {
+                    if (array_key_exists($column->name, $values)) {
+                        $data[$field] = $this->driveResolved($column, $values[$column->name]);
+                    }
+
+                    continue;
+                }
+
+                $translated = [];
+
+                foreach (locales() as $locale) {
+                    $key = "{$column->name}__{$locale}";
+
+                    if (array_key_exists($key, $values)) {
+                        $translated[$locale] = $this->driveResolved($column, $values[$key]);
+                    }
+                }
+
+                $data[$field] = $translated;
+            }
+
+            $model->setAttribute($group, $data);
+        }
     }
 
     /**
@@ -202,34 +271,8 @@ abstract class CrudService {
         return $this->prepared($this->plan()->complete());
     }
 
-    protected function compositeResolved(Column $column, mixed $value, mixed $input, ?Model $model): mixed {
-        if (!is_array($value) || $column->variantGroup === null) {
-            return $value;
-        }
-
-        $variant = $this->variant($column->variantGroup, $input, $model);
-
-        if ($variant === null) {
-            return $value;
-        }
-
-        foreach ($variant->definitions() as $field => $definition) {
-            if (!in_array($definition->presentation, [Presentation::DriveFile, Presentation::DriveImage], true)) {
-                continue;
-            }
-
-            if ($definition->translatable) {
-                foreach (locales() as $locale) {
-                    if (isset($value[$field][$locale]) && is_array($value[$field][$locale])) {
-                        $value[$field][$locale] = app(FileService::class)->resolveDriveReferences($this->driveEntries($value[$field][$locale]), actor()->requireUser());
-                    }
-                }
-            } elseif (isset($value[$field]) && is_array($value[$field])) {
-                $value[$field] = app(FileService::class)->resolveDriveReferences($this->driveEntries($value[$field]), actor()->requireUser());
-            }
-        }
-
-        return $value;
+    protected function composed(Column $column): bool {
+        return array_key_exists($column->name, $this->subnames);
     }
 
     /**
@@ -301,6 +344,63 @@ abstract class CrudService {
         }
 
         return app(FileService::class)->resolveDriveReferences($this->driveEntries($value), actor()->requireUser());
+    }
+
+    protected function expandComposites(mixed $input, ?Model $model): void {
+        $expanded = [];
+
+        $this->composites = [];
+        $this->subnames = [];
+
+        foreach ($this->columns as $column) {
+            if ($column->variantGroup === null) {
+                $expanded[] = $column;
+
+                continue;
+            }
+
+            $type = $this->variants->type($column->variantGroup, $model, $input);
+            $variant = $this->variants->of($column->variantGroup, $type);
+
+            if ($variant === null) {
+                continue;
+            }
+
+            foreach ($this->subfields($column, $column->variantGroup, $type, $variant->definitions()) as $field => $subfield) {
+                $this->composites[$column->name][$field] = $subfield;
+                $this->subnames[$subfield->name] = true;
+                $expanded[] = $subfield;
+            }
+        }
+
+        $this->columns = $expanded;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    protected function flattenComposites(array $data, Model $model): array {
+        foreach ($this->composites as $group => $columns) {
+            $stored = $model->getAttribute($group);
+            $stored = is_array($stored) ? $stored : [];
+
+            foreach ($columns as $field => $column) {
+                $value = array_get_value($stored, $field);
+
+                if (!$column->translatable) {
+                    $data[$column->name] = $value;
+
+                    continue;
+                }
+
+                foreach (locales() as $locale) {
+                    $data["{$column->name}__{$locale}"] = is_array($value) ? array_get_value($value, $locale) : null;
+                }
+            }
+        }
+
+        return $data;
     }
 
     protected function foreign(): ?string {
@@ -384,7 +484,7 @@ abstract class CrudService {
      * @param list<Column> $columns
      * @return list<array<string, mixed>>
      */
-    protected function payload(array $columns, ?Model $record, mixed $input): array {
+    protected function payload(array $columns, ?Model $record): array {
         return array_map(fn (Column $column): array => [
             ...$this->shape($column),
             ...$this->driveProps($column),
@@ -399,8 +499,7 @@ abstract class CrudService {
             'rule' => $column->rule,
             'sortable' => $column->sortable,
             'tab' => $column->tab,
-            'variant' => $this->resolvedVariant($column, $input, $record),
-            'writable' => $this->writable($column)
+            'writable' => $this->writable($column) && !$column->locked
         ], $columns);
     }
 
@@ -460,32 +559,13 @@ abstract class CrudService {
     }
 
     /**
-     * @return list<array<string, mixed>>|null
-     */
-    protected function resolvedVariant(Column $column, mixed $input, ?Model $model): ?array {
-        if ($column->variantGroup === null) {
-            return null;
-        }
-
-        $variant = $this->variant($column->variantGroup, $input, $model);
-
-        return $variant === null ? null : $this->variantShape($column->variantGroup, $variant->definitions());
-    }
-
-    /**
      * @return array<string, list<string|Unique>>
      */
-    protected function rules(mixed $input, ?Model $model, int|string|null $ignoreId = null): array {
+    protected function rules(int|string|null $ignoreId = null): array {
         $rules = [];
 
         foreach ($this->local() as $column) {
             if (!$this->writable($column)) {
-                continue;
-            }
-
-            if ($column->variantGroup !== null) {
-                $this->expand($rules, $column->name, $column->variantGroup, $input, $model);
-
                 continue;
             }
 
@@ -517,6 +597,52 @@ abstract class CrudService {
             },
             'presentation' => $column->presentation instanceof Presentation ? $column->presentation->value : $column->presentation
         ];
+    }
+
+    /**
+     * @param array<string, Definition> $definitions
+     * @return array<string, Column>
+     */
+    protected function subfields(Column $composite, string $group, ?string $type, array $definitions): array {
+        $bundle = $this->bundle($group, $type);
+        $columns = [];
+
+        foreach ($definitions as $field => $definition) {
+            if ($definition->presentation === Presentation::Composite) {
+                error('nested-composite-not-supported');
+            }
+
+            $name = "{$composite->name}__{$field}";
+            $options = $definition->options === null ? null : (is_string($definition->options) ? app($definition->options) : $definition->options);
+            $presentation = $definition->presentation;
+            $title = $this->label($bundle, $field);
+
+            $columns[$field] = new Column(
+                expression: new Expression(null, [], $name, null, []),
+                group: $definition->group,
+                name: $name,
+                locked: false,
+                op: null,
+                options: $options,
+                path: null,
+                placeholder: $this->label($bundle, "{$field}:placeholder"),
+                presentation: $presentation === null ? ($options === null ? Presentation::Plain : Presentation::Select) : $presentation,
+                readonly: false,
+                remark: $this->label($bundle, "{$field}:remark"),
+                required: $definition->required,
+                rule: $definition->rule instanceof Closure ? ($definition->rule)() : $definition->rule,
+                sortable: false,
+                tab: $definition->tab === null ? $composite->tab : $definition->tab,
+                title: $title === null ? "{{$field}}" : $title,
+                translatable: $definition->translatable,
+                type: $definition->type,
+                unique: false,
+                variantGroup: null,
+                virtual: false
+            );
+        }
+
+        return $columns;
     }
 
     /**
@@ -569,41 +695,10 @@ abstract class CrudService {
     /**
      * @return array<string, mixed>
      */
-    protected function validated(mixed $input, ?Model $model, int|string|null $ignoreId = null): array {
+    protected function validated(mixed $input, int|string|null $ignoreId = null): array {
         $values = is_array($input) ? $input : [];
 
-        return Validator::make($values, $this->rules($input, $model, $ignoreId))->validate();
-    }
-
-    /**
-     * @param array<string, Definition> $definitions
-     * @return list<array<string, mixed>>
-     */
-    protected function variantShape(string $group, array $definitions): array {
-        $found = app(Resources::class)->getI18nBundle("model/{$group}");
-        $bundle = $found === null ? [] : $found;
-        $shapes = [];
-
-        foreach ($definitions as $name => $definition) {
-            if ($definition->presentation === Presentation::Composite) {
-                error('nested-composite-not-supported');
-            }
-
-            $title = array_get_value($bundle, $name);
-
-            $shapes[] = [
-                'name' => $name,
-                'title' => is_string($title) ? $title : "{{$name}}",
-                'translatable' => $definition->translatable,
-                'type' => $definition->type->value,
-                'presentation' => $definition->presentation instanceof Presentation ? $definition->presentation->value : $definition->presentation,
-                'options' => $definition->options === null ? null : (is_string($definition->options) ? app($definition->options) : $definition->options)->options(),
-                'required' => $definition->required,
-                'rule' => $definition->rule instanceof Closure ? ($definition->rule)() : $definition->rule
-            ];
-        }
-
-        return $shapes;
+        return Validator::make($values, $this->rules($ignoreId))->validate();
     }
 
     /**
@@ -624,33 +719,19 @@ abstract class CrudService {
         return $url !== null && app(AdminPermission::class)->reaches($url);
     }
 
-    private function drives(Column $column): bool {
-        return in_array($column->presentation, [Presentation::DriveFile, Presentation::DriveImage], true);
+    /**
+     * @return array<string, mixed>
+     */
+    private function bundle(string $group, ?string $type): array {
+        $resources = app(Resources::class);
+        $shared = $resources->getI18nBundle("model/{$group}");
+        $specific = $type === null ? null : $resources->getI18nBundle("model/{$group}-{$type}");
+
+        return array_replace($shared === null ? [] : $shared, $specific === null ? [] : $specific);
     }
 
-    /**
-     * @param array<string, list<string|Unique>> $rules
-     */
-    private function expand(array &$rules, string $name, string $group, mixed $input, ?Model $model): void {
-        $variant = $this->variant($group, $input, $model);
-
-        if ($variant === null) {
-            return;
-        }
-
-        foreach ($variant->definitions() as $field => $definition) {
-            $rule = $definition->rule instanceof Closure ? ($definition->rule)() : $definition->rule;
-            $rule = $rule === [] ? [$definition->type->rule()] : $rule;
-            $prefix = $definition->required ? ['required'] : ['present', 'nullable'];
-
-            if ($definition->translatable) {
-                foreach (locales() as $locale) {
-                    $rules["{$name}.{$field}.{$locale}"] = [...$prefix, ...$rule];
-                }
-            } else {
-                $rules["{$name}.{$field}"] = [...$prefix, ...$rule];
-            }
-        }
+    private function drives(Column $column): bool {
+        return in_array($column->presentation, [Presentation::DriveFile, Presentation::DriveImage], true);
     }
 
     private function frontendFormat(string $format): string {
@@ -671,6 +752,15 @@ abstract class CrudService {
 
     private function isLocal(Column $column): bool {
         return !$column->virtual && $this->rooted($column);
+    }
+
+    /**
+     * @param array<string, mixed> $bundle
+     */
+    private function label(array $bundle, string $token): ?string {
+        $found = array_get_value($bundle, $token);
+
+        return is_string($found) ? $found : null;
     }
 
     private function mounted(): ?string {
@@ -731,6 +821,10 @@ abstract class CrudService {
         $replaced = preg_replace_callback('/\{(\w+)\}/u', function (array $matches) use ($context): string {
             $value = $context === null ? null : $context->getAttribute($matches[1]);
 
+            if (!is_scalar($value)) {
+                $value = array_get_value($this->params, $matches[1]);
+            }
+
             return is_scalar($value) ? strval($value) : $matches[0];
         }, $template);
 
@@ -761,20 +855,6 @@ abstract class CrudService {
         $rule = Rule::unique($this->model->getTable(), $field);
 
         return $ignoreId === null ? $rule : $rule->ignore($ignoreId);
-    }
-
-    private function variant(string $group, mixed $input, ?Model $model): ?Variant {
-        $resolver = resolve_driver($group, TypeResolver::class, 'invalid-type-resolver');
-        $type = $resolver?->resolve($model, $input);
-        $class = is_string($type) ? cfg("{$group}.{$type}") : null;
-
-        if (!is_string($class) || !is_a($class, Variant::class, true)) {
-            return null;
-        }
-
-        $instance = app($class);
-
-        return $instance instanceof Variant ? $instance : null;
     }
 
 }

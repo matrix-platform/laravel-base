@@ -26,6 +26,21 @@ return [
                 'menu/{parent_id}/children/{id}' => 'サブメニュー編集',
                 'menu/{parent_id}/children/new' => 'サブメニューの新規作成',
 
+        'page' => 'ページ管理',
+
+            'page/{id}' => 'ページ編集',
+            'page/new' => 'ページの新規作成',
+
+            'page/{page_id}/block' => 'ブロック',
+
+                'page/{page_id}/block/{id}' => 'ブロック編集',
+                'page/{page_id}/block/new' => 'ブロック追加',
+
+                'page/{page_id}/block/{block_id}/item' => 'サブ項目',
+
+                    'page/{page_id}/block/{block_id}/item/{id}' => 'サブ項目編集',
+                    'page/{page_id}/block/{block_id}/item/new' => 'サブ項目追加',
+
     'system' => 'システム管理',
 
         'authority' => '権限管理',

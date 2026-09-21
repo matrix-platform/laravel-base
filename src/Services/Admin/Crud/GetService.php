@@ -24,6 +24,7 @@ class GetService extends CrudService {
     public function get(int|string $id): array {
         $model = $this->complete()->findOrFail($id);
 
+        $this->expandComposites(null, $model);
         $this->inspect($model);
 
         $parents = $this->subject->parents($model, $model);
@@ -38,8 +39,8 @@ class GetService extends CrudService {
             'title' => $this->title(),
             'subtitle' => $this->subject->title($model),
             'breadcrumbs' => $this->breadcrumbs([$model, ...$parents], $model),
-            'data' => $this->dated(array_intersect_key($model->toArray(), array_flip($names)), $model, $this->columns),
-            'columns' => $this->payload($this->columns, $model, null),
+            'data' => $this->flattenComposites($this->dated(array_intersect_key($model->toArray(), array_flip($names)), $model, $this->columns), $model),
+            'columns' => $this->payload($this->columns, $model),
             'actions' => $this->operations($this->passing($this->traceable($this->actions), $model), $this->prefix())
         ];
     }

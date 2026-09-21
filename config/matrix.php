@@ -75,6 +75,8 @@ return [
 
     'translation-provider' => 'google-translate',
 
+    'variants' => [],
+
     'vendor-api-encryption' => true,
 
     'vendor-api-prefix' => 'vendor',

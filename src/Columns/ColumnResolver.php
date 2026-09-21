@@ -44,6 +44,7 @@ class ColumnResolver {
             $column->expression,
             $column->group,
             $column->name,
+            $column->locked,
             $this->operator($column, $type, $presentation),
             $options,
             $this->path($column, $terminal),

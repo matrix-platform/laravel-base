@@ -30,6 +30,18 @@ class CommonController extends BaseController {
         return $this->service->menu($this->optional($request, 'parent'));
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    #[Action]
+    public function page(Request $request): array {
+        $request->validate([
+            'path' => ['required', 'string']
+        ]);
+
+        return $this->service->page($request->string('path')->value());
+    }
+
     private function optional(Request $request, string $key): ?int {
         return $request->filled($key) ? $request->integer($key) : null;
     }

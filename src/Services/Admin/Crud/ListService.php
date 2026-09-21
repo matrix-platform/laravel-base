@@ -2,6 +2,7 @@
 
 namespace MatrixPlatform\Services\Admin\Crud;
 
+use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
@@ -14,6 +15,11 @@ use MatrixPlatform\Support\MetadataRegistry;
 use MatrixPlatform\Support\Schedule;
 
 class ListService extends CrudService {
+
+    /**
+     * @var array<string, Closure>
+     */
+    private array $countable = [];
 
     /**
      * @var list<string|Operation>
@@ -34,6 +40,12 @@ class ListService extends CrudService {
      * @var list<string>
      */
     private array $sorting = [];
+
+    public function countable(string $name, Closure $when): static {
+        $this->countable[$name] = $when;
+
+        return $this;
+    }
 
     /**
      * @return array<string, mixed>
@@ -72,7 +84,7 @@ class ListService extends CrudService {
             'breadcrumbs' => $this->breadcrumbs($this->foreign() === null ? [null, ...$parents] : $parents, $context),
             'context' => $data === [] ? (object) [] : $data,
             'rows' => $rows,
-            'columns' => $this->payload($columns, $context, null),
+            'columns' => $this->payload($columns, $context),
             'features' => $arrangeable ? ['arrange'] : [],
             'preference' => array_get_value($preference, "column:{$key}"),
             'sorting' => array_map(fn (Sort $sort): array => ['name' => $sort->name, 'direction' => $sort->direction->value], $sorted),
@@ -155,6 +167,12 @@ class ListService extends CrudService {
             if ($enable !== null && $disable !== null) {
                 $data = Arr::except($data, [$enable, $disable]);
                 $data['enabled'] = Schedule::isEnabled($row, $enable, $disable);
+            }
+
+            foreach ($this->countable as $name => $when) {
+                if (array_key_exists($name, $data) && !$when($row)) {
+                    $data[$name] = null;
+                }
             }
 
             $data['actions'] = array_map(fn (Operation $operation): string => $operation->type, $this->passing($rowActions, $row));

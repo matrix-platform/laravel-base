@@ -28,8 +28,8 @@ class WidgetController extends CrudController {
 - [前台身分（member / vendor）](#前台身分member--vendor) —— 套件只給零件
 - [訊息](#訊息) —— [送訊息](#送訊息)、[派送與 worker](#派送與-worker)、[後台查詢、重發與取消](#後台查詢重發與取消)、[Push 訂閱(Member)](#push-訂閱member)、[Telegram 綁定與 Webhook](#telegram-綁定與-webhook)、[自訂訊息通道](#自訂訊息通道)
 - [參考](#參考) —— [端點](#端點)、[設定鍵](#設定鍵)、[cfg 設定鍵](#cfg-設定鍵)、[主控台指令](#主控台指令)、[錯誤代碼](#錯誤代碼)、[資料表](#資料表)
-- [給前端](#給前端) —— [請求形狀](#請求形狀)、[回應形狀](#回應形狀)、[語系](#語系)、[驗證碼](#驗證碼)
-- [沿用套件的 lint](#沿用套件的-lint) —— 選用,共用同一套風格檢查
+- [給前端](#給前端) —— [請求形狀](#請求形狀)、[回應形狀](#回應形狀)、[語系](#語系)、[`api/common/page`](#apicommonpage)、[驗證碼](#驗證碼)、[傳輸加密](#傳輸加密)
+- [沿用套件的 lint](#沿用套件的-lint) —— 選用,共用同一套風格檢查([style-check 檢查什麼](#style-check-檢查什麼))
 - [已知限制與取捨](#已知限制與取捨) —— [安全](#安全)、[規模與效能](#規模與效能)、[資料生命週期](#資料生命週期)、[行為細節](#行為細節)
 - [從舊版升級](#從舊版升級)
 
@@ -408,9 +408,83 @@ class WidgetDeclaration implements Declares {
 'data' => Definition::composite('announcement-data')
 ```
 
-參數是一個 cfg group 名稱,對應 `resources/cfg/{group}.php`。這份 cfg 檔案要有一個 `driver` key,指向你自己實作的 `TypeResolver`(`resolve(?Model $model, mixed $input): ?string`,沿用既有 `resolve_driver()` 慣例),負責當下算出一個「type 字串」;其餘 key 是「type 字串 → 子欄位定義 class」的對照表,每個子欄位定義 class 實作 `Variant`(格式跟 `Declares::definitions()` 一樣,但不用寫 `metadata()`)。表單裡會依 driver 算出的 type 展開對應的子欄位、送出時驗證、存檔轉回單一 JSON。
+參數是一個 group 名稱,對應 `config('matrix.variants.{group}')`:
 
-**這個欄位不需要對應到任何真實的 DB 欄位存 type 值**——`TypeResolver::resolve()` 要依據什麼判斷(另一個欄位的值、目前操作者、資料庫查詢……)完全是你的邏輯,引擎只在需要知道「這次要用哪個 variant」的當下呼叫它。沒有設定 `driver` 時安全降級成不展開、不驗證,不會出錯。只支援一層,子欄位不能再是 `Definition::composite()`。
+```php
+'variants' => [
+    'announcement-data' => [
+        'driver' => AnnouncementTypeResolver::class,
+        'banner' => BannerFields::class,
+        'text' => TextFields::class
+    ]
+]
+```
+
+`driver` 指向你自己實作的 `TypeResolver`(`resolve(?Model $model, mixed $input): ?string`),負責當下算出一個「type 字串」;其餘 key 是「type 字串 → 子欄位定義 class」的對照表,每個子欄位定義 class 實作 `Variant`(格式跟 `Declares::definitions()` 一樣,但不用寫 `metadata()`)。
+
+**這裡刻意用 config 而不是 cfg。** 別的 driver(驗證碼、簡訊、翻譯、地理位置)都放 cfg,因為那些是營運要換的設定;variant 的值是**要被實例化的類別名稱**,而 cfg bundle 只要進了 `matrix.resource-cfg` 白名單就能從資源後台編輯 —— 類別接線不該是線上可改的東西。子欄位的**標題**仍然走 i18n(`model/{group}.php`),那才是該線上編輯的部分。
+
+**前端不會知道這是一個 composite —— 引擎把它拆成一般欄位送出去。** 一個 composite 在表單端點(`new` / `get` / `insert` / `update`)會被換成**每個子欄位一個 column**,名字是 `{欄位名}__{子欄位名}`:
+
+```
+columns:  … , data__layout, data__lead, …
+data:     … , data__layout: null, data__lead__tw: null, data__lead__en: null, …
+```
+
+translatable 的子欄位就是一個 `translatable: true` 的普通 column,前端照它既有的規則展成 `__{locale}`。送出時 body 也是這個扁平形狀,引擎存檔前折回巢狀 JSON —— **資料庫存的東西沒有變**,仍然是 `{"layout": "wide", "lead": {"tw": …, "en": …}}`。
+
+因此:
+
+- `{欄位名}__` 是**保留前綴**。真的有一個叫 `data__layout` 的實體欄位就會撞,引擎不會警告。
+- 子欄位的標題查 `resources/i18n/{locale}/model/{group}.php`(不是 `model/{資料表}.php`),`{子欄位名}:placeholder` / `:remark` 同一份。**同一個 group 的所有 type 共用這一份**,所以同名的子欄位會拿到同一個標題;要讓某個 type 的子欄位有自己的說法,再放一份 `model/{group}-{type}.php`,它**逐 key 覆蓋**共用那份(跟 `model/default.php` 與 `model/{資料表}.php` 的關係一樣),沒寫到的 key 落回共用層,檔案不存在就只剩共用層。
+- 子欄位可以宣告 `tab`、`group`、`required`、`rule`、`options`、`presentation`,全部照一般欄位生效。
+- **清單與匯出不展開**,composite 只在表單情境有意義。
+
+**這個欄位不需要對應到任何真實的 DB 欄位存 type 值**——`TypeResolver::resolve()` 要依據什麼判斷(另一個欄位的值、目前操作者、資料庫查詢……)完全是你的邏輯,引擎只在需要知道「這次要用哪個 variant」的當下呼叫它。**沒有設定 `driver`、或算出來的 type 沒有對應的 `Variant` 時,這個欄位一個 column 都不會出現**,送出時也不驗證、不寫入,原值保留。只支援一層,子欄位不能再是 `Definition::composite()`。
+
+要讓 `new` 開在某個 type 上(例如讓使用者先選型別再進表單),把它當 body 送給 `new` 即可:`POST admin/block/new` 帶 `{"type": "banner"}`。引擎會依它展開子欄位,並把**已宣告且可寫**的輸入值反映回回應的 `data`,表單一開就是填好的。呼叫端亂塞的鍵不會被回吐。
+
+**套件自己宣告了四個 group,而且全部預設不接線。** 沒有在 `config('matrix.variants')` 接上以前,那個 `data` 欄位在後台一個 column 都不會出現,`api/common/*` 則把儲存值原樣吐出來(沒存過是 `{}`)。
+
+| group | 欄位 | `resolve()` 能依據什麼 |
+|---|---|---|
+| `page-data` | `base_page.data` | 頁面**沒有** `type` 欄位。通常回傳固定字串(全站共用一組欄位),或依 `path` 分流 |
+| `menu-data` | `base_menu.data` | 選單**沒有** `type` 欄位。依資料判斷,例如 `parent_id` 是否為 null(頂層與子層用不同欄位) |
+| `block-data` | `base_block.data` | 直接讀 `type` 欄位;`new` 時讀 body 的 `type` |
+| `block-item-data` | `base_block_item.data` | 查父區塊的 `type`,但對到**另一組** `Variant`,不是父區塊那一組 |
+
+**`resolve()` 的第二個參數只有 `new` / `insert` / `update` 拿得到值。** `get`(編輯頁)、`api/common/page`、`api/common/menu` 一律傳 `null`。所以 page 與 menu 的 driver 必須只靠 model 或常數就能決定 —— 只看 `$input` 的寫法會在編輯頁與前台端點失效。
+
+`page-data` 的最小接線是一個回傳常數的 driver:
+
+```php
+// config/matrix.php
+'variants' => [
+    'page-data' => [
+        'driver' => PageTypeResolver::class,
+        'standard' => StandardPageFields::class
+    ]
+]
+
+// app/Support/PageTypeResolver.php
+class PageTypeResolver implements TypeResolver {
+
+    public function resolve(?Model $model, mixed $input): ?string {
+        return 'standard';
+    }
+
+}
+```
+
+`menu-data` 形狀一樣,差別只在 driver 讀 model:
+
+```php
+public function resolve(?Model $model, mixed $input): ?string {
+    return $model?->getAttribute('parent_id') === null ? 'root' : 'child';
+}
+```
+
+子欄位標題分別放 `resources/i18n/{locale}/model/page-data.php` 與 `model/menu-data.php`。
 
 ### 4. Controller
 
@@ -426,7 +500,9 @@ class WidgetController extends CrudController {
 }
 ```
 
-`*` 開頭代表必填。`=` 後面是別名。`.` 走關聯。`:` 後面是型別或呈現方式。
+`*` 開頭代表必填。`!` 開頭代表唯讀。`+` 開頭代表虛擬。`=` **開頭**代表鎖定(見下段)。`=` 夾在中間是別名(`alias=source`)。`.` 走關聯。`:` 後面是型別或呈現方式。
+
+**鎖定(`=`)是「可寫但不可編輯」。** 值在表單開啟之前就決定了(例如區塊的型別由型別選擇器決定),所以它照樣驗證、照樣寫入,但 `columns[]` 上的 `writable` 是 `false`,前端據此把輸入框停用。`readonly`(`!`)是另一回事:不驗證、不寫入。鎖定同時隱含必填 —— 值既然是先決定好的,就不該是空的;要「鎖定但可為空」請用陣列語法 `['name' => 'x', 'locked' => true]`。
 
 ### 5. 路由 —— 必須掛在 `admin` 前綴之下
 
@@ -649,6 +725,30 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | POST | `admin/menu/{parent_id}/children/delete` | 授權 |
 | POST | `admin/menu/{parent_id}/children/arrange` | 授權 |
 | POST | `admin/menu/{parent_id}/children/arrange/save` | 授權 |
+| POST | `admin/page` | 授權 |
+| POST | `admin/page/new` | 授權 |
+| POST | `admin/page/insert` | 授權 |
+| POST | `admin/page/{id}` | 授權 |
+| POST | `admin/page/{id}/update` | 授權 |
+| POST | `admin/page/delete` | 授權 |
+| POST | `admin/page/arrange` | 授權 |
+| POST | `admin/page/arrange/save` | 授權 |
+| POST | `admin/page/{page_id}/block` | 授權 |
+| POST | `admin/page/{page_id}/block/new` | 授權 |
+| POST | `admin/page/{page_id}/block/insert` | 授權 |
+| POST | `admin/page/{page_id}/block/{id}` | 授權 |
+| POST | `admin/page/{page_id}/block/{id}/update` | 授權 |
+| POST | `admin/page/{page_id}/block/delete` | 授權 |
+| POST | `admin/page/{page_id}/block/arrange` | 授權 |
+| POST | `admin/page/{page_id}/block/arrange/save` | 授權 |
+| POST | `admin/page/{page_id}/block/{block_id}/item` | 授權 |
+| POST | `admin/page/{page_id}/block/{block_id}/item/new` | 授權 |
+| POST | `admin/page/{page_id}/block/{block_id}/item/insert` | 授權 |
+| POST | `admin/page/{page_id}/block/{block_id}/item/{id}` | 授權 |
+| POST | `admin/page/{page_id}/block/{block_id}/item/{id}/update` | 授權 |
+| POST | `admin/page/{page_id}/block/{block_id}/item/delete` | 授權 |
+| POST | `admin/page/{page_id}/block/{block_id}/item/arrange` | 授權 |
+| POST | `admin/page/{page_id}/block/{block_id}/item/arrange/save` | 授權 |
 | POST | `admin/geolocation` | 授權 |
 | POST | `admin/user` | 授權 |
 | POST | `admin/user/new` | 授權 |
@@ -710,6 +810,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | POST | `admin/telegram-log/{id}/cancel` | 授權 |
 | POST | `api/common/city` | 匿名 |
 | POST | `api/common/menu` | 匿名 |
+| POST | `api/common/page` | 匿名 |
 | GET\|HEAD | `api/files/{path}` | **匿名,不走信封** |
 | POST | `api/member/preference/get` | 登入 |
 | POST | `api/member/preference/save` | 登入 |
@@ -756,6 +857,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `matrix.thumbnail-quality` | `80` | 縮圖 webp 編碼品質(0-100) |
 | `matrix.thumbnail-sizes` | `['icon' => 64, 'thumb' => 256]` | 可用的縮圖 `size` 參數與對應寬度(px),`?size=` 帶不在此清單內的值一律回原始檔案 |
 | `matrix.translation-provider` | `'google-translate'` | 內容翻譯要用哪個 driver,對應 `resources/cfg/{值}.php` |
+| `matrix.variants` | `[]` | `Definition::composite()` 的接線:`{group} => ['driver' => TypeResolver 類別, {type} => Variant 類別, …]`。**刻意放 config 不放 cfg** —— 它指的是要實例化的類別,而 cfg bundle 一旦進了 `matrix.resource-cfg` 白名單就能從資源後台改 |
 | `matrix.vendor-api-encryption` | `true` | `vendor` 前綴要不要傳輸加密 |
 | `matrix.vendor-api-prefix` | `'vendor'` | 廠商路由前綴 |
 | `matrix.vendor-model` | `Vendor::class` | 廠商 model |
@@ -934,6 +1036,9 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `base_member` | 前台會員 |
 | `base_member_log` | 會員行為紀錄 |
 | `base_menu` | 可線上維護的選單資料 |
+| `base_page` | 可線上維護的前台頁面;`path` 是前台查找用的唯一網址,`data` 的欄位形狀由消費端在 `config('matrix.variants.page-data')` 接線決定 |
+| `base_block` | 頁面底下的區塊,`page_id` 掛在 `base_page`;`type` 決定 `data` 的欄位形狀,由消費端在 `config('matrix.variants.block-data')` 接線定義。`type` 在 `insert` 時決定、之後不可改 |
+| `base_block_item` | 區塊底下的子項目,`block_id` 掛在 `base_block`;型別跟著父區塊走,所以自己沒有 `type` 欄位 |
 | `base_passkey_credential` | 後台帳號(`User`)的 Passkey 憑證(credential ID、COSE 公鑰、sign count 等) |
 | `base_preference` | 各身分（user / member / vendor）各自一筆的個人化偏好,內容由前端決定 |
 | `base_push_log` | 推播佇列與送達結果 |
@@ -996,15 +1101,46 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 
 `type` 是 `date` 或 `datetime` 的欄位另外帶一個 `format`(例如 `YYYY-MM-DD`、`YYYY-MM-DD HH:mm:ss`,即 `matrix.date-format` / `matrix.datetime-format` 轉成前端慣用的日期格式代號),`rows`/`data` 裡該欄位的實際字串就是照這個格式輸出;其餘型別 `format` 是 `null`。
 
-**不可寫有兩種原因:`readonly` 宣告、以及跨關聯或聚合欄位(`group.title`、`count(orders)`)。** 只有第一種在 `columns[]` 上另有 `readonly` 鍵看得出來,所以**前端要看 `writable`,不要看 `readonly`** —— 否則第二種會畫出一顆改了完全沒效果的輸入框,而使用者會看到「已儲存」。`virtual`(`+` 前綴)**不影響 `writable`**:虛擬欄位不落庫,但照樣可以收值交給 `guards` / 覆寫的 service 處理。
+**不可寫有三種原因:`readonly` 宣告、`locked` 宣告、以及跨關聯或聚合欄位(`group.title`、`count(orders)`)。** 只有第一種在 `columns[]` 上另有 `readonly` 鍵看得出來,所以**前端要看 `writable`,不要看 `readonly`** —— 否則第二種會畫出一顆改了完全沒效果的輸入框,而使用者會看到「已儲存」。`virtual`(`+` 前綴)**不影響 `writable`**:虛擬欄位不落庫,但照樣可以收值交給 `guards` / 覆寫的 service 處理。
 
 `writable: false` 的欄位不在 `present` 驗證的範圍內,送不送都可以;`writable: true` 的**每一個都必須出現在 body 裡**,那與上面「更新是全量覆寫」是同一件事的兩面。
+
+**鎖定欄位是這條規則唯一的例外**:它的 `writable` 是 `false`,但它**必須**出現在 body 裡。把輸入框停用即可,值照送 —— 值本來就是伺服器在 `new` 回應的 `data` 裡給你的。
 
 **action 的 `url` 不含前綴。** 回應給的是 `widget/{id}/update` 這種相對路徑,前端要自己接上 `admin/`。
 
 ### 語系
 
 送 `Matrix-Locale: en` header。值必須在 `matrix.locales` 裡,否則退回應用程式的預設語系。
+
+### `api/common/page`
+
+前台頁面樹。匿名,body 帶 `path`(`base_page.path`,唯一)。查不到、或頁面不在 `enable_time` / `disable_time` 的區間內,一律回 404 `data-not-found`。
+
+```json
+{
+  "id": 10000012,
+  "path": "about-us",
+  "title": "關於我們",
+  "seo_title": "…",
+  "seo_description": "…",
+  "og_image": [{ "path": "@cms/og.jpg", "name": "og.jpg", "mime_type": "image/jpeg", "size": 92160, "width": 1200, "height": 630, "seconds": null }],
+  "data": {},
+  "children": [
+    { "id": 10000031, "type": "none", "title": "首圖", "data": {}, "children": [
+      { "id": 10000071, "title": "第一張", "data": {}, "children": [] }
+    ] }
+  ]
+}
+```
+
+- **樹固定兩層**:頁面 → 區塊 → 子項目。子項目的 `children` 恆為 `[]`,留著是為了讓遞迴渲染不用分兩種節點型別。
+- **`title` / `seo_title` / `seo_description` / `og_image` 依 `Matrix-Locale` 挑語系**,沒有 fallback:該語系沒填就是 `null`(`og_image` 是 `[]`)。
+- **兩層都各自走排程**,排序依 `ranking`。區塊未啟用只是該區塊不出現,不會讓整頁消失;子項目同理。
+- **`type` 是前端挑版型的唯一依據。** 套件本身不出貨任何型別;`config('matrix.variants.block-data')` 沒接上該型別時,`data` 原樣輸出儲存值,不做語系攤平。
+- **三層的 `data` 空的時候是 `{}` 不是 `[]`**,不用分兩種型別處理。`api/common/menu` 的 `data` 同理。`og_image` 相反,它是清單,空的時候是 `[]`。
+- **`data` 裡的多語系子欄位已經壓成單一值。** `{"caption": {"tw": …, "en": …}}` 出來會是 `{"caption": "…"}`,跟 `title` 一樣依 `Matrix-Locale` 挑好。非多語系的子欄位原樣不動。`api/common/menu` 的 `data` 也是同一個規則。
+- **圖檔欄位給的是路徑不是網址**,自己組 `GET {api-prefix}/files/{path}`,縮圖加 `?size=thumb`。
 
 ### 驗證碼
 
@@ -1170,7 +1306,7 @@ parameters:
 | **驗證碼的 site key 是公開的,不設 `hostnames` 就擋不住別人拿它在自己的網站養 token** —— 攻擊者把你的 site key 放進自己的頁面,訪客產生的 token 有 `success`、有正確的 `action`(那是他自己設的)、分數還是真人的高分,拿來打你的登入端點會完全穿透驗證碼這一關 | 設 `captcha-recaptcha.hostnames` / `captcha-turnstile.hostnames` 為後台登入頁的網域(可多個)。**出貨是空的 = 不檢查**,因為預設開啟會讓既有部署升級後全部登不進去,而症狀只會是「驗證碼錯誤」。這件事在本套件特別要緊——見下面那條,登入節流擋不住拿一組密碼掃一堆帳號,驗證碼是應用層唯一能讓 spraying 變貴的東西 |
 | **`captcha-recaptcha` 是 Enterprise 分數式的,低於 `captcha-recaptcha.threshold` 的真人沒有任何自證管道** —— 它不跳挑戰,分數不夠就是進不去(傳統的 v2 隱形式已無法申請新金鑰) | 用這顆就要求管理員都註冊 passkey(passkey 登入完全不經過驗證碼),否則唯一的出路是下方的 cfg override。要「可疑時才要求互動、互動完就過」請改用 `captcha-turnstile` |
 | **第三方驗證碼 driver(`captcha-turnstile` / `captcha-recaptcha`)是 fail-closed 的** —— 對方服務打不通時回 `captcha-request-failed`,登入一律擋下。而且每一次被擋都吃掉一格登入節流(`afterCallback` 只計失敗),五次之後同一組 IP+帳號連 `too-many-requests` 都會拿到 | 接受它,但事先知道逃生門怎麼走:見下方〈驗證碼服務掛掉時怎麼進後台〉。**不要改成「打不通就放行」**,那等於給攻擊者一個把驗證碼關掉的開關 |
-| **`api/common/*` 兩個端點匿名且沒有節流**,`base_menu.data` 的內容會原樣出現在回應裡 | 不要在 `base_menu.data` 放非公開資料 |
+| **`api/common/*` 三個端點匿名且沒有節流**,`base_menu.data` 與 `base_page.data` 的內容會原樣出現在回應裡 | 不要在這些 `data` 欄位放非公開資料。`api/common/page` 另外會把區塊引用的雲端硬碟檔案路徑吐出來,而 `api/files/{path}` 對 drive 檔案匿名可取、不看 `privilege` —— 區塊放什麼圖就等於公開發佈什麼圖 |
 | **登入節流的鍵是「IP + 帳號」** —— 同一個 IP 換帳號就換一份配額,擋不住拿一組密碼掃一堆帳號 | 要擋就在應用層之外做（WAF / 反向代理） |
 | **Passkey 登入端點沒有帳號欄位,節流退化成近似純 IP** | 比密碼登入更粗放的取捨,若濫用明顯可考慮改用 `IP + credential_id 前綴` 當節流鍵 |
 | **`matrix.passkey-rp-id` 的 fallback 是當次請求的主機名稱,只在後台前端與此 API 同源時才正確**;RP ID 一旦設錯或事後變更,所有已註冊 passkey 會**全部永久失效,無遷移路徑**(WebAuthn 規格的密碼學綁定特性) | 若前後端分離部署在不同網域,啟用 passkey 前務必明確設定 `matrix.passkey-rp-id`,不要依賴 fallback |
@@ -1233,7 +1369,7 @@ php artisan matrix:clear-resource-cache
 | **`$sortable` 只該開在資料量有上限的資源上** | 拖曳排序會把整組載進來跑重排演算法 |
 | 重排用最長遞增子序列找錨點,tie-break 是次佳選擇 | 最壞情況會把「只改一列」變成「整組重編」 |
 | `contains` / `endsWith` 走 `ILIKE`,本來就用不到 B-tree;**`startsWith` 也走 `ILIKE`,同樣用不到** | 要就自己加 `lower(col)` 運算式索引或 `pg_trgm` GIN |
-| **`api/common/city` 與 `menu` 沒有快取,而且是 POST** | CDN / proxy 快取不適用,要快取只能做在應用層 |
+| **`api/common/city`、`menu` 與 `page` 沒有快取,而且是 POST** | CDN / proxy 快取不適用,要快取只能做在應用層 |
 | **三個 disk 設定只能用 local driver** | 縮圖產生與 IP 資料庫讀取走的是原生檔案函式(`is_file`、`mkdir`、`file_put_contents`、`rename`),它們吃的是 `Storage::disk()->path()` 的回傳值——那個值對非 local driver 是**相對路徑**,會相對於行程當下的工作目錄解析,而 queue worker、artisan 指令與 php-fpm 的工作目錄各不相同,同一份縮圖可能寫在三個地方、讀的時候都找不到,而且全程沒有錯誤。套件本身也沒有安裝任何遠端 flysystem adapter。設成別的 driver 會在取用 disk 時直接回 `unsupported-disk-driver` |
 | **`Resources` 是 singleton** | Octane 這類長生命週期行程改了設定要重啟才看得到。**訊息 worker 例外**——`SendMessageJob` 每次執行前會先丟掉已快取的 bundle,所以在資源後台改了 cfg(SMTP 主機/帳密、`interval` 等)下一封信就生效,不必重啟 worker |
 | 級聯刪除會逐筆取出實例再刪（為了稽核） | 成本隨子資料列數成長 |
@@ -1291,6 +1427,9 @@ php artisan matrix:clear-resource-cache
 | **匯出回應的 `columns[]` 不含 `op` / `sortable` / `options`** | 前端要知道能篩什麼,必須先呼叫清單端點 |
 | **`base_city_area.ranking` 與 `base_ranking` 序列不同量級** | 後台第一次拖曳排序就會把整組重編 |
 | **jsonb 欄位會宣稱自己可排序** | 引擎沒有把 Json 型別排除在排序之外。對它排序不會壞,但結果沒有意義 |
+| **巢狀資源只被「直接父層」的外鍵 scope,祖父層的路由參數完全不驗證** | `CrudService::prepared()` 只取 `Subject::foreign()` 那一個外鍵。所以 `admin/page/999/block/31/item` 即使 31 號區塊不屬於 999 號頁面,也照樣回 31 號的子項目。權限是按路徑 pattern 給的不是按值,沒有越權讀取,但**網址會說謊**:麵包屑的 `label` 沿真實關聯查 DB,顯示的是 31 號區塊真正的父頁面,跟網址對不上 |
+| **兩層以上的巢狀資源,`count()` 的鑽取路徑要自己寫** | `ColumnResolver::path()` 推導出前綴後會經過 `Subject::generic()`,那會把**每一個**佔位符都換成 `{id}`。一層巢狀沒事(`city/{id}/area`),兩層就變成 `page/{id}/block/{id}/item` —— 兩個 `{id}` 分不出誰是誰。解法是在 `$lists` 用陣列語法明寫:`['name' => 'count(items)', 'path' => 'page/{page_id}/block/{id}/item']`,明寫的值直接送出,不經過 `generic()` 也不查 `Menus::has()`。前端是拿**那一列**去填佔位符的,而列本身帶著自己的外鍵(`page_id`)與 `id`,所以具名佔位符填得滿。代價是這個字串與路由、選單三處必須人工保持一致,沒有任何機制會驗證,寫錯的症狀是點數字連到 404 |
+| **`$counts` 在設了 `$lists` 或 `$updates` 的 controller 上會靜默失效** | `CrudController::listing()` 只有在 `$lists` 為 null **且** `$updates` 為空時才把 `counted()` 併進清單。設了其中任何一個,`$counts` 就完全沒有作用,也不會有任何警告。要 count 欄位就直接寫進 `$lists`(`'count(items)'`),不要用 `$counts` |
 | **自我參照的樹,巢狀資源必須掛在與關聯名同名的路由段下** | `count(children)` 的鑽取路徑是這樣推出來的:`Subject::path()` 遇到自我參照會停在 alias(`menu`),引擎改用關聯名 `children` 去選單裡找 `menu/{任意參數}/children`,找到才有 `path`。掛成別的名字(例如 `menu/{parent_id}/sub`)不會壞,但 `path` 會是 `null`,前端的數字就點不進去。`admin/menu` 只列頂層,子層一律走 `admin/menu/{parent_id}/children`,每一層都回到同一個 pattern,深度不限 |
 
 #### 資料寫入與稽核

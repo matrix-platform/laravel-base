@@ -199,24 +199,28 @@ class MenuControllerTest extends FeatureTestCase {
         ], array_column($crumbs, 'path'));
     }
 
-    public function test_the_new_form_includes_the_composite_data_field(): void {
+    public function test_the_new_form_drops_the_composite_when_no_driver_is_configured(): void {
         $names = array_column($this->send('admin/menu/new')->json('data.columns'), 'name');
 
-        $this->assertSame(['title', 'data', 'enable_time', 'disable_time'], $names);
+        $this->assertSame(['title', 'enable_time', 'disable_time'], $names);
     }
 
-    public function test_the_new_form_resolves_a_different_variant_depending_on_the_submitted_parent_id(): void {
+    /**
+     * @param list<array<string, mixed>> $columns
+     * @return list<string>
+     */
+    private function composed(array $columns): array {
+        return array_values(array_filter(array_column($columns, 'name'), fn (string $name): bool => str_starts_with($name, 'data__')));
+    }
+
+    public function test_the_new_form_expands_a_different_variant_depending_on_the_submitted_parent_id(): void {
         $this->useMenuDataFixtures();
 
         $withoutParent = $this->send('admin/menu/new')->json('data.columns');
-        $header = $withoutParent[array_search('data', array_column($withoutParent, 'name'), true)];
-
-        $this->assertSame(['caption', 'image'], array_column($header['variant'], 'name'));
-
         $withParent = $this->send('admin/menu/new', ['parent_id' => 999])->json('data.columns');
-        $social = $withParent[array_search('data', array_column($withParent, 'name'), true)];
 
-        $this->assertSame(['platform', 'url'], array_column($social['variant'], 'name'));
+        $this->assertSame(['data__caption', 'data__image'], $this->composed($withoutParent));
+        $this->assertSame(['data__platform', 'data__url'], $this->composed($withParent));
     }
 
     public function test_inserting_creates_the_row_with_the_resolved_variants_data(): void {
@@ -228,7 +232,9 @@ class MenuControllerTest extends FeatureTestCase {
             'parent_id' => null,
             'title__tw' => 'Footer Menu TW',
             'title__en' => 'Footer Menu',
-            'data' => ['caption' => ['tw' => 'Footer caption TW', 'en' => 'Footer caption'], 'image' => [['id' => $node->id]]],
+            'data__caption__tw' => 'Footer caption TW',
+            'data__caption__en' => 'Footer caption',
+            'data__image' => [['id' => $node->id]],
             'enable_time' => null,
             'disable_time' => null
         ])->assertJsonPath('success', true);
@@ -244,7 +250,7 @@ class MenuControllerTest extends FeatureTestCase {
 
     public function test_a_translatable_drive_subfield_inside_a_composite_resolves_every_locale(): void {
         $this->useMenuDataFixtures();
-        $this->useCfg('menu-data', ['driver' => TestMenuTypeResolver::class, 'header' => TestGalleryFields::class]);
+        $this->useVariants(['menu-data' => ['driver' => TestMenuTypeResolver::class, 'header' => TestGalleryFields::class]]);
 
         $first = $this->driveImage('first.jpg');
         $second = $this->driveImage('second.jpg');
@@ -253,7 +259,8 @@ class MenuControllerTest extends FeatureTestCase {
             'parent_id' => null,
             'title__tw' => 'Gallery Menu TW',
             'title__en' => 'Gallery Menu',
-            'data' => ['gallery' => ['tw' => [['id' => $first->id]], 'en' => [['id' => $second->id]]]],
+            'data__gallery__tw' => [['id' => $first->id]],
+            'data__gallery__en' => [['id' => $second->id]],
             'enable_time' => null,
             'disable_time' => null
         ])->assertJsonPath('success', true);
@@ -282,7 +289,7 @@ class MenuControllerTest extends FeatureTestCase {
 
     public function test_an_invalid_type_resolver_driver_is_refused_cleanly(): void {
         $this->useMenuDataFixtures();
-        $this->useCfg('menu-data', ['driver' => Menu::class]);
+        $this->useVariants(['menu-data' => ['driver' => Menu::class]]);
 
         $response = $this->send('admin/menu/new');
 

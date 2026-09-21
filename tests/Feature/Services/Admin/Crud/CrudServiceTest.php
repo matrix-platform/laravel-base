@@ -147,12 +147,40 @@ class CrudServiceTest extends FeatureTestCase {
         $this->assertSame(strval($widget->id), strval($rows[0]['key']));
     }
 
+    // Locked is the third state between writable and readonly: validated and stored, but not editable.
+    public function test_a_locked_column_is_stored_but_never_offered_for_editing(): void {
+        $columns = (new ListService(Widget::class))
+            ->standalone(true)
+            ->columns(['=title'])
+            ->list([])['columns'];
+
+        $this->assertFalse($columns[0]['writable']);
+        $this->assertTrue($columns[0]['required']);
+        $this->assertFalse($columns[0]['readonly']);
+
+        (new InsertService(Widget::class))
+            ->standalone(true)
+            ->columns(['=title'])
+            ->insert(['title' => 'Locked']);
+
+        $this->assertSame('Locked', Widget::query()->sole()->title);
+    }
+
+    public function test_a_locked_column_still_rejects_a_missing_value(): void {
+        $this->expectException(ValidationException::class);
+
+        (new InsertService(Widget::class))
+            ->standalone(true)
+            ->columns(['=title'])
+            ->insert([]);
+    }
+
     public function test_the_payload_carries_the_full_column_shape(): void {
         $columns = (new ListService(Widget::class))->standalone(true)->columns(['title'])->list([])['columns'];
 
         $this->assertSame([
             'name', 'title', 'translatable', 'type', 'format', 'presentation', 'group', 'op',
-            'options', 'path', 'placeholder', 'remark', 'readonly', 'required', 'rule', 'sortable', 'tab', 'variant',
+            'options', 'path', 'placeholder', 'remark', 'readonly', 'required', 'rule', 'sortable', 'tab',
             'writable'
         ], array_keys($columns[0]));
     }

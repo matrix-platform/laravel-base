@@ -26,6 +26,21 @@ return [
                 'menu/{parent_id}/children/{id}' => '編輯子選單',
                 'menu/{parent_id}/children/new' => '新增子選單',
 
+        'page' => '頁面管理',
+
+            'page/{id}' => '編輯頁面',
+            'page/new' => '新增頁面',
+
+            'page/{page_id}/block' => '區塊',
+
+                'page/{page_id}/block/{id}' => '編輯區塊',
+                'page/{page_id}/block/new' => '新增區塊',
+
+                'page/{page_id}/block/{block_id}/item' => '子項目',
+
+                    'page/{page_id}/block/{block_id}/item/{id}' => '編輯子項目',
+                    'page/{page_id}/block/{block_id}/item/new' => '新增子項目',
+
     'system' => '系統管理',
 
         'authority' => '權限管理',

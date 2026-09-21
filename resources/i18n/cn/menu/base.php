@@ -26,6 +26,21 @@ return [
                 'menu/{parent_id}/children/{id}' => '编辑子菜单',
                 'menu/{parent_id}/children/new' => '新增子菜单',
 
+        'page' => '页面管理',
+
+            'page/{id}' => '编辑页面',
+            'page/new' => '新增页面',
+
+            'page/{page_id}/block' => '区块',
+
+                'page/{page_id}/block/{id}' => '编辑区块',
+                'page/{page_id}/block/new' => '新增区块',
+
+                'page/{page_id}/block/{block_id}/item' => '子项目',
+
+                    'page/{page_id}/block/{block_id}/item/{id}' => '编辑子项目',
+                    'page/{page_id}/block/{block_id}/item/new' => '新增子项目',
+
     'system' => '系统管理',
 
         'authority' => '权限管理',
