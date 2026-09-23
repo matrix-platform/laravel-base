@@ -122,6 +122,7 @@ class ResourceServiceTest extends FeatureTestCase {
         $credentials = [
             'captcha-recaptcha' => 'secret',
             'captcha-turnstile' => 'secret',
+            'gemini-translate' => 'api-key',
             'gmail' => 'password',
             'google-translate' => 'api-key',
             'ip2location-bin' => 'download-token',

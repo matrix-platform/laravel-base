@@ -325,7 +325,7 @@ bundle 一律**扁平**:只有一層 key,key 本身可以含點,取值時當字�
 'password' => ['type' => 'text', 'presentation' => 'password', 'secret' => true],
 ```
 
-機密欄位的實際值**永遠不離開伺服器**——`data` 回傳的是遮罩 `••••••••`(沒設定過則是空字串),`default` 與 `placeholder` 一律空白。寫回時遮罩值代表「不變更」,送新值才覆寫,送空字串才清除。出貨已標的是 `gmail.password`、`telegram.bot-token`、`telegram.webhook-secret`、`webpush.private-key`、`mitake.password`、`google-translate.api-key`、`ip2location-bin.download-token`、`ip2location-webservice.api-key`、`captcha-recaptcha.secret`、`captcha-turnstile.secret`;自訂 bundle 裡的憑證要自己標,**漏標的症狀是那把密鑰以明文出現在後台 API 回應裡**。
+機密欄位的實際值**永遠不離開伺服器**——`data` 回傳的是遮罩 `••••••••`(沒設定過則是空字串),`default` 與 `placeholder` 一律空白。寫回時遮罩值代表「不變更」,送新值才覆寫,送空字串才清除。出貨已標的是 `gmail.password`、`telegram.bot-token`、`telegram.webhook-secret`、`webpush.private-key`、`mitake.password`、`google-translate.api-key`、`gemini-translate.api-key`、`ip2location-bin.download-token`、`ip2location-webservice.api-key`、`captcha-recaptcha.secret`、`captcha-turnstile.secret`;自訂 bundle 裡的憑證要自己標,**漏標的症狀是那把密鑰以明文出現在後台 API 回應裡**。
 
 這一層跟 `matrix.resource-cfg` 的 bundle 白名單是兩件事:白名單決定「這個 bundle 能不能編輯」,`secret` 決定「bundle 裡哪些 key 的值看得到」。有了後者,含憑證的混合型 bundle 才能安全地進白名單。
 
@@ -856,7 +856,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `matrix.resource-i18n-template` | `[]` | 同上,訊息樣板 |
 | `matrix.thumbnail-quality` | `80` | 縮圖 webp 編碼品質(0-100) |
 | `matrix.thumbnail-sizes` | `['icon' => 64, 'thumb' => 256]` | 可用的縮圖 `size` 參數與對應寬度(px),`?size=` 帶不在此清單內的值一律回原始檔案 |
-| `matrix.translation-provider` | `'google-translate'` | 內容翻譯要用哪個 driver,對應 `resources/cfg/{值}.php` |
+| `matrix.translation-provider` | `'google-translate'` | 內容翻譯要用哪個 driver,對應 `resources/cfg/{值}.php`。出貨兩個:`google-translate`(Google Cloud Translation,帶 `format=html`)、`gemini-translate`(Gemini `generateContent`,靠 prompt 要求保留標籤,見[已知限制與取捨](#安全)) |
 | `matrix.variants` | `[]` | `Definition::composite()` 的接線:`{group} => ['driver' => TypeResolver 類別, {type} => Variant 類別, …]`。**刻意放 config 不放 cfg** —— 它指的是要實例化的類別,而 cfg bundle 一旦進了 `matrix.resource-cfg` 白名單就能從資源後台改 |
 | `matrix.vendor-api-encryption` | `true` | `vendor` 前綴要不要傳輸加密 |
 | `matrix.vendor-api-prefix` | `'vendor'` | 廠商路由前綴 |
@@ -1329,7 +1329,7 @@ parameters:
 | **欄位 DSL 是開發者輸入**,識別字會被插值進 SQL | 絕對不要把使用者輸入拼進 `$lists` / `$updates` |
 | **權限白名單只覆蓋 CRUD 的寫入路徑**。`replicate()`、`setRawAttributes()`、query builder 的 `update()` 都繞得過去 | 白名單防的是請求輸入,不是程式碼 |
 | **訊息樣板的變數會原樣進入 HTML,不逸出** | 把使用者輸入當變數傳進去之前自己逸出。開放樣板編輯 = 把那個人當成信任的 HTML 作者 |
-| **`admin/translation` 送出去翻譯之前會保護佔位符**,但只保護**獨立出現**的 `{name}` / `{{name}}`——HTML 屬性值裡的(`<a href="?token={code}">`)原樣送給翻譯服務,翻回來可能已經被改掉 | 要翻的字串裡別把佔位符寫進屬性值。保護的作法是先換成一個標記元素、翻完再換回來;標記被翻譯服務改寫到認不出來時,整次翻譯回 `available: false`(**不會**回傳夾著標記殘骸的譯文),應用程式日誌記 `translation.failed` / `placeholder-lost` |
+| **`admin/translation` 送出去翻譯之前會保護佔位符**,但只保護**獨立出現**的 `{name}` / `{{name}}`——HTML 屬性值裡的(`<a href="?token={code}">`)原樣送給翻譯服務,翻回來可能已經被改掉 | 要翻的字串裡別把佔位符寫進屬性值。保護的作法是先換成一個標記元素、翻完再換回來;標記被翻譯服務改寫到認不出來時,整次翻譯回 `available: false`(**不會**回傳夾著標記殘骸的譯文),應用程式日誌記 `translation.failed` / `placeholder-lost`。**`gemini-translate` 這類 LLM driver 踩到這條的機率比 `google-translate` 高**——保留標記元素只能靠 prompt 要求,沒有 `format=html` 那種協定層保證。prompt 本身在 `cfg('gemini-translate.prompt')`,**標了 `readonly`,只能改檔案不能從資源後台編**;自訂時務必留著「原樣保留 HTML 標籤」那條規則與 `:text` 佔位符 —— 漏掉 `:text` 等於原文沒送出去,一律 `invalid-translation-driver` |
 
 #### 驗證碼服務掛掉時怎麼進後台
 
