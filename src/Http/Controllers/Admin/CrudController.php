@@ -208,7 +208,7 @@ abstract class CrudController extends BaseController {
     }
 
     protected function onGet(GetService $service): GetService {
-        return $service->columns($this->updates());
+        return $service->columns([...$this->updates(), ...$this->audited()]);
     }
 
     protected function onInsert(InsertService $service): InsertService {
@@ -263,6 +263,27 @@ abstract class CrudController extends BaseController {
         $metadata = app(MetadataRegistry::class)->of($this->model);
 
         return array_values(Arr::whereNotNull([$metadata?->enable, $metadata?->disable]));
+    }
+
+    /**
+     * @return list<string|array<string, mixed>>
+     */
+    private function audited(): array {
+        $definitions = app(MetadataRegistry::class)->definitions($this->model);
+
+        if ($definitions === null) {
+            return [];
+        }
+
+        $columns = [];
+
+        foreach (array_intersect(array_keys($definitions), array_keys(Definitions::auditings())) as $name) {
+            $relation = substr($name, 0, -3);
+
+            $columns[] = str_ends_with($name, '_id') ? ['name' => "{$relation}={$relation}.username", 'readonly' => true, 'tab' => 'other'] : "!{$name}";
+        }
+
+        return $columns;
     }
 
     private function complex(Definition $definition): bool {

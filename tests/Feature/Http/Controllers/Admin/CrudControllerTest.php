@@ -6,6 +6,7 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
 use MatrixPlatform\Columns\Declarations\Definition;
+use MatrixPlatform\Columns\Declarations\Definitions;
 use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\User;
@@ -293,6 +294,78 @@ class CrudControllerTest extends FeatureTestCase {
         $response->assertJsonPath('data.data.title', 'Alpha');
         $response->assertJsonPath('data.actions.1.type', 'update');
         $response->assertJsonPath('data.actions.1.url', 'widget/{id}/update');
+    }
+
+    public function test_the_get_response_appends_the_auditings_readonly_in_the_other_tab(): void {
+        app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget'), [
+            ...Definitions::primaryKey(),
+            'title' => Definition::text(),
+            ...Definitions::auditings()
+        ]));
+
+        $gadget = Gadget::forceCreate(['title' => 'Alpha']);
+
+        Gadget::query()->whereKey($gadget->id)->update(['creator_id' => User::ROOT, 'updater_id' => User::ROOT]);
+
+        $username = User::findOrFail(User::ROOT)->username;
+
+        $response = $this->admin("admin/gadget/{$gadget->id}");
+        $columns = array_column($response->json('data.columns'), null, 'name');
+
+        $this->assertSame(['title', 'creator', 'create_time', 'updater', 'update_time'], array_keys($columns));
+
+        foreach (['creator', 'create_time', 'updater', 'update_time'] as $name) {
+            $this->assertSame('other', $columns[$name]['tab'], $name);
+            $this->assertTrue($columns[$name]['readonly'], $name);
+            $this->assertFalse($columns[$name]['writable'], $name);
+        }
+
+        $this->assertSame('plain', $columns['creator']['presentation']);
+        $this->assertNull($columns['creator']['options']);
+        $response->assertJsonPath('data.data.creator', $username);
+        $response->assertJsonPath('data.data.updater', $username);
+    }
+
+    public function test_the_get_response_appends_only_the_declared_auditings(): void {
+        app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget'), [
+            'title' => Definition::text(),
+            ...Definitions::auditings(false)
+        ]));
+
+        $gadget = Gadget::forceCreate(['title' => 'Alpha']);
+
+        $names = array_column($this->admin("admin/gadget/{$gadget->id}")->json('data.columns'), 'name');
+
+        $this->assertSame(['title', 'creator', 'create_time'], $names);
+    }
+
+    public function test_the_get_response_appends_the_auditings_after_custom_updates(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget'), Definitions::auditings()));
+
+        $widget = $this->widget('Alpha');
+
+        $names = array_column($this->admin("admin/widget/{$widget->id}")->json('data.columns'), 'name');
+
+        $this->assertSame(['title', 'secret', 'enable_time', 'creator', 'create_time', 'updater', 'update_time'], $names);
+    }
+
+    public function test_the_new_response_and_saving_leave_out_the_auditings(): void {
+        app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget'), [
+            'title' => Definition::text(),
+            ...Definitions::auditings()
+        ]));
+
+        $gadget = Gadget::forceCreate(['title' => 'Alpha']);
+        $created = $gadget->refresh()->create_time->format('Y');
+
+        $names = array_column($this->admin('admin/gadget/new')->json('data.columns'), 'name');
+
+        $this->admin("admin/gadget/{$gadget->id}/update", ['title' => 'Beta', 'creator' => 'someone', 'creator_id' => 999, 'create_time' => '2000-01-01 00:00:00'])->assertJsonPath('success', true);
+
+        $this->assertSame(['title'], $names);
+        $this->assertSame('Beta', $gadget->refresh()->title);
+        $this->assertNotSame(999, $gadget->creator_id);
+        $this->assertSame($created, $gadget->create_time->format('Y'));
     }
 
     public function test_the_new_response_fills_every_column_with_null(): void {

@@ -504,6 +504,8 @@ class WidgetController extends CrudController {
 
 **鎖定(`=`)是「可寫但不可編輯」。** 值在表單開啟之前就決定了(例如區塊的型別由型別選擇器決定),所以它照樣驗證、照樣寫入,但 `columns[]` 上的 `writable` 是 `false`,前端據此把輸入框停用。`readonly`(`!`)是另一回事:不驗證、不寫入。鎖定同時隱含必填 —— 值既然是先決定好的,就不該是空的;要「鎖定但可為空」請用陣列語法 `['name' => 'x', 'locked' => true]`。
 
+**編輯頁（`get`）會自動在「其他」頁籤唯讀顯示稽核欄位,不用設定。** 只要宣告有 `Definitions::auditings()`,`onGet()` 就在 `$updates`(或自動推導的欄位)後面依宣告順序補上 `creator`、`!create_time`、`updater`、`!update_time`(`auditings(false)` 只補前兩個)。`creator` / `updater` 是關聯欄位 `creator=creator.username`、`updater=updater.username`:`BaseModel` 內建 `creator()`、`updater()` 兩個關聯(`BelongsTo` 到 `Operator`,即 `base_operator`),直接 join 出帳號名稱,以唯讀(前端停用)的文字欄位呈現。`Definitions::auditings()` 本身帶 `tab: 'other'`,關聯欄位則用陣列語法的 `tab` 鍵指定頁籤。新增頁、存檔(`insert` / `update`)不含這些欄位,送上來的值會被忽略。`$updates` 已經放了同名欄位時以 `$updates` 為準;同名欄位只取第一個,所以在 `parent::onGet()` 之後再 `columns()` 同名欄位不會生效。不想要就覆寫 `onGet()` 且不呼叫 `parent::onGet()`。標題在套件的 `model/default.php`。清單要顯示建立者,寫 `creator=creator.username`;直接寫 `creator_id` 會因為有 `creator()` 關聯而自動變成下拉選項,把整張 `base_operator` 讀進來。
+
 ### 5. 路由 —— 必須掛在 `admin` 前綴之下
 
 ```php

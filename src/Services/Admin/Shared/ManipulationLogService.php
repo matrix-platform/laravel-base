@@ -4,6 +4,7 @@ namespace MatrixPlatform\Services\Admin\Shared;
 
 use Illuminate\Database\Eloquent\Model;
 use MatrixPlatform\Columns\ColumnResolver;
+use MatrixPlatform\Columns\Declarations\Definitions;
 use MatrixPlatform\Columns\Syntax\ColumnParser;
 use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\Operator;
@@ -62,7 +63,7 @@ class ManipulationLogService {
         $parser = new ColumnParser();
         $options = [];
 
-        foreach (array_keys($definitions) as $name) {
+        foreach (array_diff(array_keys($definitions), array_keys(Definitions::auditings())) as $name) {
             $provider = $this->columns->resolve($parser->parse($name), $model)->options;
 
             if ($provider !== null) {

@@ -11,8 +11,8 @@ class Definitions {
      */
     public static function auditings(bool $updated = true): array {
         $definitions = [
-            'creator_id' => Definition::integer(),
-            'create_time' => Definition::dateTime()
+            'creator_id' => Definition::integer(tab: 'other'),
+            'create_time' => Definition::dateTime(tab: 'other')
         ];
 
         if (!$updated) {
@@ -20,8 +20,8 @@ class Definitions {
         }
 
         return array_merge($definitions, [
-            'updater_id' => Definition::integer(),
-            'update_time' => Definition::dateTime()
+            'updater_id' => Definition::integer(tab: 'other'),
+            'update_time' => Definition::dateTime(tab: 'other')
         ]);
     }
 

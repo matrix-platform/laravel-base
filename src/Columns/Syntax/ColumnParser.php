@@ -86,6 +86,7 @@ class ColumnParser {
             $required,
             $this->rule(array_get_value($given, 'rule')),
             is_bool($sortable) ? $sortable : ($virtual ? false : null),
+            $this->text(array_get_value($given, 'tab')),
             $this->text(array_get_value($given, 'title')),
             $type === null ? null : ColumnType::tryFrom($type),
             $virtual

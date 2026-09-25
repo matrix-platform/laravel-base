@@ -56,6 +56,12 @@ class ColumnResolverTest extends FeatureTestCase {
         $this->assertSame('other', $this->resolve('title')->tab);
     }
 
+    public function test_a_given_tab_overrides_the_declared_one(): void {
+        $this->declare(['title' => Definition::text(tab: 'other')]);
+
+        $this->assertSame('given', $this->resolve(['name' => 'title', 'tab' => 'given'])->tab);
+    }
+
     public function test_a_declared_class_string_provider_is_resolved_to_an_instance(): void {
         $this->declare(['title' => Definition::json('permissions', [], PermissionTree::class)]);
 
@@ -241,7 +247,7 @@ class ColumnResolverTest extends FeatureTestCase {
     }
 
     public function test_an_id_column_without_a_relation_has_no_options(): void {
-        $this->assertNull($this->resolve('creator_id')->options);
+        $this->assertNull($this->resolve('trinket_id')->options);
     }
 
     public function test_a_column_with_options_is_presented_as_a_select(): void {

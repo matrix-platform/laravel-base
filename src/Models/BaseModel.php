@@ -4,6 +4,7 @@ namespace MatrixPlatform\Models;
 
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Arr;
 use MatrixPlatform\Models\Builders\BaseBuilder;
 use MatrixPlatform\Models\Generators\Creator;
@@ -45,6 +46,13 @@ abstract class BaseModel extends Model {
      */
     protected array $untraceable = [];
 
+    /**
+     * @return BelongsTo<Operator, $this>
+     */
+    public function creator(): BelongsTo {
+        return $this->belongsTo(Operator::class, static::CREATED_BY);
+    }
+
     public function lock(): static {
         $data = static::newQueryWithoutScopes()
             ->whereKey($this->getKey())
@@ -67,6 +75,13 @@ abstract class BaseModel extends Model {
      */
     public function newEloquentBuilder($query): BaseBuilder {
         return new BaseBuilder($query);
+    }
+
+    /**
+     * @return BelongsTo<Operator, $this>
+     */
+    public function updater(): BelongsTo {
+        return $this->belongsTo(Operator::class, static::UPDATED_BY);
     }
 
     protected function serializeDate(DateTimeInterface $date): string {

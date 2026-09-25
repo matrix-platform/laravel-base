@@ -5,6 +5,7 @@ namespace Tests\Feature\Services\Admin\Shared;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Columns\Declarations\Definition;
+use MatrixPlatform\Columns\Declarations\Definitions;
 use MatrixPlatform\Columns\Options\Option;
 use MatrixPlatform\Models\Group;
 use MatrixPlatform\Models\ManipulationLog;
@@ -187,6 +188,14 @@ class ManipulationLogServiceTest extends FeatureTestCase {
 
     public function test_a_model_without_option_columns_reports_no_options(): void {
         app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget'), ['title' => Definition::text()]));
+
+        $widget = Widget::forceCreate(['title' => 'Alpha']);
+
+        $this->assertSame([], $this->service()->query('widget', $widget->id, 1, 20)['options']);
+    }
+
+    public function test_the_options_leave_out_the_auditings(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget'), ['title' => Definition::text(), ...Definitions::auditings()]));
 
         $widget = Widget::forceCreate(['title' => 'Alpha']);
 
