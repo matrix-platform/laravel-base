@@ -96,7 +96,7 @@ class ExportService extends CrudService {
 
         return [
             'title' => $this->heading(),
-            'columns' => array_map(fn (array $field): array => [...$this->shape($field['column']), 'name' => $field['name']], $fields),
+            'columns' => array_map(fn (array $field): array => [...$this->shape($field['column']), 'name' => $field['name'], 'title' => $field['title']], $fields),
             'rows' => $rows
         ];
     }
@@ -130,21 +130,21 @@ class ExportService extends CrudService {
 
     /**
      * @param list<Column> $outputs
-     * @return list<array{name: string, column: Column}>
+     * @return list<array{name: string, column: Column, title: string}>
      */
     private function fields(array $outputs): array {
         $fields = [];
 
         foreach ($outputs as $column) {
             if ($column->translatable && $this->locales !== null) {
-                foreach ($this->translated($column, $this->locales) as $key) {
-                    $fields[] = ['name' => $key, 'column' => $column];
+                foreach (array_combine($this->locales, $this->translated($column, $this->locales)) as $locale => $key) {
+                    $fields[] = ['name' => $key, 'column' => $column, 'title' => $this->localized($column->title, $locale)];
                 }
 
                 continue;
             }
 
-            $fields[] = ['name' => $column->name, 'column' => $column];
+            $fields[] = ['name' => $column->name, 'column' => $column, 'title' => $column->title];
         }
 
         return $fields;
@@ -196,6 +196,10 @@ class ExportService extends CrudService {
         $title = is_array($map) ? array_get_value($map, $key) : null;
 
         return is_string($title) ? $title : $key;
+    }
+
+    private function localized(string $title, string $locale): string {
+        return strtr(i18n('backend.export.locale-column'), [':title' => $title, ':locale' => i18n("backend.locale-{$locale}")]);
     }
 
     /**

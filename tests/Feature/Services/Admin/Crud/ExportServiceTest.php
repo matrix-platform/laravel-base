@@ -568,6 +568,40 @@ class ExportServiceTest extends FeatureTestCase {
         $this->assertSame([['translated__en' => 'Beta']], $exported['rows']);
     }
 
+    public function test_locales_append_the_locale_name_to_each_expanded_title(): void {
+        $this->declare(['translated' => Definition::text(translatable: true), 'title' => Definition::text()]);
+
+        $columns = (new ExportService(Widget::class))
+            ->standalone(true)
+            ->columns([['name' => 'translated', 'title' => 'Question'], ['name' => 'title', 'title' => 'Name']])
+            ->locales(['tw', 'en'])
+            ->export([])['columns'];
+
+        $this->assertSame(['Question (繁體中文)', 'Question (English)', 'Name'], array_column($columns, 'title'));
+    }
+
+    public function test_the_locale_title_format_follows_the_current_locale(): void {
+        $this->declare(['translated' => Definition::text(translatable: true)]);
+
+        app()->setLocale('tw');
+
+        $columns = (new ExportService(Widget::class))
+            ->standalone(true)
+            ->columns([['name' => 'translated', 'title' => '問題']])
+            ->locales(['en'])
+            ->export([])['columns'];
+
+        $this->assertSame(['問題（English）'], array_column($columns, 'title'));
+    }
+
+    public function test_a_translatable_title_is_left_alone_without_locales(): void {
+        $this->declare(['translated' => Definition::text(translatable: true)]);
+
+        $columns = $this->exported([['name' => 'translated', 'title' => 'Question']])['columns'];
+
+        $this->assertSame(['Question'], array_column($columns, 'title'));
+    }
+
     public function test_a_cell_override_registered_once_applies_to_every_expanded_locale(): void {
         $this->declare(['translated' => Definition::text(translatable: true)]);
 

@@ -9,8 +9,6 @@ use MatrixPlatform\Services\Admin\Crud\Operation;
 
 class TrinketController extends CrudController {
 
-    protected bool $exportable = true;
-
     protected ?array $lists = [
         'label',
         'widget.title',

@@ -854,6 +854,10 @@ abstract class CrudService {
     private function uniqueRule(string $field, int|string|null $ignoreId): Unique {
         $rule = Rule::unique($this->model->getTable(), $field);
 
+        if (method_exists($this->model, 'getDeletedAtColumn')) {
+            $rule->withoutTrashed($this->model->getDeletedAtColumn());
+        }
+
         return $ignoreId === null ? $rule : $rule->ignore($ignoreId);
     }
 

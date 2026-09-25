@@ -7,6 +7,7 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
+use MatrixPlatform\Http\Controllers\Admin\UserController;
 use MatrixPlatform\Models\PasskeyCredential;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Routing\ActionRoutes;
@@ -16,7 +17,6 @@ use Tests\Factories\GroupFactory;
 use Tests\Factories\PasskeyCredentialFactory;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
-use Tests\Stubs\ExportableUserController;
 
 class UserControllerTest extends FeatureTestCase {
 
@@ -29,7 +29,7 @@ class UserControllerTest extends FeatureTestCase {
     protected function defineRoutes($router): void {
         $router->middleware(['envelope-api', 'user-api'])
             ->prefix('admin')
-            ->group(fn () => Route::prefix('exportable-user')->group(fn () => ActionRoutes::scan(ExportableUserController::class)));
+            ->group(fn () => Route::prefix('exportable-user')->group(fn () => ActionRoutes::scan(UserController::class)));
     }
 
     private function enableMfa(User $user): void {
@@ -421,6 +421,18 @@ class UserControllerTest extends FeatureTestCase {
         foreach (['admin/user/1/copy', 'admin/user/export', 'admin/user/sort', 'admin/user/sort/save'] as $uri) {
             $this->send($token, $uri)->assertJsonPath('error', 'permission-denied');
         }
+    }
+
+    public function test_the_shipped_menu_keeps_user_and_group_export_closed_even_to_a_granted_regular_user(): void {
+        $token = $this->signIn(self::REGULAR, ['user' => ['query' => true, 'export' => true], 'group' => ['query' => true, 'export' => true]]);
+
+        foreach (['admin/user/export', 'admin/group/export'] as $uri) {
+            $this->send($token, $uri)->assertJsonPath('error', 'permission-denied');
+        }
+    }
+
+    public function test_the_shipped_menu_keeps_group_export_closed_to_root(): void {
+        $this->send($this->signIn(User::ROOT), 'admin/group/export')->assertJsonPath('error', 'permission-denied');
     }
 
     public function test_an_admin_disables_mfa_for_an_account(): void {

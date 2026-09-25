@@ -103,6 +103,40 @@ class CopyServiceTest extends FeatureTestCase {
         $this->assertSame($source->ranking, $copy->ranking);
     }
 
+    public function test_a_copy_clears_the_schedule_declared_in_the_metadata(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget', enable: 'enable_time', disable: 'disable_time')));
+
+        $source = $this->widgets();
+
+        Widget::query()->whereKey($source->id)->update(['enable_time' => now()->subDay(), 'disable_time' => now()->addDay()]);
+
+        $copy = $this->copied($source);
+
+        $this->assertNull($copy->enable_time);
+        $this->assertNull($copy->disable_time);
+    }
+
+    public function test_a_copy_draws_a_new_ranking_when_the_metadata_declares_one(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget', ranking: 'ranking')));
+
+        $source = $this->widgets();
+        $later = Widget::forceCreate(['title' => 'Beta'])->refresh();
+        $copy = $this->copied($source);
+
+        $this->assertGreaterThan($later->ranking, $copy->ranking);
+    }
+
+    public function test_cascaded_children_keep_their_ranking(): void {
+        app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'widget', ranking: 'ranking')));
+
+        $source = $this->widgets();
+        $child = Trinket::forceCreate(['label' => 'a', 'widget_id' => $source->id])->refresh();
+
+        $id = $this->copier()->cascade(['trinkets'])->copy($source->id)['id'];
+
+        $this->assertSame($child->ranking, Trinket::query()->where('widget_id', $id)->sole()->ranking);
+    }
+
     public function test_a_model_without_an_updater_column_can_still_be_copied(): void {
         $source = UserLog::forceCreate(['user_id' => User::ROOT, 'type' => UserLogType::Login]);
 

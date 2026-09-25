@@ -1413,7 +1413,7 @@ php artisan matrix:clear-resource-cache
 | **手寫進資料庫的權限,形狀錯了會被靜默丟掉** | 存進去的形狀必須是 `{"路徑": {"動作": true}}`。值不是 true 的項目在下一次寫入時就消失,而且不會有任何錯誤 |
 | **權限的寫入是「範圍內修訂」** | 編輯者只能授出自己有的權限,也洗不掉自己碰不到的;白名單以外的權限（例如維運用 SQL 寫的）會被保留 |
 | **`guard` 是疊加的,套件先、宿主後** | 宿主看到的是已經過濾的值,而且無法覆蓋套件自己的 guard（例如「不能刪自己」） |
-| **`user` 的 `copy` 與 `export` 同受等級範圍約束** | 與 `get` / `update` / `delete` 一樣,管不到的帳號一律 `data-not-found`、匯不出來。`copy` 只要宿主加選單節點就開啟,`export` 還要子類化把 `$exportable` 翻成 true;`sort` 對 `user` 不可用（`base_user` 沒有 `ranking` 欄位）。`group` 不受等級範圍約束 |
+| **`user` 的 `copy` 與 `export` 同受等級範圍約束** | 與 `get` / `update` / `delete` 一樣,管不到的帳號一律 `data-not-found`、匯不出來。`copy`、`export` 都是宿主加選單節點就開啟;`sort` 對 `user` 不可用（`base_user` 沒有 `ranking` 欄位）。`group` 不受等級範圍約束 |
 | **`password` 的 key 一定要送,值可以留空** | 完全不送 key 會回 422 `present`(更新是全量覆寫,漏送等於前端壞了)。送 `null` 或空字串則不寫入 —— 編輯保留原密碼與 session,新增建出沒有密碼、登不進來的帳號。只有非空值才必須符合 `admin.password-pattern`,編輯成功後撤銷該帳號全部 session |
 | **預先雜湊的值當密碼會被原樣存進去** | 政策只有 `admin.password-pattern` 一道,而 bcrypt hash 通過它(60 碼、含英文與數字)。`hashed` cast 對已雜湊的值不再雜湊,所以前端若先雜湊再送,該帳號之後得拿 hash 字串當密碼才能登入,而且沒有任何錯誤訊息 |
 | **`whereActive()` 把 `enable_time` 為 NULL 的列一律當成未啟用** | 對 `user` 的表徵是「後台建的帳號沒填啟用時間就登不進來」（`enable_time` 要非 null 且已到,而表單沒把它設成必填,症狀是「帳號或密碼錯誤」,看不出真正原因）;對 `base_menu` 的表徵是 `api/common/menu`（匿名端點）**靜默回空選單** —— 沒有報錯路徑,debug 起來毫無線索 |
@@ -1422,11 +1422,13 @@ php artisan matrix:clear-resource-cache
 
 | 事實 | 說明 |
 |---|---|
+| **清單預設按鈕是 `pageActions(['new', 'delete', 'arrange', 'sort', 'export'])`、`rowActions(['edit', 'copy', 'delete'])`(可追蹤的 model 再補 `log`)** | 每一顆都要選單有對應節點(`{prefix}/export`、`{prefix}/{id}/copy` 等)且使用者有權限才會出現,所以開不開複製／匯出由選單決定——端點本身也一樣:沒有節點的 `export` / `{id}/copy` 請求被 `permission-api` 擋成 `permission-denied`(含 ROOT),controller 不需要另開旗標 |
 | **複製會沿用來源的 `ranking`** | 除非那個資源開了 `$sortable`,否則不會自我修復 |
 | 複製時 `$generators` 管的欄位（建立時間、建立者等）**重新產生**,不照抄 | —— |
 | **級聯複製只接受 `hasOne` / `hasMany` 及其 morph 形式** | `belongsToMany` 不支援 |
 | **匯出明寫 `'id'` 匯不出主鍵** | 要主鍵請寫 `'key=id'` |
 | **`$exports = []` 是「沒有欄位」,不是「退回清單欄位」** | —— |
+| **多語欄位用 `ExportService::locales([...])` 展開時,表頭帶語系名稱** | 每個語系一欄(`{欄位}__{語系}`),`title` 依 `backend.export.locale-column` 組成,例如「問題（繁體中文）」、英文介面「Question (English)」;語系名稱取 `backend.locale-{語系}`。沒呼叫 `locales()` 時只輸出目前語系一欄,表頭不變 |
 | **`$hidden` 只對 root model 的欄位有效** | join 進來的別名不受它保護 |
 | **匯出回應的 `columns[]` 不含 `op` / `sortable` / `options`** | 前端要知道能篩什麼,必須先呼叫清單端點 |
 | **`base_city_area.ranking` 與 `base_ranking` 序列不同量級** | 後台第一次拖曳排序就會把整組重編 |

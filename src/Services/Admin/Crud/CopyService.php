@@ -3,6 +3,7 @@
 namespace MatrixPlatform\Services\Admin\Crud;
 
 use Illuminate\Database\Eloquent\Model;
+use MatrixPlatform\Support\MetadataRegistry;
 
 class CopyService extends CrudService {
 
@@ -27,6 +28,7 @@ class CopyService extends CrudService {
         $source = $this->plain()->findOrFail($id);
         $copy = $source->replicate();
 
+        $this->reset($copy);
         $this->inspect($copy, $source);
 
         $copy->save();
@@ -61,6 +63,20 @@ class CopyService extends CrudService {
             $clone->save();
 
             $this->propagate($child, $clone, $chain);
+        }
+    }
+
+    private function reset(Model $copy): void {
+        $metadata = app(MetadataRegistry::class)->of($copy::class);
+
+        foreach ([$metadata?->enable, $metadata?->disable] as $column) {
+            if ($column !== null) {
+                $copy->setAttribute($column, null);
+            }
+        }
+
+        if ($metadata?->ranking !== null) {
+            $copy->offsetUnset($metadata->ranking);
         }
     }
 

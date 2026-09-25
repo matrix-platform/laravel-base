@@ -20,6 +20,7 @@ use stdClass;
 use Tests\FeatureTestCase;
 use Tests\Stubs\Gizmo;
 use Tests\Stubs\PremiumWidget;
+use Tests\Stubs\Relic;
 use Tests\Stubs\StubDeclaration;
 use Tests\Stubs\Trinket;
 use Tests\Stubs\Widget;
@@ -313,6 +314,59 @@ class CrudServiceTest extends FeatureTestCase {
                 ->insert(['title' => 'words']);
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('Numeric', $exception->validator->failed()['title']);
+
+            return;
+        }
+
+        $this->fail('the insert was expected to be rejected');
+    }
+
+    public function test_a_unique_column_on_a_soft_deleting_model_ignores_deleted_rows(): void {
+        app(MetadataRegistry::class)->register(Relic::class, new StubDeclaration(new Metadata('relic'), ['label' => Definition::text(required: true, unique: true)]));
+
+        $deleted = Relic::forceCreate(['label' => 'amulet']);
+
+        $deleted->delete();
+
+        $id = (new InsertService(Relic::class))
+            ->standalone(true)
+            ->columns(['label'])
+            ->insert(['label' => 'amulet'])['id'];
+
+        $this->assertSame('amulet', Relic::query()->findOrFail(intval($id))->label);
+    }
+
+    public function test_a_unique_column_on_a_soft_deleting_model_still_rejects_a_live_duplicate(): void {
+        app(MetadataRegistry::class)->register(Relic::class, new StubDeclaration(new Metadata('relic'), ['label' => Definition::text(required: true, unique: true)]));
+
+        Relic::forceCreate(['label' => 'amulet']);
+
+        try {
+            (new InsertService(Relic::class))
+                ->standalone(true)
+                ->columns(['label'])
+                ->insert(['label' => 'amulet']);
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('Unique', $exception->validator->failed()['label']);
+
+            return;
+        }
+
+        $this->fail('the insert was expected to be rejected');
+    }
+
+    public function test_a_unique_column_on_a_model_without_soft_deletes_compares_every_row(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget'), ['title' => Definition::text(unique: true)]));
+
+        $this->widgets();
+
+        try {
+            (new InsertService(Widget::class))
+                ->standalone(true)
+                ->columns(['title'])
+                ->insert(['title' => 'Alpha']);
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('Unique', $exception->validator->failed()['title']);
 
             return;
         }

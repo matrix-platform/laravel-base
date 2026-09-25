@@ -124,6 +124,8 @@ return [
 
     'errors.request_failed' => 'Request failed, please try again later',
 
+    'export.locale-column' => ':title (:locale)',
+
     'fileChoose' => 'Choose a file, or drag it here',
     'fileDownload' => 'Download',
     'fileDrag' => 'Drag to Reorder',
@@ -327,5 +329,6 @@ return [
     'validation.string' => 'Must be text',
     'validation.unique' => 'This value has already been taken',
     'validation.unsupported-model' => 'This resource is not available for this action',
+    'validation.url' => 'Invalid URL format',
 
 ];

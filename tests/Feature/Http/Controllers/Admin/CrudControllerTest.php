@@ -18,6 +18,7 @@ use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
 use Tests\Stubs\Gadget;
 use Tests\Stubs\GadgetController;
+use Tests\Stubs\Gizmo;
 use Tests\Stubs\GizmoController;
 use Tests\Stubs\StubDeclaration;
 use Tests\Stubs\Trinket;
@@ -83,11 +84,30 @@ class CrudControllerTest extends FeatureTestCase {
         $response->assertJsonPath('data.breadcrumbs', [['label' => null, 'path' => 'widget', 'title' => 'Widgets']]);
         $response->assertJsonPath('data.rows.0.title', 'Alpha');
         $response->assertJsonPath('data.rows.0.trinkets_count', 1);
-        $response->assertJsonPath('data.rows.0.actions', ['edit', 'delete', 'log']);
+        $response->assertJsonPath('data.rows.0.actions', ['edit', 'copy', 'delete', 'log']);
         $response->assertJsonPath('data.pagination', ['page' => 1, 'size' => 10, 'total' => 1]);
         $response->assertJsonPath('data.columns.0.name', 'title');
         $response->assertJsonPath('data.actions.page.0.type', 'new');
         $response->assertJsonPath('data.actions.row.0.type', 'edit');
+    }
+
+    public function test_the_default_actions_offer_copy_and_export_when_the_menu_has_their_nodes(): void {
+        $this->widget('Alpha');
+
+        $response = $this->admin('admin/widget');
+
+        $this->assertSame(['new', 'delete', 'arrange', 'sort', 'export'], array_column($response->json('data.actions.page'), 'type'));
+        $this->assertSame(['edit', 'copy', 'delete', 'log'], array_column($response->json('data.actions.row'), 'type'));
+    }
+
+    public function test_the_default_actions_leave_out_copy_and_export_without_their_menu_nodes(): void {
+        Gadget::forceCreate(['title' => 'Alpha']);
+
+        $response = $this->admin('admin/gadget');
+
+        $this->assertSame(['export'], array_column($response->json('data.actions.page'), 'type'));
+        $this->assertSame([], array_column($response->json('data.actions.row'), 'type'));
+        $response->assertJsonPath('data.rows.0.actions', []);
     }
 
     public function test_the_title_falls_back_to_null_without_a_reachable_menu(): void {
@@ -787,8 +807,12 @@ class CrudControllerTest extends FeatureTestCase {
         $this->assertEqualsCanonicalizing(['Alpha', 'Gamma'], array_column($rows, 'title'));
     }
 
-    public function test_export_is_hidden_when_the_resource_is_not_exportable(): void {
-        $this->admin('admin/gizmo/export')->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
+    public function test_export_needs_no_opt_in_on_the_controller(): void {
+        app(MetadataRegistry::class)->register(Gizmo::class, new StubDeclaration(new Metadata('gizmo'), ['title' => Definition::text()]));
+
+        Gizmo::forceCreate(['title' => 'Alpha']);
+
+        $this->assertSame([['title' => 'Alpha']], $this->admin('admin/gizmo/export')->json('data.rows'));
     }
 
     public function test_the_export_action_carries_its_translated_title_and_url(): void {

@@ -36,8 +36,6 @@ abstract class CrudController extends BaseController {
      */
     protected array $counts = [];
 
-    protected bool $exportable = false;
-
     /**
      * @var list<string|array<string, mixed>>|null
      */
@@ -121,10 +119,6 @@ abstract class CrudController extends BaseController {
      */
     #[Action]
     public function export(Request $request): array {
-        if (!$this->exportable) {
-            error('data-not-found', 404);
-        }
-
         return $this->onExport($this->prepare(new ExportService($this->model), $request))->export($request->all());
     }
 

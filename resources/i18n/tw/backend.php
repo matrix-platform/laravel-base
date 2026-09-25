@@ -124,6 +124,8 @@ return [
 
     'errors.request_failed' => '連線失敗, 請稍後再試',
 
+    'export.locale-column' => ':title (:locale)',
+
     'fileChoose' => '選擇檔案, 或把檔案拖到這裡',
     'fileDownload' => '下載',
     'fileDrag' => '調整順序',
@@ -327,5 +329,6 @@ return [
     'validation.string' => '必須為文字',
     'validation.unique' => '此值已被使用',
     'validation.unsupported-model' => '此資料類型不支援此操作',
+    'validation.url' => '網址格式有誤',
 
 ];

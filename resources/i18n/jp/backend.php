@@ -124,6 +124,8 @@ return [
 
     'errors.request_failed' => '通信に失敗しました。しばらくしてからお試しください',
 
+    'export.locale-column' => ':title (:locale)',
+
     'fileChoose' => 'ファイルを選択、またはここにドラッグ',
     'fileDownload' => 'ダウンロード',
     'fileDrag' => 'ドラッグで並び替え',
@@ -327,5 +329,6 @@ return [
     'validation.string' => '文字列を入力してください',
     'validation.unique' => 'この値はすでに使用されています',
     'validation.unsupported-model' => 'このリソースはこの操作に対応していません',
+    'validation.url' => 'URLの形式が正しくありません',
 
 ];
