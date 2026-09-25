@@ -1089,6 +1089,8 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 
 **刪除**:`{"id": [1, 2, 3]}`,任一筆不存在整批失敗（`data-not-found`）。
 
+**匯出**（`admin/widget/export`）:與清單相同的 `filters` / `sort`,可另帶 `{"id": [1, 2, 3]}` 只匯出這些列 —— 與篩選取交集、照 `sort` 排序,不存在或範圍外的 id 直接略過（不回 `data-not-found`）;不帶或空陣列 = 全部。
+
 **拖曳排序儲存**（`admin/widget/sort/save`）:`{"order": [3, 1, 2]}`,必須是完整集合,少一筆就是 `invalid-sort-order`。
 
 ### 回應形狀

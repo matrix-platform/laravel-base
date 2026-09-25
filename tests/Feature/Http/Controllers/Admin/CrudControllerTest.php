@@ -777,6 +777,16 @@ class CrudControllerTest extends FeatureTestCase {
         $this->assertSame(['mine'], array_column($rows, 'label'));
     }
 
+    public function test_export_with_ids_only_exports_the_chosen_rows(): void {
+        $alpha = $this->widget('Alpha');
+        $this->widget('Beta');
+        $gamma = $this->widget('Gamma');
+
+        $rows = $this->admin('admin/widget/export', ['id' => [$alpha->id, $gamma->id, 999999]])->json('data.rows');
+
+        $this->assertEqualsCanonicalizing(['Alpha', 'Gamma'], array_column($rows, 'title'));
+    }
+
     public function test_export_is_hidden_when_the_resource_is_not_exportable(): void {
         $this->admin('admin/gizmo/export')->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
     }

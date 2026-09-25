@@ -377,6 +377,88 @@ class ExportServiceTest extends FeatureTestCase {
         $this->assertCount(3, $rows);
     }
 
+    public function test_the_given_ids_narrow_the_export(): void {
+        $alpha = $this->widget('Alpha');
+        $this->widget('Beta');
+        $gamma = $this->widget('Gamma');
+
+        $rows = $this->exported(['title'], ['id' => [$alpha->id, $gamma->id]])['rows'];
+
+        $this->assertSame(['Alpha', 'Gamma'], array_column($rows, 'title'));
+    }
+
+    public function test_the_given_ids_follow_the_sort_rather_than_their_own_order(): void {
+        $alpha = $this->widget('Alpha');
+        $beta = $this->widget('Beta');
+        $this->widget('Gamma');
+
+        $rows = $this->exported(['title'], ['id' => [$alpha->id, $beta->id], 'sort' => [['name' => 'title', 'direction' => 'desc']]])['rows'];
+
+        $this->assertSame(['Beta', 'Alpha'], array_column($rows, 'title'));
+    }
+
+    public function test_the_given_ids_are_intersected_with_the_filters(): void {
+        $widget = $this->widget('Alpha');
+
+        $keep = Trinket::forceCreate(['label' => 'keep', 'widget_id' => $widget->id, 'amount' => 5]);
+        $drop = Trinket::forceCreate(['label' => 'drop', 'widget_id' => $widget->id, 'amount' => 9]);
+        Trinket::forceCreate(['label' => 'other', 'widget_id' => $widget->id, 'amount' => 5]);
+
+        $rows = (new ExportService(Trinket::class))
+            ->standalone(true)
+            ->columns(['label'])
+            ->filterColumns([['name' => 'amount', 'op' => 'eq']])
+            ->export(['id' => [$keep->id, $drop->id], 'filters' => ['amount' => ['op' => 'eq', 'value' => 5]]])['rows'];
+
+        $this->assertSame([['label' => 'keep']], $rows);
+    }
+
+    public function test_an_empty_id_list_exports_everything(): void {
+        $this->widget('Alpha');
+        $this->widget('Beta');
+
+        $rows = $this->exported(['title'], ['id' => []])['rows'];
+
+        $this->assertSame(['Alpha', 'Beta'], array_column($rows, 'title'));
+    }
+
+    public function test_a_missing_id_is_skipped(): void {
+        $alpha = $this->widget('Alpha');
+        $this->widget('Beta');
+
+        $rows = $this->exported(['title'], ['id' => [$alpha->id, 999999]])['rows'];
+
+        $this->assertSame([['title' => 'Alpha']], $rows);
+    }
+
+    public function test_an_id_under_another_parent_is_not_exported(): void {
+        $mine = $this->widget('Alpha');
+        $other = $this->widget('Beta');
+
+        $keep = Trinket::forceCreate(['label' => 'mine', 'widget_id' => $mine->id]);
+        $foreign = Trinket::forceCreate(['label' => 'theirs', 'widget_id' => $other->id]);
+
+        $rows = (new ExportService(Trinket::class))
+            ->params(['widget_id' => $mine->id])
+            ->columns(['label'])
+            ->export(['id' => [$keep->id, $foreign->id]])['rows'];
+
+        $this->assertSame([['label' => 'mine']], $rows);
+    }
+
+    public function test_an_id_outside_the_scope_is_not_exported(): void {
+        $alpha = $this->widget('Alpha');
+        $beta = $this->widget('Beta');
+
+        $rows = (new ExportService(Widget::class))
+            ->standalone(true)
+            ->columns(['title'])
+            ->scope(fn (Builder $query) => $query->where('title', 'Alpha'))
+            ->export(['id' => [$alpha->id, $beta->id]])['rows'];
+
+        $this->assertSame([['title' => 'Alpha']], $rows);
+    }
+
     public function test_a_guard_refuses_the_whole_export(): void {
         $this->widget('Alpha');
 

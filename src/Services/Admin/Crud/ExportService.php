@@ -4,6 +4,7 @@ namespace MatrixPlatform\Services\Admin\Crud;
 
 use Closure;
 use DateTimeInterface;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use MatrixPlatform\Columns\Column;
 use MatrixPlatform\Columns\ColumnType;
@@ -56,9 +57,15 @@ class ExportService extends CrudService {
         $this->attach($this->model);
 
         $values = is_array($input) ? $input : [];
+        $items = Arr::wrap(array_get_value($values, 'id'));
         $query = $this->projection();
 
         (new Filtering())->apply($query, $this->plan(), array_get_value($values, 'filters'));
+
+        if ($items !== []) {
+            $query->whereIn("{$this->model->getTable()}.id", $items);
+        }
+
         (new Sorting($this->sorting))->apply($query, $this->plan(), array_get_value($values, 'sort'));
 
         $query->orderBy("{$this->model->getTable()}.id");
