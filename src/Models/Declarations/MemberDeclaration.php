@@ -18,7 +18,7 @@ class MemberDeclaration implements Declares {
             Definitions::primaryKey(),
             [
                 'username' => Definition::text(),
-                'password' => Definition::text(Presentation::Password, fn (): array => ['exclude_if:password,null', 'regex:' . cfg('member.password-pattern')]),
+                'password' => Definition::text(Presentation::Password, fn (): array => ['exclude_if:password,null', 'password_format:member']),
                 'name' => Definition::text(),
                 'mobile' => Definition::text(),
                 'mail' => Definition::text(),

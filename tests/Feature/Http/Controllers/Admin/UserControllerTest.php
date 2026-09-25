@@ -184,7 +184,7 @@ class UserControllerTest extends FeatureTestCase {
         $response = $this->send($token, 'admin/user/insert', $this->form(['password' => 'short']));
 
         $response->assertJson(['code' => 422, 'error' => 'validation-failed']);
-        $response->assertJsonPath('fields.password', ['regex']);
+        $response->assertJsonPath('fields.password', ['password-format']);
     }
 
     public function test_an_admin_must_send_the_password_key_when_creating_an_account(): void {
@@ -209,7 +209,7 @@ class UserControllerTest extends FeatureTestCase {
         ]));
 
         $response->assertJson(['code' => 422, 'error' => 'validation-failed']);
-        $response->assertJsonPath('fields.password', ['regex']);
+        $response->assertJsonPath('fields.password', ['password-format']);
     }
 
     public function test_an_admin_must_send_the_password_key_when_updating_an_account(): void {

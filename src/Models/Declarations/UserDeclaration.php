@@ -18,7 +18,7 @@ class UserDeclaration implements Declares {
             Definitions::primaryKey(),
             [
                 'username' => Definition::text(required: true, unique: true),
-                'password' => Definition::text(Presentation::Password, fn (): array => ['exclude_if:password,null', 'regex:' . cfg('admin.password-pattern')]),
+                'password' => Definition::text(Presentation::Password, fn (): array => ['exclude_if:password,null', 'password_format:admin']),
                 'group_id' => Definition::integer()
             ],
             Definitions::disabled(),

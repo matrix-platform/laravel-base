@@ -7,6 +7,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\ServiceProvider;
 use MatrixPlatform\Console\Commands\ClearResourceCacheCommand;
 use MatrixPlatform\Console\Commands\DispatchMessagesCommand;
@@ -60,6 +61,8 @@ class BaseServiceProvider extends ServiceProvider {
         }
 
         Event::listen(TransactionRolledBack::class, fn () => app(RollbackCallbacks::class)->run());
+
+        Validator::extend('password_format', fn (string $attribute, mixed $value, array $parameters): bool => is_string($value) && preg_match(strval(cfg("{$parameters[0]}.password-pattern")), $value) === 1);
 
         $packages = app(PackageRegistry::class);
         $packages->register('app', base_path());

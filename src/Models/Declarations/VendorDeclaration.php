@@ -18,7 +18,7 @@ class VendorDeclaration implements Declares {
             Definitions::primaryKey(),
             [
                 'username' => Definition::text(),
-                'password' => Definition::text(Presentation::Password, fn (): array => ['exclude_if:password,null', 'regex:' . cfg('vendor.password-pattern')]),
+                'password' => Definition::text(Presentation::Password, fn (): array => ['exclude_if:password,null', 'password_format:vendor']),
                 'title' => Definition::text(),
                 'tax_id' => Definition::text(),
                 'contact' => Definition::text(),

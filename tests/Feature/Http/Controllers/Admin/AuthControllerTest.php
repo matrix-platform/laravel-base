@@ -601,6 +601,7 @@ class AuthControllerTest extends FeatureTestCase {
         $response = $this->withToken($token)->postJson('admin/auth/passwd', ['current' => self::PASSWORD, 'password' => 'short']);
 
         $response->assertJson(['code' => 422, 'error' => 'validation-failed']);
+        $response->assertJsonPath('fields.password', ['password-format']);
     }
 
     public function test_the_new_password_must_differ_from_the_current_one(): void {
