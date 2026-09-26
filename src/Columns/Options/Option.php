@@ -12,7 +12,8 @@ class Option {
         public readonly int|string $id,
         public readonly int $ranking,
         public readonly string $title,
-        public readonly bool $deleted = false
+        public readonly bool $deleted = false,
+        public readonly bool $selectable = true
     ) {}
 
 }

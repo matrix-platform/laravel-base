@@ -14,6 +14,7 @@ use Tests\Stubs\Gadget;
 use Tests\Stubs\Relic;
 use Tests\Stubs\StubDeclaration;
 use Tests\Stubs\Trinket;
+use Tests\Stubs\Widget;
 
 class OptionProviderTest extends FeatureTestCase {
 
@@ -83,6 +84,37 @@ class OptionProviderTest extends FeatureTestCase {
         $this->assertSame('root', $options[0]->title);
         $this->assertSame('child', $options[0]->children[0]->title);
         $this->assertSame('grandchild', $options[0]->children[0]->children[0]->title);
+    }
+
+    public function test_every_node_of_a_self_referencing_tree_is_selectable(): void {
+        app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'trinket')));
+
+        $root = $this->trinket('root');
+
+        $this->trinket('child', $root->id);
+
+        $options = (new RelationOptions(Trinket::class))->options();
+
+        $this->assertTrue($options[0]->selectable);
+        $this->assertTrue($options[0]->children[0]->selectable);
+    }
+
+    public function test_only_the_related_model_is_selectable_in_a_tree_across_models(): void {
+        $registry = app(MetadataRegistry::class);
+
+        $registry->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'widget')));
+        $registry->register(Widget::class, new StubDeclaration(new Metadata('widget', 'title')));
+
+        $widget = Widget::forceCreate(['title' => 'parent']);
+
+        Trinket::forceCreate(['label' => 'child', 'widget_id' => $widget->id]);
+
+        $options = (new RelationOptions(Trinket::class))->options();
+
+        $this->assertSame('parent', $options[0]->title);
+        $this->assertFalse($options[0]->selectable);
+        $this->assertSame('child', $options[0]->children[0]->title);
+        $this->assertTrue($options[0]->children[0]->selectable);
     }
 
     public function test_an_undeclared_ancestor_is_refused(): void {

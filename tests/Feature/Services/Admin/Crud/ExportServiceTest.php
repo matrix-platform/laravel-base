@@ -297,6 +297,18 @@ class ExportServiceTest extends FeatureTestCase {
         $this->assertSame([['title' => 'Child']], $rows);
     }
 
+    public function test_an_ancestor_sharing_the_identifier_of_a_selectable_option_is_not_part_of_the_lookup(): void {
+        $this->widget('x');
+
+        $options = new StaticOptions([
+            $this->option('a', 'Group A', [$this->option('x', 'Child')]),
+            new Option([], 'x', 0, 'Group X', selectable: false)
+        ]);
+        $rows = $this->exported([['name' => 'title', 'options' => $options]])['rows'];
+
+        $this->assertSame([['title' => 'Child']], $rows);
+    }
+
     public function test_the_options_are_flattened_once_for_the_whole_export(): void {
         $this->widget('Alpha');
         $this->widget('Beta');

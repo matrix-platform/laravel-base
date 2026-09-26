@@ -10,6 +10,16 @@ use MatrixPlatform\Columns\ColumnType;
 
 class Filtering {
 
+    public static function formatted(mixed $value, string $format): bool {
+        if (!is_string($value)) {
+            return false;
+        }
+
+        $parsed = DateTime::createFromFormat($format, $value);
+
+        return $parsed !== false && $parsed->format($format) === $value;
+    }
+
     /**
      * @param Builder<Model> $query
      */
@@ -57,16 +67,6 @@ class Filtering {
 
     private function escape(mixed $value): string {
         return Conditions::escape(is_scalar($value) ? strval($value) : '');
-    }
-
-    private function formatted(mixed $value, string $format): bool {
-        if (!is_string($value)) {
-            return false;
-        }
-
-        $parsed = DateTime::createFromFormat($format, $value);
-
-        return $parsed !== false && $parsed->format($format) === $value;
     }
 
     /**
@@ -122,8 +122,7 @@ class Filtering {
 
         $valid = match ($type) {
             ColumnType::Boolean => is_bool($value) || in_array($value, [0, 1, '0', '1'], true),
-            ColumnType::Date => $this->formatted($value, strval(config('matrix.date-format'))),
-            ColumnType::DateTime => $this->formatted($value, strval(config('matrix.datetime-format'))),
+            ColumnType::Date, ColumnType::DateTime => self::formatted($value, strval($type->format())),
             ColumnType::Float => is_numeric($value),
             ColumnType::Integer => is_int($value) || (is_string($value) && preg_match('/\A-?\d+\z/', $value) === 1),
             default => true

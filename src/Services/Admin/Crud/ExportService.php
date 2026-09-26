@@ -7,7 +7,6 @@ use DateTimeInterface;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use MatrixPlatform\Columns\Column;
-use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Columns\Options\Option;
 use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Columns\Query\Sorting;
@@ -67,7 +66,7 @@ class ExportService extends CrudService {
         $pooled = $this->columns;
         $filterable = array_column($pooled, 'name');
         $outputs = $this->visible($this->outputs($declared, $pooled, array_get_value($values, 'columns')));
-        $fields = $this->fields($outputs);
+        $fields = $this->fields($outputs, $this->locales);
         $filters = $this->requested(array_get_value($values, 'filters'), [...$filterable, ScheduleFilter::NAME]);
         $sorts = array_values(array_filter(Arr::wrap(array_get_value($values, 'sort')), fn (mixed $sort): bool => is_array($sort) && in_array(array_get_value($sort, 'name'), $filterable, true)));
         $used = [...array_keys($filters), ...array_column($sorts, 'name'), ...array_map(fn (string $sort): string => ltrim($sort, '-'), $this->sorting)];
@@ -163,35 +162,16 @@ class ExportService extends CrudService {
     }
 
     /**
-     * @param list<Column> $outputs
-     * @return list<array{name: string, column: Column, title: string}>
-     */
-    private function fields(array $outputs): array {
-        $fields = [];
-
-        foreach ($outputs as $column) {
-            if ($column->translatable && $this->locales !== null) {
-                foreach (array_combine($this->locales, $this->translated($column, $this->locales)) as $locale => $key) {
-                    $fields[] = ['name' => $key, 'column' => $column, 'title' => $this->localized($column->title, $locale)];
-                }
-
-                continue;
-            }
-
-            $fields[] = ['name' => $column->name, 'column' => $column, 'title' => $column->title];
-        }
-
-        return $fields;
-    }
-
-    /**
      * @param list<Option> $options
      * @param array<string, string> $carry
      * @return array<string, string>
      */
     private function flatten(array $options, array $carry = []): array {
         foreach ($options as $option) {
-            $carry[strval($option->id)] = $option->title;
+            if ($option->selectable) {
+                $carry[strval($option->id)] = $option->title;
+            }
+
             $carry = $this->flatten($option->children, $carry);
         }
 
@@ -211,17 +191,9 @@ class ExportService extends CrudService {
             return $this->label($value, $column->name);
         }
 
-        return match ($column->type) {
-            ColumnType::Date => $this->moment($value, config('matrix.date-format')),
-            ColumnType::DateTime => $this->moment($value, config('matrix.datetime-format')),
-            default => $this->text($value)
-        };
-    }
+        $format = $column->type->format();
 
-    private function heading(): string {
-        $title = $this->title();
-
-        return $title === null ? $this->subject->alias($this->model) : $title;
+        return $format === null ? $this->text($value) : $this->moment($value, $format);
     }
 
     private function label(mixed $value, string $name): string {
@@ -230,10 +202,6 @@ class ExportService extends CrudService {
         $title = is_array($map) ? array_get_value($map, $key) : null;
 
         return is_string($title) ? $title : $key;
-    }
-
-    private function localized(string $title, string $locale): string {
-        return strtr(i18n('backend.export.locale-column'), [':title' => $title, ':locale' => i18n("backend.locale-{$locale}")]);
     }
 
     /**

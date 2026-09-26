@@ -394,6 +394,29 @@ abstract class CrudService {
     }
 
     /**
+     * @param list<Column> $columns
+     * @param list<string>|null $locales
+     * @return list<array{name: string, column: Column, title: string}>
+     */
+    protected function fields(array $columns, ?array $locales): array {
+        $fields = [];
+
+        foreach ($columns as $column) {
+            if ($column->translatable && $locales !== null) {
+                foreach (array_combine($locales, $this->translated($column, $locales)) as $locale => $key) {
+                    $fields[] = ['name' => $key, 'column' => $column, 'title' => $this->localized($column->title, $locale)];
+                }
+
+                continue;
+            }
+
+            $fields[] = ['name' => $column->name, 'column' => $column, 'title' => $column->title];
+        }
+
+        return $fields;
+    }
+
+    /**
      * @param Builder<Model> $query
      */
     protected function filter(Builder $query, mixed $filters): void {
@@ -439,6 +462,12 @@ abstract class CrudService {
         return $this->standalone ? null : $this->subject->foreign($this->model);
     }
 
+    protected function heading(): string {
+        $title = $this->title();
+
+        return $title === null ? $this->subject->alias($this->model) : $title;
+    }
+
     /**
      * @param array<string, mixed>|Model|null $context
      */
@@ -468,6 +497,10 @@ abstract class CrudService {
      */
     protected function local(): array {
         return array_values(array_filter($this->columns, fn (Column $column): bool => $this->isLocal($column)));
+    }
+
+    protected function localized(string $title, string $locale): string {
+        return strtr(i18n('backend.export.locale-column'), [':title' => $title, ':locale' => i18n("backend.locale-{$locale}")]);
     }
 
     /**
@@ -677,18 +710,24 @@ abstract class CrudService {
      * @return array<string, mixed>
      */
     protected function shape(Column $column): array {
+        $format = $column->type->format();
+
         return [
             'name' => $column->name,
             'title' => $column->title,
             'translatable' => $column->translatable,
             'type' => $column->type->value,
-            'format' => match ($column->type) {
-                ColumnType::Date => $this->frontendFormat(config('matrix.date-format')),
-                ColumnType::DateTime => $this->frontendFormat(config('matrix.datetime-format')),
-                default => null
-            },
+            'format' => $format === null ? null : $this->frontendFormat($format),
             'presentation' => $column->presentation instanceof Presentation ? $column->presentation->value : $column->presentation
         ];
+    }
+
+    protected function store(Model $model, mixed $input): void {
+        $this->assign($model, $this->validated($input));
+        $this->attach($model);
+        $this->inspect($model);
+
+        $model->save();
     }
 
     /**

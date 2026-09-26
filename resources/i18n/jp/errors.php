@@ -28,6 +28,10 @@ return [
 
     'image-decode-failed' => '画像を解析できませんでした',
 
+    'import-column-unsupported' => '必須項目はインポートできません',
+
+    'import-failed' => 'インポートデータに誤りがあります',
+
     'invalid-arrange-order' => '公開設定の選択内容がデータと一致しません',
 
     'invalid-captcha-driver' => '認証コードサービスの設定が不正です',

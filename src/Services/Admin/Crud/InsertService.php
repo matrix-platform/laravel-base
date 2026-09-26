@@ -12,13 +12,7 @@ class InsertService extends CrudService {
 
         $this->expandComposites($input, $model);
 
-        $values = $this->validated($input);
-
-        $this->assign($model, $values);
-        $this->attach($model);
-        $this->inspect($model);
-
-        $model->save();
+        $this->store($model, $input);
 
         return ['id' => $model->getKey()];
     }

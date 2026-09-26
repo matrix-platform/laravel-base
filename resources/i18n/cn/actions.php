@@ -22,6 +22,8 @@ return [
 
     'export' => '导出',
 
+    'import' => '导入',
+
     'insert' => '保存',
 
     'log' => '变更记录',

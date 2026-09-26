@@ -22,6 +22,8 @@ return [
 
     'export' => 'Export',
 
+    'import' => 'Import',
+
     'insert' => 'Save',
 
     'log' => 'Change History',

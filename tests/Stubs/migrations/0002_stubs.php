@@ -15,6 +15,7 @@ return new class extends Migration {
             $table->integer('trinket_id')->nullable();
             $table->integer('relic_id')->nullable();
             $table->jsonb('payload')->nullable();
+            $table->boolean('flag')->nullable();
             $table->translatable('translated');
             $table->translatable('gallery', 'jsonb');
             $table->ranking();

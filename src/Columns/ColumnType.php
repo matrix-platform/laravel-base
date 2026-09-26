@@ -33,6 +33,16 @@ enum ColumnType: string {
         };
     }
 
+    public function format(): ?string {
+        $key = match ($this) {
+            self::Date => 'matrix.date-format',
+            self::DateTime => 'matrix.datetime-format',
+            default => null
+        };
+
+        return $key === null ? null : strval(config($key));
+    }
+
     public function rule(): string {
         return match ($this) {
             self::Boolean => 'boolean',

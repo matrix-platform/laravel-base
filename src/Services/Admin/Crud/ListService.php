@@ -32,7 +32,7 @@ class ListService extends CrudService {
     /**
      * @var list<string|Operation>
      */
-    private array $pageActions = ['new', 'delete', 'arrange', 'sort', 'export'];
+    private array $pageActions = ['new', 'delete', 'arrange', 'sort', 'export', 'import'];
 
     /**
      * @var list<string|Operation>

@@ -18,6 +18,10 @@ return [
 
     'widget/export' => 'Export Widgets',
 
+    'widget/import' => 'Import Widgets',
+
+    'widget/import/template' => 'Widget Import Template',
+
     'widget/sort' => 'Sort Widgets',
 
     'widget/sort/save' => 'Save Widget Order',
@@ -42,6 +46,10 @@ return [
 
     'widget/{widget_id}/trinket/export' => 'Export Trinkets',
 
+    'widget/{widget_id}/trinket/import' => 'Import Trinkets',
+
+    'widget/{widget_id}/trinket/import/template' => 'Trinket Import Template',
+
     'widget/{widget_id}/trinket/sort' => 'Sort Trinkets',
 
     'widget/{widget_id}/trinket/sort/save' => 'Save Trinket Order',
@@ -53,6 +61,8 @@ return [
     'gadget' => 'Gadgets',
 
     'gadget/export' => 'Export Gadgets',
+
+    'gadget/import' => 'Import Gadgets',
 
     'gizmo' => 'Gizmos',
 

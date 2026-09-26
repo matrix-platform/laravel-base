@@ -18,6 +18,10 @@ return [
 
     'widget/export' => ['parent' => 'widget', 'tag' => 'query'],
 
+    'widget/import' => ['parent' => 'widget', 'tag' => 'insert'],
+
+    'widget/import/template' => ['parent' => 'widget', 'tag' => 'insert'],
+
     'widget/sort' => ['parent' => 'widget', 'tag' => 'update'],
 
     'widget/sort/save' => ['parent' => 'widget', 'tag' => 'update'],
@@ -42,6 +46,10 @@ return [
 
     'widget/{widget_id}/trinket/export' => ['parent' => 'widget/{widget_id}/trinket', 'tag' => 'query'],
 
+    'widget/{widget_id}/trinket/import' => ['parent' => 'widget/{widget_id}/trinket', 'tag' => 'insert'],
+
+    'widget/{widget_id}/trinket/import/template' => ['parent' => 'widget/{widget_id}/trinket', 'tag' => 'insert'],
+
     'widget/{widget_id}/trinket/sort' => ['parent' => 'widget/{widget_id}/trinket', 'tag' => 'update'],
 
     'widget/{widget_id}/trinket/sort/save' => ['parent' => 'widget/{widget_id}/trinket', 'tag' => 'update'],
@@ -53,6 +61,8 @@ return [
     'gadget' => ['ranking' => 300, 'parent' => null, 'group' => true, 'tag' => 'query'],
 
     'gadget/export' => ['parent' => 'gadget', 'tag' => 'query'],
+
+    'gadget/import' => ['parent' => 'gadget', 'tag' => 'insert'],
 
     'gizmo' => ['ranking' => 200, 'parent' => null, 'group' => true, 'tag' => 'query'],
 

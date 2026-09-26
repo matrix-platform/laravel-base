@@ -51,8 +51,10 @@ class RelationOptions implements OptionProvider {
                 $query->whereActive($metadata->enable, $metadata->disable);
             }
 
+            $selectable = $current::class === $this->related;
+
             foreach ($query->get() as $item) {
-                $mapping[$this->key($foreign === null ? null : $item->getAttribute($foreign))][] = $this->option($subject, $item);
+                $mapping[$this->key($foreign === null ? null : $item->getAttribute($foreign))][] = $this->option($subject, $item, $selectable);
             }
 
             if ($relation === null) {
@@ -85,11 +87,11 @@ class RelationOptions implements OptionProvider {
         return $value === null ? '' : (string) $value;
     }
 
-    private function option(Subject $subject, Model $item): Option {
+    private function option(Subject $subject, Model $item, bool $selectable): Option {
         $label = $subject->title($item);
         $ranking = $item->getAttribute('ranking');
 
-        return new Option([], $this->identifier($item), is_int($ranking) ? $ranking : 0, is_string($label) ? $label : '', $this->deleted($item));
+        return new Option([], $this->identifier($item), is_int($ranking) ? $ranking : 0, is_string($label) ? $label : '', $this->deleted($item), $selectable);
     }
 
     /**
@@ -100,7 +102,7 @@ class RelationOptions implements OptionProvider {
         $nodes = [];
 
         foreach (array_get_value($mapping, $this->key($id), []) as $node) {
-            $nodes[] = new Option($this->tree($mapping, $node->id), $node->id, $node->ranking, $node->title, $node->deleted);
+            $nodes[] = new Option($this->tree($mapping, $node->id), $node->id, $node->ranking, $node->title, $node->deleted, $node->selectable);
         }
 
         return $nodes;

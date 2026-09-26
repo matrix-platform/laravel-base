@@ -28,6 +28,10 @@ return [
 
     'image-decode-failed' => '無法解析圖片',
 
+    'import-column-unsupported' => '必填欄位無法匯入',
+
+    'import-failed' => '匯入資料有誤',
+
     'invalid-arrange-order' => '上下架選擇與資料不符',
 
     'invalid-captcha-driver' => '驗證碼服務設定錯誤',

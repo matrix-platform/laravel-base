@@ -1,6 +1,8 @@
 <?php //>
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Support\Actor;
@@ -77,6 +79,13 @@ function tokenize(?string $text): array {
 
 function user(): ?User {
     return actor()->user();
+}
+
+/**
+ * @return array<string, list<string>>
+ */
+function validation_fields(ValidationException $exception): array {
+    return array_map(fn (array $rules): array => array_map(Str::kebab(...), array_keys($rules)), $exception->validator->failed());
 }
 
 function vendor(): ?Model {

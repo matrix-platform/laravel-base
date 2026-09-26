@@ -1,6 +1,6 @@
 # matrix-platform/laravel-base
 
-Laravel 後台引擎。用一行字串 DSL 描述欄位,換到一整套後台 CRUD:清單、篩選、排序、分頁、表單驗證、複製、拖曳排序、匯出、稽核軌跡、以及以選單樹為基礎的授權模型。
+Laravel 後台引擎。用一行字串 DSL 描述欄位,換到一整套後台 CRUD:清單、篩選、排序、分頁、表單驗證、複製、拖曳排序、匯出、匯入、稽核軌跡、以及以選單樹為基礎的授權模型。
 
 ```php
 class WidgetController extends CrudController {
@@ -45,7 +45,7 @@ class WidgetController extends CrudController {
 | **API 文件產生器** | 不出貨 Swagger / OpenAPI。端點是 `#[Action]` 反射掛載的,要文件請從 attribute 反射產生,不要掃註解 |
 | **排程註冊** | 套件不呼叫 `Schedule::command()`。`matrix:prune-tokens`、`matrix:prune-drive-files` 與 `messages:dispatch` 都由宿主自己排(見[註冊排程](#8-註冊排程如果要用訊息或-token-清理)) |
 | **cache / queue driver 的選擇** | 套件用 `Cache` 與 `Queue` 門面,不指定 driver。驗證碼要跨請求共用的 cache,訊息派送要每條 queue 恰好一個 worker（見[派送與 worker](#派送與-worker)） |
-| **匯入** | 匯出有,匯入沒有 |
+| **以匯入更新既有資料** | 匯入只做新增,每一列建一筆新資料;不以 id 或唯一鍵比對後更新(見[匯入](#匯入)) |
 | **檔案清理** | 一般上傳的 `base_file` 與磁碟上的檔案永遠不會被自動刪除,去重讓一筆記錄可能被多處引用,套件答不出「誰可以刪」。**例外**:drive-linked 的 `base_file`(`path` 以 `@` 開頭,對應雲端硬碟欄位 `drive-file`/`drive-image` 選檔後產生的連結)由 `matrix:prune-drive-files` 排程時即時掃描 CRUD 資料表,清掉沒有任何記錄引用的部分 |
 | **多資料庫支援** | 只支援 PostgreSQL,而且是硬性的（見下一節） |
 
@@ -510,6 +510,33 @@ class WidgetController extends CrudController {
 
 **編輯頁（`get`）會自動在「其他」頁籤唯讀顯示稽核欄位,不用設定。** 只要宣告有 `Definitions::auditings()`,`onGet()` 就在 `$updates`(或自動推導的欄位)後面依宣告順序補上 `creator`、`!create_time`、`updater`、`!update_time`(`auditings(false)` 只補前兩個)。`creator` / `updater` 是關聯欄位 `creator=creator.username`、`updater=updater.username`:`BaseModel` 內建 `creator()`、`updater()` 兩個關聯(`BelongsTo` 到 `Operator`,即 `base_operator`),直接 join 出帳號名稱,以唯讀(前端停用)的文字欄位呈現。`Definitions::auditings()` 本身帶 `tab: 'other'`,關聯欄位則用陣列語法的 `tab` 鍵指定頁籤。新增頁、存檔(`insert` / `update`)不含這些欄位,送上來的值會被忽略。`$updates` 已經放了同名欄位時以 `$updates` 為準;同名欄位只取第一個,所以在 `parent::onGet()` 之後再 `columns()` 同名欄位不會生效。不想要就覆寫 `onGet()` 且不呼叫 `parent::onGet()`。標題在套件的 `model/default.php`。清單要顯示建立者,寫 `creator=creator.username`;直接寫 `creator_id` 會因為有 `creator()` 關聯而自動變成下拉選項,把整張 `base_operator` 讀進來。
 
+#### 匯入
+
+前端讀 xlsx、送 JSON(後端不碰檔案格式),每一列建一筆新資料,走與新增相同的驗證、`assign`、guard、`save`。全部列處理完才回應;任一列有錯就整批退回,回應列出每一列的列號與出錯欄位(見[給前端](#請求形狀))。
+
+```php
+class WidgetController extends CrudController {
+
+    protected ?array $exports = ['title', 'category_id'];
+
+    // null 時退回新增表單欄位($inserts,沒設再退回 $updates)
+    protected ?array $imports = ['title', 'category_id'];
+
+    protected function onImport(ImportService $service): ImportService {
+        return parent::onImport($service)->guard(...)->lookup('category_id', fn (string $text, int $row): mixed => ...);
+    }
+
+}
+```
+
+- **開關就是選單**:`{prefix}/import` 與 `{prefix}/import/template` 兩個節點(tag 用 `insert`)。**兩個要一起加**:按鈕只看 `import` 節點,漏了 `import/template` 時按鈕照樣出現,開窗卻 `permission-denied`。`import/template` 節點的標題是範本檔名。預設 `pageActions` 已含 `import`。
+- **`onInsert()` 的 guard 不會沿用**,匯入要在 `onImport()` 重掛,否則商業規則會被繞過。
+- **可匯入欄位**:非虛擬、非 join、非唯讀,且不是主鍵、Json、多選、雲端硬碟、密碼、Hidden、Composite;巢狀資源(非 standalone)的外鍵也排除,一律取路由參數。其餘欄位若出現在 `$imports` 直接略過。被排除的欄位裡有**必填**的(巢狀外鍵除外)→ `import-column-unsupported`,這個 model 無法以匯入建立。
+- **多語欄位一律展開全部語系**,表頭同匯出(`backend.export.locale-column`)。
+- **轉換**:值先 trim;空白 → `null`(必填得 `required`),**布林欄空白 → `false`**;有選項的欄位以標題完全比對反查 id(查不到或同名兩個以上 → `in`,不默默取第一個);`Date` / `DateTime` 嚴格依 `matrix.date-format` / `matrix.datetime-format`(擋 `2026-02-31`)。`lookup($name, fn)` 取代該欄的選項反查,可用 `invalid()` 回自訂代碼,空白值不會呼叫。
+- **往返**:只有明寫 `$exports` 與 `$imports` 且兩者一致時,匯出檔才能直接拿來匯入;預設匯出的是使用者選的清單欄位(關聯欄位是標題欄而非外鍵),請從範本開始填。
+- **跨 model 匯入**(在 A 的頁面匯入 B)沒有框架支援:覆寫 `import()` / `importTemplate()`,自己建 `(new ImportService(B::class))->standalone(true)`。
+
 ### 5. 路由 —— 必須掛在 `admin` 前綴之下
 
 ```php
@@ -827,7 +854,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | POST | `vendor/preference/get` | 登入 |
 | POST | `vendor/preference/save` | 登入 |
 
-「授權」= 登入 + 該選單節點的權限。`user` / `group` 的 `export`、`copy`、`sort` 端點存在但**套件出貨的選單沒有對應節點**,所以預設對所有人 403 —— 那三個動作在套件自己的兩個 controller 上是關閉的。`mail-log` / `sms-log` / `push-log` / `telegram-log` 更進一步:選單只登記了列表、`{id}`、`{id}/resend`、`{id}/cancel` 四個節點,其餘十個(`new`、`insert`、`{id}/update`、`{id}/copy`、`delete`、`export`、`sort`、`sort/save`、`arrange`、`arrange/save`)全部因為選單沒有節點而預設對所有人(含 ROOT)403——是刻意設計,訊息紀錄只能查詢與重發/取消,不能被手動增刪改。`api/telegram/webhook` 標「匿名*」是因為它不掛任何登入態 middleware(呼叫方是 Telegram 伺服器,沒有我們的 session/token 可帶),但自己驗證 `X-Telegram-Bot-Api-Secret-Token` header 等於 `cfg('telegram.webhook-secret')`,**沒設定這把密鑰就對所有請求一律 403**(見[Telegram 綁定與 Webhook](#telegram-綁定與-webhook))。
+「授權」= 登入 + 該選單節點的權限。`user` / `group` 的 `export`、`import`、`import/template`、`copy`、`sort` 端點存在但**套件出貨的選單沒有對應節點**,所以預設對所有人 403 —— 那幾個動作在套件自己的兩個 controller 上是關閉的。`mail-log` / `sms-log` / `push-log` / `telegram-log` 更進一步:選單只登記了列表、`{id}`、`{id}/resend`、`{id}/cancel` 四個節點,其餘十二個(`new`、`insert`、`{id}/update`、`{id}/copy`、`delete`、`export`、`import`、`import/template`、`sort`、`sort/save`、`arrange`、`arrange/save`)全部因為選單沒有節點而預設對所有人(含 ROOT)403——是刻意設計,訊息紀錄只能查詢與重發/取消,不能被手動增刪改。`api/telegram/webhook` 標「匿名*」是因為它不掛任何登入態 middleware(呼叫方是 Telegram 伺服器,沒有我們的 session/token 可帶),但自己驗證 `X-Telegram-Bot-Api-Secret-Token` header 等於 `cfg('telegram.webhook-secret')`,**沒設定這把密鑰就對所有請求一律 403**(見[Telegram 綁定與 Webhook](#telegram-綁定與-webhook))。
 
 ### 設定鍵
 
@@ -980,6 +1007,8 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `geolocation-database-not-found` | 找不到地理位置資料庫檔案 |
 | `geolocation-request-failed` | 地理位置查詢請求失敗 |
 | `image-decode-failed` | 無法解析圖片 |
+| `import-column-unsupported` | 必填欄位無法匯入 |
+| `import-failed` | 匯入資料有誤 |
 | `invalid-arrange-order` | 上下架選擇與資料不符 |
 | `invalid-captcha-driver` | 驗證碼服務設定錯誤 |
 | `invalid-cascade-relation` | 連動關聯必須是 hasOne、hasMany 或其 morph 形式 |
@@ -1105,6 +1134,17 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 **刪除**:`{"id": [1, 2, 3]}`,任一筆不存在整批失敗（`data-not-found`）。
 
 **匯出**（`admin/widget/export`）:與清單相同的 `filters` / `sort`,可另帶 `{"id": [1, 2, 3]}` 只匯出這些列 —— 與篩選取交集、照 `sort` 排序,不存在或範圍外的 id 直接略過（不回 `data-not-found`）;不帶或空陣列 = 全部。
+
+**匯入範本**（`admin/widget/import/template`）:回 `{ title, columns, rows: [] }`,與匯出同形;`columns[]` 另帶 `required` 與 `options`(該欄可反查的選項標題清單,沒有選項或有 `lookup()` 的欄位為 `null`),前端據此產範本、做下拉選單、把表頭對回欄位名。
+
+**匯入**（`admin/widget/import`）:`{"rows": [{"row": 2, "values": {"title": "…", "name__tw": "…"}}]}`。`row` 是工作表列號(表頭是第 1 列),只用來回報錯誤;`values` 的鍵是欄位名、值是字串,不在可匯入欄位裡的鍵忽略。成功回 `{"count": 12}`;任一列有錯回 422 `import-failed`,整批退回:
+
+```json
+{ "success": false, "code": 422, "error": "import-failed", "message": "…",
+  "rows": [ { "row": 3, "fields": { "name__en": ["required"] } }, { "row": 7, "fields": { "*": ["query-failed"] } } ] }
+```
+
+代碼沿用 `validation.<code>`;`*` 是對不到欄位的資料庫錯誤(違反 NOT NULL、唯一索引等),整列標示。`rows` 缺少、空陣列或形狀不對 → 一般的 `validation-failed`。
 
 **拖曳排序儲存**（`admin/widget/sort/save`）:`{"order": [3, 1, 2]}`,必須是完整集合,少一筆就是 `invalid-sort-order`。
 
@@ -1386,6 +1426,7 @@ php artisan matrix:clear-resource-cache
 | 事實 | 影響 |
 |---|---|
 | **匯出會把整張表（套完篩選後）載進記憶體** | 沒有任何上限。大表要匯出請自己做背景任務 |
+| **匯入整批在一個請求、一個交易內處理** | 沒有筆數上限,實際上限由 `post_max_size` 與請求逾時決定 |
 | **`_id` 欄位的下拉選項成本與被參照資料表的列數成正比** | 被參照的表上千列時,那份選項就是整個清單回應的主要體積 |
 | **`$sortable` 只該開在資料量有上限的資源上** | 拖曳排序會把整組載進來跑重排演算法 |
 | 重排用最長遞增子序列找錨點,tie-break 是次佳選擇 | 最壞情況會把「只改一列」變成「整組重編」 |
@@ -1439,11 +1480,16 @@ php artisan matrix:clear-resource-cache
 
 | 事實 | 說明 |
 |---|---|
-| **清單預設按鈕是 `pageActions(['new', 'delete', 'arrange', 'sort', 'export'])`、`rowActions(['edit', 'copy', 'delete'])`(可追蹤的 model 再補 `log`)** | 每一顆都要選單有對應節點(`{prefix}/export`、`{prefix}/{id}/copy` 等)且使用者有權限才會出現,所以開不開複製／匯出由選單決定——端點本身也一樣:沒有節點的 `export` / `{id}/copy` 請求被 `permission-api` 擋成 `permission-denied`(含 ROOT),controller 不需要另開旗標 |
+| **清單預設按鈕是 `pageActions(['new', 'delete', 'arrange', 'sort', 'export', 'import'])`、`rowActions(['edit', 'copy', 'delete'])`(可追蹤的 model 再補 `log`)** | 每一顆都要選單有對應節點(`{prefix}/export`、`{prefix}/import`、`{prefix}/{id}/copy` 等)且使用者有權限才會出現,所以開不開複製／匯出／匯入由選單決定——端點本身也一樣:沒有節點的 `export` / `import` / `{id}/copy` 請求被 `permission-api` 擋成 `permission-denied`(含 ROOT),controller 不需要另開旗標 |
 | **複製會沿用來源的 `ranking`** | 除非那個資源開了 `$sortable`,否則不會自我修復 |
 | 複製時 `$generators` 管的欄位（建立時間、建立者等）**重新產生**,不照抄 | —— |
 | **級聯複製只接受 `hasOne` / `hasMany` 及其 morph 形式** | `belongsToMany` 不支援 |
 | **匯出明寫 `'id'` 匯不出主鍵** | 要主鍵請寫 `'key=id'` |
+| **匯入只新增** | 檔案裡的 id 欄忽略;不做更新或 upsert |
+| **匯入時前面的列照樣寫入,最後才整批退回** | 為了讓 unique 與 guard 抓到檔案內自己重複的值。每列包一層 savepoint,資料庫錯誤只記在那一列(`*` / `query-failed`),後面的列照常處理 |
+| **資料庫不允許 NULL 的選填欄位,匯入空白會失敗** | 空白寫入 `null`(布林欄除外,寫 `false`)。這種欄位要設預設值或改成必填,否則該列報 `query-failed` |
+| **匯入的表頭與選項以目前介面語系的標題完全比對** | 範本與匯入要用同一個介面語系;樹狀選項攤平後不同父層同名(例如兩個「其他」)會回 `in`,所以含同名節點的匯出檔無法原樣匯入。跨 model 的選項樹(例如國家 > 城市)只有目標 model 的節點可反查(`Option::$selectable`) |
+| **匯入不支援多選欄位** | 存成 Json 的多選收不了標題,存成 Text 的驗證規則是 `string`,第一版一律排除 |
 | **`$exports = []` 是「沒有欄位」,不是「退回清單欄位」** | —— |
 | **多語欄位用 `ExportService::locales([...])` 展開時,表頭帶語系名稱** | 每個語系一欄(`{欄位}__{語系}`),`title` 依 `backend.export.locale-column` 組成,例如「問題（繁體中文）」、英文介面「Question (English)」;語系名稱取 `backend.locale-{語系}`。沒呼叫 `locales()` 時只輸出目前語系一欄,表頭不變 |
 | **`$hidden` 只對 root model 的欄位有效** | join 進來的別名不受它保護 |
@@ -1489,6 +1535,6 @@ php artisan matrix:clear-resource-cache
 | **多選欄位變成可篩選** | payload 會帶 `op: 'in'`,舊版是不可篩選。前端會據此渲染篩選器 |
 | **匯出的 `columns[].type`** | 舊版是一個混合欄位,新版拆成 `type` + `presentation` |
 | **驗證錯誤的鍵名** | 舊版是 `errors`,新版統一成 `error`（slug）+ `fields`（欄位明細） |
-| **匯入沒有出貨** | 舊版的匯入功能在新版不存在 |
+| **匯入重新設計** | 舊版的匯入功能不相容;新版由前端讀 xlsx 送 JSON、只做新增(見[匯入](#匯入)) |
 | **清單回應多一個 `filters` 鍵** | 可上下架清單多一個上下架篩選;這類 model 上 `filters.schedule` 成為保留名稱,宿主同名的可篩選欄位會被取代 |
 | **上傳的儲存 path 不再帶副檔名** | 舊資料不用動（既有帶副檔名的 path 照樣找得到、下載得到）。若有程式直接從 `base_file.path` 解析副檔名,改讀 `mime_type` 或 `name` |

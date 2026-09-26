@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use MatrixPlatform\Exceptions\ServiceException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
@@ -34,19 +33,12 @@ class EnvelopeMiddleware {
 
     private function envelope(Throwable $exception): JsonResponse {
         return match (true) {
-            $exception instanceof ValidationException => self::json(422, 'validation-failed', ['fields' => $this->fields($exception)]),
+            $exception instanceof ValidationException => self::json(422, 'validation-failed', ['fields' => validation_fields($exception)]),
             $exception instanceof ModelNotFoundException => self::json(404, 'data-not-found'),
             $exception instanceof ServiceException => self::json($exception->getCode(), $exception->getError(), $exception->getExtra()),
             $exception instanceof HttpExceptionInterface => self::json($exception->getStatusCode(), $exception->getStatusCode() === 429 ? 'too-many-requests' : 'request-failed'),
             default => self::json(500, 'server-error')
         };
-    }
-
-    /**
-     * @return array<string, list<string>>
-     */
-    private function fields(ValidationException $exception): array {
-        return array_map(fn (array $rules): array => array_map(Str::kebab(...), array_keys($rules)), $exception->validator->failed());
     }
 
 }

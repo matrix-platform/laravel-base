@@ -96,7 +96,8 @@ class CrudControllerTest extends FeatureTestCase {
 
         $response = $this->admin('admin/widget');
 
-        $this->assertSame(['new', 'delete', 'arrange', 'sort', 'export'], array_column($response->json('data.actions.page'), 'type'));
+        $this->assertSame(['new', 'delete', 'arrange', 'sort', 'export', 'import'], array_column($response->json('data.actions.page'), 'type'));
+        $response->assertJsonPath('data.actions.page.5.url', 'widget/import');
         $this->assertSame(['edit', 'copy', 'delete', 'log'], array_column($response->json('data.actions.row'), 'type'));
     }
 
@@ -105,7 +106,7 @@ class CrudControllerTest extends FeatureTestCase {
 
         $response = $this->admin('admin/gadget');
 
-        $this->assertSame(['export'], array_column($response->json('data.actions.page'), 'type'));
+        $this->assertSame(['export', 'import'], array_column($response->json('data.actions.page'), 'type'));
         $this->assertSame([], array_column($response->json('data.actions.row'), 'type'));
         $response->assertJsonPath('data.rows.0.actions', []);
     }
@@ -778,6 +779,43 @@ class CrudControllerTest extends FeatureTestCase {
     public function test_both_arrange_endpoints_are_hidden_when_the_resource_is_not_arrangeable(): void {
         $this->admin('admin/gizmo/arrange')->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
         $this->admin('admin/gizmo/arrange/save', ['enabled' => []])->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
+    }
+
+    public function test_import_template_falls_back_to_the_insert_columns(): void {
+        $response = $this->admin('admin/widget/import/template');
+
+        $response->assertJsonPath('data.title', 'Widget Import Template');
+        $this->assertSame(['title', 'secret', 'enable_time'], array_column($response->json('data.columns'), 'name'));
+        $response->assertJsonPath('data.rows', []);
+    }
+
+    public function test_import_inserts_every_row(): void {
+        $response = $this->admin('admin/widget/import', ['rows' => [
+            ['row' => 2, 'values' => ['title' => 'Alpha']],
+            ['row' => 3, 'values' => ['title' => 'Beta', 'enable_time' => '2026-01-02 03:04:05']]
+        ]]);
+
+        $response->assertJsonPath('data.count', 2);
+        $this->assertSame(['Alpha', 'Beta'], Widget::query()->orderBy('id')->pluck('title')->all());
+    }
+
+    public function test_a_failed_import_rolls_back_every_row(): void {
+        $response = $this->admin('admin/widget/import', ['rows' => [
+            ['row' => 2, 'values' => ['title' => 'Alpha']],
+            ['row' => 3, 'values' => ['title' => '']]
+        ]]);
+
+        $response->assertJson(['success' => false, 'code' => 422, 'error' => 'import-failed']);
+        $response->assertJsonPath('rows', [['row' => 3, 'fields' => ['title' => ['required']]]]);
+        $this->assertSame(0, Widget::query()->count());
+    }
+
+    public function test_a_nested_import_writes_into_the_parent_of_the_route(): void {
+        $alpha = $this->widget('Alpha');
+
+        $this->admin("admin/widget/{$alpha->id}/trinket/import", ['rows' => [['row' => 2, 'values' => ['label' => 'mine']]]])->assertJsonPath('data.count', 1);
+
+        $this->assertSame($alpha->id, Trinket::query()->sole()->widget_id);
     }
 
     public function test_export_returns_the_declared_columns_only(): void {

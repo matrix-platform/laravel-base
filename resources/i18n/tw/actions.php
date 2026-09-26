@@ -22,6 +22,8 @@ return [
 
     'export' => '匯出',
 
+    'import' => '匯入',
+
     'insert' => '儲存',
 
     'log' => '異動紀錄',

@@ -19,6 +19,7 @@ use MatrixPlatform\Services\Admin\Crud\CrudService;
 use MatrixPlatform\Services\Admin\Crud\DeleteService;
 use MatrixPlatform\Services\Admin\Crud\ExportService;
 use MatrixPlatform\Services\Admin\Crud\GetService;
+use MatrixPlatform\Services\Admin\Crud\ImportService;
 use MatrixPlatform\Services\Admin\Crud\InsertService;
 use MatrixPlatform\Services\Admin\Crud\ListService;
 use MatrixPlatform\Services\Admin\Crud\NewService;
@@ -40,6 +41,11 @@ abstract class CrudController extends BaseController {
      * @var list<string|array<string, mixed>>|null
      */
     protected ?array $exports = null;
+
+    /**
+     * @var list<string|array<string, mixed>>|null
+     */
+    protected ?array $imports = null;
 
     /**
      * @var list<string|array<string, mixed>>|null
@@ -134,6 +140,22 @@ abstract class CrudController extends BaseController {
      * @return array<string, mixed>
      */
     #[Action]
+    public function import(Request $request): array {
+        return $this->importer($request)->import($request->all());
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[Action('import/template')]
+    public function importTemplate(Request $request): array {
+        return $this->importer($request)->template();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[Action]
     public function insert(Request $request): array {
         return $this->onInsert($this->prepare(new InsertService($this->model), $request))->insert($request->all());
     }
@@ -205,6 +227,10 @@ abstract class CrudController extends BaseController {
 
     protected function onGet(GetService $service): GetService {
         return $service->columns([...$this->updates(), ...$this->audited()]);
+    }
+
+    protected function onImport(ImportService $service): ImportService {
+        return $service->columns($this->importing());
     }
 
     protected function onInsert(InsertService $service): InsertService {
@@ -324,6 +350,17 @@ abstract class CrudController extends BaseController {
      */
     private function forming(): array {
         return $this->inserts === null ? $this->updates() : $this->inserts;
+    }
+
+    private function importer(Request $request): ImportService {
+        return $this->onImport($this->prepare(new ImportService($this->model), $request));
+    }
+
+    /**
+     * @return list<string|array<string, mixed>>
+     */
+    private function importing(): array {
+        return $this->imports === null ? $this->forming() : $this->imports;
     }
 
     private function instance(): Model {

@@ -28,6 +28,10 @@ return [
 
     'image-decode-failed' => 'Image could not be decoded',
 
+    'import-column-unsupported' => 'A required column cannot be imported',
+
+    'import-failed' => 'Import data is invalid',
+
     'invalid-arrange-order' => 'Arrange selection does not match the data',
 
     'invalid-captcha-driver' => 'Invalid captcha driver configuration',

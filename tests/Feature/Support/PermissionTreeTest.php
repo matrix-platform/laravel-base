@@ -57,7 +57,7 @@ class PermissionTreeTest extends FeatureTestCase {
         $section = $this->pick($this->tree('authority'), 'authority');
         $action = $this->pick($this->pick($section->children, 'group')->children, 'query');
 
-        $this->assertSame(['children' => [], 'id' => 'query', 'ranking' => 0, 'title' => i18n('permission.query'), 'deleted' => false], json_decode(strval(json_encode($action)), true));
+        $this->assertSame(['children' => [], 'id' => 'query', 'ranking' => 0, 'title' => i18n('permission.query'), 'deleted' => false, 'selectable' => true], json_decode(strval(json_encode($action)), true));
     }
 
     public function test_the_production_menu_files_every_resource_under_its_own_section(): void {
