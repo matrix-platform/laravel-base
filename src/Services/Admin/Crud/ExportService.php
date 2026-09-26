@@ -4,6 +4,8 @@ namespace MatrixPlatform\Services\Admin\Crud;
 
 use Closure;
 use DateTimeInterface;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use MatrixPlatform\Columns\Column;
@@ -81,36 +83,14 @@ class ExportService extends CrudService {
         $this->filter($query, $filters);
 
         if ($items !== []) {
-            $query->whereIn("{$this->model->getTable()}.id", $items);
+            $query->whereIn($this->model->getQualifiedKeyName(), $items);
         }
 
         (new Sorting($this->sorting))->apply($query, $this->plan(), $sorts);
 
-        $query->orderBy("{$this->model->getTable()}.id");
+        $query->orderBy($this->model->getQualifiedKeyName());
 
-        foreach ($outputs as $column) {
-            if ($column->options !== null) {
-                $this->options[$column->name] = $this->flatten($column->options->options($this->model));
-            }
-        }
-
-        $rows = [];
-
-        foreach ($query->cursor() as $row) {
-            $this->inspect($row);
-
-            $data = [];
-
-            foreach ($fields as $field) {
-                $column = $field['column'];
-                $raw = $row->getAttribute($field['name']);
-                $override = array_get_value($this->cells, $column->name);
-
-                $data[$field['name']] = $override instanceof Closure ? $this->text($override($raw, $row)) : $this->format($raw, $column);
-            }
-
-            $rows[] = $data;
-        }
+        $rows = $this->rows($query, $fields);
 
         return [
             'title' => $this->heading(),
@@ -251,6 +231,39 @@ class ExportService extends CrudService {
      */
     private function requested(mixed $filters, array $allowed): array {
         return is_array($filters) ? array_intersect_key($filters, array_flip($allowed)) : [];
+    }
+
+    /**
+     * @param Builder<Model> $query
+     * @param list<array{name: string, column: Column, title: string}> $fields
+     * @return list<array<string, string>>
+     */
+    private function rows(Builder $query, array $fields): array {
+        foreach (array_column(array_column($fields, 'column'), null, 'name') as $name => $column) {
+            if ($column->options !== null) {
+                $this->options[$name] = $this->flatten($column->options->options($this->model));
+            }
+        }
+
+        $rows = [];
+
+        foreach ($query->cursor() as $row) {
+            $this->inspect($row);
+
+            $data = [];
+
+            foreach ($fields as $field) {
+                $column = $field['column'];
+                $raw = $row->getAttribute($field['name']);
+                $override = array_get_value($this->cells, $column->name);
+
+                $data[$field['name']] = $override instanceof Closure ? $this->text($override($raw, $row)) : $this->format($raw, $column);
+            }
+
+            $rows[] = $data;
+        }
+
+        return $rows;
     }
 
     private function text(mixed $value): string {

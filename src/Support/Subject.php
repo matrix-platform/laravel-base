@@ -23,13 +23,15 @@ class Subject {
      * @return BelongsTo<Model, Model>|null
      */
     public function belongsTo(Model $model, string $name): ?BelongsTo {
-        return $this->guarded($model, $name);
+        $relation = $model->isRelation($name) ? $model->{$name}() : null;
+
+        return $relation instanceof BelongsTo && !$relation instanceof MorphTo ? $relation : null;
     }
 
     public function foreign(Model $model): ?string {
         $relation = $this->parent($model);
 
-        return $relation === null ? null : $relation->getForeignKeyName();
+        return $relation?->getForeignKeyName();
     }
 
     public function generic(string $prefix): ?string {
@@ -100,15 +102,6 @@ class Subject {
         return is_scalar($value) ? strval($value) : null;
     }
 
-    /**
-     * @return BelongsTo<Model, Model>|null
-     */
-    private function guarded(Model $model, string $name): ?BelongsTo {
-        $relation = $model->isRelation($name) ? $model->{$name}() : null;
-
-        return $relation instanceof BelongsTo && !$relation instanceof MorphTo ? $relation : null;
-    }
-
     private function metadata(Model $model): Metadata {
         $metadata = $this->registry->of($model::class);
 
@@ -141,7 +134,7 @@ class Subject {
         $relation = $this->relation($model, $metadata->parent);
         $parent = $relation->getRelated();
 
-        if ($this->recursive($model) || array_key_exists($parent::class, $visited)) {
+        if ($parent instanceof $model || array_key_exists($parent::class, $visited)) {
             return $metadata->alias;
         }
 
@@ -154,7 +147,7 @@ class Subject {
      * @return BelongsTo<Model, Model>
      */
     private function relation(Model $model, string $name): BelongsTo {
-        $relation = $this->guarded($model, $name);
+        $relation = $this->belongsTo($model, $name);
 
         if ($relation === null) {
             error('invalid-parent-relation');

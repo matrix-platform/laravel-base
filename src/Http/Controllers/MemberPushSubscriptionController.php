@@ -20,8 +20,7 @@ class MemberPushSubscriptionController extends BaseController {
         ]);
 
         $endpoint = $request->string('endpoint')->value();
-        $found = PushSubscription::query()->where('endpoint', $endpoint)->first();
-        $subscription = $found === null ? new PushSubscription() : $found;
+        $subscription = PushSubscription::query()->where('endpoint', $endpoint)->firstOrNew();
 
         $subscription->member_id = intval(actor()->requireCurrent()->getKey());
         $subscription->endpoint = $endpoint;

@@ -26,12 +26,12 @@ abstract class BaseModel extends Model {
         static::updating(fn (BaseModel $model) => $model->applyUpdatingGenerators());
 
         if (static::TRACEABLE) {
-            static::created(fn (BaseModel $model) => $model->traceCreated());
+            static::created(fn (BaseModel $model) => $model->traceAttributes(ManipulationType::Created));
             static::deleted(fn (BaseModel $model) => $model->traceDeleted());
             static::updated(fn (BaseModel $model) => $model->traceUpdated());
 
             if (method_exists(static::class, 'restored')) {
-                static::restored(fn (BaseModel $model) => $model->traceRestored());
+                static::restored(fn (BaseModel $model) => $model->traceAttributes(ManipulationType::Restored));
             }
         }
     }
@@ -189,16 +189,12 @@ abstract class BaseModel extends Model {
         $log->save();
     }
 
-    private function traceCreated(): void {
-        $this->trace(ManipulationType::Created, null, $this->decoded($this->getTraceables($this->getAttributes())));
+    private function traceAttributes(ManipulationType $type): void {
+        $this->trace($type, null, $this->decoded($this->getTraceables($this->getAttributes())));
     }
 
     private function traceDeleted(): void {
         $this->trace(ManipulationType::Deleted, $this->serialized($this->getTraceables($this->getOriginal())), null);
-    }
-
-    private function traceRestored(): void {
-        $this->trace(ManipulationType::Restored, null, $this->decoded($this->getTraceables($this->getAttributes())));
     }
 
     private function traceUpdated(): void {

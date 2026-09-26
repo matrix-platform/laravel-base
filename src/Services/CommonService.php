@@ -7,6 +7,7 @@ use MatrixPlatform\Columns\Declarations\Variant;
 use MatrixPlatform\Models\Block;
 use MatrixPlatform\Models\BlockItem;
 use MatrixPlatform\Models\City;
+use MatrixPlatform\Models\CityArea;
 use MatrixPlatform\Models\Menu;
 use MatrixPlatform\Models\Page;
 use MatrixPlatform\Support\Subject;
@@ -24,13 +25,8 @@ class CommonService {
             ->with('areas')
             ->orderBy('ranking')
             ->get();
-        $payload = [];
 
-        foreach ($cities as $city) {
-            $payload[] = ['id' => $city->id, 'title' => $this->subject->title($city), 'areas' => $this->areas($city)];
-        }
-
-        return $payload;
+        return array_values($cities->map(fn (City $city): array => ['id' => $city->id, 'title' => $this->subject->title($city), 'areas' => $this->areas($city)])->all());
     }
 
     /**
@@ -81,13 +77,7 @@ class CommonService {
      * @return list<array{id: int, title: ?string, post_code: string}>
      */
     private function areas(City $city): array {
-        $payload = [];
-
-        foreach ($city->areas as $area) {
-            $payload[] = ['id' => $area->id, 'title' => $this->subject->title($area), 'post_code' => $area->post_code];
-        }
-
-        return $payload;
+        return array_values($city->areas->map(fn (CityArea $area): array => ['id' => $area->id, 'title' => $this->subject->title($area), 'post_code' => $area->post_code])->all());
     }
 
     /**

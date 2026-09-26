@@ -32,13 +32,13 @@ class WebPushDriver implements Driver {
         $endpoints = [];
 
         foreach ($client->flush() as $report) {
-            $subscription = $subscriptions->firstWhere('endpoint', $report->getEndpoint());
-
             if ($report->isSuccess()) {
                 $endpoints[] = $report->getEndpoint();
 
                 continue;
             }
+
+            $subscription = $subscriptions->firstWhere('endpoint', $report->getEndpoint());
 
             if ($report->isSubscriptionExpired() && $subscription !== null) {
                 $subscription->delete();

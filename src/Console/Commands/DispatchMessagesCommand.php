@@ -16,8 +16,7 @@ class DispatchMessagesCommand extends Command {
 
     protected $signature = 'messages:dispatch';
 
-    public function handle(): int {
-        $channels = app(Channels::class);
+    public function handle(Channels $channels): int {
         $failed = false;
 
         foreach ($channels->names() as $name) {

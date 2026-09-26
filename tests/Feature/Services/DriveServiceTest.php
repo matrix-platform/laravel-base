@@ -240,6 +240,14 @@ class DriveServiceTest extends FeatureTestCase {
         $this->refuses('permission-denied', fn () => $service->move($item, $root, $stranger));
     }
 
+    public function test_rename_rejects_an_anchor(): void {
+        $service = $this->service();
+        $owner = $this->user();
+        $home = $service->home($owner);
+
+        $this->refuses('drive-anchor-immutable', fn () => $service->rename($home, 'renamed', null, $owner));
+    }
+
     public function test_trash_rejects_an_anchor(): void {
         $service = $this->service();
         $owner = $this->user();

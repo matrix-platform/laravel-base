@@ -2,6 +2,7 @@
 
 namespace MatrixPlatform\Support\Scaffold;
 
+use Illuminate\Support\Str;
 use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Columns\Presentation;
 
@@ -29,7 +30,7 @@ class PresentationGuesser {
             return ['presentation' => $this->jsonPresentation($name), 'sensitive' => false];
         }
 
-        if ($type === ColumnType::Text && $this->matches($name, ['description', 'content', 'body', 'intro', 'summary', 'detail', 'note', 'remark'])) {
+        if ($type === ColumnType::Text && Str::contains($name, ['description', 'content', 'body', 'intro', 'summary', 'detail', 'note', 'remark'])) {
             return ['presentation' => 'textarea', 'sensitive' => false];
         }
 
@@ -41,28 +42,15 @@ class PresentationGuesser {
     }
 
     private function jsonPresentation(string $name): ?Presentation {
-        if ($this->matches($name, ['icon', 'image', 'photo', 'cover', 'avatar', 'thumbnail'])) {
+        if (Str::contains($name, ['icon', 'image', 'photo', 'cover', 'avatar', 'thumbnail'])) {
             return Presentation::DriveImage;
         }
 
-        if ($this->matches($name, ['file', 'attachment', 'document'])) {
+        if (Str::contains($name, ['file', 'attachment', 'document'])) {
             return Presentation::DriveFile;
         }
 
         return null;
-    }
-
-    /**
-     * @param list<string> $keywords
-     */
-    private function matches(string $name, array $keywords): bool {
-        foreach ($keywords as $keyword) {
-            if (str_contains($name, $keyword)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
 }

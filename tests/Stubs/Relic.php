@@ -3,6 +3,7 @@
 namespace Tests\Stubs;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use MatrixPlatform\Models\BaseModel;
@@ -31,6 +32,13 @@ class Relic extends BaseModel {
      */
     public function relic(): BelongsTo {
         return $this->belongsTo(Relic::class);
+    }
+
+    /**
+     * @return HasMany<Relic, $this>
+     */
+    public function relics(): HasMany {
+        return $this->hasMany(Relic::class);
     }
 
     /**

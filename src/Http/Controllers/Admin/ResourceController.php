@@ -20,7 +20,7 @@ abstract class ResourceController extends BaseController {
      */
     #[Action('{id}')]
     public function get(Request $request): array {
-        return $this->service->prefix($this->prefix())->get($this->group, $this->allowed($request));
+        return $this->service()->get($this->group, $this->allowed($request));
     }
 
     /**
@@ -28,7 +28,7 @@ abstract class ResourceController extends BaseController {
      */
     #[Action('')]
     public function list(): array {
-        return $this->service->prefix($this->prefix())->list($this->group, $this->unrestricted());
+        return $this->service()->list($this->group, $this->unrestricted());
     }
 
     /**
@@ -36,7 +36,7 @@ abstract class ResourceController extends BaseController {
      */
     #[Action('{id}/update')]
     public function update(Request $request): array {
-        return $this->service->prefix($this->prefix())->update($this->group, $this->allowed($request), $request->all());
+        return $this->service()->update($this->group, $this->allowed($request), $request->all());
     }
 
     private function allowed(Request $request): string {
@@ -49,8 +49,8 @@ abstract class ResourceController extends BaseController {
         return $name;
     }
 
-    private function prefix(): string {
-        return "resource/{$this->group->value}";
+    private function service(): ResourceService {
+        return $this->service->prefix("resource/{$this->group->value}");
     }
 
     private function unrestricted(): bool {

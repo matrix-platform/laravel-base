@@ -94,14 +94,13 @@ class MakeCrudCommand extends Command {
             return;
         }
 
-        if ($writer->exists($path) && !$force) {
+        if (!$writer->write($path, $content, $force)) {
             $this->warn("Already exists, not overwritten (pass --force to overwrite): {$path}");
             $this->line($content);
 
             return;
         }
 
-        $writer->write($path, $content, $force);
         $this->info("Written: {$path}");
     }
 
@@ -139,20 +138,23 @@ class MakeCrudCommand extends Command {
 
         $this->line("'{$plan->path}' => [" . implode(', ', $group) . '],');
         $this->newLine();
-        $this->line("    '{$plan->path}/{id}' => ['parent' => '{$plan->path}', 'tag' => 'query'],");
-        $this->line("    '{$plan->path}/{id}/update' => ['parent' => '{$plan->path}', 'tag' => 'update'],");
+        $actions = ['/{id}' => 'query', '/{id}/update' => 'update'];
 
         if ($plan->arrangeable) {
-            $this->line("    '{$plan->path}/arrange' => ['parent' => '{$plan->path}', 'tag' => 'update'],");
-            $this->line("    '{$plan->path}/arrange/save' => ['parent' => '{$plan->path}', 'tag' => 'update'],");
+            $actions['/arrange'] = 'update';
+            $actions['/arrange/save'] = 'update';
         } elseif ($plan->sortable) {
-            $this->line("    '{$plan->path}/sort' => ['parent' => '{$plan->path}', 'tag' => 'update'],");
-            $this->line("    '{$plan->path}/sort/save' => ['parent' => '{$plan->path}', 'tag' => 'update'],");
+            $actions['/sort'] = 'update';
+            $actions['/sort/save'] = 'update';
         }
 
-        $this->line("    '{$plan->path}/delete' => ['parent' => '{$plan->path}', 'tag' => 'delete'],");
-        $this->line("    '{$plan->path}/insert' => ['parent' => '{$plan->path}', 'tag' => 'insert'],");
-        $this->line("    '{$plan->path}/new' => ['parent' => '{$plan->path}', 'tag' => 'insert'],");
+        $actions['/delete'] = 'delete';
+        $actions['/insert'] = 'insert';
+        $actions['/new'] = 'insert';
+
+        foreach ($actions as $suffix => $tag) {
+            $this->line("    '{$plan->path}{$suffix}' => ['parent' => '{$plan->path}', 'tag' => '{$tag}'],");
+        }
     }
 
     /**

@@ -72,6 +72,32 @@ class SyncTranslatableCommandTest extends FeatureTestCase {
         $this->assertSame('text', $type);
     }
 
+    public function test_the_new_column_keeps_the_length_of_an_existing_varchar_column(): void {
+        DB::statement('ALTER TABLE stub_widget ADD COLUMN caption__tw varchar(40)');
+
+        $this->declare('App\\Models\\Probe', 'caption');
+
+        $this->artisanCommand('matrix:sync-translatable')->assertExitCode(0);
+
+        $length = DB::table('information_schema.columns')
+            ->where('table_name', 'stub_widget')
+            ->where('column_name', 'caption__en')
+            ->value('character_maximum_length');
+
+        $this->assertSame(40, $length);
+    }
+
+    public function test_a_same_named_table_in_another_schema_is_ignored(): void {
+        DB::statement('CREATE SCHEMA shadow');
+        DB::statement('CREATE TABLE shadow.stub_widget (translated__fr text)');
+
+        config(['matrix.locales' => 'tw en fr']);
+
+        $this->artisanCommand('matrix:sync-translatable')->assertExitCode(0);
+
+        $this->assertTrue(Schema::hasColumn('stub_widget', 'translated__fr'));
+    }
+
     public function test_running_the_command_twice_does_not_fail_or_duplicate_the_column(): void {
         config(['matrix.locales' => 'tw en fr']);
 

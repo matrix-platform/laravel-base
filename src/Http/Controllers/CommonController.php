@@ -27,7 +27,7 @@ class CommonController extends BaseController {
             'parent' => ['nullable', 'integer']
         ]);
 
-        return $this->service->menu($this->optional($request, 'parent'));
+        return $this->service->menu($this->optionalInteger($request, 'parent'));
     }
 
     /**
@@ -40,10 +40,6 @@ class CommonController extends BaseController {
         ]);
 
         return $this->service->page($request->string('path')->value());
-    }
-
-    private function optional(Request $request, string $key): ?int {
-        return $request->filled($key) ? $request->integer($key) : null;
     }
 
 }

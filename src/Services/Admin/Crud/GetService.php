@@ -28,7 +28,7 @@ class GetService extends CrudService {
         $this->inspect($model);
 
         $parents = $this->subject->parents($model, $model);
-        $names = [...$this->names($this->columns), 'id'];
+        $names = [...$this->names($this->columns), $this->model->getKeyName()];
         $foreign = $this->foreign();
 
         if ($foreign !== null) {

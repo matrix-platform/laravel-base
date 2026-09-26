@@ -80,7 +80,7 @@ class Sorting {
             return null;
         }
 
-        $direction = array_key_exists('direction', $item) ? $item['direction'] : 'asc';
+        $direction = array_get_value($item, 'direction', 'asc');
 
         if (!is_string($direction)) {
             return null;

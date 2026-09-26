@@ -41,8 +41,7 @@ class TelegramWebhookController extends BaseController {
             return;
         }
 
-        $found = TelegramSubscription::query()->where('user_id', $userId)->first();
-        $subscription = $found === null ? new TelegramSubscription() : $found;
+        $subscription = TelegramSubscription::query()->where('user_id', $userId)->firstOrNew();
 
         $subscription->user_id = $userId;
         $subscription->chat_id = $chatId;

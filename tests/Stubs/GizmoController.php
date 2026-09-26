@@ -14,4 +14,11 @@ class GizmoController extends CrudController {
         'title'
     ];
 
+    /**
+     * @return list<string|array<string, mixed>>
+     */
+    protected function optionals(): array {
+        return [...parent::optionals(), 'update_time'];
+    }
+
 }

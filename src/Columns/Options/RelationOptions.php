@@ -12,7 +12,6 @@ class RelationOptions implements OptionProvider {
 
     /**
      * @param class-string<Model> $related
-     * @param bool $active
      */
     public function __construct(private string $related, private bool $active = true) {}
 
@@ -20,11 +19,11 @@ class RelationOptions implements OptionProvider {
      * @return list<Option>
      */
     public function options(?Model $model = null, bool $trashed = false): array {
-        return $this->tree($this->collect($trashed), null);
+        return $this->tree($this->collect($trashed), '');
     }
 
     /**
-     * @return array<string, list<Option>>
+     * @return array<string, list<array{class-string<Model>, Option}>>
      */
     private function collect(bool $trashed): array {
         $current = new $this->related();
@@ -42,6 +41,7 @@ class RelationOptions implements OptionProvider {
             $parent = $metadata->parent;
             $relation = $parent === null ? null : $current->{$parent}();
             $foreign = $relation === null ? null : $relation->getForeignKeyName();
+            $owner = $relation === null ? null : $relation->getRelated()::class;
 
             $query = $current::query();
 
@@ -54,7 +54,7 @@ class RelationOptions implements OptionProvider {
             $selectable = $current::class === $this->related;
 
             foreach ($query->get() as $item) {
-                $mapping[$this->key($foreign === null ? null : $item->getAttribute($foreign))][] = $this->option($subject, $item, $selectable);
+                $mapping[$this->key($owner, $foreign === null ? null : $item->getAttribute($foreign))][] = [$item::class, $this->option($subject, $item, $selectable)];
             }
 
             if ($relation === null) {
@@ -83,8 +83,8 @@ class RelationOptions implements OptionProvider {
         return is_int($key) || is_string($key) ? $key : '';
     }
 
-    private function key(mixed $value): string {
-        return $value === null ? '' : (string) $value;
+    private function key(?string $owner, mixed $value): string {
+        return $owner === null || $value === null ? '' : $owner . '#' . $value;
     }
 
     private function option(Subject $subject, Model $item, bool $selectable): Option {
@@ -95,14 +95,14 @@ class RelationOptions implements OptionProvider {
     }
 
     /**
-     * @param array<string, list<Option>> $mapping
+     * @param array<string, list<array{class-string<Model>, Option}>> $mapping
      * @return list<Option>
      */
-    private function tree(array $mapping, int|string|null $id): array {
+    private function tree(array $mapping, string $key): array {
         $nodes = [];
 
-        foreach (array_get_value($mapping, $this->key($id), []) as $node) {
-            $nodes[] = new Option($this->tree($mapping, $node->id), $node->id, $node->ranking, $node->title, $node->deleted, $node->selectable);
+        foreach (array_get_value($mapping, $key, []) as [$class, $node]) {
+            $nodes[] = new Option($this->tree($mapping, $this->key($class, $node->id)), $node->id, $node->ranking, $node->title, $node->deleted, $node->selectable);
         }
 
         return $nodes;

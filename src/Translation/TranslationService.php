@@ -21,13 +21,14 @@ class TranslationService {
             return null;
         }
 
+        $context = ['source' => $sourceLocale, 'target' => $targetLocale, 'length' => strlen($text)];
         $placeholders = [];
         $protected = $this->protect($text, $placeholders);
 
         try {
             $translated = $driver->translate($protected, $sourceLocale, $targetLocale);
         } catch (ServiceException $exception) {
-            $this->record('failed', ['source' => $sourceLocale, 'target' => $targetLocale, 'length' => strlen($text), 'error' => $exception->getError()]);
+            $this->record('failed', [...$context, 'error' => $exception->getError()]);
 
             throw $exception;
         }
@@ -36,12 +37,12 @@ class TranslationService {
         $translation = $this->restore($translated, $placeholders, $restored);
 
         if (count($restored) !== count($placeholders)) {
-            $this->record('failed', ['source' => $sourceLocale, 'target' => $targetLocale, 'length' => strlen($text), 'error' => 'placeholder-lost']);
+            $this->record('failed', [...$context, 'error' => 'placeholder-lost']);
 
             return null;
         }
 
-        $this->record('translated', ['source' => $sourceLocale, 'target' => $targetLocale, 'length' => strlen($text)]);
+        $this->record('translated', $context);
 
         return $translation;
     }

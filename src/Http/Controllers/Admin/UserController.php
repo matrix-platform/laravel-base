@@ -99,8 +99,8 @@ class UserController extends CrudController {
             ->rowActions([
                 'edit',
                 'delete',
-                new Operation('disable-mfa', fn (User $model): bool => $model->hasMfaEnabled() && $model->getKey() !== actor()->requireUser()->id),
-                new Operation('revoke-passkeys', fn (User $model): bool => ((int) $model->getAttribute('passkeys_count')) > 0 && $model->getKey() !== actor()->requireUser()->id)
+                new Operation('disable-mfa', fn (User $model): bool => $model->hasMfaEnabled() && !$this->isSelf($model)),
+                new Operation('revoke-passkeys', fn (User $model): bool => ((int) $model->getAttribute('passkeys_count')) > 0 && !$this->isSelf($model))
             ]);
     }
 
@@ -109,9 +109,13 @@ class UserController extends CrudController {
     }
 
     private function guardNotSelf(Model $model): void {
-        if ($model->getKey() === actor()->requireUser()->id) {
+        if ($this->isSelf($model)) {
             error('permission-denied', 403);
         }
+    }
+
+    private function isSelf(Model $model): bool {
+        return $model->getKey() === actor()->requireUser()->id;
     }
 
     private function manageableUser(Request $request): User {

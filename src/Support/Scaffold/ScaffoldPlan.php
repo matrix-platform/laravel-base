@@ -50,7 +50,7 @@ class ScaffoldPlan {
             $presentations[$name] = $guesser->guess($name, $columns[$name]->type);
         }
 
-        $notes = self::pendingNotes($introspector, $table, $columns, $customFields, $presentations, $titleField);
+        $notes = self::pendingNotes($introspector, $table, $columns, $customFields, $presentations);
 
         return new self(
             $table,
@@ -98,66 +98,24 @@ class ScaffoldPlan {
     private static function groupColumns(array $columns, string $titleField): array {
         $names = array_keys($columns);
         $total = count($names);
-        $primaryKey = array_key_first(Definitions::primaryKey());
-        $rankingKey = array_key_first(Definitions::ranking());
-        [$enableKey, $disableKey] = array_keys(Definitions::schedules());
-        [$creatorKey, $createKey, $updaterKey, $updateKey] = array_keys(Definitions::auditings());
         $groups = [];
         $buffer = [];
         $index = 0;
 
         while ($index < $total) {
-            $name = $names[$index];
+            $group = self::specialGroup($names, $index, $titleField);
 
-            if ($name === $primaryKey) {
-                $groups = self::closeBuffer($groups, $buffer);
-                $buffer = [];
-                $groups[] = ['kind' => 'primary', 'names' => [$name]];
+            if ($group === null) {
+                $buffer[] = $names[$index];
                 $index++;
 
                 continue;
             }
 
-            if ($name === 'title' && $name === $titleField) {
-                $groups = self::closeBuffer($groups, $buffer);
-                $buffer = [];
-                $groups[] = ['kind' => 'title', 'names' => [$name]];
-                $index++;
-
-                continue;
-            }
-
-            if ($name === $rankingKey) {
-                $groups = self::closeBuffer($groups, $buffer);
-                $buffer = [];
-                $groups[] = ['kind' => 'ranking', 'names' => [$name]];
-                $index++;
-
-                continue;
-            }
-
-            if ($name === $enableKey && array_key_exists($index + 1, $names) && $names[$index + 1] === $disableKey) {
-                $groups = self::closeBuffer($groups, $buffer);
-                $buffer = [];
-                $groups[] = ['kind' => 'schedules', 'names' => [$name, $names[$index + 1]]];
-                $index += 2;
-
-                continue;
-            }
-
-            if ($name === $creatorKey && array_key_exists($index + 1, $names) && $names[$index + 1] === $createKey) {
-                $hasUpdater = array_key_exists($index + 3, $names) && $names[$index + 2] === $updaterKey && $names[$index + 3] === $updateKey;
-                $members = $hasUpdater ? [$name, $names[$index + 1], $names[$index + 2], $names[$index + 3]] : [$name, $names[$index + 1]];
-                $groups = self::closeBuffer($groups, $buffer);
-                $buffer = [];
-                $groups[] = ['kind' => 'auditings', 'names' => $members];
-                $index += count($members);
-
-                continue;
-            }
-
-            $buffer[] = $name;
-            $index++;
+            $groups = self::closeBuffer($groups, $buffer);
+            $buffer = [];
+            $groups[] = $group;
+            $index += count($group['names']);
         }
 
         return self::closeBuffer($groups, $buffer);
@@ -169,14 +127,10 @@ class ScaffoldPlan {
      * @param array<string, array{presentation: Presentation|string|null, sensitive: bool}> $presentations
      * @return list<string>
      */
-    private static function pendingNotes(SchemaIntrospector $introspector, string $table, array $columns, array $customFields, array $presentations, string $titleField): array {
+    private static function pendingNotes(SchemaIntrospector $introspector, string $table, array $columns, array $customFields, array $presentations): array {
         $notes = [];
 
         foreach ($customFields as $name) {
-            if ($name === $titleField && $name === 'title') {
-                continue;
-            }
-
             $result = $presentations[$name];
 
             if ($result['sensitive']) {
@@ -220,18 +174,10 @@ class ScaffoldPlan {
 
         $referencedTable = $columns[$column]->foreignTable;
 
-        foreach ($packages->models() as $model) {
-            if (!is_a($model, Model::class, true)) {
-                continue;
+        foreach ($registry->declaredModels($packages) as $model => $declares) {
+            if ((new $model())->getTable() === $referencedTable) {
+                return ['relation' => $parent, 'column' => $column, 'modelClass' => $model, 'alias' => $declares->metadata()->alias];
             }
-
-            $metadata = $registry->of($model);
-
-            if ($metadata === null || (new $model())->getTable() !== $referencedTable) {
-                continue;
-            }
-
-            return ['relation' => $parent, 'column' => $column, 'modelClass' => $model, 'alias' => $metadata->alias];
         }
 
         throw new RuntimeException("parent-model-not-found: no declared (#[Declared]) model found for table '{$referencedTable}'");
@@ -278,6 +224,40 @@ class ScaffoldPlan {
         }
 
         throw new RuntimeException('title-not-guessable: could not guess a title column from the schema, pass --title explicitly');
+    }
+
+    /**
+     * @param list<string> $names
+     * @return array{kind: 'primary'|'title'|'ranking'|'schedules'|'auditings', names: non-empty-list<string>}|null
+     */
+    private static function specialGroup(array $names, int $index, string $titleField): ?array {
+        $name = $names[$index];
+        [$enableKey, $disableKey] = array_keys(Definitions::schedules());
+        [$creatorKey, $createKey, $updaterKey, $updateKey] = array_keys(Definitions::auditings());
+
+        if ($name === array_key_first(Definitions::primaryKey())) {
+            return ['kind' => 'primary', 'names' => [$name]];
+        }
+
+        if ($name === 'title' && $name === $titleField) {
+            return ['kind' => 'title', 'names' => [$name]];
+        }
+
+        if ($name === array_key_first(Definitions::ranking())) {
+            return ['kind' => 'ranking', 'names' => [$name]];
+        }
+
+        if ($name === $enableKey && array_key_exists($index + 1, $names) && $names[$index + 1] === $disableKey) {
+            return ['kind' => 'schedules', 'names' => [$name, $names[$index + 1]]];
+        }
+
+        if ($name === $creatorKey && array_key_exists($index + 1, $names) && $names[$index + 1] === $createKey) {
+            $hasUpdater = array_key_exists($index + 3, $names) && $names[$index + 2] === $updaterKey && $names[$index + 3] === $updateKey;
+
+            return ['kind' => 'auditings', 'names' => $hasUpdater ? [$name, $names[$index + 1], $names[$index + 2], $names[$index + 3]] : [$name, $names[$index + 1]]];
+        }
+
+        return null;
     }
 
     /**
@@ -444,7 +424,7 @@ class ScaffoldPlan {
 
     private function definitionCall(string $name): string {
         $column = $this->columns[$name];
-        $presentation = array_key_exists($name, $this->presentations) ? $this->presentations[$name]['presentation'] : null;
+        $presentation = $this->presentations[$name]['presentation'];
         $factory = match ($column->type) {
             ColumnType::Boolean => 'boolean',
             ColumnType::Date => 'date',

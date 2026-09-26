@@ -90,32 +90,31 @@ class UpdateGeolocationDatabaseCommand extends Command {
             return false;
         }
 
-        $name = $this->entry($archive);
+        try {
+            $name = $this->entry($archive);
 
-        if ($name === null) {
+            if ($name === null) {
+                $this->error('No .BIN file was found inside the downloaded archive');
+
+                return false;
+            }
+
+            $stream = $archive->getStream($name);
+
+            if ($stream === false) {
+                $this->error('Failed to extract the .BIN file from the downloaded archive');
+
+                return false;
+            }
+
+            $this->replace($stream);
+
+            fclose($stream);
+
+            return true;
+        } finally {
             $archive->close();
-
-            $this->error('No .BIN file was found inside the downloaded archive');
-
-            return false;
         }
-
-        $stream = $archive->getStream($name);
-
-        if ($stream === false) {
-            $archive->close();
-
-            $this->error('Failed to extract the .BIN file from the downloaded archive');
-
-            return false;
-        }
-
-        $this->replace($stream);
-
-        fclose($stream);
-        $archive->close();
-
-        return true;
     }
 
     /**

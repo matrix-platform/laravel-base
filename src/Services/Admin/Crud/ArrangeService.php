@@ -57,7 +57,7 @@ class ArrangeService extends CrudService {
      */
     public function save(mixed $input): array {
         $values = is_array($input) ? $input : [];
-        $order = array_values(array_map(fn (mixed $id): string => strval($id), Arr::wrap(array_get_value($values, 'enabled'))));
+        $order = array_values(array_map(strval(...), Arr::wrap(array_get_value($values, 'enabled'))));
         $models = $this->keyed($this->ordered());
 
         if (array_diff($order, array_keys($models)) !== [] || count($order) !== count(array_unique($order))) {
@@ -116,7 +116,7 @@ class ArrangeService extends CrudService {
             $query->orderBy($this->ranking);
         }
 
-        return $query->orderBy('id')->get();
+        return $query->orderBy($this->model->getKeyName())->get();
     }
 
 }

@@ -30,7 +30,11 @@ class FieldLabelResolver {
                 continue;
             }
 
-            $translated = $this->translate($comment, $defaultLocale, $locale);
+            try {
+                $translated = $this->translator->translate($comment, $defaultLocale, $locale);
+            } catch (ServiceException) {
+                $translated = null;
+            }
 
             if ($translated === null) {
                 $notes[] = "Could not auto-translate the comment for '{$name}' into locale '{$locale}'; used a TODO placeholder instead.";
@@ -42,18 +46,6 @@ class FieldLabelResolver {
         }
 
         return ['labels' => $labels, 'notes' => $notes];
-    }
-
-    private function translate(string $comment, string $sourceLocale, string $targetLocale): ?string {
-        if (!in_array($sourceLocale, locales(), true) || !in_array($targetLocale, locales(), true)) {
-            return null;
-        }
-
-        try {
-            return $this->translator->translate($comment, $sourceLocale, $targetLocale);
-        } catch (ServiceException) {
-            return null;
-        }
     }
 
 }

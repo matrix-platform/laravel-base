@@ -311,8 +311,8 @@ class CrudControllerTest extends FeatureTestCase {
 
         $columns = $this->admin('admin/widget')->json('data.columns');
 
-        $this->assertSame(['title', 'enable_time', 'trinkets_count'], array_column($columns, 'name'));
-        $this->assertSame([true, false, true], array_column($columns, 'default'));
+        $this->assertSame(['title', 'trinkets_count', 'enable_time'], array_column($columns, 'name'));
+        $this->assertSame([true, true, false], array_column($columns, 'default'));
     }
 
     public function test_the_get_and_new_responses_carry_the_column_preference_of_the_list(): void {
@@ -847,7 +847,7 @@ class CrudControllerTest extends FeatureTestCase {
 
         $names = array_column($this->admin("admin/widget/{$alpha->id}/trinket/export")->json('data.columns'), 'name');
 
-        $this->assertSame(['label', 'amount', 'widget_title'], $names);
+        $this->assertSame(['label', 'widget_title', 'amount'], $names);
     }
 
     public function test_export_outputs_the_requested_pool_columns_in_the_requested_order(): void {
@@ -866,7 +866,7 @@ class CrudControllerTest extends FeatureTestCase {
 
         $names = array_column($this->admin("admin/widget/{$alpha->id}/trinket/export", ['columns' => []])->json('data.columns'), 'name');
 
-        $this->assertSame(['label', 'amount', 'widget_title'], $names);
+        $this->assertSame(['label', 'widget_title', 'amount'], $names);
     }
 
     public function test_export_ignores_requested_columns_when_the_exports_are_declared(): void {
@@ -915,7 +915,7 @@ class CrudControllerTest extends FeatureTestCase {
 
         $names = array_column($this->admin("admin/widget/{$alpha->id}/trinket/export", ['columns' => ['unknown']])->json('data.columns'), 'name');
 
-        $this->assertSame(['label', 'amount', 'widget_title'], $names);
+        $this->assertSame(['label', 'widget_title', 'amount'], $names);
     }
 
     public function test_an_empty_export_list_yields_no_columns(): void {
@@ -955,6 +955,26 @@ class CrudControllerTest extends FeatureTestCase {
         Gizmo::forceCreate(['title' => 'Alpha']);
 
         $this->assertSame([['title' => 'Alpha']], $this->admin('admin/gizmo/export')->json('data.rows'));
+    }
+
+    public function test_the_optionals_hook_widens_the_list_pool_without_touching_the_defaults(): void {
+        app(MetadataRegistry::class)->register(Gizmo::class, new StubDeclaration(new Metadata('gizmo'), ['title' => Definition::text(), ...Definitions::auditings()]));
+
+        Gizmo::forceCreate(['title' => 'Alpha']);
+
+        $columns = $this->admin('admin/gizmo')->json('data.columns');
+
+        $this->assertSame(['title', 'update_time'], array_column($columns, 'name'));
+        $this->assertSame([true, false], array_column($columns, 'default'));
+    }
+
+    public function test_the_optionals_hook_widens_the_export_pool(): void {
+        app(MetadataRegistry::class)->register(Gizmo::class, new StubDeclaration(new Metadata('gizmo'), ['title' => Definition::text(), ...Definitions::auditings()]));
+
+        Gizmo::forceCreate(['title' => 'Alpha']);
+
+        $this->assertSame(['title'], array_column($this->admin('admin/gizmo/export')->json('data.columns'), 'name'));
+        $this->assertSame(['update_time', 'title'], array_column($this->admin('admin/gizmo/export', ['columns' => ['update_time', 'title']])->json('data.columns'), 'name'));
     }
 
     public function test_the_export_action_carries_its_translated_title_and_url(): void {

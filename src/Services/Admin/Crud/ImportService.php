@@ -171,13 +171,12 @@ class ImportService extends CrudService {
     }
 
     private function narrow(): void {
-        $local = $this->local();
         $foreign = $this->foreign();
-        $scoped = array_filter($this->columns, fn (Column $column): bool => in_array($column, $local, true) && $this->writable($column) && $column->name !== $foreign);
+        $scoped = array_filter($this->local(), fn (Column $column): bool => $this->writable($column) && $column->name !== $foreign);
         $unsupported = array_filter($scoped, fn (Column $column): bool => $column->required && !$this->supported($column));
 
         if ($unsupported !== []) {
-            error('import-column-unsupported', 500, ['columns' => array_values(array_map(fn (Column $column): string => $column->name, $unsupported))]);
+            error('import-column-unsupported', 500, ['columns' => array_column($unsupported, 'name')]);
         }
 
         $this->swap(array_values(array_filter($scoped, $this->supported(...))));

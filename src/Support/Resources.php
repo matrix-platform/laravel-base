@@ -100,7 +100,7 @@ class Resources {
      */
     public function getBundle(string $name): ?array {
         if (!array_key_exists($name, $this->bundles)) {
-            $defaults = $this->merge($name);
+            $defaults = $this->getDefaults($name);
             $override = $this->getOverrides($name);
 
             $this->bundles[$name] = $defaults === null || $override === null ? $defaults : self::combine($defaults, $override);
@@ -120,7 +120,31 @@ class Resources {
      * @return array<string, mixed>|null
      */
     public function getDefaults(string $name): ?array {
-        return $this->merge($name);
+        if (self::traverses($name)) {
+            error('invalid-resource-token');
+        }
+
+        $key = self::defaultsCacheKey($name);
+        $store = $this->store();
+        $cached = $store->get($key);
+
+        if ($cached !== null) {
+            return $cached === self::MISSING ? null : $cached;
+        }
+
+        $bundle = null;
+
+        foreach ($this->packages->paths() as $path) {
+            $data = $this->load("{$path}/resources/{$name}.php");
+
+            if ($data !== null) {
+                $bundle = $bundle === null ? $data : self::combine($data, $bundle);
+            }
+        }
+
+        $store->forever($key, $bundle === null ? self::MISSING : $bundle);
+
+        return $bundle;
     }
 
     /**
@@ -229,37 +253,6 @@ class Resources {
         }
 
         return $overrides;
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function merge(string $name): ?array {
-        if (self::traverses($name)) {
-            error('invalid-resource-token');
-        }
-
-        $key = self::defaultsCacheKey($name);
-        $store = $this->store();
-        $cached = $store->get($key);
-
-        if ($cached !== null) {
-            return $cached === self::MISSING ? null : $cached;
-        }
-
-        $bundle = null;
-
-        foreach ($this->packages->paths() as $path) {
-            $data = $this->load("{$path}/resources/{$name}.php");
-
-            if ($data !== null) {
-                $bundle = $bundle === null ? $data : self::combine($data, $bundle);
-            }
-        }
-
-        $store->forever($key, $bundle === null ? self::MISSING : $bundle);
-
-        return $bundle;
     }
 
     /**

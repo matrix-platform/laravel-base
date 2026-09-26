@@ -17,7 +17,6 @@ use MatrixPlatform\Models\User;
 use MatrixPlatform\Services\FileService;
 use MatrixPlatform\Services\FileStorage;
 use MatrixPlatform\Services\MediaMeasurer;
-use MatrixPlatform\Support\RollbackCallbacks;
 use MatrixPlatform\Support\Subject;
 
 class DriveService {
@@ -34,7 +33,6 @@ class DriveService {
 
         return DriveNode::query()
             ->where('parent_id', $folder->id)
-            ->whereNull('deleted_at')
             ->orderBy('id')
             ->get();
     }
@@ -60,7 +58,7 @@ class DriveService {
     public function createdBy(DriveNode $node): ?string {
         $map = $this->createdByMany(new Collection([$node]));
 
-        return array_key_exists($node->id, $map) ? $map[$node->id] : null;
+        return array_get_value($map, $node->id);
     }
 
     /**
@@ -89,7 +87,7 @@ class DriveService {
 
         $map = $this->deletedByMany(new Collection([$node]));
 
-        return array_key_exists($node->id, $map) ? $map[$node->id] : null;
+        return array_get_value($map, $node->id);
     }
 
     /**
@@ -114,7 +112,7 @@ class DriveService {
         $usernames = User::usernames($creatorIds);
 
         return $creatorIds
-            ->map(fn (?int $creatorId): ?string => $creatorId === null ? null : array_get_value($usernames, $creatorId))
+            ->map(fn (int $creatorId): ?string => array_get_value($usernames, $creatorId))
             ->filter()
             ->all();
     }
@@ -192,6 +190,10 @@ class DriveService {
     }
 
     public function rename(DriveNode $node, string $name, ?string $description, User $user): void {
+        if ($this->isAnchor($node)) {
+            error('drive-anchor-immutable');
+        }
+
         $this->requireAllowed($node, $user);
 
         if ($name !== $node->name && $node->parent_id !== null && $this->exists($node->parent_id, $name)) {
@@ -271,8 +273,6 @@ class DriveService {
             $path = $existing->path;
         } else {
             $path = app(FileStorage::class)->store($file, $disk, self::FOLDER);
-
-            app(RollbackCallbacks::class)->register(fn () => Storage::disk($disk)->delete(self::FOLDER . $path));
         }
 
         $measured = app(MediaMeasurer::class)->measure($mimeType, $file->getPathname());
@@ -311,7 +311,6 @@ class DriveService {
         return DriveNode::query()
             ->where('parent_id', $parentId)
             ->where('name', $name)
-            ->whereNull('deleted_at')
             ->exists();
     }
 
@@ -340,16 +339,12 @@ class DriveService {
     private function isDescendant(DriveNode $candidate, DriveNode $ancestor): bool {
         $current = $candidate;
 
-        while ($current->parent_id !== null) {
+        while ($current !== null && $current->parent_id !== null) {
             if ($current->parent_id === $ancestor->id) {
                 return true;
             }
 
             $current = $this->permission->parent($current);
-
-            if ($current === null) {
-                return false;
-            }
         }
 
         return false;

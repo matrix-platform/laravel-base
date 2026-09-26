@@ -37,7 +37,7 @@ class Variants {
     public function type(string $group, ?Model $model, mixed $input): ?string {
         $resolver = $this->resolver($group);
 
-        return $resolver === null ? null : $resolver->resolve($model, $input);
+        return $resolver?->resolve($model, $input);
     }
 
     public function variant(string $group, ?Model $model, mixed $input): ?Variant {

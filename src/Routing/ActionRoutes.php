@@ -33,7 +33,7 @@ class ActionRoutes {
     }
 
     public static function controller(string $prefix): ?string {
-        $stripped = (is_string(config('matrix.admin-api-prefix')) ? config('matrix.admin-api-prefix') : '') . '/';
+        $stripped = strval(config('matrix.admin-api-prefix')) . '/';
 
         foreach (Route::getRoutes()->getRoutes() as $route) {
             $uri = $route->uri();

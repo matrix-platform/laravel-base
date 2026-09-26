@@ -29,6 +29,10 @@ abstract class BaseController extends Controller {
         return $data instanceof Response ? $data : response()->json(['success' => true, 'data' => $data]);
     }
 
+    protected function optionalInteger(Request $request, string $key): ?int {
+        return $request->filled($key) ? $request->integer($key) : null;
+    }
+
     protected function optionalString(Request $request, string $key): ?string {
         return $request->filled($key) ? $request->string($key)->value() : null;
     }

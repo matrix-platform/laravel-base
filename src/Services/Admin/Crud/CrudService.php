@@ -15,6 +15,7 @@ use MatrixPlatform\Columns\Column;
 use MatrixPlatform\Columns\ColumnResolver;
 use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Columns\Declarations\Definition;
+use MatrixPlatform\Columns\Declarations\Definitions;
 use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Columns\Query\Filtering;
 use MatrixPlatform\Columns\Query\QueryPlan;
@@ -185,9 +186,7 @@ abstract class CrudService {
 
                 $translated = [];
 
-                foreach (locales() as $locale) {
-                    $key = "{$column->name}__{$locale}";
-
+                foreach (array_combine(locales(), $this->translated($column)) as $locale => $key) {
                     if (array_key_exists($key, $values)) {
                         $translated[$locale] = $this->driveResolved($column, $values[$key]);
                     }
@@ -390,7 +389,7 @@ abstract class CrudService {
             }
         }
 
-        $this->columns = $expanded;
+        $this->swap($expanded);
     }
 
     /**
@@ -449,8 +448,8 @@ abstract class CrudService {
                     continue;
                 }
 
-                foreach (locales() as $locale) {
-                    $data["{$column->name}__{$locale}"] = is_array($value) ? array_get_value($value, $locale) : null;
+                foreach (array_combine(locales(), $this->translated($column)) as $locale => $key) {
+                    $data[$key] = is_array($value) ? array_get_value($value, $locale) : null;
                 }
             }
         }
@@ -597,6 +596,7 @@ abstract class CrudService {
     protected function pool(array $optionals): void {
         $defaults = array_column($this->columns, null, 'name');
         $replacements = $this->replacements($defaults);
+        $foreign = $this->foreign();
         $placed = [];
         $pooled = [];
 
@@ -604,24 +604,15 @@ abstract class CrudService {
 
         foreach ($optionals as $optional) {
             $parsed = (new ColumnParser())->parse($optional);
-            $expression = $parsed->expression;
-            $field = strval($expression->field);
-            $name = $parsed->name;
-
-            if (!array_key_exists($name, $defaults) && $expression->path === [] && $expression->aggregate === null && array_key_exists($field, $replacements)) {
-                $name = $replacements[$field];
-
-                if (!array_key_exists($name, $placed)) {
-                    $this->replaced[$name] = $field;
-                }
-            }
+            $name = $this->replacementName($parsed, $defaults, $replacements, $placed);
 
             if (array_key_exists($name, $defaults)) {
-                if (!array_key_exists($name, $placed)) {
-                    $placed[$name] = true;
-                    $pooled[] = $defaults[$name];
-                }
+                $placed[$name] = true;
 
+                continue;
+            }
+
+            if ($foreign !== null && $parsed->expression->field === $foreign && $parsed->expression->path === [] && $parsed->expression->aggregate === null) {
                 continue;
             }
 
@@ -633,13 +624,7 @@ abstract class CrudService {
             }
         }
 
-        foreach ($defaults as $name => $column) {
-            if (!array_key_exists($name, $placed)) {
-                $pooled[] = $column;
-            }
-        }
-
-        $this->swap($pooled);
+        $this->swap([...array_values($defaults), ...$pooled]);
     }
 
     /**
@@ -858,6 +843,10 @@ abstract class CrudService {
         return $url !== null && app(AdminPermission::class)->reaches($url);
     }
 
+    private function auditing(Column $column): bool {
+        return $this->rooted($column) && array_key_exists(strval($column->expression->field), Definitions::auditings());
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -914,7 +903,7 @@ abstract class CrudService {
     }
 
     private function listable(ParsedColumn $parsed, Column $column): bool {
-        if ($column->virtual || $column->tab !== null || is_string($column->presentation) || in_array($column->presentation, [Presentation::Composite, Presentation::Hidden, Presentation::Password], true)) {
+        if ($column->virtual || ($column->tab !== null && !$this->auditing($column)) || is_string($column->presentation) || in_array($column->presentation, [Presentation::Composite, Presentation::Hidden, Presentation::Password], true)) {
             return false;
         }
 
@@ -991,6 +980,27 @@ abstract class CrudService {
         }, $template);
 
         return is_string($replaced) ? $replaced : $template;
+    }
+
+    /**
+     * @param array<string, Column> $defaults
+     * @param array<string, string> $replacements
+     * @param array<string, true> $placed
+     */
+    private function replacementName(ParsedColumn $parsed, array $defaults, array $replacements, array $placed): string {
+        $expression = $parsed->expression;
+        $field = strval($expression->field);
+        $name = $parsed->name;
+
+        if (!array_key_exists($name, $defaults) && $expression->path === [] && $expression->aggregate === null && array_key_exists($field, $replacements)) {
+            $name = $replacements[$field];
+
+            if (!array_key_exists($name, $placed)) {
+                $this->replaced[$name] = $field;
+            }
+        }
+
+        return $name;
     }
 
     /**

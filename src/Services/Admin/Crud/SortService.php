@@ -16,7 +16,7 @@ class SortService extends CrudService {
 
         $metadata = app(MetadataRegistry::class)->of($model);
 
-        $this->ranking = $metadata !== null && $metadata->ranking !== null ? $metadata->ranking : 'ranking';
+        $this->ranking = $metadata?->ranking === null ? 'ranking' : $metadata->ranking;
     }
 
     /**
@@ -41,11 +41,11 @@ class SortService extends CrudService {
      */
     public function sort(mixed $input): array {
         $values = is_array($input) ? $input : [];
-        $order = array_values(array_map(fn (mixed $id): string => strval($id), Arr::wrap(array_get_value($values, 'order'))));
+        $order = array_values(array_map(strval(...), Arr::wrap(array_get_value($values, 'order'))));
         $models = $this->keyed($this->ordered());
 
         $given = $order;
-        $expected = array_map(fn (int|string $key): string => strval($key), array_keys($models));
+        $expected = array_map(strval(...), array_keys($models));
 
         sort($given);
         sort($expected);
@@ -75,7 +75,7 @@ class SortService extends CrudService {
     private function ordered(): Collection {
         return $this->plain()
             ->orderBy($this->ranking)
-            ->orderBy('id')
+            ->orderBy($this->model->getKeyName())
             ->get();
     }
 

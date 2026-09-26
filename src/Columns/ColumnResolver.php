@@ -5,6 +5,7 @@ namespace MatrixPlatform\Columns;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Arr;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Options\BundleOptions;
 use MatrixPlatform\Columns\Options\OptionProvider;
@@ -57,7 +58,7 @@ class ColumnResolver {
             $this->sortable($column, $type, $presentation),
             $column->tab === null ? $definition?->tab : $column->tab,
             $silent ? $this->fallback($column) : $this->title($root, $column),
-            $definition === null ? false : $definition->translatable,
+            $definition !== null && $definition->translatable,
             $type,
             $definition !== null && $definition->unique,
             $definition?->group,
@@ -108,7 +109,7 @@ class ColumnResolver {
      * @param list<string> $relations
      */
     private function descended(Model $terminal, string $prefix, array $relations): ?string {
-        $segment = $relations === [] ? null : $relations[count($relations) - 1];
+        $segment = Arr::last($relations);
         $foreign = $this->subject->foreign($terminal);
 
         if ($segment === null || $foreign === null) {
@@ -121,7 +122,7 @@ class ColumnResolver {
     }
 
     private function fallback(ParsedColumn $column): string {
-        return $column->title === null ? "{{$column->name}}" : $column->title;
+        return $column->title === null ? $this->unresolved($column) : $column->title;
     }
 
     private function label(Model $root, ParsedColumn $column, ?string $given, string $suffix): ?string {
@@ -287,13 +288,9 @@ class ColumnResolver {
     }
 
     private function title(Model $root, ParsedColumn $column): string {
-        if ($column->title !== null) {
-            return $column->title;
-        }
+        $found = $this->label($root, $column, $column->title, '');
 
-        $found = array_get_value($this->bundle($root), $column->name);
-
-        return is_string($found) ? $found : "{{$column->name}}";
+        return $found === null ? $this->unresolved($column) : $found;
     }
 
     private function type(ParsedColumn $column, ?Definition $definition, ?string $cast): ColumnType {
@@ -318,6 +315,10 @@ class ColumnResolver {
         $derived = $cast === null ? null : ColumnType::fromCast($cast);
 
         return $derived === null ? ColumnType::Text : $derived;
+    }
+
+    private function unresolved(ParsedColumn $column): string {
+        return "{{$column->name}}";
     }
 
 }

@@ -153,8 +153,9 @@ class ResourcesTest extends FeatureTestCase {
         File::put($file, "<?php return ['key' => 'cached'];");
 
         $resources = $this->packaged($path);
+        $before = $resources->config('temp.key');
 
-        $this->assertSame('cached', $resources->config('temp.key'));
+        $this->assertSame('cached', $before);
 
         File::delete($file);
         clearstatcache();

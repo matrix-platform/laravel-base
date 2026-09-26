@@ -3,7 +3,6 @@
 namespace MatrixPlatform\Console\Commands;
 
 use Illuminate\Console\Command;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Support\MetadataRegistry;
 use MatrixPlatform\Support\PackageRegistry;
@@ -22,20 +21,10 @@ class SyncTranslatableCommand extends Command {
     public function handle(): int {
         $this->columns = [];
 
-        foreach (app(PackageRegistry::class)->models() as $model) {
-            if (!is_a($model, Model::class, true)) {
-                continue;
-            }
-
-            $definitions = app(MetadataRegistry::class)->definitions($model);
-
-            if ($definitions === null) {
-                continue;
-            }
-
+        foreach (app(MetadataRegistry::class)->declaredModels(app(PackageRegistry::class)) as $model => $declares) {
             $table = (new $model())->getTable();
 
-            foreach ($definitions as $field => $definition) {
+            foreach ($declares->definitions() as $field => $definition) {
                 if ($definition->translatable) {
                     $this->sync($table, $field);
                 }
@@ -50,8 +39,11 @@ class SyncTranslatableCommand extends Command {
      */
     private function columns(string $table): array {
         if (!array_key_exists($table, $this->columns)) {
-            $this->columns[$table] = DB::table('information_schema.columns')
-                ->where('table_name', $table)
+            $this->columns[$table] = DB::table('pg_attribute')
+                ->selectRaw('attname as column_name, format_type(atttypid, atttypmod) as data_type')
+                ->whereRaw('attrelid = to_regclass(quote_ident(?))', [$table])
+                ->where('attnum', '>', 0)
+                ->where('attisdropped', false)
                 ->pluck('data_type', 'column_name')
                 ->all();
         }

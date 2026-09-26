@@ -13,6 +13,7 @@ use MatrixPlatform\Support\MetadataRegistry;
 use Tests\FeatureTestCase;
 use Tests\Stubs\CamelCasedGadget;
 use Tests\Stubs\Gadget;
+use Tests\Stubs\Relic;
 use Tests\Stubs\StubDeclaration;
 use Tests\Stubs\Trinket;
 use Tests\Stubs\Widget;
@@ -216,6 +217,23 @@ class QueryPlanTest extends FeatureTestCase {
             ->get();
 
         $this->assertSame([2, 1, 0], $rows->pluck('trinkets_count')->all());
+    }
+
+    public function test_an_aggregate_leaves_out_rows_hidden_by_a_global_scope(): void {
+        app(MetadataRegistry::class)->register(Relic::class, new StubDeclaration(new Metadata('relic', 'label')));
+
+        $parent = Relic::forceCreate(['label' => 'parent']);
+
+        Relic::forceCreate(['label' => 'kept', 'relic_id' => $parent->id]);
+        $gone = Relic::forceCreate(['label' => 'gone', 'relic_id' => $parent->id]);
+        $gone->delete();
+
+        $row = $this->plan(['label', 'count(relics)'], new Relic())
+            ->projection()
+            ->where('stub_relic.id', $parent->id)
+            ->first();
+
+        $this->assertSame(1, $row?->getAttribute('relics_count'));
     }
 
     public function test_the_other_aggregates_use_the_qualified_column(): void {

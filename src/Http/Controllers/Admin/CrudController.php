@@ -220,7 +220,7 @@ abstract class CrudController extends BaseController {
         return $service
             ->columns($this->exporting())
             ->filterColumns($this->listing())
-            ->optionals($this->updates())
+            ->optionals($this->optionals())
             ->selectable($this->exports === null)
             ->sorting($this->sorting());
     }
@@ -240,7 +240,7 @@ abstract class CrudController extends BaseController {
     protected function onList(ListService $service): ListService {
         return $service
             ->columns($this->listing())
-            ->optionals($this->updates())
+            ->optionals($this->optionals())
             ->sorting($this->sorting())
             ->selects($this->selects);
     }
@@ -255,6 +255,13 @@ abstract class CrudController extends BaseController {
 
     protected function onUpdate(UpdateService $service): UpdateService {
         return $service->columns($this->updates());
+    }
+
+    /**
+     * @return list<string|array<string, mixed>>
+     */
+    protected function optionals(): array {
+        return $this->updates();
     }
 
     private function arrangeable(): bool {
@@ -470,7 +477,7 @@ abstract class CrudController extends BaseController {
 
         $ranking = $this->ranking();
 
-        return $ranking === null ? ['id'] : [$ranking];
+        return $ranking === null ? [(new $this->model())->getKeyName()] : [$ranking];
     }
 
     /**

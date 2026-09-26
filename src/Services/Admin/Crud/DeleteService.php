@@ -37,7 +37,7 @@ class DeleteService extends CrudService {
         $values = is_array($input) ? $input : [];
         $items = array_values(array_unique(Arr::wrap(array_get_value($values, 'id'))));
         $models = $this->plain()
-            ->whereIn("{$this->model->getTable()}.id", $items)
+            ->whereIn($this->model->getQualifiedKeyName(), $items)
             ->get();
 
         if ($models->count() !== count($items)) {

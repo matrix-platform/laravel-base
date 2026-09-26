@@ -3,6 +3,7 @@
 namespace Tests\Feature\Services\Admin\Crud;
 
 use MatrixPlatform\Columns\Declarations\Definition;
+use MatrixPlatform\Columns\Declarations\Definitions;
 use MatrixPlatform\Services\Admin\Crud\ListService;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
@@ -243,14 +244,23 @@ class ListServiceTest extends FeatureTestCase {
             ->list($input);
     }
 
-    public function test_the_optional_columns_follow_their_own_order_with_the_list_only_columns_appended(): void {
+    public function test_the_list_columns_come_first_in_their_own_order_followed_by_the_optional_columns(): void {
         app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
         app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'widget')));
 
         $result = $this->pooled(['title', 'count(trinkets)'], ['ip', 'title', 'enable_time']);
 
-        $this->assertSame(['ip', 'title', 'enable_time', 'trinkets_count'], array_column($result['columns'], 'name'));
-        $this->assertSame([false, true, false, true], array_column($result['columns'], 'default'));
+        $this->assertSame(['title', 'trinkets_count', 'ip', 'enable_time'], array_column($result['columns'], 'name'));
+        $this->assertSame([true, true, false, false], array_column($result['columns'], 'default'));
+    }
+
+    public function test_the_list_columns_keep_their_own_order_even_when_the_optional_columns_order_them_differently(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
+
+        $result = $this->pooled(['title', 'ip'], ['enable_time', 'ip', 'disable_time', 'title']);
+
+        $this->assertSame(['title', 'ip', 'enable_time', 'disable_time'], array_column($result['columns'], 'name'));
+        $this->assertSame([true, true, false, false], array_column($result['columns'], 'default'));
     }
 
     public function test_a_column_on_both_sides_keeps_the_list_definition(): void {
@@ -269,7 +279,7 @@ class ListServiceTest extends FeatureTestCase {
 
         $result = $this->pooled(['title'], ['secret', '+ghost', 'payload', 'gallery', 'ip:password', 'trinket_id:hidden', 'translated:custom-editor', 'ranking']);
 
-        $this->assertSame(['ranking', 'title'], array_column($result['columns'], 'name'));
+        $this->assertSame(['title', 'ranking'], array_column($result['columns'], 'name'));
     }
 
     public function test_an_optional_column_on_a_tab_is_left_out_but_a_list_column_on_a_tab_stays(): void {
@@ -279,7 +289,22 @@ class ListServiceTest extends FeatureTestCase {
 
         $result = $this->pooled(['title', 'enable_time'], [['name' => 'ip', 'tab' => 'seo'], 'disable_time', 'enable_time', 'title']);
 
-        $this->assertSame(['disable_time', 'enable_time', 'title'], array_column($result['columns'], 'name'));
+        $this->assertSame(['title', 'enable_time', 'disable_time'], array_column($result['columns'], 'name'));
+    }
+
+    public function test_an_audit_column_offered_as_optional_is_pooled_despite_its_tab(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget'), [
+            'title' => Definition::text(),
+            ...Definitions::auditings()
+        ]));
+
+        $this->widget('Alpha');
+
+        $result = $this->pooled(['title'], [['name' => 'ip', 'tab' => 'seo'], 'title', 'update_time']);
+
+        $this->assertSame(['title', 'update_time'], array_column($result['columns'], 'name'));
+        $this->assertSame([true, false], array_column($result['columns'], 'default'));
+        $this->assertArrayHasKey('update_time', $result['rows'][0]);
     }
 
     public function test_a_json_column_stays_optional_once_its_presentation_is_declared(): void {
@@ -287,10 +312,10 @@ class ListServiceTest extends FeatureTestCase {
 
         $result = $this->pooled(['title'], ['payload:plain', 'title']);
 
-        $this->assertSame(['payload', 'title'], array_column($result['columns'], 'name'));
+        $this->assertSame(['title', 'payload'], array_column($result['columns'], 'name'));
     }
 
-    public function test_a_joined_list_column_takes_the_place_of_its_foreign_key(): void {
+    public function test_a_joined_list_column_replaces_its_foreign_key(): void {
         app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
         app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget'), [
             'title' => Definition::text(),
@@ -303,11 +328,11 @@ class ListServiceTest extends FeatureTestCase {
             ->optionals(['widget_id', 'title'])
             ->list([]);
 
-        $this->assertSame(['widget_title', 'title'], array_column($result['columns'], 'name'));
-        $this->assertSame(['widget_id', null], array_column($result['columns'], 'replaces'));
+        $this->assertSame(['title', 'widget_title'], array_column($result['columns'], 'name'));
+        $this->assertSame([null, 'widget_id'], array_column($result['columns'], 'replaces'));
     }
 
-    public function test_the_first_joined_list_column_of_a_relation_takes_the_place_of_its_foreign_key(): void {
+    public function test_the_first_joined_list_column_of_a_relation_replaces_its_foreign_key(): void {
         $this->gadgets();
 
         $result = (new ListService(Gadget::class))
@@ -316,7 +341,7 @@ class ListServiceTest extends FeatureTestCase {
             ->optionals(['widget_id', 'title'])
             ->list([]);
 
-        $this->assertSame(['widget_title', 'title', 'widget_ip'], array_column($result['columns'], 'name'));
+        $this->assertSame(['widget_title', 'widget_ip', 'title'], array_column($result['columns'], 'name'));
         $this->assertSame(['widget_id', null, null], array_column($result['columns'], 'replaces'));
     }
 
@@ -329,8 +354,40 @@ class ListServiceTest extends FeatureTestCase {
             ->optionals(['widget_id', 'title'])
             ->list([]);
 
-        $this->assertSame(['widget_id', 'title', 'widget_title'], array_column($result['columns'], 'name'));
+        $this->assertSame(['title', 'widget_id', 'widget_title'], array_column($result['columns'], 'name'));
         $this->assertSame([null, null, null], array_column($result['columns'], 'replaces'));
+    }
+
+    public function test_a_nested_lists_optional_columns_leave_out_the_parents_foreign_key(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
+        app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'widget')));
+
+        $widget = $this->widget('Alpha');
+        Trinket::forceCreate(['label' => 'mine', 'widget_id' => $widget->id]);
+
+        $result = (new ListService(Trinket::class))
+            ->params(['widget_id' => strval($widget->id)])
+            ->columns(['label'])
+            ->optionals(['widget_id', 'label', 'amount'])
+            ->list([]);
+
+        $this->assertSame(['label', 'amount'], array_column($result['columns'], 'name'));
+        $this->assertSame($widget->id, $result['rows'][0]['widget_id']);
+    }
+
+    public function test_a_nested_lists_foreign_key_stays_when_it_is_a_list_column(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
+        app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'widget')));
+
+        $widget = $this->widget('Alpha');
+
+        $result = (new ListService(Trinket::class))
+            ->params(['widget_id' => strval($widget->id)])
+            ->columns(['label', 'widget_id'])
+            ->optionals(['widget_id', 'label'])
+            ->list([]);
+
+        $this->assertSame(['label', 'widget_id'], array_column($result['columns'], 'name'));
     }
 
     public function test_an_arrangeable_list_marks_the_defaults_after_dropping_the_schedule_columns(): void {

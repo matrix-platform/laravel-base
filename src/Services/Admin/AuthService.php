@@ -16,6 +16,8 @@ use MatrixPlatform\Support\RollbackCallbacks;
 
 class AuthService {
 
+    private const MFA_CHALLENGE_PREFIX = 'mfa-challenge:';
+
     public function __construct(private CaptchaService $captcha, private PasswordService $passwords, private MfaService $mfa) {}
 
     /**
@@ -55,7 +57,7 @@ class AuthService {
         if ($user->hasMfaEnabled() && !$this->mfa->trusted($user, $trust)) {
             $challenge = (string) Str::uuid();
 
-            Cache::put("mfa-challenge:{$challenge}", $user->id, (int) cfg('admin.mfa-challenge-ttl'));
+            Cache::put(self::MFA_CHALLENGE_PREFIX . $challenge, $user->id, (int) cfg('admin.mfa-challenge-ttl'));
 
             return ['mfa' => true, 'challenge' => $challenge];
         }
@@ -82,7 +84,7 @@ class AuthService {
      * @return array{token: string, trust?: string}
      */
     public function mfa(string $username, string $challenge, string $code, bool $remember): array {
-        $userId = Cache::get("mfa-challenge:{$challenge}");
+        $userId = Cache::get(self::MFA_CHALLENGE_PREFIX . $challenge);
 
         if ($userId === null) {
             invalid('code', 'invalid-challenge');
@@ -100,7 +102,7 @@ class AuthService {
             invalid('code', 'invalid-code');
         }
 
-        Cache::forget("mfa-challenge:{$challenge}");
+        Cache::forget(self::MFA_CHALLENGE_PREFIX . $challenge);
         $user->writeLog(UserLogType::Login);
 
         $data = ['token' => $user->createToken()];

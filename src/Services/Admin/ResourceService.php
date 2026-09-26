@@ -12,6 +12,9 @@ use MatrixPlatform\Support\Menus;
 use MatrixPlatform\Support\ResourceGroup;
 use MatrixPlatform\Support\Resources;
 
+/**
+ * @phpstan-type Column array{name: string, title: string, type: string, presentation: string, readonly: bool, secret: bool, rule: list<string>, default: mixed, placeholder: string}
+ */
 class ResourceService {
 
     private const MASK = '••••••••';
@@ -41,11 +44,7 @@ class ResourceService {
     public function list(ResourceGroup $group, bool $unrestricted): array {
         $existing = $this->resources->bundleNames($group->directory());
         $names = $unrestricted ? $existing : array_values(array_intersect($this->allowed($group), $existing));
-        $rows = [];
-
-        foreach ($names as $name) {
-            $rows[] = $this->row($group, $name);
-        }
+        $rows = array_map(fn (string $name): array => $this->row($group, $name), $names);
 
         return [
             'title' => $this->heading(),
@@ -143,8 +142,7 @@ class ResourceService {
         while ($menu !== null) {
             $crumbs[] = ['title' => i18n($menu->token()), 'path' => $menu->tag === null ? null : $menu->path];
 
-            $parent = $menu->parent;
-            $menu = $parent === null ? null : $menus->node($parent);
+            $menu = $menus->above($menu);
         }
 
         return array_reverse($crumbs);
@@ -168,7 +166,7 @@ class ResourceService {
 
     /**
      * @param array<string, mixed> $defaults
-     * @return list<array<string, mixed>>
+     * @return list<Column>
      */
     private function columns(string $id, array $defaults): array {
         $schema = $this->resources->getStyleBundle($id);
@@ -238,7 +236,7 @@ class ResourceService {
 
     /**
      * @param array<string, mixed> $defaults
-     * @param list<array<string, mixed>> $columns
+     * @param list<Column> $columns
      * @param array<string, mixed>|null $override the values just written, so a write inside a transaction never reads them back through the cache
      * @return array<string, mixed>
      */
@@ -248,7 +246,7 @@ class ResourceService {
         $data = ['id' => $name];
 
         foreach ($columns as $column) {
-            $key = strval($column['name']);
+            $key = $column['name'];
             $value = array_key_exists($key, $override) ? $override[$key] : $column['default'];
 
             $data[$key] = $column['secret'] === true && !$this->cleared($value) ? self::MASK : $value;
@@ -268,7 +266,7 @@ class ResourceService {
 
     /**
      * @param array<string, mixed> $defaults
-     * @param list<array<string, mixed>> $columns
+     * @param list<Column> $columns
      * @return array<string, mixed>
      */
     private function redacted(array $defaults, array $columns): array {
@@ -331,15 +329,14 @@ class ResourceService {
     }
 
     /**
-     * @param array<string, array<string, mixed>> $writable
+     * @param array<string, Column> $writable
      * @param array<string, mixed> $values
      */
     private function validate(array $writable, array $values): void {
         $rules = [];
 
         foreach ($writable as $key => $column) {
-            $rule = array_get_value($column, 'rule');
-            $rules[str_replace('.', '\\.', $key)] = is_array($rule) ? $rule : [];
+            $rules[str_replace('.', '\\.', $key)] = $column['rule'];
         }
 
         Validator::make(array_intersect_key($values, $writable), $rules)->validate();
@@ -352,17 +349,17 @@ class ResourceService {
     }
 
     /**
-     * @param list<array<string, mixed>> $columns
+     * @param list<Column> $columns
      * @param array<string, mixed> $values
-     * @return array<string, array<string, mixed>>
+     * @return array<string, Column>
      */
     private function writable(array $columns, array $values): array {
         $writable = [];
 
         foreach ($columns as $column) {
-            $key = strval(array_get_value($column, 'name'));
+            $key = $column['name'];
 
-            if (array_get_value($column, 'readonly') !== true && array_key_exists($key, $values) && !$this->masked($column, $values[$key])) {
+            if (!$column['readonly'] && array_key_exists($key, $values) && !$this->masked($column, $values[$key])) {
                 $writable[$key] = $column;
             }
         }

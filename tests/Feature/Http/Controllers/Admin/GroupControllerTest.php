@@ -259,7 +259,9 @@ class GroupControllerTest extends FeatureTestCase {
 
         $this->editor($first, "admin/group/{$group->id}/update", ['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => ['user' => ['query' => true]]], 5001);
 
-        $this->assertSame(['query' => true], $this->actions($group, 'user'));
+        $granted = $this->actions($group, 'user');
+
+        $this->assertSame(['query' => true], $granted);
 
         $this->editor($second, "admin/group/{$group->id}/update", ['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => ['group' => ['query' => true]]], 5002);
 

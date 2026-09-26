@@ -2,6 +2,7 @@
 
 namespace MatrixPlatform\Support;
 
+use Illuminate\Database\Eloquent\Model;
 use MatrixPlatform\Attributes\Declared;
 use MatrixPlatform\Columns\Declarations\Declares;
 use MatrixPlatform\Columns\Declarations\Definition;
@@ -13,6 +14,29 @@ class MetadataRegistry {
      * @var array<string, ?Declares>
      */
     private array $resolved = [];
+
+    /**
+     * Every Eloquent model under the registered packages' model roots that has a declaration (#[Declared] or register()), keyed by class name.
+     *
+     * @return array<class-string<Model>, Declares>
+     */
+    public function declaredModels(PackageRegistry $packages): array {
+        $models = [];
+
+        foreach ($packages->models() as $model) {
+            if (!is_a($model, Model::class, true)) {
+                continue;
+            }
+
+            $declares = $this->declares($model);
+
+            if ($declares !== null) {
+                $models[$model] = $declares;
+            }
+        }
+
+        return $models;
+    }
 
     /**
      * @return array<string, Definition>|null

@@ -3,6 +3,7 @@
 namespace MatrixPlatform\Http\Controllers\Admin;
 
 use Closure;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use MatrixPlatform\Attributes\Action;
@@ -25,15 +26,7 @@ class DriveController extends BaseController {
      */
     #[Action('{id}/children')]
     public function children(Request $request): array {
-        $nodes = $this->service->children($this->node($request), actor()->requireUser());
-        $createdBy = $this->service->createdByMany($nodes);
-        $payload = [];
-
-        foreach ($nodes as $node) {
-            $payload[] = $this->present($node, $createdBy);
-        }
-
-        return $payload;
+        return $this->presentAll($this->service->children($this->node($request), actor()->requireUser()), false);
     }
 
     /**
@@ -135,16 +128,7 @@ class DriveController extends BaseController {
      */
     #[Action('{id}/path')]
     public function path(Request $request): array {
-        $ancestors = $this->service->path($this->node($request, withTrashed: true), actor()->requireUser());
-        $createdBy = $this->service->createdByMany($ancestors);
-        $deletedBy = $this->service->deletedByMany($ancestors);
-        $payload = [];
-
-        foreach ($ancestors as $ancestor) {
-            $payload[] = $this->present($ancestor, $createdBy, $deletedBy);
-        }
-
-        return $payload;
+        return $this->presentAll($this->service->path($this->node($request, withTrashed: true), actor()->requireUser()), true);
     }
 
     /**
@@ -199,16 +183,7 @@ class DriveController extends BaseController {
      */
     #[Action]
     public function trashed(Request $request): array {
-        $nodes = $this->service->trashed(actor()->requireUser(), $this->optional($request, 'days'), $request->boolean('all'));
-        $createdBy = $this->service->createdByMany($nodes);
-        $deletedBy = $this->service->deletedByMany($nodes);
-        $payload = [];
-
-        foreach ($nodes as $node) {
-            $payload[] = $this->present($node, $createdBy, $deletedBy);
-        }
-
-        return $payload;
+        return $this->presentAll($this->service->trashed(actor()->requireUser(), $this->optionalInteger($request, 'days'), $request->boolean('all')), true);
     }
 
     /**
@@ -244,10 +219,6 @@ class DriveController extends BaseController {
         return $this->service->find((string) $request->route('id'), $withTrashed);
     }
 
-    private function optional(Request $request, string $key): ?int {
-        return $request->filled($key) ? $request->integer($key) : null;
-    }
-
     /**
      * @param array<int, string> $createdByMap
      * @param array<int, string> $deletedByMap
@@ -261,6 +232,22 @@ class DriveController extends BaseController {
             'created_by' => $this->mapped($node, $createdByMap, fn (): ?string => $this->service->createdBy($node)),
             'deleted_by' => $this->mapped($node, $deletedByMap, fn (): ?string => $this->service->deletedBy($node))
         ];
+    }
+
+    /**
+     * @param Collection<int, DriveNode> $nodes
+     * @return list<array<string, mixed>>
+     */
+    private function presentAll(Collection $nodes, bool $withDeleted): array {
+        $createdBy = $this->service->createdByMany($nodes);
+        $deletedBy = $withDeleted ? $this->service->deletedByMany($nodes) : null;
+        $payload = [];
+
+        foreach ($nodes as $node) {
+            $payload[] = $this->present($node, $createdBy, $deletedBy);
+        }
+
+        return $payload;
     }
 
 }

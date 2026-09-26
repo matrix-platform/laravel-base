@@ -37,20 +37,24 @@ use Webauthn\TrustPath\EmptyTrustPath;
 
 class PasskeyService {
 
+    private const LOGIN_PREFIX = 'passkey-login:';
+
+    private const REGISTRATION_PREFIX = 'passkey-registration:';
+
     private static ?SerializerInterface $serializer = null;
 
     /**
      * @param array<string, mixed> $credential
      */
     public function authenticate(string $challenge, array $credential): User {
-        $options = Cache::pull("passkey-login:{$challenge}");
+        $options = Cache::pull(self::LOGIN_PREFIX . $challenge);
 
         if (!$options instanceof PublicKeyCredentialRequestOptions) {
             invalid('credential', 'invalid-passkey');
         }
 
         try {
-            $publicKeyCredential = $this->serializer()->deserialize(json_encode($credential, JSON_THROW_ON_ERROR), PublicKeyCredential::class, 'json');
+            $publicKeyCredential = $this->deserialize($credential);
 
             if (!$publicKeyCredential->response instanceof AuthenticatorAssertionResponse) {
                 throw new RuntimeException('Not an assertion response.');
@@ -71,21 +75,7 @@ class PasskeyService {
             invalid('credential', 'invalid-passkey');
         }
 
-        $record = CredentialRecord::create(
-            Base64UrlSafe::decodeNoPadding($stored->credential_id),
-            PublicKeyCredentialDescriptor::CREDENTIAL_TYPE_PUBLIC_KEY,
-            [],
-            AttestationStatement::TYPE_NONE,
-            EmptyTrustPath::create(),
-            Uuid::fromString($stored->aaguid),
-            base64_decode($stored->public_key),
-            (string) $user->id,
-            $stored->sign_count,
-            null,
-            null,
-            null,
-            $stored->uv_initialized
-        );
+        $record = $this->record($stored, $user);
 
         try {
             $result = AuthenticatorAssertionResponseValidator::create($this->ceremonies()->requestCeremony())
@@ -120,11 +110,7 @@ class PasskeyService {
             timeout: $this->timeout()
         );
 
-        $challengeKey = $this->challengeKey($challenge);
-
-        Cache::put("passkey-login:{$challengeKey}", $options, (int) cfg('admin.passkey-challenge-ttl'));
-
-        return ['options' => $this->authenticationOptionsJson($options), 'challenge' => $challengeKey];
+        return ['options' => $this->authenticationOptionsJson($options), 'challenge' => $this->remember(self::LOGIN_PREFIX, $challenge, $options)];
     }
 
     /**
@@ -148,14 +134,14 @@ class PasskeyService {
      * @param array<string, mixed> $credential
      */
     public function register(User $user, string $challenge, array $credential, string $name): PasskeyCredential {
-        $options = Cache::pull("passkey-registration:{$challenge}");
+        $options = Cache::pull(self::REGISTRATION_PREFIX . $challenge);
 
         if (!$options instanceof PublicKeyCredentialCreationOptions) {
             invalid('challenge', 'invalid-challenge');
         }
 
         try {
-            $publicKeyCredential = $this->serializer()->deserialize(json_encode($credential, JSON_THROW_ON_ERROR), PublicKeyCredential::class, 'json');
+            $publicKeyCredential = $this->deserialize($credential);
 
             if (!$publicKeyCredential->response instanceof AuthenticatorAttestationResponse) {
                 throw new RuntimeException('Not an attestation response.');
@@ -216,11 +202,7 @@ class PasskeyService {
             timeout: $this->timeout()
         );
 
-        $challengeKey = $this->challengeKey($challenge);
-
-        Cache::put("passkey-registration:{$challengeKey}", $options, (int) cfg('admin.passkey-challenge-ttl'));
-
-        return ['options' => $this->registrationOptionsJson($options), 'challenge' => $challengeKey];
+        return ['options' => $this->registrationOptionsJson($options), 'challenge' => $this->remember(self::REGISTRATION_PREFIX, $challenge, $options)];
     }
 
     public function rename(User $user, int $id, string $name): void {
@@ -266,10 +248,6 @@ class PasskeyService {
         return $factory;
     }
 
-    private function challengeKey(string $challenge): string {
-        return Base64UrlSafe::encodeUnpadded($challenge);
-    }
-
     /**
      * @return Builder<PasskeyCredential>
      */
@@ -285,12 +263,37 @@ class PasskeyService {
     }
 
     /**
+     * @param array<string, mixed> $credential
+     */
+    private function deserialize(array $credential): PublicKeyCredential {
+        return $this->serializer()->deserialize(json_encode($credential, JSON_THROW_ON_ERROR), PublicKeyCredential::class, 'json');
+    }
+
+    /**
      * @return list<string>
      */
     private function httpRpIds(): array {
         $names = explode(',', (string) cfg('admin.passkey-http-rp-ids', ''));
 
         return array_values(array_filter(array_map('trim', $names)));
+    }
+
+    private function record(PasskeyCredential $stored, User $user): CredentialRecord {
+        return CredentialRecord::create(
+            Base64UrlSafe::decodeNoPadding($stored->credential_id),
+            PublicKeyCredentialDescriptor::CREDENTIAL_TYPE_PUBLIC_KEY,
+            [],
+            AttestationStatement::TYPE_NONE,
+            EmptyTrustPath::create(),
+            Uuid::fromString($stored->aaguid),
+            base64_decode($stored->public_key),
+            (string) $user->id,
+            $stored->sign_count,
+            null,
+            null,
+            null,
+            $stored->uv_initialized
+        );
     }
 
     /**
@@ -318,6 +321,14 @@ class PasskeyService {
         ];
     }
 
+    private function remember(string $prefix, string $challenge, object $options): string {
+        $key = Base64UrlSafe::encodeUnpadded($challenge);
+
+        Cache::put($prefix . $key, $options, (int) cfg('admin.passkey-challenge-ttl'));
+
+        return $key;
+    }
+
     private function rpId(): string {
         $configured = config('matrix.passkey-rp-id');
 
@@ -340,13 +351,7 @@ class PasskeyService {
      * @return positive-int
      */
     private function timeout(): int {
-        $timeout = (int) cfg('admin.passkey-timeout');
-
-        if ($timeout < 1) {
-            return 1;
-        }
-
-        return $timeout;
+        return max(1, (int) cfg('admin.passkey-timeout'));
     }
 
 }

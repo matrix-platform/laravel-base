@@ -11,7 +11,6 @@ use Illuminate\Database\Eloquent\Relations\MorphOneOrMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Query\Builder as QueryBuilder;
-use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Columns\Column;
 
 class QueryPlan {
@@ -25,6 +24,11 @@ class QueryPlan {
      * @var array<string, Join>
      */
     private array $joins = [];
+
+    /**
+     * @var array<string, Model>
+     */
+    private array $models = [];
 
     /**
      * @var array<string, array{field: string, qualifier: string}>
@@ -67,7 +71,7 @@ class QueryPlan {
             }
 
             if ($column->expression->path !== [] || $column->translatable) {
-                $selects[] = new Raw("{$this->fields[$column->name]} as {$this->quote($column->name)}");
+                $selects[] = $this->aliased($column);
             }
         }
 
@@ -87,7 +91,7 @@ class QueryPlan {
      */
     public function projection(): Builder {
         $query = $this->root->query();
-        $selects = ["{$this->table()}.id"];
+        $selects = [$this->root->getQualifiedKeyName()];
 
         if ($this->required !== null) {
             $selects[] = "{$this->table()}.{$this->required}";
@@ -102,7 +106,7 @@ class QueryPlan {
                 array_push($selects, ...$this->translatedSelects($column));
             }
 
-            $selects[] = new Raw("{$this->fields[$column->name]} as {$this->quote($column->name)}");
+            $selects[] = $this->aliased($column);
         }
 
         $this->apply($query);
@@ -116,6 +120,10 @@ class QueryPlan {
 
     public function table(): string {
         return $this->root->getTable();
+    }
+
+    private function aliased(Column $column): Raw {
+        return new Raw("{$this->fields[$column->name]} as {$this->quote($column->name)}");
     }
 
     /**
@@ -150,6 +158,7 @@ class QueryPlan {
 
                 if (!array_key_exists($alias, $structure)) {
                     [$key, $foreign] = $this->keys($relation);
+                    $this->models[$alias] = $relation->getRelated();
 
                     $structure[$alias] = [
                         'foreign' => $foreign,
@@ -186,11 +195,7 @@ class QueryPlan {
                 continue;
             }
 
-            if ($column->translatable) {
-                error('invalid-column-expression');
-            }
-
-            if (!array_key_exists($alias, $structure)) {
+            if ($column->translatable || !array_key_exists($alias, $structure)) {
                 error('invalid-column-expression');
             }
 
@@ -258,11 +263,21 @@ class QueryPlan {
         return $relation;
     }
 
+    private function scoped(Join $join): QueryBuilder {
+        $model = $this->models[$join->alias]->newInstance();
+        $model->setTable($join->alias);
+
+        $query = $model->newQuery();
+        $query->getQuery()->from("{$join->table} as {$join->alias}");
+
+        return $query->toBase();
+    }
+
     /**
      * @return array{QueryBuilder, Join}
      */
     private function subquery(Join $join): array {
-        $sub = DB::table("{$join->table} as {$join->alias}");
+        $sub = $this->scoped($join);
         $top = $join;
 
         while ($top->target !== $this->table()) {

@@ -90,6 +90,10 @@ abstract class MessageService {
         return 'receiver';
     }
 
+    private function channel(): Channel {
+        return $this->channels->get($this->channel);
+    }
+
     /**
      * @param array<string, string> $vars
      * @param array<string, mixed> $options
@@ -130,7 +134,7 @@ abstract class MessageService {
      * @return array{0: Channel, 1: MessageLog}
      */
     private function locate(int|string $reference): array {
-        $channel = $this->channels->get($this->channel);
+        $channel = $this->channel();
 
         return [$channel, $channel->model::query()->whereKey($reference)->firstOrFail()];
     }
@@ -146,7 +150,7 @@ abstract class MessageService {
      * @param array<string, mixed> $rendered
      */
     private function store(Carbon $at, string $to, ?string $template, array $rendered): MessageLog {
-        $channel = $this->channels->get($this->channel);
+        $channel = $this->channel();
         $model = $channel->model;
         $log = new $model();
 

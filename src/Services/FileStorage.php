@@ -5,6 +5,7 @@ namespace MatrixPlatform\Services;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use MatrixPlatform\Support\RollbackCallbacks;
 
 class FileStorage {
 
@@ -34,6 +35,8 @@ class FileStorage {
         $path = date('Ym') . '/' . Str::random(32);
 
         Storage::disk($disk)->putFileAs($folder, $file, $path);
+
+        app(RollbackCallbacks::class)->register(fn () => Storage::disk($disk)->delete($folder . $path));
 
         return $path;
     }

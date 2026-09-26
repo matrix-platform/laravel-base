@@ -17,7 +17,7 @@ class UserTelegramSubscriptionController extends BaseController {
     public function link(): array {
         $token = Str::random();
 
-        Cache::put("telegram-link:{$token}", intval(actor()->requireCurrent()->getKey()), now()->addMinutes(10));
+        Cache::put("telegram-link:{$token}", actor()->requireUser()->id, now()->addMinutes(10));
 
         return ['url' => 'https://t.me/' . strval(cfg('telegram.bot-username')) . "?start={$token}"];
     }
@@ -27,7 +27,7 @@ class UserTelegramSubscriptionController extends BaseController {
      */
     #[Action]
     public function unsubscribe(): array {
-        $subscription = TelegramSubscription::query()->where('user_id', intval(actor()->requireCurrent()->getKey()))->first();
+        $subscription = TelegramSubscription::query()->where('user_id', actor()->requireUser()->id)->first();
         $subscription?->delete();
 
         return [];

@@ -117,6 +117,27 @@ class OptionProviderTest extends FeatureTestCase {
         $this->assertTrue($options[0]->children[0]->selectable);
     }
 
+    public function test_a_tree_across_three_models_keeps_each_level_apart_when_ids_collide(): void {
+        $registry = app(MetadataRegistry::class);
+
+        $registry->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'widget')));
+        $registry->register(Widget::class, new StubDeclaration(new Metadata('widget', 'title', 'relic')));
+        $registry->register(Relic::class, new StubDeclaration(new Metadata('relic', 'label')));
+
+        Relic::forceCreate(['id' => 7, 'label' => 'relic']);
+        Widget::forceCreate(['id' => 7, 'title' => 'widget', 'relic_id' => 7]);
+        Trinket::forceCreate(['label' => 'trinket', 'widget_id' => 7]);
+
+        $options = (new RelationOptions(Trinket::class))->options();
+
+        $this->assertCount(1, $options);
+        $this->assertSame('relic', $options[0]->title);
+        $this->assertCount(1, $options[0]->children);
+        $this->assertSame('widget', $options[0]->children[0]->title);
+        $this->assertCount(1, $options[0]->children[0]->children);
+        $this->assertSame('trinket', $options[0]->children[0]->children[0]->title);
+    }
+
     public function test_an_undeclared_ancestor_is_refused(): void {
         app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'widget')));
 

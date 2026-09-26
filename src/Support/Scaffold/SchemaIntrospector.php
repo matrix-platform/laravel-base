@@ -2,6 +2,7 @@
 
 namespace MatrixPlatform\Support\Scaffold;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Columns\ColumnType;
@@ -102,13 +103,7 @@ class SchemaIntrospector {
             return $this->constraintColumnsCache[$key];
         }
 
-        $rows = DB::table('information_schema.table_constraints as tc')
-            ->join('information_schema.key_column_usage as kcu', function (JoinClause $join): void {
-                $join->on('tc.constraint_name', '=', 'kcu.constraint_name')->on('tc.table_schema', '=', 'kcu.table_schema');
-            })
-            ->where('tc.table_schema', 'public')
-            ->where('tc.table_name', $table)
-            ->where('tc.constraint_type', $type)
+        $rows = $this->constraintQuery($table, $type)
             ->get(['tc.constraint_name', 'kcu.column_name']);
 
         $groups = [];
@@ -120,18 +115,22 @@ class SchemaIntrospector {
         return $this->constraintColumnsCache[$key] = $groups;
     }
 
+    private function constraintQuery(string $table, string $type): Builder {
+        return DB::table('information_schema.table_constraints as tc')
+            ->join('information_schema.key_column_usage as kcu', function (JoinClause $join): void {
+                $join->on('tc.constraint_name', '=', 'kcu.constraint_name')->on('tc.table_schema', '=', 'kcu.table_schema');
+            })
+            ->where('tc.table_schema', 'public')
+            ->where('tc.table_name', $table)
+            ->where('tc.constraint_type', $type);
+    }
+
     /**
      * @return array<string, string>
      */
     private function foreignKeys(string $table): array {
-        $rows = DB::table('information_schema.table_constraints as tc')
-            ->join('information_schema.key_column_usage as kcu', function (JoinClause $join): void {
-                $join->on('tc.constraint_name', '=', 'kcu.constraint_name')->on('tc.table_schema', '=', 'kcu.table_schema');
-            })
+        $rows = $this->constraintQuery($table, 'FOREIGN KEY')
             ->join('information_schema.constraint_column_usage as ccu', 'tc.constraint_name', '=', 'ccu.constraint_name')
-            ->where('tc.table_schema', 'public')
-            ->where('tc.table_name', $table)
-            ->where('tc.constraint_type', 'FOREIGN KEY')
             ->get(['tc.constraint_name', 'kcu.column_name', 'ccu.table_name as referenced_table']);
 
         $groups = [];

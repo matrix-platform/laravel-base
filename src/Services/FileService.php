@@ -12,8 +12,7 @@ use MatrixPlatform\Models\DriveNode;
 use MatrixPlatform\Models\DriveNodeType;
 use MatrixPlatform\Models\File;
 use MatrixPlatform\Models\User;
-use MatrixPlatform\Services\Admin\DrivePermissionService;
-use MatrixPlatform\Support\RollbackCallbacks;
+use MatrixPlatform\Services\Admin\DriveService;
 use Throwable;
 
 class FileService {
@@ -100,9 +99,7 @@ class FileService {
                 error('invalid-drive-file');
             }
 
-            if (!app(DrivePermissionService::class)->allowed($node, $actor)) {
-                error('permission-denied', 403);
-            }
+            app(DriveService::class)->requireAllowed($node, $actor);
 
             $path = File::DRIVE_PREFIX . $node->path;
             $file = array_get_value($files, $path);
@@ -230,8 +227,6 @@ class FileService {
 
         $disk = $this->disk($privilege);
         $path = app(FileStorage::class)->store($file, $disk, self::FOLDER);
-
-        app(RollbackCallbacks::class)->register(fn () => Storage::disk($disk)->delete(self::FOLDER . $path));
 
         $record = new File();
 

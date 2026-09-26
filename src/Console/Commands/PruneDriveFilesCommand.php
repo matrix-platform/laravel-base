@@ -2,9 +2,7 @@
 
 namespace MatrixPlatform\Console\Commands;
 
-use Generator;
 use Illuminate\Console\Command;
-use Illuminate\Database\Eloquent\Model;
 use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Models\File;
 use MatrixPlatform\Support\MetadataRegistry;
@@ -34,46 +32,27 @@ class PruneDriveFilesCommand extends Command {
     }
 
     /**
-     * @return Generator<int, array{0: class-string<Model>, 1: string}>
-     */
-    private function driveColumns(): Generator {
-        foreach (app(PackageRegistry::class)->models() as $model) {
-            if (!is_a($model, Model::class, true)) {
-                continue;
-            }
-
-            $definitions = app(MetadataRegistry::class)->definitions($model);
-
-            if ($definitions === null) {
-                continue;
-            }
-
-            foreach ($definitions as $field => $definition) {
-                if (!in_array($definition->presentation, [Presentation::DriveFile, Presentation::DriveImage], true)) {
-                    continue;
-                }
-
-                if (!$definition->translatable) {
-                    yield [$model, $field];
-
-                    continue;
-                }
-
-                foreach (locales() as $locale) {
-                    yield [$model, "{$field}__{$locale}"];
-                }
-            }
-        }
-    }
-
-    /**
      * @return array<string, true>
      */
     private function referencedPaths(): array {
         $columns = [];
 
-        foreach ($this->driveColumns() as [$model, $column]) {
-            $columns[$model][] = $column;
+        foreach (app(MetadataRegistry::class)->declaredModels(app(PackageRegistry::class)) as $model => $declares) {
+            foreach ($declares->definitions() as $field => $definition) {
+                if (!in_array($definition->presentation, [Presentation::DriveFile, Presentation::DriveImage], true)) {
+                    continue;
+                }
+
+                if (!$definition->translatable) {
+                    $columns[$model][] = $field;
+
+                    continue;
+                }
+
+                foreach (locales() as $locale) {
+                    $columns[$model][] = "{$field}__{$locale}";
+                }
+            }
         }
 
         $paths = [];

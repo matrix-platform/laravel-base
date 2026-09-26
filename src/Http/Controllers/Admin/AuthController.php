@@ -72,9 +72,7 @@ class AuthController extends BaseController {
             is_string($trust) ? $trust : null
         );
 
-        $response = response()->json(['success' => true, 'data' => $data]);
-
-        return isset($data['token']) ? IdentityToken::attach($response, IdentityType::User, $data['token']) : $response;
+        return $this->authenticated($data, isset($data['token']) ? $data['token'] : null);
     }
 
     #[Action]
@@ -103,7 +101,7 @@ class AuthController extends BaseController {
         $trust = array_get_value($data, 'trust');
         unset($data['trust']);
 
-        $response = IdentityToken::attach(response()->json(['success' => true, 'data' => $data]), IdentityType::User, $data['token']);
+        $response = $this->authenticated($data, $data['token']);
 
         if ($trust !== null) {
             IdentityToken::cookie($response, self::TRUST_COOKIE, $trust, (int) cfg('admin.mfa-trust-days') * 1440);
@@ -122,7 +120,7 @@ class AuthController extends BaseController {
         $user = $this->passkeys->authenticate($request->string('challenge')->value(), $request->array('credential'));
         $token = $user->createToken();
 
-        return IdentityToken::attach(response()->json(['success' => true, 'data' => ['token' => $token]]), IdentityType::User, $token);
+        return $this->authenticated(['token' => $token], $token);
     }
 
     /**
@@ -157,6 +155,15 @@ class AuthController extends BaseController {
     #[Action('mfa/setup')]
     public function setupMfa(): array {
         return $this->mfa->setup(actor()->requireUser());
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function authenticated(array $data, ?string $token): JsonResponse {
+        $response = response()->json(['success' => true, 'data' => $data]);
+
+        return $token === null ? $response : IdentityToken::attach($response, IdentityType::User, $token);
     }
 
 }

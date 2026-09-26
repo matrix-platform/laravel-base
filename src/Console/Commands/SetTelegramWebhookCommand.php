@@ -28,11 +28,8 @@ class SetTelegramWebhookCommand extends Command {
             'secret_token' => $secret
         ]);
 
-        $body = $response->json();
-        $body = is_array($body) ? $body : [];
-
-        if (array_get_value($body, 'ok') !== true) {
-            $this->error('Telegram rejected the webhook registration: ' . strval(array_get_value($body, 'description')));
+        if ($response->json('ok') !== true) {
+            $this->error('Telegram rejected the webhook registration: ' . strval($response->json('description')));
 
             return self::FAILURE;
         }
