@@ -16,6 +16,7 @@ use MatrixPlatform\Columns\ColumnResolver;
 use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Presentation;
+use MatrixPlatform\Columns\Query\Filtering;
 use MatrixPlatform\Columns\Query\QueryPlan;
 use MatrixPlatform\Columns\Syntax\ColumnParser;
 use MatrixPlatform\Columns\Syntax\Expression;
@@ -24,7 +25,9 @@ use MatrixPlatform\Services\FileService;
 use MatrixPlatform\Support\Actions;
 use MatrixPlatform\Support\AdminPermission;
 use MatrixPlatform\Support\Menus;
+use MatrixPlatform\Support\MetadataRegistry;
 use MatrixPlatform\Support\Resources;
+use MatrixPlatform\Support\ScheduleFilter;
 use MatrixPlatform\Support\Subject;
 use MatrixPlatform\Support\Variants;
 
@@ -374,6 +377,21 @@ abstract class CrudService {
         }
 
         $this->columns = $expanded;
+    }
+
+    /**
+     * @param Builder<Model> $query
+     */
+    protected function filter(Builder $query, mixed $filters): void {
+        $metadata = app(MetadataRegistry::class)->of($this->model::class);
+
+        if (is_array($filters) && $metadata?->enable !== null && $metadata->disable !== null && array_key_exists(ScheduleFilter::NAME, $filters)) {
+            $this->schedule($query, $filters[ScheduleFilter::NAME], $metadata->enable, $metadata->disable);
+
+            unset($filters[ScheduleFilter::NAME]);
+        }
+
+        (new Filtering())->apply($query, $this->plan(), $filters);
     }
 
     /**
@@ -849,6 +867,29 @@ abstract class CrudService {
 
     private function rooted(Column $column): bool {
         return $column->expression->path === [];
+    }
+
+    /**
+     * @param Builder<Model> $query
+     */
+    private function schedule(Builder $query, mixed $filter, string $enable, string $disable): void {
+        if (!is_array($filter) || array_get_value($filter, 'op') !== 'eq') {
+            return;
+        }
+
+        $value = array_get_value($filter, 'value');
+
+        if ($value === null || $value === '') {
+            return;
+        }
+
+        $state = is_string($value) ? ScheduleFilter::tryFrom($value) : null;
+
+        if ($state === null) {
+            error('invalid-filter-value', 422);
+        }
+
+        $state->apply($query, $enable, $disable, now());
     }
 
     private function uniqueRule(string $field, int|string|null $ignoreId): Unique {

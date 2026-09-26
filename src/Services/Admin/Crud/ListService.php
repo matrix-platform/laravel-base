@@ -7,12 +7,15 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use MatrixPlatform\Columns\Column;
-use MatrixPlatform\Columns\Query\Filtering;
+use MatrixPlatform\Columns\ColumnResolver;
+use MatrixPlatform\Columns\Options\BundleOptions;
 use MatrixPlatform\Columns\Query\Sort;
 use MatrixPlatform\Columns\Query\Sorting;
+use MatrixPlatform\Columns\Syntax\ColumnParser;
 use MatrixPlatform\Services\PreferenceService;
 use MatrixPlatform\Support\MetadataRegistry;
 use MatrixPlatform\Support\Schedule;
+use MatrixPlatform\Support\ScheduleFilter;
 
 class ListService extends CrudService {
 
@@ -68,7 +71,7 @@ class ListService extends CrudService {
 
         $this->select($query, $arrangeable ? [...$this->selects, $enable, $disable] : $this->selects);
 
-        (new Filtering())->apply($query, $this->plan(), array_get_value($values, 'filters'));
+        $this->filter($query, array_get_value($values, 'filters'));
 
         $total = $query->count();
         $sorted = (new Sorting($this->sorting))->apply($query, $this->plan(), array_get_value($values, 'sort'));
@@ -85,6 +88,7 @@ class ListService extends CrudService {
             'context' => $data === [] ? (object) [] : $data,
             'rows' => $rows,
             'columns' => $this->payload($columns, $context),
+            'filters' => $arrangeable ? $this->payload([$this->scheduleColumn()], $context) : [],
             'features' => $arrangeable ? ['arrange'] : [],
             'preference' => array_get_value($preference, "column:{$key}"),
             'sorting' => array_map(fn (Sort $sort): array => ['name' => $sort->name, 'direction' => $sort->direction->value], $sorted),
@@ -181,6 +185,15 @@ class ListService extends CrudService {
         }
 
         return $rows;
+    }
+
+    private function scheduleColumn(): Column {
+        return app(ColumnResolver::class)->resolve((new ColumnParser())->parse([
+            'name' => '+' . ScheduleFilter::NAME,
+            'op' => 'eq',
+            'options' => new BundleOptions(ScheduleFilter::NAME),
+            'readonly' => true
+        ]), $this->model);
     }
 
     /**

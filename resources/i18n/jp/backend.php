@@ -18,6 +18,7 @@ return [
 
     'colorConfirm' => '確定',
 
+    'common.all' => 'すべて',
     'common.cancel' => 'キャンセル',
     'common.goto' => '移動',
     'common.leave' => '離れる',

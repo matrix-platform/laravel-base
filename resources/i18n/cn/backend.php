@@ -18,6 +18,7 @@ return [
 
     'colorConfirm' => '确定',
 
+    'common.all' => '全部',
     'common.cancel' => '取消',
     'common.goto' => '跳转',
     'common.leave' => '离开',

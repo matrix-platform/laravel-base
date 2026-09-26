@@ -10,7 +10,6 @@ use MatrixPlatform\Columns\Column;
 use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Columns\Options\Option;
 use MatrixPlatform\Columns\Presentation;
-use MatrixPlatform\Columns\Query\Filtering;
 use MatrixPlatform\Columns\Query\Sorting;
 
 class ExportService extends CrudService {
@@ -60,7 +59,7 @@ class ExportService extends CrudService {
         $items = Arr::wrap(array_get_value($values, 'id'));
         $query = $this->projection();
 
-        (new Filtering())->apply($query, $this->plan(), array_get_value($values, 'filters'));
+        $this->filter($query, array_get_value($values, 'filters'));
 
         if ($items !== []) {
             $query->whereIn("{$this->model->getTable()}.id", $items);

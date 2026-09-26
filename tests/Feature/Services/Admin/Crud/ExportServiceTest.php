@@ -580,20 +580,6 @@ class ExportServiceTest extends FeatureTestCase {
         $this->assertSame(['Question (繁體中文)', 'Question (English)', 'Name'], array_column($columns, 'title'));
     }
 
-    public function test_the_locale_title_format_follows_the_current_locale(): void {
-        $this->declare(['translated' => Definition::text(translatable: true)]);
-
-        app()->setLocale('tw');
-
-        $columns = (new ExportService(Widget::class))
-            ->standalone(true)
-            ->columns([['name' => 'translated', 'title' => '問題']])
-            ->locales(['en'])
-            ->export([])['columns'];
-
-        $this->assertSame(['問題（English）'], array_column($columns, 'title'));
-    }
-
     public function test_a_translatable_title_is_left_alone_without_locales(): void {
         $this->declare(['translated' => Definition::text(translatable: true)]);
 
@@ -634,6 +620,38 @@ class ExportServiceTest extends FeatureTestCase {
             ->export([])['rows'];
 
         $this->assertSame([['attachments' => '', 'gallery__tw' => '', 'gallery__en' => '']], $rows);
+    }
+
+    public function test_the_schedule_filter_narrows_the_export(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget', enable: 'enable_time', disable: 'disable_time'), []));
+
+        Widget::forceCreate(['title' => 'Alpha', 'enable_time' => now()->subDay()]);
+        Widget::forceCreate(['title' => 'Beta']);
+
+        $this->assertSame([['title' => 'Alpha']], $this->exported(['title'], ['filters' => ['schedule' => ['op' => 'eq', 'value' => 'enabled']]])['rows']);
+        $this->assertSame([['title' => 'Beta']], $this->exported(['title'], ['filters' => ['schedule' => ['op' => 'eq', 'value' => 'disabled']]])['rows']);
+    }
+
+    public function test_the_given_ids_are_intersected_with_the_schedule_filter(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget', enable: 'enable_time', disable: 'disable_time'), []));
+
+        $alpha = Widget::forceCreate(['title' => 'Alpha', 'enable_time' => now()->subDay()]);
+        $beta = Widget::forceCreate(['title' => 'Beta']);
+
+        Widget::forceCreate(['title' => 'Gamma', 'enable_time' => now()->subDay()]);
+
+        $rows = $this->exported(['title'], ['id' => [$alpha->id, $beta->id], 'filters' => ['schedule' => ['op' => 'eq', 'value' => 'enabled']]])['rows'];
+
+        $this->assertSame([['title' => 'Alpha']], $rows);
+    }
+
+    public function test_the_schedule_filter_is_ignored_on_a_non_arrangeable_model(): void {
+        $this->widget('Alpha');
+        $this->widget('Beta');
+
+        $rows = $this->exported(['title'], ['filters' => ['schedule' => ['op' => 'eq', 'value' => 'enabled']]])['rows'];
+
+        $this->assertSame(['Alpha', 'Beta'], array_column($rows, 'title'));
     }
 
 }

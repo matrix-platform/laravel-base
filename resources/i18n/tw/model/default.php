@@ -12,6 +12,8 @@ return [
 
     'ranking' => '排序',
 
+    'schedule' => '上下架',
+
     'update_time' => '更新時間',
 
     'updater' => '更新者',

@@ -12,6 +12,8 @@ return [
 
     'ranking' => '並び順',
 
+    'schedule' => '公開状態',
+
     'update_time' => '更新日時',
 
     'updater' => '更新者',

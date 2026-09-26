@@ -398,7 +398,7 @@ class WidgetDeclaration implements Declares {
 }
 ```
 
-`Metadata` 的第一個參數是 **alias,它必須等於選單節點的路徑前綴**;第二個是「這一列叫什麼」的欄位（麵包屑與排序頁會用）。第三個參數可以指定父層關聯,巢狀資源才需要。第四個參數 `ranking` 可指定排序用的欄位名稱,`CrudController` 會用它推導預設的 `$sorting`/`$sortable`;第五、六個參數 `enable`/`disable` 標記上下架時間欄位,接上後解鎖 `POST admin/schedule/toggle`(單筆立即切換)與 `admin/{prefix}/arrange`、`arrange/save`(拖曳式批次上下架)兩支既有 API。
+`Metadata` 的第一個參數是 **alias,它必須等於選單節點的路徑前綴**;第二個是「這一列叫什麼」的欄位（麵包屑與排序頁會用）。第三個參數可以指定父層關聯,巢狀資源才需要。第四個參數 `ranking` 可指定排序用的欄位名稱,`CrudController` 會用它推導預設的 `$sorting`/`$sortable`;第五、六個參數 `enable`/`disable` 標記上下架時間欄位,接上後解鎖 `POST admin/schedule/toggle`(單筆立即切換)與 `admin/{prefix}/arrange`、`arrange/save`(拖曳式批次上下架)兩支既有 API;也會讓清單自動提供「上下架」篩選(見[給前端](#給前端)),匯出吃同一個篩選。
 
 沒有 `#[Declared]` 的 model 一進 CRUD 端點就是 `undeclared-model`。
 
@@ -1080,6 +1080,17 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 - `between` 用 `from` / `to`（可以只給一邊）,其餘用 `value`。
 - **`date` / `datetime` 欄位的值必須完全符合 `columns[].format` 給的格式**,一個字元都不能差:`date` 只收 `matrix.date-format`（出貨 `Y-m-d`）,`datetime` 只收 `matrix.datetime-format`（出貨 `Y-m-d H:i:s`）,兩者不互通。不符回 422 `invalid-filter-value`。所以查一整天要自己補時間:`from` 是 `00:00:00`、`to` 是 `23:59:59`——只送 `2026-01-31` 會被擋下,而**在舊版那樣送會漏掉當天所有資料**（`BETWEEN` 對 timestamp 欄位截在 `00:00:00`）。
 - `page` 或 `size` 給 0 以下 = 不分頁,一次全回。
+- **可上下架的清單**(metadata 同時有 `enable` / `disable`)另收 `filters.schedule = { "op": "eq", "value": "<id>" }`。`schedule` 在這類 model 上是**保留名稱**,由框架處理,不交給一般欄位篩選。五個 id **有包含關係、不互斥**:
+
+  | id | 意義 |
+  |---|---|
+  | `enabled` | 上架中:上架時間不晚於現在,且下架時間為空或晚於現在 |
+  | `disabling` | 即將下架:上架中且下架時間晚於現在 |
+  | `disabled` | 未上架:非上架中,是 `enabled` 的精確補集(含上架時間為空) |
+  | `enabling` | 即將上架:上架時間晚於現在 |
+  | `expired` | 已下架:下架時間不晚於現在 |
+
+  `value` 為 `null` 或空字串 = 不篩選;`op` 不是 `eq` 靜默忽略;未知 id 回 422 `invalid-filter-value`。上架時間在未來、下架時間已過的列同時命中 `enabling` 與 `expired`。匯出同樣適用。
 
 **詳情 / 編輯頁**（`POST admin/widget/{id}`）不需要 body。
 
@@ -1104,6 +1115,8 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 一個「有選項的整數欄位」是 `type: integer` + `presentation: select`,三個維度都完整。
 
 `type` 是 `date` 或 `datetime` 的欄位另外帶一個 `format`(例如 `YYYY-MM-DD`、`YYYY-MM-DD HH:mm:ss`,即 `matrix.date-format` / `matrix.datetime-format` 轉成前端慣用的日期格式代號),`rows`/`data` 裡該欄位的實際字串就是照這個格式輸出;其餘型別 `format` 是 `null`。
+
+清單回應另有 `filters[]`:**只用於篩選、不是資料欄**的欄位描述,形狀同 `columns[]`。前端為每一項畫一個單選下拉(前面補「全部」= 不送),送出格式為 `filters.{name} = { "op": {描述的 op}, "value": ... }`;**不要**畫成表格欄或併進搜尋欄位。目前只有可上下架清單會有一項 `schedule`,其餘清單是空陣列。
 
 **不可寫有三種原因:`readonly` 宣告、`locked` 宣告、以及跨關聯或聚合欄位(`group.title`、`count(orders)`)。** 只有第一種在 `columns[]` 上另有 `readonly` 鍵看得出來,所以**前端要看 `writable`,不要看 `readonly`** —— 否則第二種會畫出一顆改了完全沒效果的輸入框,而使用者會看到「已儲存」。`virtual`(`+` 前綴)**不影響 `writable`**:虛擬欄位不落庫,但照樣可以收值交給 `guards` / 覆寫的 service 處理。
 
@@ -1456,6 +1469,7 @@ php artisan matrix:clear-resource-cache
 | **`context.{父層}_id` 是字串**,而 `rows` 裡的 id 是整數 | 前端比對時要注意型別 |
 | **`getMenuNodes()` 的每個節點一定有 `group` 與 `tag`**（可能是 `false` / `null`） | 舊版是沒有就不輸出。用 `empty()` 判斷不受影響 |
 | **`base_menu` 的迴圈與孤兒節點會被靜默丟掉** | 資料完整性由你負責,不會有錯誤訊息 |
+| **上下架篩選的「現在」以 PHP `now()`(app 時區)綁定** | 不用資料庫的 `NOW()`,因為 `timestamp without time zone` 欄位是以 app 時區寫入;結果是查詢當下的快照 |
 
 ---
 
@@ -1472,4 +1486,5 @@ php artisan matrix:clear-resource-cache
 | **匯出的 `columns[].type`** | 舊版是一個混合欄位,新版拆成 `type` + `presentation` |
 | **驗證錯誤的鍵名** | 舊版是 `errors`,新版統一成 `error`（slug）+ `fields`（欄位明細） |
 | **匯入沒有出貨** | 舊版的匯入功能在新版不存在 |
+| **清單回應多一個 `filters` 鍵** | 可上下架清單多一個上下架篩選;這類 model 上 `filters.schedule` 成為保留名稱,宿主同名的可篩選欄位會被取代 |
 | **上傳的儲存 path 不再帶副檔名** | 舊資料不用動（既有帶副檔名的 path 照樣找得到、下載得到）。若有程式直接從 `base_file.path` 解析副檔名,改讀 `mime_type` 或 `name` |

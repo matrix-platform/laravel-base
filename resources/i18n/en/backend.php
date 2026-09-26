@@ -18,6 +18,7 @@ return [
 
     'colorConfirm' => 'Confirm',
 
+    'common.all' => 'All',
     'common.cancel' => 'Cancel',
     'common.goto' => 'Go to',
     'common.leave' => 'Leave',

@@ -12,6 +12,8 @@ return [
 
     'ranking' => 'Ranking',
 
+    'schedule' => 'Schedule',
+
     'update_time' => 'Update Time',
 
     'updater' => 'Updater',
