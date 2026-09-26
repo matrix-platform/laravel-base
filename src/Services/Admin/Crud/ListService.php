@@ -25,6 +25,11 @@ class ListService extends CrudService {
     private array $countable = [];
 
     /**
+     * @var list<string|array<string, mixed>>
+     */
+    private array $optionals = [];
+
+    /**
      * @var list<string|Operation>
      */
     private array $pageActions = ['new', 'delete', 'arrange', 'sort', 'export'];
@@ -58,11 +63,14 @@ class ListService extends CrudService {
 
         $this->attach($context);
 
+        $defaults = array_column($this->columns, 'name');
+
+        $this->pool($this->optionals);
+
         $values = is_array($input) ? $input : [];
         $preference = app(PreferenceService::class)->get(actor()->requireCurrent());
         $parents = $this->subject->parents($context, $this->params);
         $prefix = $this->prefix();
-        $key = $this->subject->key($prefix);
         $metadata = app(MetadataRegistry::class)->of($context::class);
         $enable = $metadata?->enable;
         $disable = $metadata?->disable;
@@ -87,10 +95,10 @@ class ListService extends CrudService {
             'breadcrumbs' => $this->breadcrumbs($this->foreign() === null ? [null, ...$parents] : $parents, $context),
             'context' => $data === [] ? (object) [] : $data,
             'rows' => $rows,
-            'columns' => $this->payload($columns, $context),
+            'columns' => array_map(fn (array $column): array => [...$column, 'default' => in_array($column['name'], $defaults, true), 'replaces' => array_get_value($this->replaced, $column['name'])], $this->payload($columns, $context)),
             'filters' => $arrangeable ? $this->payload([$this->scheduleColumn()], $context) : [],
             'features' => $arrangeable ? ['arrange'] : [],
-            'preference' => array_get_value($preference, "column:{$key}"),
+            'preference' => $this->columnPreference($preference),
             'sorting' => array_map(fn (Sort $sort): array => ['name' => $sort->name, 'direction' => $sort->direction->value], $sorted),
             'pagination' => $pagination,
             'actions' => [
@@ -98,6 +106,15 @@ class ListService extends CrudService {
                 'row' => $this->normalized($rowActions, $prefix)
             ]
         ];
+    }
+
+    /**
+     * @param list<string|array<string, mixed>> $optionals
+     */
+    public function optionals(array $optionals): static {
+        $this->optionals = $optionals;
+
+        return $this;
     }
 
     /**

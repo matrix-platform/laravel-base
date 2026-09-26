@@ -123,7 +123,7 @@ class CrudControllerTest extends FeatureTestCase {
 
         $response = $this->admin('admin/widget');
 
-        $this->assertSame('widget/{id}/trinket', $response->json('data.columns.1.path'));
+        $this->assertSame('widget/{id}/trinket', array_column($response->json('data.columns'), 'path', 'name')['trinkets_count']);
     }
 
     public function test_an_aggregate_column_has_no_path_when_the_menu_lacks_it(): void {
@@ -132,7 +132,7 @@ class CrudControllerTest extends FeatureTestCase {
 
         $response = $this->admin('admin/widget');
 
-        $this->assertNull($response->json('data.columns.1.path'));
+        $this->assertNull(array_column($response->json('data.columns'), 'path', 'name')['trinkets_count']);
     }
 
     public function test_the_default_sorting_is_applied(): void {
@@ -265,6 +265,7 @@ class CrudControllerTest extends FeatureTestCase {
         $newNames = array_column($this->admin('admin/gadget/new')->json('data.columns'), 'name');
 
         $this->assertSame(['title', 'widget_title'], $listNames);
+        $this->assertSame('widget_id', $listResponse->json('data.columns.1.replaces'));
         $this->assertSame(['title', 'widget_id'], $newNames);
         $this->assertSame('Alpha', $listResponse->json('data.rows.0.widget_title'));
     }
@@ -302,6 +303,41 @@ class CrudControllerTest extends FeatureTestCase {
         $this->widget('Alpha');
 
         $this->admin('admin/widget')->assertJsonPath('data.preference', null);
+    }
+
+    public function test_the_list_offers_the_update_columns_but_marks_only_the_list_columns_as_default(): void {
+        $this->widget('Alpha');
+
+        $columns = $this->admin('admin/widget')->json('data.columns');
+
+        $this->assertSame(['title', 'enable_time', 'trinkets_count'], array_column($columns, 'name'));
+        $this->assertSame([true, false, true], array_column($columns, 'default'));
+    }
+
+    public function test_the_get_and_new_responses_carry_the_column_preference_of_the_list(): void {
+        app(PreferenceService::class)->save(User::findOrFail(User::ROOT), ['column:widget' => ['enable_time', 'title']], false);
+
+        $widget = $this->widget('Alpha');
+
+        $this->admin("admin/widget/{$widget->id}")->assertJsonPath('data.preference', ['enable_time', 'title']);
+        $this->admin('admin/widget/new')->assertJsonPath('data.preference', ['enable_time', 'title']);
+    }
+
+    public function test_the_get_and_new_preference_is_null_without_a_saved_value(): void {
+        $widget = $this->widget('Alpha');
+
+        $this->admin("admin/widget/{$widget->id}")->assertJsonPath('data.preference', null);
+        $this->admin('admin/widget/new')->assertJsonPath('data.preference', null);
+    }
+
+    public function test_a_nested_get_and_new_read_the_hyphenated_preference_key(): void {
+        $alpha = $this->widget('Alpha');
+        $trinket = Trinket::forceCreate(['label' => 'mine', 'widget_id' => $alpha->id]);
+
+        app(PreferenceService::class)->save(User::findOrFail(User::ROOT), ['column:widget-trinket' => ['amount', 'label']], false);
+
+        $this->admin("admin/widget/{$alpha->id}/trinket/{$trinket->id}")->assertJsonPath('data.preference', ['amount', 'label']);
+        $this->admin("admin/widget/{$alpha->id}/trinket/new")->assertJsonPath('data.preference', ['amount', 'label']);
     }
 
     public function test_the_get_response_carries_the_row_and_its_columns(): void {
@@ -773,7 +809,75 @@ class CrudControllerTest extends FeatureTestCase {
 
         $names = array_column($this->admin("admin/widget/{$alpha->id}/trinket/export")->json('data.columns'), 'name');
 
-        $this->assertSame(['label', 'widget_title', 'amount'], $names);
+        $this->assertSame(['label', 'amount', 'widget_title'], $names);
+    }
+
+    public function test_export_outputs_the_requested_pool_columns_in_the_requested_order(): void {
+        $alpha = $this->widget('Alpha');
+
+        Trinket::forceCreate(['label' => 'mine', 'widget_id' => $alpha->id, 'amount' => 3]);
+
+        $response = $this->admin("admin/widget/{$alpha->id}/trinket/export", ['columns' => ['amount', 'unknown', 'label', 'ranking']]);
+
+        $this->assertSame(['amount', 'label', 'ranking'], array_column($response->json('data.columns'), 'name'));
+        $response->assertJsonPath('data.rows.0.amount', '3');
+    }
+
+    public function test_export_treats_empty_requested_columns_as_none_requested(): void {
+        $alpha = $this->widget('Alpha');
+
+        $names = array_column($this->admin("admin/widget/{$alpha->id}/trinket/export", ['columns' => []])->json('data.columns'), 'name');
+
+        $this->assertSame(['label', 'amount', 'widget_title'], $names);
+    }
+
+    public function test_export_ignores_requested_columns_when_the_exports_are_declared(): void {
+        $this->widget('Alpha');
+
+        $names = array_column($this->admin('admin/widget/export', ['columns' => ['enable_time']])->json('data.columns'), 'name');
+
+        $this->assertSame(['title', 'trinkets_count'], $names);
+    }
+
+    public function test_export_filters_on_an_optional_column_like_the_list_does(): void {
+        app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'widget'), ['ranking' => Definition::integer()]));
+
+        $alpha = $this->widget('Alpha');
+
+        Trinket::forceCreate(['label' => 'low', 'widget_id' => $alpha->id, 'ranking' => 1]);
+        Trinket::forceCreate(['label' => 'high', 'widget_id' => $alpha->id, 'ranking' => 9]);
+
+        $filters = ['filters' => ['ranking' => ['op' => 'between', 'from' => 5, 'to' => 10]]];
+
+        $this->assertSame(['high'], array_column($this->admin("admin/widget/{$alpha->id}/trinket", $filters)->json('data.rows'), 'label'));
+        $this->assertSame(['high'], array_column($this->admin("admin/widget/{$alpha->id}/trinket/export", $filters)->json('data.rows'), 'label'));
+    }
+
+    public function test_export_cannot_filter_on_a_hidden_column_named_in_the_exports(): void {
+        Widget::forceCreate(['title' => 'Alpha', 'secret' => 'open']);
+        Widget::forceCreate(['title' => 'Beta', 'secret' => 'sesame']);
+
+        $rows = $this->admin('admin/widget/export', ['filters' => ['secret' => ['op' => 'contains', 'value' => 'sesame']]])->json('data.rows');
+
+        $this->assertEqualsCanonicalizing(['Alpha', 'Beta'], array_column($rows, 'title'));
+    }
+
+    public function test_export_cannot_sort_by_a_hidden_column_named_in_the_exports(): void {
+        Widget::forceCreate(['title' => 'Alpha', 'secret' => 'zzz']);
+        Widget::forceCreate(['title' => 'Beta', 'secret' => 'aaa']);
+
+        $ascending = $this->admin('admin/widget/export', ['sort' => [['name' => 'secret', 'direction' => 'asc']]])->json('data.rows');
+        $descending = $this->admin('admin/widget/export', ['sort' => [['name' => 'secret', 'direction' => 'desc']]])->json('data.rows');
+
+        $this->assertSame(array_column($ascending, 'title'), array_column($descending, 'title'));
+    }
+
+    public function test_export_falls_back_to_the_defaults_when_no_requested_column_is_in_the_pool(): void {
+        $alpha = $this->widget('Alpha');
+
+        $names = array_column($this->admin("admin/widget/{$alpha->id}/trinket/export", ['columns' => ['unknown']])->json('data.columns'), 'name');
+
+        $this->assertSame(['label', 'amount', 'widget_title'], $names);
     }
 
     public function test_an_empty_export_list_yields_no_columns(): void {

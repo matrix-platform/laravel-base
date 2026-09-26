@@ -11,6 +11,7 @@ use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Columns\Options\Option;
 use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Columns\Query\Sorting;
+use MatrixPlatform\Support\ScheduleFilter;
 
 class ExportService extends CrudService {
 
@@ -30,9 +31,16 @@ class ExportService extends CrudService {
     private ?array $locales = null;
 
     /**
+     * @var list<string|array<string, mixed>>
+     */
+    private array $optionals = [];
+
+    /**
      * @var array<string, array<string, string>>
      */
     private array $options = [];
+
+    private bool $selectable = false;
 
     /**
      * @var list<string>
@@ -49,23 +57,35 @@ class ExportService extends CrudService {
      * @return array{title: string, columns: list<array<string, mixed>>, rows: list<array<string, string>>}
      */
     public function export(mixed $input): array {
-        $outputs = $this->visible();
-        $fields = $this->fields($outputs);
+        $values = is_array($input) ? $input : [];
+        $declared = $this->columns;
 
+        $this->swap([]);
         $this->columns($this->filterColumns);
+        $this->pool($this->optionals);
+
+        $pooled = $this->columns;
+        $filterable = array_column($pooled, 'name');
+        $outputs = $this->visible($this->outputs($declared, $pooled, array_get_value($values, 'columns')));
+        $fields = $this->fields($outputs);
+        $filters = $this->requested(array_get_value($values, 'filters'), [...$filterable, ScheduleFilter::NAME]);
+        $sorts = array_values(array_filter(Arr::wrap(array_get_value($values, 'sort')), fn (mixed $sort): bool => is_array($sort) && in_array(array_get_value($sort, 'name'), $filterable, true)));
+        $used = [...array_keys($filters), ...array_column($sorts, 'name'), ...array_map(fn (string $sort): string => ltrim($sort, '-'), $this->sorting)];
+        $names = array_column($outputs, 'name');
+
+        $this->swap([...$outputs, ...array_values(array_filter($pooled, fn (Column $column): bool => in_array($column->name, $used, true) && !in_array($column->name, $names, true)))]);
         $this->attach($this->model);
 
-        $values = is_array($input) ? $input : [];
         $items = Arr::wrap(array_get_value($values, 'id'));
         $query = $this->projection();
 
-        $this->filter($query, array_get_value($values, 'filters'));
+        $this->filter($query, $filters);
 
         if ($items !== []) {
             $query->whereIn("{$this->model->getTable()}.id", $items);
         }
 
-        (new Sorting($this->sorting))->apply($query, $this->plan(), array_get_value($values, 'sort'));
+        (new Sorting($this->sorting))->apply($query, $this->plan(), $sorts);
 
         $query->orderBy("{$this->model->getTable()}.id");
 
@@ -114,6 +134,21 @@ class ExportService extends CrudService {
      */
     public function locales(?array $locales): static {
         $this->locales = $locales;
+
+        return $this;
+    }
+
+    /**
+     * @param list<string|array<string, mixed>> $optionals
+     */
+    public function optionals(array $optionals): static {
+        $this->optionals = $optionals;
+
+        return $this;
+    }
+
+    public function selectable(bool $selectable): static {
+        $this->selectable = $selectable;
 
         return $this;
     }
@@ -222,6 +257,34 @@ class ExportService extends CrudService {
         return is_string($value) ? Carbon::parse($value)->format($format) : '';
     }
 
+    /**
+     * @param list<Column> $declared
+     * @param list<Column> $pooled
+     * @return list<Column>
+     */
+    private function outputs(array $declared, array $pooled, mixed $requested): array {
+        if (!$this->selectable) {
+            return $declared;
+        }
+
+        $keyed = array_column($pooled, null, 'name');
+        $names = is_array($requested) ? array_filter(array_unique(array_filter($requested, 'is_string')), fn (string $name): bool => array_key_exists($name, $keyed)) : [];
+
+        if ($names === []) {
+            $names = array_intersect(array_keys($keyed), array_column($declared, 'name'));
+        }
+
+        return array_values(array_map(fn (string $name): Column => $keyed[$name], $names));
+    }
+
+    /**
+     * @param list<string> $allowed
+     * @return array<string, mixed>
+     */
+    private function requested(mixed $filters, array $allowed): array {
+        return is_array($filters) ? array_intersect_key($filters, array_flip($allowed)) : [];
+    }
+
     private function text(mixed $value): string {
         if ($value instanceof DateTimeInterface) {
             return $this->moment($value, config('matrix.datetime-format'));
@@ -235,12 +298,13 @@ class ExportService extends CrudService {
     }
 
     /**
+     * @param list<Column> $columns
      * @return list<Column>
      */
-    private function visible(): array {
+    private function visible(array $columns): array {
         $hidden = $this->model->getHidden();
 
-        return array_values(array_filter($this->columns, fn (Column $column): bool => $column->presentation !== Presentation::Hidden && $column->presentation !== Presentation::Password && !in_array($column->name, $hidden, true)));
+        return array_values(array_filter($columns, fn (Column $column): bool => $column->presentation !== Presentation::Hidden && $column->presentation !== Presentation::Password && !in_array($column->name, $hidden, true)));
     }
 
 }

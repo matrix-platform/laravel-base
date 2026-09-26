@@ -182,7 +182,7 @@ class CrudServiceTest extends FeatureTestCase {
         $this->assertSame([
             'name', 'title', 'translatable', 'type', 'format', 'presentation', 'group', 'op',
             'options', 'path', 'placeholder', 'remark', 'readonly', 'required', 'rule', 'sortable', 'tab',
-            'writable'
+            'writable', 'default', 'replaces'
         ], array_keys($columns[0]));
     }
 

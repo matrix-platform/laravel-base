@@ -3,6 +3,7 @@
 namespace Tests\Feature\Services\Admin\Crud;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Options\Option;
 use MatrixPlatform\Columns\Options\StaticOptions;
@@ -92,6 +93,53 @@ class ExportServiceTest extends FeatureTestCase {
 
         $this->assertSame(['label'], array_column($exported['columns'], 'name'));
         $this->assertSame([['label' => 'keep']], $exported['rows']);
+    }
+
+    public function test_an_output_only_column_cannot_be_filtered(): void {
+        $widget = $this->widget('Alpha');
+
+        Trinket::forceCreate(['label' => 'keep', 'widget_id' => $widget->id, 'amount' => 5]);
+        Trinket::forceCreate(['label' => 'drop', 'widget_id' => $widget->id, 'amount' => 9]);
+
+        $exported = (new ExportService(Trinket::class))
+            ->standalone(true)
+            ->columns(['label', ['name' => 'amount', 'op' => 'eq']])
+            ->export(['filters' => ['amount' => ['op' => 'eq', 'value' => 5]]]);
+
+        $this->assertSame(['keep', 'drop'], array_column($exported['rows'], 'label'));
+    }
+
+    public function test_an_output_only_column_cannot_be_sorted_by(): void {
+        $widget = $this->widget('Alpha');
+
+        Trinket::forceCreate(['label' => 'low', 'widget_id' => $widget->id, 'amount' => 1]);
+        Trinket::forceCreate(['label' => 'high', 'widget_id' => $widget->id, 'amount' => 9]);
+
+        $exported = (new ExportService(Trinket::class))
+            ->standalone(true)
+            ->columns(['label', 'amount'])
+            ->export(['sort' => [['name' => 'amount', 'direction' => 'desc']]]);
+
+        $this->assertSame(['low', 'high'], array_column($exported['rows'], 'label'));
+    }
+
+    public function test_only_the_output_and_the_used_filter_columns_are_selected(): void {
+        $widget = $this->widget('Alpha');
+
+        Trinket::forceCreate(['label' => 'keep', 'widget_id' => $widget->id, 'amount' => 5]);
+
+        DB::enableQueryLog();
+
+        (new ExportService(Trinket::class))
+            ->standalone(true)
+            ->columns(['label'])
+            ->filterColumns(['amount', 'ranking'])
+            ->export(['filters' => ['amount' => ['op' => 'between', 'from' => 1, 'to' => 9]]]);
+
+        $sql = collect(DB::getQueryLog())->pluck('query')->last(fn (string $query): bool => str_contains($query, 'stub_trinket'));
+
+        $this->assertStringContainsString('"amount"', strval($sql));
+        $this->assertStringNotContainsString('"ranking"', strval($sql));
     }
 
     public function test_a_filter_column_can_be_sorted_by(): void {
@@ -392,7 +440,11 @@ class ExportServiceTest extends FeatureTestCase {
         $beta = $this->widget('Beta');
         $this->widget('Gamma');
 
-        $rows = $this->exported(['title'], ['id' => [$alpha->id, $beta->id], 'sort' => [['name' => 'title', 'direction' => 'desc']]])['rows'];
+        $rows = (new ExportService(Widget::class))
+            ->standalone(true)
+            ->columns(['title'])
+            ->filterColumns(['title'])
+            ->export(['id' => [$alpha->id, $beta->id], 'sort' => [['name' => 'title', 'direction' => 'desc']]])['rows'];
 
         $this->assertSame(['Beta', 'Alpha'], array_column($rows, 'title'));
     }

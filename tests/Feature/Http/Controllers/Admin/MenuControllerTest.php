@@ -9,6 +9,7 @@ use MatrixPlatform\Models\DriveNodeType;
 use MatrixPlatform\Models\File;
 use MatrixPlatform\Models\Menu;
 use MatrixPlatform\Models\User;
+use MatrixPlatform\Services\PreferenceService;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
 use Tests\Stubs\TestGalleryFields;
@@ -79,6 +80,17 @@ class MenuControllerTest extends FeatureTestCase {
         $titles = array_column($this->send('admin/menu')->json('data.rows'), 'title');
 
         $this->assertSame(['root', 'other-root'], $titles);
+    }
+
+    public function test_the_child_list_get_and_new_share_the_mounted_preference_key(): void {
+        $root = $this->node(null, 'root', 1);
+        $child = $this->node($root->id, 'child', 1);
+
+        app(PreferenceService::class)->save(User::findOrFail(User::ROOT), ['column:menu-children' => ['title']], false);
+
+        $this->send("admin/menu/{$root->id}/children")->assertJsonPath('data.preference', ['title']);
+        $this->send("admin/menu/{$root->id}/children/{$child->id}")->assertJsonPath('data.preference', ['title']);
+        $this->send("admin/menu/{$root->id}/children/new")->assertJsonPath('data.preference', ['title']);
     }
 
     public function test_the_child_route_drills_into_that_nodes_children_at_any_depth(): void {

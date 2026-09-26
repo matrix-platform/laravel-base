@@ -198,6 +198,8 @@ abstract class CrudController extends BaseController {
         return $service
             ->columns($this->exporting())
             ->filterColumns($this->listing())
+            ->optionals($this->updates())
+            ->selectable($this->exports === null)
             ->sorting($this->sorting());
     }
 
@@ -212,6 +214,7 @@ abstract class CrudController extends BaseController {
     protected function onList(ListService $service): ListService {
         return $service
             ->columns($this->listing())
+            ->optionals($this->updates())
             ->sorting($this->sorting())
             ->selects($this->selects);
     }

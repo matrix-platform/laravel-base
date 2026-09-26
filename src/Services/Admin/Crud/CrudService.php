@@ -20,8 +20,10 @@ use MatrixPlatform\Columns\Query\Filtering;
 use MatrixPlatform\Columns\Query\QueryPlan;
 use MatrixPlatform\Columns\Syntax\ColumnParser;
 use MatrixPlatform\Columns\Syntax\Expression;
+use MatrixPlatform\Columns\Syntax\ParsedColumn;
 use MatrixPlatform\Models\BaseModel;
 use MatrixPlatform\Services\FileService;
+use MatrixPlatform\Services\PreferenceService;
 use MatrixPlatform\Support\Actions;
 use MatrixPlatform\Support\AdminPermission;
 use MatrixPlatform\Support\Menus;
@@ -54,6 +56,11 @@ abstract class CrudService {
      * @var array<string, mixed>
      */
     protected array $params = [];
+
+    /**
+     * @var array<string, string>
+     */
+    protected array $replaced = [];
 
     /**
      * @var list<Closure>
@@ -265,6 +272,13 @@ abstract class CrudService {
         }
 
         return $relation;
+    }
+
+    /**
+     * @param array<string, mixed> $preference
+     */
+    protected function columnPreference(array $preference): mixed {
+        return array_get_value($preference, "column:{$this->subject->key($this->prefix())}");
     }
 
     /**
@@ -544,6 +558,66 @@ abstract class CrudService {
         return $this->plan;
     }
 
+    /**
+     * @param list<string|array<string, mixed>> $optionals
+     */
+    protected function pool(array $optionals): void {
+        $defaults = array_column($this->columns, null, 'name');
+        $replacements = $this->replacements($defaults);
+        $placed = [];
+        $pooled = [];
+
+        $this->replaced = [];
+
+        foreach ($optionals as $optional) {
+            $parsed = (new ColumnParser())->parse($optional);
+            $expression = $parsed->expression;
+            $field = strval($expression->field);
+            $name = $parsed->name;
+
+            if (!array_key_exists($name, $defaults) && $expression->path === [] && $expression->aggregate === null && array_key_exists($field, $replacements)) {
+                $name = $replacements[$field];
+
+                if (!array_key_exists($name, $placed)) {
+                    $this->replaced[$name] = $field;
+                }
+            }
+
+            if (array_key_exists($name, $defaults)) {
+                if (!array_key_exists($name, $placed)) {
+                    $placed[$name] = true;
+                    $pooled[] = $defaults[$name];
+                }
+
+                continue;
+            }
+
+            $column = $this->resolver->resolve($parsed, $this->model);
+
+            if (!array_key_exists($name, $placed) && $this->listable($parsed, $column)) {
+                $placed[$name] = true;
+                $pooled[] = $column;
+            }
+        }
+
+        foreach ($defaults as $name => $column) {
+            if (!array_key_exists($name, $placed)) {
+                $pooled[] = $column;
+            }
+        }
+
+        $this->swap($pooled);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function preference(): array {
+        $identity = actor()->current();
+
+        return $identity === null ? [] : app(PreferenceService::class)->get($identity);
+    }
+
     protected function prefix(): string {
         if ($this->standalone) {
             return $this->subject->alias($this->model);
@@ -678,6 +752,14 @@ abstract class CrudService {
         return null;
     }
 
+    /**
+     * @param list<Column> $columns
+     */
+    protected function swap(array $columns): void {
+        $this->columns = $columns;
+        $this->plan = null;
+    }
+
     protected function title(): ?string {
         $menu = app(AdminPermission::class)->getCurrentMenu();
 
@@ -748,6 +830,17 @@ abstract class CrudService {
         return array_replace($shared === null ? [] : $shared, $specific === null ? [] : $specific);
     }
 
+    private function declared(ParsedColumn $parsed, Column $column): bool {
+        if ($parsed->presentation !== null) {
+            return true;
+        }
+
+        $definitions = $this->rooted($column) ? app(MetadataRegistry::class)->definitions($this->model::class) : null;
+        $definition = $definitions === null ? null : array_get_value($definitions, strval($column->expression->field));
+
+        return $definition instanceof Definition && $definition->presentation !== null;
+    }
+
     private function drives(Column $column): bool {
         return in_array($column->presentation, [Presentation::DriveFile, Presentation::DriveImage], true);
     }
@@ -779,6 +872,18 @@ abstract class CrudService {
         $found = array_get_value($bundle, $token);
 
         return is_string($found) ? $found : null;
+    }
+
+    private function listable(ParsedColumn $parsed, Column $column): bool {
+        if ($column->virtual || $column->tab !== null || is_string($column->presentation) || in_array($column->presentation, [Presentation::Composite, Presentation::Hidden, Presentation::Password], true)) {
+            return false;
+        }
+
+        if ($this->rooted($column) && in_array($column->expression->field, $this->model->getHidden(), true)) {
+            return false;
+        }
+
+        return $column->type !== ColumnType::Json || $column->presentation !== Presentation::Plain || $this->declared($parsed, $column);
     }
 
     private function mounted(): ?string {
@@ -847,6 +952,25 @@ abstract class CrudService {
         }, $template);
 
         return is_string($replaced) ? $replaced : $template;
+    }
+
+    /**
+     * @param array<string, Column> $columns
+     * @return array<string, string>
+     */
+    private function replacements(array $columns): array {
+        $replacements = [];
+
+        foreach ($columns as $name => $column) {
+            $expression = $column->expression;
+            $relation = count($expression->path) === 1 && $expression->aggregate === null ? $this->subject->belongsTo($this->model, $expression->path[0]) : null;
+
+            if ($relation !== null && !array_key_exists($relation->getForeignKeyName(), $replacements)) {
+                $replacements[$relation->getForeignKeyName()] = $name;
+            }
+        }
+
+        return $replacements;
     }
 
     /**
