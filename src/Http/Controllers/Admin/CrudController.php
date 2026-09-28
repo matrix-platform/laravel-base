@@ -62,6 +62,8 @@ abstract class CrudController extends BaseController {
      */
     protected string $model;
 
+    protected ?string $mount = null;
+
     /**
      * @var list<string>
      */
@@ -434,7 +436,10 @@ abstract class CrudController extends BaseController {
     private function prepare(CrudService $service, Request $request): CrudService {
         $route = $request->route();
 
-        return $service->standalone($this->standalone)->params($route instanceof Route ? $route->parameters() : []);
+        return $service
+            ->standalone($this->standalone)
+            ->mount($this->mount)
+            ->params($route instanceof Route ? $route->parameters() : []);
     }
 
     private function ranking(): ?string {

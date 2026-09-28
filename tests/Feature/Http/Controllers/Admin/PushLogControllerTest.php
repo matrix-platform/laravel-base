@@ -52,6 +52,15 @@ class PushLogControllerTest extends FeatureTestCase {
         $response->assertJsonPath('data.rows.0.provider', 'webpush');
     }
 
+    public function test_the_record_is_read_only_and_shows_the_content_in_a_textarea(): void {
+        $log = $this->schedule();
+
+        $columns = array_column($this->send("admin/push-log/{$log->id}")->json('data.columns'), null, 'name');
+
+        $this->assertNotContains(true, array_column($columns, 'writable'));
+        $this->assertSame('textarea', $columns['content']['presentation']);
+    }
+
     public function test_resend_copies_the_log_and_queues_it(): void {
         $log = $this->schedule();
 

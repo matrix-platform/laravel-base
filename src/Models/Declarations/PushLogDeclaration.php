@@ -21,7 +21,7 @@ class PushLogDeclaration implements Declares {
                 'provider' => Definition::text(),
                 'member_id' => Definition::integer(),
                 'title' => Definition::text(),
-                'content' => Definition::text(),
+                'content' => Definition::text('textarea'),
                 'data' => Definition::json(),
                 'template' => Definition::text(),
                 'schedule_time' => Definition::dateTime(),

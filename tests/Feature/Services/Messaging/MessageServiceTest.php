@@ -187,6 +187,53 @@ class MessageServiceTest extends FeatureTestCase {
         Queue::assertPushed(SendMessageJob::class, fn (SendMessageJob $job) => $job->channel === 'mail');
     }
 
+    public function test_cc_and_bcc_options_are_recorded_on_the_mail_as_a_normalized_list(): void {
+        $log = $this->reload($this->mail()->schedule(now(), 'alice@example.com', 'welcome', ['name' => 'Alice'], [
+            'cc' => ['bob@example.com', 'carol@example.com', 'bob@example.com'],
+            'bcc' => 'dave@example.com; erin@example.com'
+        ]));
+
+        $this->assertSame('bob@example.com, carol@example.com', $log->cc);
+        $this->assertSame('dave@example.com, erin@example.com', $log->bcc);
+    }
+
+    public function test_a_mail_without_cc_or_bcc_records_null(): void {
+        $log = $this->reload($this->mail()->schedule(now(), 'alice@example.com', 'welcome', ['name' => 'Alice'], ['cc' => '', 'bcc' => []]));
+
+        $this->assertNull($log->cc);
+        $this->assertNull($log->bcc);
+    }
+
+    public function test_resend_keeps_the_cc_and_bcc_of_the_original(): void {
+        $original = $this->reload($this->mail()->schedule(now(), 'alice@example.com', 'welcome', ['name' => 'Alice'], ['cc' => 'bob@example.com', 'bcc' => 'dave@example.com']));
+
+        $resent = $this->reload($this->mail()->resend($original->id));
+
+        $this->assertSame('bob@example.com', $resent->cc);
+        $this->assertSame('dave@example.com', $resent->bcc);
+    }
+
+    public function test_the_locale_option_picks_the_template_regardless_of_the_current_locale_and_is_recorded(): void {
+        app()->setLocale('jp');
+
+        $this->refuses('message-template-not-found', fn () => $this->mail()->schedule(now(), 'alice@example.com', 'welcome', ['name' => 'Alice']));
+
+        $log = $this->reload($this->mail()->schedule(now(), 'alice@example.com', 'welcome', ['name' => 'Alice'], ['locale' => 'en']));
+
+        $this->assertSame('Welcome Alice', $log->subject);
+        $this->assertSame('en', $log->locale);
+    }
+
+    public function test_the_attributes_option_fills_extra_columns_but_never_the_ones_the_service_writes(): void {
+        $log = $this->reload($this->mail()->schedule(now(), 'alice@example.com', 'welcome', ['name' => 'Alice'], [
+            'attributes' => ['response' => 'order:42', 'receiver' => 'mallory@example.com', 'subject' => 'Forged']
+        ]));
+
+        $this->assertSame('order:42', $log->response);
+        $this->assertSame('alice@example.com', $log->receiver);
+        $this->assertSame('Welcome Alice', $log->subject);
+    }
+
     public function test_resend_does_not_mutate_the_original_message(): void {
         $original = $this->reload($this->mail()->schedule(now()->addDay(), 'alice@example.com', 'welcome', ['name' => 'Alice']));
 

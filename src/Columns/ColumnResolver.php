@@ -40,13 +40,14 @@ class ColumnResolver {
         $silent = $declared === Presentation::Hidden && !$this->searchable($column);
         $options = $silent ? $column->options : $this->options($column, $definition, $terminal, $type);
         $presentation = $this->shown($declared, $options);
+        $virtual = $column->virtual || ($definition !== null && $definition->virtual);
 
         return new Column(
             $column->expression,
             $column->group,
             $column->name,
             $column->locked,
-            $this->operator($column, $type, $presentation),
+            $this->operator($column, $type, $presentation, $virtual),
             $options,
             $this->path($column, $terminal),
             $silent ? $column->placeholder : $this->label($root, $column, $column->placeholder, ':placeholder'),
@@ -55,14 +56,14 @@ class ColumnResolver {
             $silent ? $column->remark : $this->label($root, $column, $column->remark, ':remark'),
             $column->required || ($definition !== null && $definition->required),
             $this->rule($column, $definition),
-            $this->sortable($column, $type, $presentation),
+            $this->sortable($column, $type, $presentation, $virtual),
             $column->tab === null ? $definition?->tab : $column->tab,
             $silent ? $this->fallback($column) : $this->title($root, $column),
             $definition !== null && $definition->translatable,
             $type,
             $definition !== null && $definition->unique,
             $definition?->group,
-            $column->virtual || ($definition !== null && $definition->virtual)
+            $virtual
         );
     }
 
@@ -138,12 +139,12 @@ class ColumnResolver {
     /**
      * @return string|list<string>|null
      */
-    private function operator(ParsedColumn $column, ColumnType $type, Presentation|string $presentation): string|array|null {
+    private function operator(ParsedColumn $column, ColumnType $type, Presentation|string $presentation, bool $virtual): string|array|null {
         if ($column->opGiven) {
             return $column->op;
         }
 
-        if ($presentation === Presentation::Hidden) {
+        if ($virtual || $presentation === Presentation::Hidden) {
             return null;
         }
 
@@ -260,12 +261,12 @@ class ColumnResolver {
         return $options === null ? Presentation::Plain : Presentation::Select;
     }
 
-    private function sortable(ParsedColumn $column, ColumnType $type, Presentation|string $presentation): bool {
+    private function sortable(ParsedColumn $column, ColumnType $type, Presentation|string $presentation, bool $virtual): bool {
         if ($column->sortable !== null) {
             return $column->sortable;
         }
 
-        return $presentation !== Presentation::Hidden && $type !== ColumnType::Boolean && $type !== ColumnType::Json;
+        return !$virtual && $presentation !== Presentation::Hidden && $type !== ColumnType::Boolean && $type !== ColumnType::Json;
     }
 
     /**

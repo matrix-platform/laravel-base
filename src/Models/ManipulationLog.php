@@ -3,6 +3,7 @@
 namespace MatrixPlatform\Models;
 
 use Illuminate\Support\Carbon;
+use LogicException;
 use MatrixPlatform\Attributes\Declared;
 use MatrixPlatform\Models\Declarations\ManipulationLogDeclaration;
 use MatrixPlatform\Models\Generators\CreatorAddress;
@@ -28,6 +29,13 @@ class ManipulationLog extends BaseModel {
     const TRACEABLE = false;
     const UPDATED_AT = null;
     const UPDATED_BY = null;
+
+    protected static function booted(): void {
+        parent::booted();
+
+        static::updating(fn () => throw new LogicException('Manipulation logs are append-only and cannot be updated'));
+        static::deleting(fn () => throw new LogicException('Manipulation logs are append-only and cannot be deleted'));
+    }
 
     protected array $generators = [
         'endpoint' => CreatorEndpoint::class,

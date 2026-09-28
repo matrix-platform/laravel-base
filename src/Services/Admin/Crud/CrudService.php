@@ -53,6 +53,8 @@ abstract class CrudService {
 
     protected BaseModel $model;
 
+    protected ?string $mount = null;
+
     /**
      * @var array<string, mixed>
      */
@@ -82,6 +84,8 @@ abstract class CrudService {
     private ColumnResolver $resolver;
 
     private Variants $variants;
+
+    private bool $verified = false;
 
     /**
      * @param class-string<BaseModel> $model
@@ -116,11 +120,18 @@ abstract class CrudService {
         return $this;
     }
 
+    public function mount(?string $prefix): static {
+        $this->mount = $prefix;
+
+        return $this;
+    }
+
     /**
      * @param array<string, mixed> $params
      */
     public function params(array $params): static {
         $this->params = $params;
+        $this->verified = false;
 
         return $this;
     }
@@ -637,6 +648,10 @@ abstract class CrudService {
     }
 
     protected function prefix(): string {
+        if ($this->mount !== null) {
+            return $this->mount;
+        }
+
         if ($this->standalone) {
             return $this->subject->alias($this->model);
         }
@@ -903,7 +918,7 @@ abstract class CrudService {
     }
 
     private function listable(ParsedColumn $parsed, Column $column): bool {
-        if ($column->virtual || ($column->tab !== null && !$this->auditing($column)) || is_string($column->presentation) || in_array($column->presentation, [Presentation::Composite, Presentation::Hidden, Presentation::Password], true)) {
+        if (($column->virtual && $column->op === null) || ($column->tab !== null && !$this->auditing($column)) || is_string($column->presentation) || in_array($column->presentation, [Presentation::Composite, Presentation::Hidden, Presentation::Password], true)) {
             return false;
         }
 
@@ -944,6 +959,12 @@ abstract class CrudService {
 
         if ($value === null) {
             error('data-not-found', 404);
+        }
+
+        if (!$this->verified) {
+            $this->verifyLineage();
+
+            $this->verified = true;
         }
 
         return $value;
@@ -1073,6 +1094,39 @@ abstract class CrudService {
         }
 
         return $ignoreId === null ? $rule : $rule->ignore($ignoreId);
+    }
+
+    private function verifyLineage(): void {
+        $model = $this->model;
+        $child = null;
+        $visited = [];
+
+        while (!array_key_exists($model::class, $visited) && ($relation = $this->subject->parent($model)) !== null) {
+            $visited[$model::class] = true;
+            $foreign = $relation->getForeignKeyName();
+            $value = array_get_value($this->params, $foreign);
+
+            if (!is_scalar($value)) {
+                return;
+            }
+
+            $owned = $child?->getAttribute($foreign);
+
+            if ($child !== null && (!is_scalar($owned) || strval($owned) !== strval($value))) {
+                error('data-not-found', 404);
+            }
+
+            $parent = $relation->getRelated()
+                ->newQuery()
+                ->where($relation->getQualifiedOwnerKeyName(), $value)
+                ->first();
+
+            if ($parent === null) {
+                error('data-not-found', 404);
+            }
+
+            $model = $child = $parent;
+        }
     }
 
 }

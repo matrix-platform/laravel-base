@@ -44,23 +44,46 @@ class DeleteService extends CrudService {
             error('data-not-found', 404);
         }
 
-        $chains = array_map(fn (string $relation): array => explode('.', $relation), $this->cascade);
-        $excluded = array_column($chains, 0);
+        $branches = $this->branches(array_map(fn (string $relation): array => explode('.', $relation), $this->cascade));
 
         foreach ($models as $model) {
             $this->inspect($model);
-            $this->guardReferences($model, $excluded);
+            $this->guardReferences($model, array_keys($branches));
         }
 
         foreach ($models as $model) {
-            foreach ($chains as $chain) {
-                $this->purge($model, $chain);
-            }
+            $this->purge($model, $branches);
 
             $model->delete();
         }
 
         return ['id' => $items];
+    }
+
+    /**
+     * @param list<list<string>> $chains
+     * @return array<string, list<list<string>>>
+     */
+    private function branches(array $chains): array {
+        $branches = [];
+
+        foreach ($chains as $chain) {
+            $name = array_shift($chain);
+
+            if ($name === null) {
+                continue;
+            }
+
+            if (!array_key_exists($name, $branches)) {
+                $branches[$name] = [];
+            }
+
+            if ($chain !== []) {
+                $branches[$name][] = $chain;
+            }
+        }
+
+        return $branches;
     }
 
     /**
@@ -77,23 +100,19 @@ class DeleteService extends CrudService {
     }
 
     /**
-     * @param list<string> $chain
+     * @param array<string, list<list<string>>> $branches
      */
-    private function purge(Model $model, array $chain): void {
-        $name = array_shift($chain);
+    private function purge(Model $model, array $branches): void {
+        foreach ($branches as $name => $chains) {
+            $children = $this->branches($chains);
 
-        if ($name === null) {
-            return;
-        }
+            foreach ($this->cascading($model, $name)->get() as $child) {
+                $this->guardReferences($child, array_keys($children));
 
-        $excluded = array_slice($chain, 0, 1);
+                $this->purge($child, $children);
 
-        foreach ($this->cascading($model, $name)->get() as $child) {
-            $this->guardReferences($child, $excluded);
-
-            $this->purge($child, $chain);
-
-            $child->delete();
+                $child->delete();
+            }
         }
     }
 

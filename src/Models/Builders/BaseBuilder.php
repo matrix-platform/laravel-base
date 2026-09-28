@@ -16,12 +16,16 @@ class BaseBuilder extends Builder {
     }
 
     public function whereExpired(string $column = 'expire_time'): static {
+        $column = $this->qualifyColumn($column);
+
         return $this->where(function ($query) use ($column): void {
             $query->whereNotNull($column)->where($column, '<=', now());
         });
     }
 
     public function whereNotExpired(string $column = 'expire_time'): static {
+        $column = $this->qualifyColumn($column);
+
         return $this->where(function ($query) use ($column): void {
             $query->whereNull($column)->orWhere($column, '>', now());
         });

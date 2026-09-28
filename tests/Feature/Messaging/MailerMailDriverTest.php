@@ -34,6 +34,36 @@ class MailerMailDriverTest extends FeatureTestCase {
         Mail::assertSent(MessageMail::class, fn (MessageMail $mail) => $mail->hasTo('alice@example.com') && $mail->subjectLine === 'Hello');
     }
 
+    public function test_the_recorded_cc_and_bcc_are_delivered(): void {
+        $log = $this->log();
+
+        $log->cc = 'bob@example.com, carol@example.com';
+        $log->bcc = 'dave@example.com';
+
+        (new MailerMailDriver())->send($log);
+
+        Mail::assertSent(MessageMail::class, fn (MessageMail $mail) => $mail->hasTo('alice@example.com')
+            && $mail->hasCc('bob@example.com')
+            && $mail->hasCc('carol@example.com')
+            && $mail->hasBcc('dave@example.com'));
+    }
+
+    public function test_a_sandbox_run_does_not_copy_anyone_else(): void {
+        $this->useMessagingFixtures();
+
+        $log = $this->log();
+
+        $log->provider = 'sandboxed';
+        $log->cc = 'bob@example.com';
+        $log->bcc = 'dave@example.com';
+
+        (new MailerMailDriver())->send($log);
+
+        Mail::assertSent(MessageMail::class, fn (MessageMail $mail) => $mail->hasTo('sink@example.com')
+            && !$mail->hasCc('bob@example.com')
+            && !$mail->hasBcc('dave@example.com'));
+    }
+
     public function test_the_connection_comes_from_the_provider_the_record_names(): void {
         $this->useMessagingFixtures();
 

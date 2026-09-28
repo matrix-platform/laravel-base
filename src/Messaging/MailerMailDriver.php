@@ -25,6 +25,8 @@ class MailerMailDriver implements Driver {
 
         $sent = Mail::mailer($mailer)
             ->to($to)
+            ->cc($sandbox === null ? tokenize($log->cc) : [])
+            ->bcc($sandbox === null ? tokenize($log->bcc) : [])
             ->send(new MessageMail($subject, $log->content, strval(cfg("{$bundle}.from-address")), strval(cfg("{$bundle}.from-name"))));
 
         $id = $sent === null ? '' : strval($sent->getMessageId());

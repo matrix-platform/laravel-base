@@ -18,11 +18,17 @@ class UserDeclaration implements Declares {
             Definitions::primaryKey(),
             [
                 'username' => Definition::text(required: true, unique: true),
+                'name' => Definition::text(),
+                'mail' => Definition::text(rule: ['email']),
+                'phone' => Definition::text(),
                 'password' => Definition::text(Presentation::Password, fn (): array => ['exclude_if:password,null', 'password_format:admin']),
                 'group_id' => Definition::integer()
             ],
             Definitions::disabled(),
-            Definitions::schedules(),
+            [
+                'enable_time' => Definition::dateTime(),
+                'disable_time' => Definition::dateTime()
+            ],
             [
                 'secret' => Definition::text(Presentation::Hidden),
                 'confirmed_time' => Definition::dateTime()

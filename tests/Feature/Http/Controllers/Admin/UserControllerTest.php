@@ -45,6 +45,9 @@ class UserControllerTest extends FeatureTestCase {
     private function form(array $overrides = []): array {
         return array_merge([
             'username' => 'newbie',
+            'name' => null,
+            'mail' => null,
+            'phone' => null,
             'password' => null,
             'group_id' => null,
             'disabled' => false,
@@ -165,6 +168,29 @@ class UserControllerTest extends FeatureTestCase {
         $this->send($token, 'admin/user/delete', ['id' => $id])->assertJsonPath('success', true);
 
         $this->assertNull(User::query()->find($id));
+    }
+
+    public function test_the_account_form_shows_the_contact_and_schedule_columns_on_the_main_tab(): void {
+        $columns = $this->send($this->signIn(self::ADMIN), 'admin/user/new')->json('data.columns');
+
+        foreach (['name', 'mail', 'phone', 'enable_time', 'disable_time'] as $name) {
+            $this->assertNull(array_get_value($this->columnByName($columns, $name), 'tab'), $name);
+        }
+    }
+
+    public function test_an_admin_stores_the_account_contact_details(): void {
+        $token = $this->signIn(self::ADMIN);
+        $id = strval($this->send($token, 'admin/user/insert', $this->form(['name' => 'Newbie Chen', 'mail' => 'newbie@example.com', 'phone' => '0912345678']))->json('data.id'));
+        $user = User::query()->findOrFail($id);
+
+        $this->assertSame(['Newbie Chen', 'newbie@example.com', '0912345678'], [$user->name, $user->mail, $user->phone]);
+    }
+
+    public function test_an_admin_cannot_store_a_malformed_mail(): void {
+        $response = $this->send($this->signIn(self::ADMIN), 'admin/user/insert', $this->form(['mail' => 'not-a-mail']));
+
+        $response->assertJson(['code' => 422, 'error' => 'validation-failed']);
+        $response->assertJsonPath('fields.mail', ['email']);
     }
 
     public function test_the_password_is_hashed_and_never_returned(): void {

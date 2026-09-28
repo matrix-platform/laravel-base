@@ -29,6 +29,9 @@ return new class extends Migration {
             $table->primaryKey();
             $table->text('username')->unique();
             $table->text('password')->nullable();
+            $table->text('name')->nullable();
+            $table->text('mail')->nullable();
+            $table->text('phone')->nullable();
             $table->integer('group_id')->nullable();
             $table->text('secret')->nullable();
             $table->timestamp('confirmed_time')->nullable();

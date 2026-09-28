@@ -54,6 +54,26 @@ class MailLogControllerTest extends FeatureTestCase {
         $response->assertJsonPath('data.rows.0.provider', 'stub');
     }
 
+    public function test_the_template_is_an_optional_column_that_can_be_filtered(): void {
+        $this->schedule();
+
+        $response = $this->send('admin/mail-log', ['filters' => ['template' => ['op' => 'contains', 'value' => 'welc']]]);
+        $columns = array_column($response->json('data.columns'), null, 'name');
+
+        $response->assertJsonPath('data.rows.0.template', 'welcome');
+        $this->assertSame([false, 'contains'], [$columns['template']['default'], $columns['template']['op']]);
+        $this->send('admin/mail-log', ['filters' => ['template' => ['op' => 'contains', 'value' => 'nope']]])->assertJsonCount(0, 'data.rows');
+    }
+
+    public function test_the_record_is_read_only_and_shows_the_content_in_the_editor(): void {
+        $log = $this->schedule();
+
+        $columns = array_column($this->send("admin/mail-log/{$log->id}")->json('data.columns'), null, 'name');
+
+        $this->assertNotContains(true, array_column($columns, 'writable'));
+        $this->assertSame('editor', $columns['content']['presentation']);
+    }
+
     public function test_the_row_actions_never_include_log_since_message_logs_are_not_traceable(): void {
         $this->schedule();
 

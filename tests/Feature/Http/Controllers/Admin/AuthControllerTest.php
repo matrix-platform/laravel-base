@@ -310,6 +310,9 @@ class AuthControllerTest extends FeatureTestCase {
         $this->withToken($admin)
             ->postJson("admin/user/{$user->id}/update", [
                 'username' => 'alice',
+                'name' => null,
+                'mail' => null,
+                'phone' => null,
                 'password' => null,
                 'group_id' => null,
                 'disabled' => false,

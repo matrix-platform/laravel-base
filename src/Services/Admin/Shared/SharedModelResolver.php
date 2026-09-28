@@ -4,12 +4,13 @@ namespace MatrixPlatform\Services\Admin\Shared;
 
 use Illuminate\Database\Eloquent\Model;
 use MatrixPlatform\Support\AdminPermission;
+use MatrixPlatform\Support\Menus;
 use MatrixPlatform\Support\SharedModels;
 use MatrixPlatform\Support\Subject;
 
 class SharedModelResolver {
 
-    public function __construct(private SharedModels $models) {}
+    public function __construct(private SharedModels $models, private Menus $menus) {}
 
     /**
      * @return class-string<Model>
@@ -21,7 +22,9 @@ class SharedModelResolver {
             invalid('prefix', 'unsupported-model');
         }
 
-        if (!app(AdminPermission::class)->permits(app(Subject::class)->prefix(new $class()), $tag)) {
+        $path = app(Subject::class)->prefix(new $class());
+
+        if (!$this->registered($path, $tag) || !app(AdminPermission::class)->permits($path, $tag)) {
             error('permission-denied', 403);
         }
 
@@ -37,6 +40,16 @@ class SharedModelResolver {
         }
 
         return $model;
+    }
+
+    private function registered(string $path, string $tag): bool {
+        foreach ($this->menus->nodes() as $node) {
+            if (($node->path === $path || $node->parent === $path) && $node->tag === $tag) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
 }

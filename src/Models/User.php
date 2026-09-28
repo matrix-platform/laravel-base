@@ -13,6 +13,9 @@ use MatrixPlatform\Models\Declarations\UserDeclaration;
  * @property int $id
  * @property string $username
  * @property ?string $password
+ * @property ?string $name
+ * @property ?string $mail
+ * @property ?string $phone
  * @property ?int $group_id
  * @property ?string $secret
  * @property ?Carbon $confirmed_time

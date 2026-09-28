@@ -290,6 +290,26 @@ class ColumnResolverTest extends FeatureTestCase {
         $this->assertSame('in', $this->resolve('title:text:status')->op);
     }
 
+    public function test_a_virtual_column_is_neither_filterable_nor_sortable_by_default(): void {
+        $column = $this->resolve('+title');
+
+        $this->assertNull($column->op);
+        $this->assertFalse($column->sortable);
+    }
+
+    public function test_a_declared_virtual_column_is_neither_filterable_nor_sortable_by_default(): void {
+        $this->declare(['title' => Definition::text(virtual: true)]);
+
+        $column = $this->resolve('title');
+
+        $this->assertNull($column->op);
+        $this->assertFalse($column->sortable);
+    }
+
+    public function test_a_virtual_column_keeps_an_explicit_operator(): void {
+        $this->assertSame('contains', $this->resolve(['name' => '+title', 'op' => 'contains'])->op);
+    }
+
     public function test_an_explicit_null_operator_is_kept(): void {
         $this->assertNull($this->resolve(['name' => 'title', 'op' => null])->op);
     }

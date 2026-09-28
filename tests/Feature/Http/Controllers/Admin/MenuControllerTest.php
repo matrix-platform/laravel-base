@@ -260,6 +260,26 @@ class MenuControllerTest extends FeatureTestCase {
         $this->assertSame(File::DRIVE_PREFIX . $node->path, $data['image'][0]['path']);
     }
 
+    public function test_inserting_on_the_child_route_resolves_the_variant_from_the_route_parent(): void {
+        $this->useMenuDataFixtures();
+
+        $root = $this->node(null, 'root', 100);
+
+        $this->send("admin/menu/{$root->id}/children/insert", [
+            'title__tw' => 'Social TW',
+            'title__en' => 'Social',
+            'data__platform' => 'facebook',
+            'data__url' => 'https://facebook.com/example',
+            'enable_time' => null,
+            'disable_time' => null
+        ])->assertJsonPath('success', true);
+
+        $menu = Menu::query()->where('title__en', 'Social')->sole();
+
+        $this->assertSame($root->id, $menu->parent_id);
+        $this->assertEquals(['platform' => 'facebook', 'url' => 'https://facebook.com/example'], $menu->data);
+    }
+
     public function test_a_translatable_drive_subfield_inside_a_composite_resolves_every_locale(): void {
         $this->useMenuDataFixtures();
         $this->useVariants(['menu-data' => ['driver' => TestMenuTypeResolver::class, 'header' => TestGalleryFields::class]]);

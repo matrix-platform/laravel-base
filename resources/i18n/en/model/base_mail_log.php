@@ -8,6 +8,10 @@ return [
 
     'receiver' => 'Receiver',
 
+    'cc' => 'Cc',
+
+    'bcc' => 'Bcc',
+
     'subject' => 'Subject',
 
     'content' => 'Content',

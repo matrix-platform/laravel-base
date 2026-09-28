@@ -20,7 +20,7 @@ class TelegramLogDeclaration implements Declares {
             [
                 'provider' => Definition::text(),
                 'chat_id' => Definition::text(),
-                'content' => Definition::text(),
+                'content' => Definition::text('textarea'),
                 'data' => Definition::json(),
                 'template' => Definition::text(),
                 'schedule_time' => Definition::dateTime(),

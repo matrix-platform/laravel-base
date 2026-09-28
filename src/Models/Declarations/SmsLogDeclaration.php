@@ -20,7 +20,7 @@ class SmsLogDeclaration implements Declares {
             [
                 'provider' => Definition::text(),
                 'receiver' => Definition::text(),
-                'content' => Definition::text(),
+                'content' => Definition::text('textarea'),
                 'template' => Definition::text(),
                 'schedule_time' => Definition::dateTime(),
                 'send_time' => Definition::dateTime(),

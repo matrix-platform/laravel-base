@@ -6,6 +6,12 @@ return [
 
     'password' => 'Password',
 
+    'name' => 'Name',
+
+    'mail' => 'Email',
+
+    'phone' => 'Phone',
+
     'group_id' => 'Group',
 
     'group_title' => 'Group',

@@ -12,7 +12,6 @@ use Illuminate\Support\ServiceProvider;
 use MatrixPlatform\Console\Commands\ClearResourceCacheCommand;
 use MatrixPlatform\Console\Commands\DispatchMessagesCommand;
 use MatrixPlatform\Console\Commands\MakeCrudCommand;
-use MatrixPlatform\Console\Commands\PruneDriveFilesCommand;
 use MatrixPlatform\Console\Commands\PruneTokensCommand;
 use MatrixPlatform\Console\Commands\ResetUserPasswordCommand;
 use MatrixPlatform\Console\Commands\RotateEncryptionKeyCommand;
@@ -50,7 +49,6 @@ class BaseServiceProvider extends ServiceProvider {
                 ClearResourceCacheCommand::class,
                 DispatchMessagesCommand::class,
                 MakeCrudCommand::class,
-                PruneDriveFilesCommand::class,
                 PruneTokensCommand::class,
                 ResetUserPasswordCommand::class,
                 RotateEncryptionKeyCommand::class,

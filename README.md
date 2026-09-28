@@ -43,10 +43,10 @@ class WidgetController extends CrudController {
 |---|---|
 | **前台登入端點** | 套件出貨 `member-api` / `vendor-api` middleware 與 `AuthToken::issue()`,**但沒有任何前台登入 controller**。前台的登入流程、驗證碼策略、密碼規則由宿主決定 |
 | **API 文件產生器** | 不出貨 Swagger / OpenAPI。端點是 `#[Action]` 反射掛載的,要文件請從 attribute 反射產生,不要掃註解 |
-| **排程註冊** | 套件不呼叫 `Schedule::command()`。`matrix:prune-tokens`、`matrix:prune-drive-files` 與 `messages:dispatch` 都由宿主自己排(見[註冊排程](#8-註冊排程如果要用訊息或-token-清理)) |
+| **排程註冊** | 套件不呼叫 `Schedule::command()`。`matrix:prune-tokens` 與 `messages:dispatch` 都由宿主自己排(見[註冊排程](#8-註冊排程如果要用訊息或-token-清理)) |
 | **cache / queue driver 的選擇** | 套件用 `Cache` 與 `Queue` 門面,不指定 driver。驗證碼要跨請求共用的 cache,訊息派送要每條 queue 恰好一個 worker（見[派送與 worker](#派送與-worker)） |
 | **以匯入更新既有資料** | 匯入只做新增,每一列建一筆新資料;不以 id 或唯一鍵比對後更新(見[匯入](#匯入)) |
-| **檔案清理** | 一般上傳的 `base_file` 與磁碟上的檔案永遠不會被自動刪除,去重讓一筆記錄可能被多處引用,套件答不出「誰可以刪」。**例外**:drive-linked 的 `base_file`(`path` 以 `@` 開頭,對應雲端硬碟欄位 `drive-file`/`drive-image` 選檔後產生的連結)由 `matrix:prune-drive-files` 排程時即時掃描 CRUD 資料表,清掉沒有任何記錄引用的部分 |
+| **檔案清理** | `base_file` 與磁碟上的檔案永遠不會被自動刪除,去重讓一筆記錄可能被多處引用,套件答不出「誰可以刪」 |
 | **多資料庫支援** | 只支援 PostgreSQL,而且是硬性的（見下一節） |
 
 ---
@@ -211,7 +211,6 @@ curl -X POST http://localhost/admin/auth/login \
 
 ```php
 Schedule::command('matrix:prune-tokens')->daily()->withoutOverlapping();
-Schedule::command('matrix:prune-drive-files')->daily()->withoutOverlapping();
 Schedule::command('messages:dispatch')->everyMinute()->withoutOverlapping();
 ```
 
@@ -325,6 +324,8 @@ bundle 一律**扁平**:只有一層 key,key 本身可以含點,取值時當字�
 'password' => ['type' => 'text', 'presentation' => 'password', 'secret' => true],
 ```
 
+其他資源群組同理:型別表放 `resources/style/{群組}/{name}.php`(例如訊息樣板 `resources/style/i18n/template/{name}.php`)。同一群組很多份 bundle 欄位相同時(例如一堆訊息樣板都有 `subject`、`content`),可以改放**群組層**的 `resources/style/{群組}.php`(例如 `resources/style/i18n/template.php`),群組內每份 bundle 都套用;bundle 自己的型別表有列到的 key 以它為準,**以 key 為單位整筆取代**,不逐屬性合併。欄位標題同理:先找 `resource.{群組}/{name}.{key}`,找不到再找群組層的 `resource.{群組}.{key}`,都沒有才退回 key 本身。
+
 機密欄位的實際值**永遠不離開伺服器**——`data` 回傳的是遮罩 `••••••••`(沒設定過則是空字串),`default` 與 `placeholder` 一律空白。寫回時遮罩值代表「不變更」,送新值才覆寫,送空字串才清除。出貨已標的是 `gmail.password`、`telegram.bot-token`、`telegram.webhook-secret`、`webpush.private-key`、`mitake.password`、`google-translate.api-key`、`gemini-translate.api-key`、`ip2location-bin.download-token`、`ip2location-webservice.api-key`、`captcha-recaptcha.secret`、`captcha-turnstile.secret`;自訂 bundle 裡的憑證要自己標,**漏標的症狀是那把密鑰以明文出現在後台 API 回應裡**。
 
 這一層跟 `matrix.resource-cfg` 的 bundle 白名單是兩件事:白名單決定「這個 bundle 能不能編輯」,`secret` 決定「bundle 裡哪些 key 的值看得到」。有了後者,含憑證的混合型 bundle 才能安全地進白名單。
@@ -398,7 +399,7 @@ class WidgetDeclaration implements Declares {
 }
 ```
 
-`Metadata` 的第一個參數是 **alias,它必須等於選單節點的路徑前綴**;第二個是「這一列叫什麼」的欄位（麵包屑與排序頁會用）。第三個參數可以指定父層關聯,巢狀資源才需要。第四個參數 `ranking` 可指定排序用的欄位名稱,`CrudController` 會用它推導預設的 `$sorting`/`$sortable`;第五、六個參數 `enable`/`disable` 標記上下架時間欄位,接上後解鎖 `POST admin/schedule/toggle`(單筆立即切換)與 `admin/{prefix}/arrange`、`arrange/save`(拖曳式批次上下架)兩支既有 API;也會讓清單自動提供「上下架」篩選(見[給前端](#給前端)),匯出吃同一個篩選。
+`Metadata` 的第一個參數是 **alias,它必須等於選單節點的路徑前綴**;第二個是「這一列叫什麼」的欄位（麵包屑與排序頁會用）。第三個參數可以指定父層關聯,巢狀資源才需要。第四個參數 `ranking` 可指定排序用的欄位名稱,`CrudController` 會用它推導預設的 `$sorting`/`$sortable`;第五、六個參數 `enable`/`disable` 標記上下架時間欄位,接上後解鎖 `POST admin/schedule/toggle`(單筆立即切換)與 `admin/{prefix}/arrange`、`arrange/save`(拖曳式批次上下架)兩支既有 API;`schedule/toggle` 是共用端點,只檢查模組選單有註冊 update 節點(最高權限帳號也一樣)與使用者的 update 權限,不經 controller 的 guard,存檔時才檢查的業務規則要放在 model 事件;也會讓清單自動提供「上下架」篩選(見[給前端](#給前端)),匯出吃同一個篩選。
 
 沒有 `#[Declared]` 的 model 一進 CRUD 端點就是 `undeclared-model`。
 
@@ -453,7 +454,7 @@ translatable 的子欄位就是一個 `translatable: true` 的普通 column,前�
 | `block-data` | `base_block.data` | 直接讀 `type` 欄位;`new` 時讀 body 的 `type` |
 | `block-item-data` | `base_block_item.data` | 查父區塊的 `type`,但對到**另一組** `Variant`,不是父區塊那一組 |
 
-**`resolve()` 的第二個參數只有 `new` / `insert` / `update` 拿得到值。** `get`(編輯頁)、`api/common/page`、`api/common/menu` 一律傳 `null`。所以 page 與 menu 的 driver 必須只靠 model 或常數就能決定 —— 只看 `$input` 的寫法會在編輯頁與前台端點失效。
+**`resolve()` 的第二個參數只有 `new` / `insert` / `update` 拿得到值。** `get`(編輯頁)、`api/common/page`、`api/common/menu` 一律傳 `null`。所以 page 與 menu 的 driver 必須只靠 model 或常數就能決定 —— 只看 `$input` 的寫法會在編輯頁與前台端點失效。巢狀路由的 `new` 與 `insert` 在呼叫 `resolve()` 之前就已經把路由上的父層外鍵填進 model(例如 `menu/{parent_id}/children/insert` 的 `parent_id`),body 不必另外帶。
 
 `page-data` 的最小接線是一個回傳常數的 driver:
 
@@ -502,9 +503,11 @@ class WidgetController extends CrudController {
 
 `*` 開頭代表必填。`!` 開頭代表唯讀。`+` 開頭代表虛擬。`=` **開頭**代表鎖定(見下段)。`=` 夾在中間是別名(`alias=source`)。`.` 走關聯。`:` 後面是型別或呈現方式。
 
+**虛擬欄位(`+` 前綴或宣告 `virtual: true`)預設不能篩選、不能排序**(`op` 為 `null`、`sortable` 為 `false`),因為資料庫沒有這個欄位。要讓它出現在搜尋條件,明寫 `op`(例如 `['name' => '+contact_name', 'op' => 'contains']`),並在覆寫的 `list()` / `export()` 從 `filters` 取出這個條件自己套用 —— 留在 `filters` 裡的虛擬欄位條件會被照一般欄位查詢而失敗。
+
 **鎖定(`=`)是「可寫但不可編輯」。** 值在表單開啟之前就決定了(例如區塊的型別由型別選擇器決定),所以它照樣驗證、照樣寫入,但 `columns[]` 上的 `writable` 是 `false`,前端據此把輸入框停用。`readonly`(`!`)是另一回事:不驗證、不寫入。鎖定同時隱含必填 —— 值既然是先決定好的,就不該是空的;要「鎖定但可為空」請用陣列語法 `['name' => 'x', 'locked' => true]`。
 
-**清單回傳的是「欄位池」,`$lists` 只決定預設顯示哪些。** 欄位池 = 清單欄位(`$lists`,沒設就照 `listing()` 的退回規則)加上編輯欄位(`$updates` 或自動推導):清單欄位依 `$lists` 的順序排在前面,其餘編輯欄位依編輯欄位的順序接在後面;同名欄位用清單欄位的定義。清單欄位裡若有經由 `belongsTo` 關聯取值的欄位(例如 `category_title=category.title`),它會取代編輯欄位中該關聯的外鍵(`category_id`),外鍵不再另外進欄位池(同一個關聯有多個清單欄位時,由第一個取代),`columns[]` 上的 `replaces` 標出被取代的外鍵名稱(其餘欄位為 `null`),前端排列表單時用它把清單欄位對應回表單的外鍵欄位。只在編輯欄位裡、清單畫不出來的欄位不進欄位池:Composite、Password、Hidden、自訂呈現、虛擬(`+`)、model `$hidden` 裡的欄位、有設定頁籤(`tab`)的欄位、沒宣告呈現方式也沒有選項的 JSON,以及巢狀資源的父層外鍵(例如 `faq-category/{category_id}/items` 的 `category_id`:巢狀清單裡它永遠是目前的父層,`$updates` 明列它只為了讓編輯表單能搬移父層,每列資料仍照常帶這個外鍵);清單欄位本身一律保留。`columns[]` 上的 `default` 標出哪些屬於清單欄位,使用者沒有 preference 時前端只顯示這些;欄位池裡的欄位能不能篩選、排序,依各欄位的 `op` 與 `sortable`。後端不解讀 preference,每次都 select 整個欄位池。編輯頁(`get`)與新增頁(`new`)的回應也帶同一份 `preference`(`column:{key}`,沒登入身分或沒設定時為 `null`),前端據此排列表單欄位的順序。
+**清單回傳的是「欄位池」,`$lists` 只決定預設顯示哪些。** 欄位池 = 清單欄位(`$lists`,沒設就照 `listing()` 的退回規則)加上編輯欄位(`$updates` 或自動推導):清單欄位依 `$lists` 的順序排在前面,其餘編輯欄位依編輯欄位的順序接在後面;同名欄位用清單欄位的定義。清單欄位裡若有經由 `belongsTo` 關聯取值的欄位(例如 `category_title=category.title`),它會取代編輯欄位中該關聯的外鍵(`category_id`),外鍵不再另外進欄位池(同一個關聯有多個清單欄位時,由第一個取代),`columns[]` 上的 `replaces` 標出被取代的外鍵名稱(其餘欄位為 `null`),前端排列表單時用它把清單欄位對應回表單的外鍵欄位。只在編輯欄位裡、清單畫不出來的欄位不進欄位池:Composite、Password、Hidden、自訂呈現、虛擬(`+`;明寫了非 null `op` 的虛擬欄位除外,那是專供篩選的欄位,例如 `['name' => '+receipt_time', 'type' => 'datetime', 'op' => 'between']`,會進欄位池成為搜尋條件,值由 guard 填、篩選要由 controller 在呼叫 parent 前從輸入取出自行處理,否則框架會把它當成本表欄位下條件)、model `$hidden` 裡的欄位、有設定頁籤(`tab`)的欄位、沒宣告呈現方式也沒有選項的 JSON,以及巢狀資源的父層外鍵(例如 `faq-category/{category_id}/items` 的 `category_id`:巢狀清單裡它永遠是目前的父層,`$updates` 明列它只為了讓編輯表單能搬移父層,每列資料仍照常帶這個外鍵);清單欄位本身一律保留。`columns[]` 上的 `default` 標出哪些屬於清單欄位,使用者沒有 preference 時前端只顯示這些;欄位池裡的欄位能不能篩選、排序,依各欄位的 `op` 與 `sortable`。後端不解讀 preference,每次都 select 整個欄位池。編輯頁(`get`)與新增頁(`new`)的回應也帶同一份 `preference`(`column:{key}`,沒登入身分或沒設定時為 `null`),前端據此排列表單欄位的順序。
 
 **要調整「編輯欄位」這一半,覆寫 `optionals()`。** 它預設回傳編輯欄位,清單與匯出的欄位池都從它來,例如改掛列表用的選項來源(`['name' => 'staff_id', 'options' => …]`)或補進稽核欄位:`return [...parent::optionals(), 'update_time'];`。稽核欄位(`Definitions::auditings()`)雖然帶 `tab: 'other'`,由 `optionals()` 明確放入時仍會進欄位池(`default` 為 `false`,使用者自行勾選才顯示);其他有頁籤的欄位照舊排除。`creator_id` / `updater_id` 放進來只會是裸 ID,要顯示帳號請用 `creator=creator.username`。
 
@@ -621,7 +624,9 @@ app(MailService::class)->cancel($id);
 | 回傳的列是 `Scheduled`,不是已送出 | 真正的送出在 worker。`schedule()` 只負責寫列 + 通知有東西要送 |
 | `$at` 到期了才派工 | 未來時間只寫列,等 `messages:dispatch` 那一輪撈到 |
 | **樣板可以是 `null`,provider 不行** | 樣板要嘛自己指名 `provider`,要嘛 `$options` 給。都沒有就 `invalid-message-provider`;供應商沒設 `driver` 就 `message-provider-has-no-driver` |
-| `$options` 覆蓋樣板的渲染結果 | 只認 `provider`、`subject`、`title`、`content`、`data` 五個 key。值是 `null` **不算**覆蓋。`title` 只有 push 用;`data` 給 push(額外 payload)與 telegram(`parse_mode` 等 Bot API 選項)用;mail / sms 不讀這兩個 key。telegram 的 `data` **蓋不掉 `chat_id` 與 `text`**——收件目標由訂閱解析與 sandbox 決定,內容一律是記錄下來的 `content`,否則 `base_telegram_log` 會對不上實際送出的東西,sandbox 也會被繞過 |
+| `$options` 覆蓋樣板的渲染結果 | 只認 `provider`、`subject`、`title`、`content`、`data`、`cc`、`bcc` 七個 key。值是 `null` **不算**覆蓋。`title` 只有 push 用;`data` 給 push(額外 payload)與 telegram(`parse_mode` 等 Bot API 選項)用;mail / sms 不讀這兩個 key。telegram 的 `data` **蓋不掉 `chat_id` 與 `text`**——收件目標由訂閱解析與 sandbox 決定,內容一律是記錄下來的 `content`,否則 `base_telegram_log` 會對不上實際送出的東西,sandbox 也會被繞過。`cc`／`bcc` 只有 mail 用,可以是陣列或以逗號／分號／空白分隔的字串(樣板裡的 `cc`／`bcc` 欄位同樣有效,`$options` 給了就整個取代),去重後以 `, ` 串接寫進 `base_mail_log.cc`／`bcc`,沒有就是 `null`;`resend()` 會一起複製 |
+| **`$options['locale']` 指定取哪個語系的樣板** | 沒給就用當下的 `app()->getLocale()`。樣板只放在某一個語系(例如只維護繁中一份)時,前台其他語系的請求觸發寄送會 `message-template-not-found`,這時要帶 `locale`。紀錄的 `locale` 欄位寫的是實際取樣板的語系 |
+| `$options['attributes']` 寫入額外欄位 | 給消費端在紀錄表自己加的欄位用(例如關聯的訂單 id),`[欄位 => 值]` 原樣寫進新的那一列。套件自己寫的欄位(`provider`、`receiver`、`content`、`template`、`schedule_time`、`locale`、`sender`、`cc`、`bcc`、`subject` 等)一律以套件為準,蓋不掉。`resend()` 複製整列,所以這些欄位也會帶到新的那一筆 |
 | mail 的寄件者是當下快照 | `sender` 寫入時從 `cfg('{provider}.from-address')` 取,之後改設定不影響已排程的訊息 |
 | `resend()` 的 `ip` 是重發當下的 IP | 複製出來的新紀錄一樣會經過 `creating` 的 `ip` generator,存的是操作 `resend` 的人的 IP,不是原始訊息建立時的 IP |
 
@@ -641,7 +646,7 @@ app(MailService::class)->cancel($id);
 
 ### 後台查詢、重發與取消
 
-`mail-log` / `sms-log` / `push-log` / `telegram-log` 四個 Admin controller 都繼承同一個抽象基底 `MessageLogController`,唯讀:只有列表(`{prefix}`)、查看單筆(`{prefix}/{id}`)、`{prefix}/{id}/resend`、`{prefix}/{id}/cancel` 四個動作有登記選單節點、對授權使用者開放,其餘 CRUD 動作(見上方[端點](#端點)表的附註)一律 403。`resend`/`cancel` 內部就是呼叫對應 `MessageService` 的同名方法,回傳 `{"id": ...}`(`resend` 是新那筆的 id)。四個 controller 本身沒有額外邏輯,只設定各自的 `$model`、`$service`、`$lists`。
+`mail-log` / `sms-log` / `push-log` / `telegram-log` 四個 Admin controller 都繼承同一個抽象基底 `MessageLogController`,唯讀:只有列表(`{prefix}`)、查看單筆(`{prefix}/{id}`)、`{prefix}/{id}/resend`、`{prefix}/{id}/cancel` 四個動作有登記選單節點、對授權使用者開放,其餘 CRUD 動作(見上方[端點](#端點)表的附註)一律 403。`resend`/`cancel` 內部就是呼叫對應 `MessageService` 的同名方法,回傳 `{"id": ...}`(`resend` 是新那筆的 id)。查看單筆時 model 宣告的每個欄位都是唯讀(`MessageLogController` 建構時把它們全放進 `$readonly`,回應的 `writable` 一律 `false`),郵件內容以 `editor` 呈現,簡訊、推播與 Telegram 內容以 `textarea` 呈現。四個 controller 本身沒有額外邏輯,只設定各自的 `$model`、`$service`、`$lists`。
 
 ### Push 訂閱(Member)
 
@@ -949,7 +954,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `gmail.from-address` | `''` | 寄件者位址,寫入 `base_mail_log.sender` 時快照 |
 | `gmail.from-name` | `''` | 寄件者顯示名稱 |
 | `gmail.interval` | `1` | 同一個供應商兩次送出之間的最短秒數,worker 用 sleep 實現 |
-| `gmail.sandbox` | `false` | 開啟後所有訊息改寄到 `sandbox-recipient` |
+| `gmail.sandbox` | `false` | 開啟後所有訊息改寄到 `sandbox-recipient`,主旨後面附上原收件者,副本與密件副本不寄 |
 | `gmail.sandbox-recipient` | `''` | 沙箱收件者。`sandbox` 開著而這裡是空的就 `invalid-message-receiver` |
 | `mitake.driver` | `MitakeSmsDriver::class` | 同 `gmail.driver` |
 | `mitake.endpoint` | `'https://smsapi.mitake.com.tw/'` | API 端點,空字串就 `invalid-message-provider` |
@@ -985,7 +990,6 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `matrix:clear-resource-cache` | 清掉所有已快取的 cfg/i18n/menu/style 資源 bundle defaults 與 DB override 快取(`matrix.resource-cache-store`)。部署後改了資源檔案卻沒生效,先跑這個 |
 | `matrix:make-crud` | 傳入資料表名稱(`{table}`),從已存在的資料表反向產生 Model、Declaration、Controller 草稿與 `resources/i18n/{locale}/model/{table}.php`(欄位清單、型別、`unique` 約束、translatable 欄位皆由 `information_schema` 內省;`required` 不從 schema 推斷)。不存在才寫入,`--force` 才覆寫既有檔案,`--dry-run` 只印出全部內容不寫入;路由(`routes/*.php`)、選單(`resources/menu/*.php`)與選單標題(`resources/i18n/{locale}/menu/*.php`)只印出建議片段供人工貼上,不會自動改寫這幾份共用陣列檔。**只有 `--parent` 指定的那個關聯會被轉成 `belongsTo()` 並在清單頁享有 `joined()` 智慧轉換,其餘一般外鍵欄位清單頁仍顯示裸 ID**;複合(多欄位)`unique`/`FOREIGN KEY` 約束不自動處理;只支援 `public` schema 的 PostgreSQL。**欄位若在資料庫設有 `COMMENT`,該註解會直接作為應用程式預設語系(`app()->getLocale()`)的欄位標題,其餘語系透過已設定的翻譯 provider 自動翻譯**;沒有 `COMMENT`、翻譯 provider 未設定或翻譯失敗時,該語系退回 `TODO: {欄位}` 並列入警示清單 |
 | `matrix:passwd` | 設定後台帳號密碼,建立管理員的唯一官方入口 |
-| `matrix:prune-drive-files` | 刪掉不再被任何 CRUD 記錄引用的 drive-linked `base_file`,每次執行都是即時掃描全部資料、當場判斷、當場刪除,沒有寬限期。**只掃描寫進 model `#[Declared]` 宣告(不是只寫在 controller)的 `drive-file`/`drive-image` 欄位** |
 | `matrix:prune-tokens` | 刪掉已經不能用來認證的 token,`--limit` 控制每批筆數（預設 1000） |
 | `matrix:rotate-encryption-key` | 產生新的 API 加密金鑰並把舊的標記為 `expire_time = now + grace`(`--grace` 秒數,預設 `encryption.grace-period`);同時刪除已經過完寬限期的舊金鑰。**任何一組前綴的加密開關是開的,上線之前就必須先跑過一次**——金鑰圈是空的時候,bootstrap 端點只會回 `encryption-unavailable` |
 | `matrix:sync-translatable` | 掃描所有套件、所有 Model 的 translatable 欄位,幫缺少目前設定語言的欄位補上實體欄位（皆為 nullable,不回填） |
@@ -1069,7 +1073,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `base_file` | 上傳檔案(含去重雜湊與媒體資訊) |
 | `base_group` | 後台群組 |
 | `base_mail_log` | 郵件佇列與寄送結果 |
-| `base_manipulation_log` | 稽核軌跡(誰改了哪一列的哪個欄位) |
+| `base_manipulation_log` | 稽核軌跡(誰改了哪一列的哪個欄位;model 不能修改或刪除既有列) |
 | `base_member` | 前台會員 |
 | `base_member_log` | 會員行為紀錄 |
 | `base_menu` | 可線上維護的選單資料 |
@@ -1084,7 +1088,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `base_sms_log` | 簡訊佇列與寄送結果 |
 | `base_telegram_log` | Telegram 佇列與送達結果 |
 | `base_telegram_subscription` | 後台使用者(`User`)的 Telegram 綁定(user_id / chat_id / username) |
-| `base_user` | 後台帳號 |
+| `base_user` | 後台帳號(含選填的姓名 `name`、信箱 `mail`、電話 `phone`) |
 | `base_user_log` | 後台帳號的登入 / 改密碼紀錄 |
 | `base_vendor` | 廠商 |
 | `base_vendor_log` | 廠商行為紀錄 |
@@ -1437,6 +1441,7 @@ php artisan matrix:clear-resource-cache
 | **三個 disk 設定只能用 local driver** | 縮圖產生與 IP 資料庫讀取走的是原生檔案函式(`is_file`、`mkdir`、`file_put_contents`、`rename`),它們吃的是 `Storage::disk()->path()` 的回傳值——那個值對非 local driver 是**相對路徑**,會相對於行程當下的工作目錄解析,而 queue worker、artisan 指令與 php-fpm 的工作目錄各不相同,同一份縮圖可能寫在三個地方、讀的時候都找不到,而且全程沒有錯誤。套件本身也沒有安裝任何遠端 flysystem adapter。設成別的 driver 會在取用 disk 時直接回 `unsupported-disk-driver` |
 | **`Resources` 是 singleton** | Octane 這類長生命週期行程改了設定要重啟才看得到。**訊息 worker 例外**——`SendMessageJob` 每次執行前會先丟掉已快取的 bundle,所以在資源後台改了 cfg(SMTP 主機/帳密、`interval` 等)下一封信就生效,不必重啟 worker |
 | 級聯刪除會逐筆取出實例再刪（為了稽核） | 成本隨子資料列數成長 |
+| **級聯刪除的路徑可以在任何一層分岔** | `cascade(['children.a', 'children.b'])` 依共同前綴合併:每個 `children` 只走訪一次,`a`、`b` 兩種孫資料都先刪掉、都不擋刪除;沒列進去的關聯有資料仍回 `data-in-use` |
 
 ### 資料生命週期
 
@@ -1445,7 +1450,7 @@ php artisan matrix:clear-resource-cache
 | **`matrix:prune-tokens` 只清 `base_auth_token`** | 另外八張只增不減的表要自己來:`base_manipulation_log`、`base_user_log`、`base_member_log`、`base_vendor_log`、`base_mail_log`、`base_sms_log`、`base_push_log`、`base_telegram_log` |
 | 前四張只有 `create_time`(沒有 `update_time`);後四張兩個都有 | 清理判準只能用 `create_time` |
 | **`base_mail_log` / `base_sms_log` / `base_push_log` / `base_telegram_log` 只能刪終端狀態**(成功 / 失敗) | `Scheduled` 是還沒送出的排程,刪掉等於取消一封信 |
-| **`base_file` 不要用時間清** | 刪列不刪磁碟檔會漏儲存空間,而去重讓一筆記錄可能被多處引用 —— 套件答不出「誰可以刪」。**例外**:drive-linked 的 `base_file`(`path` 以 `@` 開頭)由 `matrix:prune-drive-files` 即時掃描 CRUD 資料表判斷是否還有引用,可以安全清除 |
+| **`base_file` 不要用時間清** | 刪列不刪磁碟檔會漏儲存空間,而去重讓一筆記錄可能被多處引用 —— 套件答不出「誰可以刪」 |
 | **`base_drive_node` 完全沒有永久刪除**——`drive/{id}/delete` 只是軟刪除(`deleted_at`),node 與實體檔案永遠不會真的消失 | 這是刻意的決定,不是漏做垃圾清除;資料庫與磁碟用量只會隨使用量增加,規劃容量時要算進去 |
 | **調大 `token-idle-minutes` 不會復活已經被清掉的 token** | 要調大就先調、再跑 prune |
 | `token-idle-minutes` 的 `min:1` 驗證**只擋資源後台** | 自己在 `resources/cfg/admin.php` 寫 `0` 不受檢查,結果是全員登出、prune 清空整張表 |
@@ -1459,9 +1464,11 @@ php artisan matrix:clear-resource-cache
 | **每個 `#[Action]` 都要有選單節點** | 漏一個,那個端點對所有人 403,包含 ROOT |
 | **每一個 action 都跑在一個交易裡** | `BaseController::callAction()` 用 `DB::transaction()` 包住整個動作。要在 rollback 之後仍然執行的副作用（寄信、打第三方、刪檔）請註冊到 `RollbackCallbacks`,不要直接做 |
 | **`#[Action]` 會沿繼承鏈繼承** | 覆寫 action 不需要重新宣告 attribute |
+| **套件的 controller 可以整個換成子類別** | 路由掛的是套件的類別,但 controller 由容器建立,所以 `$app->bind(MailLogController::class, App\...\MailLogController::class)` 就會改用子類別(例如改 `$lists`、加 guard);要加欄位就另外 `app(MetadataRegistry::class)->register(MailLog::class, new 子類別宣告())`,放在 `$app->booted()` 裡 |
 | **`#[Action(encrypted: false)]` 讓那支 action 不受所屬前綴的加密開關約束** | 呼叫方不可能封信封的端點要標記它:出貨已標的是 telegram webhook、兩支 multipart 上傳(`file/upload`、`drive/{id}/upload`)與 `encryption-key`。自己的上傳端點也要自己標,漏標的症狀是開關一開就變 `invalid-envelope` |
 | **篩選值的格式與型別都會驗證** | op 要的是單一值卻送陣列(`eq` / `contains` / `between` 的 from、to 等)、`in` / `notIn` 的清單裡有陣列,一律回 422 `invalid-filter-value`。以前這幾種格式有的靜默回**全量**、有的靠 binding 攤平湊出一個結果。值也要對得上欄位型別:`integer` 要整數或純數字字串、`float` 要 numeric、`boolean` 要 `true`/`false`/`0`/`1`、`date` 要完全符合 `matrix.date-format`、`datetime` 要完全符合 `matrix.datetime-format`（兩者不互通,也不收 `now`、`tomorrow`、`+1 day` 這類 PostgreSQL 或 PHP 認得的相對值,以及 `2026-02-31` 這種會被 PHP 悄悄進位的日期）,不符同樣回 422。**這一道是必要的**——不擋的話那個值會原樣進 SQL,PostgreSQL 丟 `22P02`,而 action 跑在交易裡,整個交易會進 aborted 狀態(`25P02`),該請求之後每一個查詢都失敗,真正的原因還被蓋掉。型別依的是欄位**宣告**的型別(DSL 標註 → 聚合函式 → `#[Declared]` 的 definition → model cast),都沒有就當 `text` 不檢查。欄位或 op 不被允許仍是靜默忽略（行為不變）,`in` 清單裡的 null 也照舊（合法 SQL,永不匹配） |
-| **`get` / `update` / `delete` 會自動加上父層條件** | 巢狀資源不會誤動別人家的資料 |
+| **巢狀資源(非 standalone)的每個 CRUD 動作都會驗證路由上的父層鏈** | 所有查詢(清單、`get`、`update`、`delete` 含多筆 id、`copy`、排序、快速上下架、匯出)都加上直接父層的外鍵條件,不屬於該父層的 id 回 404 `data-not-found`(多筆刪除只要有一筆不屬於就整批拒絕)。另外在第一次取用父層外鍵時(`CrudService::owner()`),沿 `Subject::parent()` 往上逐層驗證:父層要能經由它自己的 model 查到(套用其 global scope 與軟刪除),且它的外鍵要等於路由上更上一層的參數,否則同樣回 404——所以父層不存在、被軟刪除、被 global scope 排除(例如共用表依類別分的 model),或祖父層參數對不上時,清單、新增頁、新增、匯入也一律 404。路由沒帶的上層參數不驗證;自我參照的樹(`menu/{parent_id}/children`)只驗證直接父層存在。standalone 模式不套用任何父層條件。`admin/schedule/toggle` 不走巢狀路由,只依 prefix 權限與 model 本身的 global scope 取資料 |
+| **子清單的條件不是父層外鍵時,用 `$mount` 指定動作前綴** | model 的 metadata 沒有父層(或父層不是路由上那一層),例如依行程所屬的群組列出資料,只能用 standalone 並在 `onList()` 等處自己加 `scope()`;這時動作 url 與權限節點仍依 metadata 推導(`{alias}/{id}`),會連到另一個資源。在 controller 設 `protected ?string $mount = 'tour/{tour_id}/reviews';`(對應 `CrudService::mount()`)後,所有動作 url 與權限檢查改用這個前綴,欄位偏好的 key 也跟著它。前綴裡的 `{tour_id}` 照常由前端用該列(列動作)或信封的 `context`(頁動作)展開,所以列資料與 `context` 要自己帶上這個值。`admin/schedule/toggle` 的權限仍看 model metadata 推導的前綴 |
 | **樂觀鎖要自己呼叫** | `BaseModel::lock()` 會重讀該列並逐欄比對,值被別人改過就回 `data-conflicted`。CRUD 引擎不會自動幫你呼叫 |
 | **`AdminPermission` 在信封範圍外解析會靜默失敗** | 在 web 路由、console、queue job 裡解析它,`ServiceException` 不會被回報 |
 
@@ -1498,7 +1505,7 @@ php artisan matrix:clear-resource-cache
 | **匯出回應的 `columns[]` 不含 `op` / `sortable` / `options`** | 前端要知道能篩什麼,必須先呼叫清單端點 |
 | **`base_city_area.ranking` 與 `base_ranking` 序列不同量級** | 後台第一次拖曳排序就會把整組重編 |
 | **jsonb 欄位會宣稱自己可排序** | 引擎沒有把 Json 型別排除在排序之外。對它排序不會壞,但結果沒有意義 |
-| **巢狀資源只被「直接父層」的外鍵 scope,祖父層的路由參數完全不驗證** | `CrudService::prepared()` 只取 `Subject::foreign()` 那一個外鍵。所以 `admin/page/999/block/31/item` 即使 31 號區塊不屬於 999 號頁面,也照樣回 31 號的子項目。權限是按路徑 pattern 給的不是按值,沒有越權讀取,但**網址會說謊**:麵包屑的 `label` 沿真實關聯查 DB,顯示的是 31 號區塊真正的父頁面,跟網址對不上 |
+| **巢狀資源的父層鏈驗證用的是父層 model 的預設查詢** | 每個請求對路由上的每一層父層各多一次查詢(`admin/page/{page_id}/block/{block_id}/item` 多兩次)。父層被軟刪除或被自己的 global scope 排除時,底下的子資料在後台整組變成 404;要讓後台操作這種父層底下的資料,得在父層 model 調整 scope,或改用 standalone 並自己加條件。`admin/page/999/block/31/item` 這種祖父層對不上的網址也回 404,不會再顯示網址與麵包屑不符的資料 |
 | **兩層以上的巢狀資源,`count()` 的鑽取路徑要自己寫** | `ColumnResolver::path()` 推導出前綴後會經過 `Subject::generic()`,那會把**每一個**佔位符都換成 `{id}`。一層巢狀沒事(`city/{id}/area`),兩層就變成 `page/{id}/block/{id}/item` —— 兩個 `{id}` 分不出誰是誰。解法是在 `$lists` 用陣列語法明寫:`['name' => 'count(items)', 'path' => 'page/{page_id}/block/{id}/item']`,明寫的值直接送出,不經過 `generic()` 也不查 `Menus::has()`。前端是拿**那一列**去填佔位符的,而列本身帶著自己的外鍵(`page_id`)與 `id`,所以具名佔位符填得滿。代價是這個字串與路由、選單三處必須人工保持一致,沒有任何機制會驗證,寫錯的症狀是點數字連到 404 |
 | **`$counts` 在設了 `$lists` 或 `$updates` 的 controller 上會靜默失效** | `CrudController::listing()` 只有在 `$lists` 為 null **且** `$updates` 為空時才把 `counted()` 併進清單。設了其中任何一個,`$counts` 就完全沒有作用,也不會有任何警告。要 count 欄位就直接寫進 `$lists`(`'count(items)'`),不要用 `$counts` |
 | **自我參照的樹,巢狀資源必須掛在與關聯名同名的路由段下** | `count(children)` 的鑽取路徑是這樣推出來的:`Subject::path()` 遇到自我參照會停在 alias(`menu`),引擎改用關聯名 `children` 去選單裡找 `menu/{任意參數}/children`,找到才有 `path`。掛成別的名字(例如 `menu/{parent_id}/sub`)不會壞,但 `path` 會是 `null`,前端的數字就點不進去。`admin/menu` 只列頂層,子層一律走 `admin/menu/{parent_id}/children`,每一層都回到同一個 pattern,深度不限 |
@@ -1509,6 +1516,7 @@ php artisan matrix:clear-resource-cache
 |---|---|
 | **上傳是內容去重的** | `hash` + `size` + `privilege` + `usage` 相同就是同一筆,回傳既有紀錄,`name` 保留**第一次**上傳的檔名。磁碟上的檔案被外部刪掉時不會命中去重,會重新寫一份新紀錄 |
 | **對套件的 model 下批次 `delete()` / `update()` 會靜默失去稽核** | query builder 的批次操作不觸發 model 事件。要稽核就取出實例逐筆處理 |
+| **稽核紀錄只寫入,不能修改或刪除** | `ManipulationLog`(與繼承它的 model)`save()` 既有列或 `delete()` 丟 `LogicException`。只擋 model:批次 `update()`／`delete()` 與直接 SQL 不經過 model 事件,不受限制,清除或修正要走這條路 |
 | **稽核紀錄的 `after` 是 accessor 之後的值** | 你掛在可追蹤欄位上的 accessor 從此決定稽核內容 |
 | **`Operator` 掛在檢視表上** | 唯讀,不要對它 `save()` |
 | **`base_drive_node` 沒有 `deleter_id` 欄位** | API 回應的 `deleted_by` 是即時查 `base_manipulation_log`(`data_type`/`data_id` 對上該節點、`type = Deleted` 的最新一筆)反查出來的,只在 `deleted_at` 非空時才查一次;未刪除的節點固定回 `null`,不打這張表 |
@@ -1522,6 +1530,7 @@ php artisan matrix:clear-resource-cache
 | **`getMenuNodes()` 的每個節點一定有 `group` 與 `tag`**（可能是 `false` / `null`） | 舊版是沒有就不輸出。用 `empty()` 判斷不受影響 |
 | **`base_menu` 的迴圈與孤兒節點會被靜默丟掉** | 資料完整性由你負責,不會有錯誤訊息 |
 | **上下架篩選的「現在」以 PHP `now()`(app 時區)綁定** | 不用資料庫的 `NOW()`,因為 `timestamp without time zone` 欄位是以 app 時區寫入;結果是查詢當下的快照 |
+| **`whereActive()`／`whereExpired()`／`whereNotExpired()` 的欄位一律加 model 表名** | 以 `qualifyColumn()` 補成 `表.欄位`,查詢 join 了同樣有 `enable_time` 的表也不會 ambiguous;已帶表名(含 `.`)的欄位原樣使用。條件只套在 model 自己的表,要判斷 join 進來的表請在 `whereHas()` 裡呼叫 |
 
 ---
 

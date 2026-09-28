@@ -4,6 +4,7 @@ namespace Tests\Feature\Models\Builders;
 
 use MatrixPlatform\Models\Builders\BaseBuilder;
 use Tests\FeatureTestCase;
+use Tests\Stubs\Gadget;
 use Tests\Stubs\Widget;
 
 class BaseBuilderTest extends FeatureTestCase {
@@ -60,6 +61,25 @@ class BaseBuilderTest extends FeatureTestCase {
         Widget::forceCreate(['title' => 'null']);
 
         $this->assertSame(['future', 'null'], $this->titles(Widget::query()->whereNotExpired('disable_time')->orderBy('title')));
+    }
+
+    public function test_where_active_qualifies_the_columns_with_the_root_table(): void {
+        $widget = Widget::forceCreate(['title' => 'joined', 'enable_time' => now()->subDay()]);
+
+        Gadget::forceCreate(['title' => 'gadget', 'widget_id' => $widget->id]);
+
+        $query = Gadget::query()
+            ->join('stub_widget as widget', 'widget.id', '=', 'stub_gadget.widget_id')
+            ->select('stub_gadget.*')
+            ->whereActive();
+
+        $this->assertSame([], $query->pluck('stub_gadget.title')->all());
+    }
+
+    public function test_where_active_keeps_an_already_qualified_column(): void {
+        Widget::forceCreate(['title' => 'alpha', 'enable_time' => now()->subDay()]);
+
+        $this->assertSame(['alpha'], $this->titles(Widget::query()->whereActive('stub_widget.enable_time', 'stub_widget.disable_time')));
     }
 
     public function test_the_or_inside_where_not_expired_stays_grouped(): void {

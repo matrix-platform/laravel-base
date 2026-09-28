@@ -6,6 +6,12 @@ return [
 
     'password' => '密码',
 
+    'name' => '姓名',
+
+    'mail' => '邮箱',
+
+    'phone' => '电话',
+
     'group_id' => '群组',
 
     'group_title' => '群组',

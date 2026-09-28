@@ -35,7 +35,7 @@ class ResourceService {
         $relative = $this->relative($group, $name);
         $defaults = $this->defaults($relative);
 
-        return $this->payload($id, $name, $relative, $defaults, $this->columns($id, $defaults));
+        return $this->payload($id, $name, $relative, $defaults, $this->columns($group, $id, $defaults));
     }
 
     /**
@@ -83,7 +83,7 @@ class ResourceService {
         $id = $this->identify($group, $name);
         $relative = $this->relative($group, $name);
         $defaults = $this->defaults($relative);
-        $columns = $this->columns($id, $defaults);
+        $columns = $this->columns($group, $id, $defaults);
         $values = is_array($input) ? $input : [];
         $writable = $this->writable($columns, $values);
 
@@ -168,8 +168,8 @@ class ResourceService {
      * @param array<string, mixed> $defaults
      * @return list<Column>
      */
-    private function columns(string $id, array $defaults): array {
-        $schema = $this->resources->getStyleBundle($id);
+    private function columns(ResourceGroup $group, string $id, array $defaults): array {
+        $schema = $this->resources->getStyleBundle($id) + $this->resources->getStyleBundle($group->value);
         $columns = [];
 
         foreach ($defaults as $key => $value) {
@@ -187,7 +187,7 @@ class ResourceService {
 
             $columns[] = [
                 'name' => strval($key),
-                'title' => $this->title("{$id}.{$key}", strval($key)),
+                'title' => $this->title("{$id}.{$key}", $this->title("{$group->value}.{$key}", strval($key))),
                 'type' => $type->value,
                 'presentation' => is_string($presentation) ? $presentation : 'plain',
                 'readonly' => array_get_value($meta, 'readonly') === true,

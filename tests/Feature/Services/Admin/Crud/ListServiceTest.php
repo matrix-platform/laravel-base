@@ -282,6 +282,20 @@ class ListServiceTest extends FeatureTestCase {
         $this->assertSame(['title', 'ranking'], array_column($result['columns'], 'name'));
     }
 
+    public function test_an_optional_virtual_column_with_an_explicit_op_is_pooled_for_filtering(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
+
+        $result = $this->pooled(['title'], [
+            ['name' => '+ghost', 'type' => 'text', 'op' => 'contains'],
+            ['name' => '+shadow', 'type' => 'text', 'op' => null],
+            ['name' => '+phantom', 'type' => 'text']
+        ]);
+
+        $this->assertSame(['title', 'ghost'], array_column($result['columns'], 'name'));
+        $this->assertSame([true, false], array_column($result['columns'], 'default'));
+        $this->assertSame('contains', $result['columns'][1]['op']);
+    }
+
     public function test_an_optional_column_on_a_tab_is_left_out_but_a_list_column_on_a_tab_stays(): void {
         app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget'), [
             'enable_time' => Definition::dateTime(tab: 'other')
@@ -421,6 +435,31 @@ class ListServiceTest extends FeatureTestCase {
 
         $this->assertSame(['Beta'], array_column($byTrinket['rows'], 'title'));
         $this->assertSame(['Alpha', 'Beta'], array_column($bySecret['rows'], 'title'));
+    }
+
+    public function test_a_mount_replaces_the_derived_prefix_for_action_urls_and_their_menu_nodes(): void {
+        $this->useMenuFixtures('crud');
+        $this->gadgets();
+
+        Gadget::forceCreate(['title' => 'Cog']);
+
+        $derived = (new ListService(Gadget::class))
+            ->standalone(true)
+            ->columns(['title'])
+            ->list([]);
+
+        $mounted = (new ListService(Gadget::class))
+            ->standalone(true)
+            ->mount('widget/{widget_id}/trinket')
+            ->columns(['title'])
+            ->pageActions(['arrange'])
+            ->rowActions(['edit'])
+            ->list([]);
+
+        $this->assertSame([], $derived['actions']['row']);
+        $this->assertSame(['widget/{widget_id}/trinket/arrange'], array_column($mounted['actions']['page'], 'url'));
+        $this->assertSame(['widget/{widget_id}/trinket/{id}'], array_column($mounted['actions']['row'], 'url'));
+        $this->assertSame(['edit'], $mounted['rows'][0]['actions']);
     }
 
     public function test_without_optionals_every_column_is_a_default(): void {

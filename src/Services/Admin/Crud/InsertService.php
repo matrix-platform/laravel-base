@@ -10,6 +10,8 @@ class InsertService extends CrudService {
     public function insert(mixed $input): array {
         $model = $this->model->newInstance();
 
+        $this->attach($model);
+
         $this->expandComposites($input, $model);
 
         $this->store($model, $input);

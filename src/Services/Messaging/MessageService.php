@@ -56,7 +56,9 @@ abstract class MessageService {
         }
 
         $when = Carbon::instance($at);
-        $rendered = $this->compose($template, $vars, $options);
+        $locale = array_get_value($options, 'locale');
+        $locale = $locale === null ? app()->getLocale() : strval($locale);
+        $rendered = $this->compose($template, $vars, $options, $locale);
 
         $this->record('schedule', [
             'at' => $when->format('Y-m-d H:i:s'),
@@ -67,7 +69,9 @@ abstract class MessageService {
             'rendered' => $rendered
         ]);
 
-        return $this->store($when, $to, $template, $rendered);
+        $attributes = array_get_value($options, 'attributes');
+
+        return $this->store($when, $to, $template, $rendered, $locale, is_array($attributes) ? $attributes : []);
     }
 
     /**
@@ -99,10 +103,10 @@ abstract class MessageService {
      * @param array<string, mixed> $options
      * @return array<string, mixed>
      */
-    private function compose(?string $template, array $vars, array $options): array {
-        $fields = $template === null ? [] : Template::render($template, $vars);
+    private function compose(?string $template, array $vars, array $options, string $locale): array {
+        $fields = $template === null ? [] : Template::render($template, $vars, $locale);
 
-        foreach (['subject', 'title', 'content', 'provider', 'data'] as $key) {
+        foreach (['subject', 'title', 'content', 'provider', 'data', 'cc', 'bcc'] as $key) {
             if (isset($options[$key])) {
                 $fields[$key] = $options[$key];
             }
@@ -148,11 +152,16 @@ abstract class MessageService {
 
     /**
      * @param array<string, mixed> $rendered
+     * @param array<array-key, mixed> $extra
      */
-    private function store(Carbon $at, string $to, ?string $template, array $rendered): MessageLog {
+    private function store(Carbon $at, string $to, ?string $template, array $rendered, string $locale, array $extra): MessageLog {
         $channel = $this->channel();
         $model = $channel->model;
         $log = new $model();
+
+        foreach ($extra as $key => $value) {
+            $log->setAttribute(strval($key), $value);
+        }
 
         $provider = strval(array_get_value($rendered, 'provider'));
 
@@ -161,7 +170,7 @@ abstract class MessageService {
         $log->content = strval(array_get_value($rendered, 'content'));
         $log->template = $template;
         $log->schedule_time = $at;
-        $log->locale = app()->getLocale();
+        $log->locale = $locale;
 
         foreach ($this->attributes($rendered, $provider) as $key => $value) {
             $log->setAttribute($key, $value);

@@ -7,6 +7,8 @@ use MatrixPlatform\Models\Declarations\MailLogDeclaration;
 
 /**
  * @property string $sender
+ * @property ?string $cc
+ * @property ?string $bcc
  * @property string $subject
  */
 #[Declared(MailLogDeclaration::class)]

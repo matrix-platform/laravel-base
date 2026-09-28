@@ -445,6 +445,22 @@ class CrudServiceTest extends FeatureTestCase {
         $this->assertSame(0, Trinket::query()->count());
     }
 
+    public function test_cascade_delete_merges_chains_that_branch_below_the_first_level(): void {
+        $widget = $this->widgets();
+        $child = Trinket::forceCreate(['label' => 'child', 'widget_id' => $widget->id]);
+
+        Trinket::forceCreate(['label' => 'grandchild', 'trinket_id' => $child->id]);
+        Trinket::forceCreate(['label' => 'owned', 'owner_id' => $child->id, 'owner_type' => Trinket::class]);
+
+        (new DeleteService(Widget::class))
+            ->standalone(true)
+            ->cascade(['trinkets.trinkets', 'trinkets.owned', 'sole'])
+            ->delete(['id' => $widget->id]);
+
+        $this->assertSame(0, Trinket::query()->count());
+        $this->assertSame(0, Widget::query()->count());
+    }
+
     public function test_deleting_without_cascade_is_refused_when_an_uncascaded_relation_has_rows(): void {
         $widget = $this->widgets();
 

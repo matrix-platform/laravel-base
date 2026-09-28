@@ -244,6 +244,22 @@ class ResourceServiceTest extends FeatureTestCase {
         $this->assertSame('nested.key', $columns['nested.key']['title']);
     }
 
+    public function test_a_group_schema_types_every_bundle_the_bundle_schema_leaves_out(): void {
+        $columns = array_column($this->service()->get(ResourceGroup::Template, 'greeting')['columns'], null, 'name');
+
+        $this->assertSame('editor', $columns['content']['presentation']);
+        $this->assertFalse($columns['subject']['readonly'], 'a key the bundle schema declares replaces the group entry as a whole');
+        $this->assertSame('plain', $columns['provider']['presentation']);
+    }
+
+    public function test_a_group_label_applies_where_the_bundle_declares_none(): void {
+        $columns = array_column($this->service()->get(ResourceGroup::Template, 'greeting')['columns'], null, 'name');
+
+        $this->assertSame('Greeting subject', $columns['subject']['title']);
+        $this->assertSame('Body', $columns['content']['title']);
+        $this->assertSame('provider', $columns['provider']['title']);
+    }
+
     public function test_a_row_without_a_declared_label_falls_back_to_the_bare_name(): void {
         $rows = array_column($this->service()->list(ResourceGroup::Cfg, true)['rows'], null, 'id');
 

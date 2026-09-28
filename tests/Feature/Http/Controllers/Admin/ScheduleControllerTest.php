@@ -31,6 +31,8 @@ class ScheduleControllerTest extends FeatureTestCase {
     protected function setUp(): void {
         parent::setUp();
 
+        $this->useMenuFixtures('crud');
+
         app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget', enable: 'enable_time', disable: 'disable_time')));
 
         $this->token = UserFactory::new()->createOne(['id' => User::ROOT])->createToken();
@@ -61,6 +63,19 @@ class ScheduleControllerTest extends FeatureTestCase {
         $widget = $this->widget();
 
         $this->send($this->token, ['prefix' => 'widget', 'id' => $widget->id])->assertJsonPath('fields.enabled', ['required']);
+    }
+
+    /**
+     * The shared toggle requires the module to register an update node, even for the root account.
+     */
+    public function test_a_module_without_an_update_node_is_denied_even_for_root(): void {
+        $widget = $this->widget();
+
+        $this->useMenus(null);
+
+        $this->send($this->token, ['prefix' => 'widget', 'id' => $widget->id, 'enabled' => true])
+            ->assertJson(['success' => false, 'code' => 403, 'error' => 'permission-denied']);
+        $this->assertNull($widget->refresh()->enable_time);
     }
 
     public function test_a_user_without_the_update_permission_is_denied(): void {

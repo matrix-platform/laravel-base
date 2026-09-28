@@ -8,6 +8,10 @@ return [
 
     'receiver' => '收件者',
 
+    'cc' => '副本',
+
+    'bcc' => '密件副本',
+
     'subject' => '主旨',
 
     'content' => '內容',

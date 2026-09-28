@@ -45,6 +45,15 @@ class Subject {
     }
 
     /**
+     * @return BelongsTo<Model, Model>|null
+     */
+    public function parent(Model $model): ?BelongsTo {
+        $metadata = $this->metadata($model);
+
+        return $metadata->parent === null ? null : $this->relation($model, $metadata->parent);
+    }
+
+    /**
      * @param array<string, mixed>|Model $source
      * @return list<Model>
      */
@@ -110,15 +119,6 @@ class Subject {
         }
 
         return $metadata;
-    }
-
-    /**
-     * @return BelongsTo<Model, Model>|null
-     */
-    private function parent(Model $model): ?BelongsTo {
-        $metadata = $this->metadata($model);
-
-        return $metadata->parent === null ? null : $this->relation($model, $metadata->parent);
     }
 
     /**

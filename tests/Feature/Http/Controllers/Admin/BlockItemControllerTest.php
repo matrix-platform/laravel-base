@@ -154,14 +154,24 @@ class BlockItemControllerTest extends FeatureTestCase {
         $this->assertSame($block->id, BlockItem::query()->findOrFail(intval($response->json('data.id')))->block_id);
     }
 
-    // Pinned so the unvalidated grandparent is not later mistaken for a regression.
-    public function test_a_wrong_page_in_the_url_still_reaches_the_item(): void {
+    public function test_a_wrong_page_in_the_url_cannot_reach_the_item(): void {
         $page = PageFactory::new()->createOne();
         $other = PageFactory::new()->createOne();
         $block = BlockFactory::new()->createOne(['page_id' => $page->id]);
         $item = BlockItemFactory::new()->createOne(['block_id' => $block->id]);
 
-        $this->send("admin/page/{$other->id}/block/{$block->id}/item/{$item->id}")->assertJsonPath('success', true);
+        $this->send("admin/page/{$other->id}/block/{$block->id}/item/{$item->id}")
+            ->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
+    }
+
+    public function test_a_missing_block_in_the_url_cannot_list_or_insert(): void {
+        $page = PageFactory::new()->createOne();
+        $prefix = "admin/page/{$page->id}/block/999999/item";
+
+        $this->send($prefix)->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
+        $this->send("{$prefix}/insert", ['title' => 'a', 'enable_time' => null, 'disable_time' => null])
+            ->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
+        $this->assertSame(0, BlockItem::query()->count());
     }
 
     public function test_a_nested_get_cannot_reach_another_blocks_item(): void {

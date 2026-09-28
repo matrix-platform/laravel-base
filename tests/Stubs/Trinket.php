@@ -4,6 +4,7 @@ namespace Tests\Stubs;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Carbon;
 use MatrixPlatform\Models\BaseModel;
 
@@ -33,6 +34,13 @@ class Trinket extends BaseModel {
      */
     public function gadget(): BelongsTo {
         return $this->belongsTo(Gadget::class);
+    }
+
+    /**
+     * @return MorphMany<Trinket, $this>
+     */
+    public function owned(): MorphMany {
+        return $this->morphMany(Trinket::class, 'owner');
     }
 
     /**

@@ -12,6 +12,8 @@ return new class extends Migration {
             $table->text('provider');
             $table->text('sender');
             $table->text('receiver');
+            $table->text('cc')->nullable();
+            $table->text('bcc')->nullable();
             $table->text('subject');
             $table->text('content');
             $table->text('template')->nullable();
