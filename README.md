@@ -1179,11 +1179,11 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 
 清單回應另有 `filters[]`:**只用於篩選、不是資料欄**的欄位描述,形狀同 `columns[]`。前端為每一項畫一個單選下拉(前面補「全部」= 不送),送出格式為 `filters.{name} = { "op": {描述的 op}, "value": ... }`;**不要**畫成表格欄或併進搜尋欄位。目前只有可上下架清單會有一項 `schedule`,其餘清單是空陣列。
 
-**不可寫有三種原因:`readonly` 宣告、`locked` 宣告、以及跨關聯或聚合欄位(`group.title`、`count(orders)`)。** 只有第一種在 `columns[]` 上另有 `readonly` 鍵看得出來,所以**前端要看 `writable`,不要看 `readonly`** —— 否則第二種會畫出一顆改了完全沒效果的輸入框,而使用者會看到「已儲存」。`virtual`(`+` 前綴)**不影響 `writable`**:虛擬欄位不落庫,但照樣可以收值交給 `guards` / 覆寫的 service 處理。
+**不可寫有三種原因:`readonly` 宣告、`locked` 宣告、以及跨關聯或聚合欄位(`group.title`、`count(orders)`)。** 前兩種在 `columns[]` 上另有 `readonly` / `locked` 鍵看得出來,但判斷能不能編輯時**前端要看 `writable`,不要看 `readonly`** —— 否則第二種會畫出一顆改了完全沒效果的輸入框,而使用者會看到「已儲存」。`virtual`(`+` 前綴)**不影響 `writable`**:虛擬欄位不落庫,但照樣可以收值交給 `guards` / 覆寫的 service 處理。
 
 `writable: false` 的欄位不在 `present` 驗證的範圍內,送不送都可以;`writable: true` 的**每一個都必須出現在 body 裡**,那與上面「更新是全量覆寫」是同一件事的兩面。
 
-**鎖定欄位是這條規則唯一的例外**:它的 `writable` 是 `false`,但它**必須**出現在 body 裡。把輸入框停用即可,值照送 —— 值本來就是伺服器在 `new` 回應的 `data` 裡給你的。
+**鎖定欄位是這條規則唯一的例外**:它的 `writable` 是 `false`,但它**必須**出現在 body 裡。把輸入框停用即可,值照送 —— 值本來就是伺服器在 `new` 回應的 `data` 裡給你的。清單的「新增」要不要先跳型別選擇器,看的是 `locked: true` 且帶選項的欄位,不是 `writable: false` —— 唯讀欄位同樣不可寫,但它的值不是在新增前決定的。
 
 **action 的 `url` 不含前綴。** 回應給的是 `widget/{id}/update` 這種相對路徑,前端要自己接上 `admin/`。
 

@@ -156,6 +156,7 @@ class CrudServiceTest extends FeatureTestCase {
             ->list([])['columns'];
 
         $this->assertFalse($columns[0]['writable']);
+        $this->assertTrue($columns[0]['locked']);
         $this->assertTrue($columns[0]['required']);
         $this->assertFalse($columns[0]['readonly']);
 
@@ -165,6 +166,14 @@ class CrudServiceTest extends FeatureTestCase {
             ->insert(['title' => 'Locked']);
 
         $this->assertSame('Locked', Widget::query()->sole()->title);
+    }
+
+    // The type picker reads `locked`, so a readonly column must not pass for one even though it is not writable either.
+    public function test_a_readonly_column_is_not_writable_but_not_locked_either(): void {
+        $columns = (new ListService(Widget::class))->standalone(true)->columns(['!title'])->list([])['columns'];
+
+        $this->assertFalse($columns[0]['writable']);
+        $this->assertFalse($columns[0]['locked']);
     }
 
     public function test_a_locked_column_still_rejects_a_missing_value(): void {
@@ -180,7 +189,7 @@ class CrudServiceTest extends FeatureTestCase {
         $columns = (new ListService(Widget::class))->standalone(true)->columns(['title'])->list([])['columns'];
 
         $this->assertSame([
-            'name', 'title', 'translatable', 'type', 'format', 'presentation', 'group', 'hint', 'op',
+            'name', 'title', 'translatable', 'type', 'format', 'presentation', 'group', 'hint', 'locked', 'op',
             'options', 'path', 'placeholder', 'remark', 'readonly', 'required', 'rule', 'sortable', 'tab',
             'writable', 'default', 'replaces'
         ], array_keys($columns[0]));

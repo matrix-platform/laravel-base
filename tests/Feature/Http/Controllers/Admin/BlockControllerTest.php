@@ -150,6 +150,7 @@ class BlockControllerTest extends FeatureTestCase {
         $this->assertNotContains('data', array_column($columns, 'name'));
         $this->assertNotEmpty($this->columnByName($columns, 'type')['options']);
         $this->assertFalse($this->columnByName($columns, 'type')['writable']);
+        $this->assertTrue($this->columnByName($columns, 'type')['locked']);
     }
 
     public function test_a_nested_list_is_scoped_to_its_page(): void {

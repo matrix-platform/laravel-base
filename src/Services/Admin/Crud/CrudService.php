@@ -565,6 +565,7 @@ abstract class CrudService {
             ...$this->driveProps($column),
             'group' => $column->group,
             'hint' => $column->hint,
+            'locked' => $column->locked,
             'op' => $column->op,
             'options' => $column->options === null ? null : $column->options->options($record),
             'path' => $column->path,
