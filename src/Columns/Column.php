@@ -14,6 +14,7 @@ class Column {
     public function __construct(
         public readonly Expression $expression,
         public readonly ?string $group,
+        public readonly ?string $hint,
         public readonly string $name,
         public readonly bool $locked,
         public readonly string|array|null $op,

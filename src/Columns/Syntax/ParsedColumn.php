@@ -15,6 +15,7 @@ class ParsedColumn {
     public function __construct(
         public readonly Expression $expression,
         public readonly ?string $group,
+        public readonly ?string $hint,
         public readonly string $name,
         public readonly string|array|null $op,
         public readonly bool $opGiven,

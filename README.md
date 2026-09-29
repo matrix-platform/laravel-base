@@ -437,7 +437,7 @@ translatable 的子欄位就是一個 `translatable: true` 的普通 column,前�
 因此:
 
 - `{欄位名}__` 是**保留前綴**。真的有一個叫 `data__layout` 的實體欄位就會撞,引擎不會警告。
-- 子欄位的標題查 `resources/i18n/{locale}/model/{group}.php`(不是 `model/{資料表}.php`),`{子欄位名}:placeholder` / `:remark` 同一份。**同一個 group 的所有 type 共用這一份**,所以同名的子欄位會拿到同一個標題;要讓某個 type 的子欄位有自己的說法,再放一份 `model/{group}-{type}.php`,它**逐 key 覆蓋**共用那份(跟 `model/default.php` 與 `model/{資料表}.php` 的關係一樣),沒寫到的 key 落回共用層,檔案不存在就只剩共用層。
+- 子欄位的標題查 `resources/i18n/{locale}/model/{group}.php`(不是 `model/{資料表}.php`),`{子欄位名}:placeholder` / `:hint` / `:remark` 同一份。**同一個 group 的所有 type 共用這一份**,所以同名的子欄位會拿到同一個標題;要讓某個 type 的子欄位有自己的說法,再放一份 `model/{group}-{type}.php`,它**逐 key 覆蓋**共用那份(跟 `model/default.php` 與 `model/{資料表}.php` 的關係一樣),沒寫到的 key 落回共用層,檔案不存在就只剩共用層。
 - 子欄位可以宣告 `tab`、`group`、`required`、`rule`、`options`、`presentation`,全部照一般欄位生效。
 - **清單與匯出不展開**,composite 只在表單情境有意義。
 

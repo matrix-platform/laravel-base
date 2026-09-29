@@ -72,6 +72,7 @@ class ColumnParser {
         return new ParsedColumn(
             $expression,
             $group,
+            $this->text(array_get_value($given, 'hint')),
             $this->name($alias, $expression),
             $this->operator($given),
             array_key_exists('op', $given),

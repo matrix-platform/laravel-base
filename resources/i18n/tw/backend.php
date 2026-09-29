@@ -21,6 +21,7 @@ return [
     'common.all' => '全部',
     'common.cancel' => '取消',
     'common.goto' => '跳頁',
+    'common.hint' => '說明',
     'common.leave' => '離開',
     'common.leave_confirm' => '尚有未儲存的異動,確定要離開嗎?',
     'common.next' => '下一步',

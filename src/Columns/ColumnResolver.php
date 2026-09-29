@@ -45,6 +45,7 @@ class ColumnResolver {
         return new Column(
             $column->expression,
             $column->group,
+            $silent ? $column->hint : $this->label($root, $column, $column->hint, ':hint'),
             $column->name,
             $column->locked,
             $this->operator($column, $type, $presentation, $virtual),

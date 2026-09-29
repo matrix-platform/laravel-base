@@ -21,6 +21,7 @@ return [
     'common.all' => 'All',
     'common.cancel' => 'Cancel',
     'common.goto' => 'Go to',
+    'common.hint' => 'Hint',
     'common.leave' => 'Leave',
     'common.leave_confirm' => 'You have unsaved changes. Leave anyway?',
     'common.next' => 'Next',

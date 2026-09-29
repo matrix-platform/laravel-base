@@ -21,6 +21,7 @@ return [
     'common.all' => 'すべて',
     'common.cancel' => 'キャンセル',
     'common.goto' => '移動',
+    'common.hint' => '説明',
     'common.leave' => '離れる',
     'common.leave_confirm' => '未保存の変更があります。移動しますか?',
     'common.next' => '次へ',

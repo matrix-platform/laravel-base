@@ -215,6 +215,7 @@ class ColumnParserTest extends TestCase {
             'title' => 'Given',
             'placeholder' => 'Hint',
             'remark' => 'Note',
+            'hint' => 'Tip',
             'sortable' => false,
             'tab' => 'other'
         ]);
@@ -226,6 +227,7 @@ class ColumnParserTest extends TestCase {
         $this->assertSame('Given', $column->title);
         $this->assertSame('Hint', $column->placeholder);
         $this->assertSame('Note', $column->remark);
+        $this->assertSame('Tip', $column->hint);
         $this->assertFalse($column->sortable);
         $this->assertSame('other', $column->tab);
     }

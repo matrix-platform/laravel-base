@@ -564,6 +564,7 @@ abstract class CrudService {
             ...$this->shape($column),
             ...$this->driveProps($column),
             'group' => $column->group,
+            'hint' => $column->hint,
             'op' => $column->op,
             'options' => $column->options === null ? null : $column->options->options($record),
             'path' => $column->path,
@@ -751,6 +752,7 @@ abstract class CrudService {
             $columns[$field] = new Column(
                 expression: new Expression(null, [], $name, null, []),
                 group: $definition->group,
+                hint: $this->label($bundle, "{$field}:hint"),
                 name: $name,
                 locked: false,
                 op: null,

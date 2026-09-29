@@ -118,6 +118,7 @@ class BlockControllerTest extends FeatureTestCase {
 
         $this->assertSame('Slide seconds', $seconds['title']);
         $this->assertSame('Gallery only', $seconds['remark']);
+        $this->assertSame('Whole seconds', $seconds['hint']);
     }
 
     public function test_a_module_without_a_bundle_keeps_the_shared_subfield_title(): void {

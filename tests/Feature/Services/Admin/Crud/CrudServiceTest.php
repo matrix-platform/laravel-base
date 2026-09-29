@@ -180,7 +180,7 @@ class CrudServiceTest extends FeatureTestCase {
         $columns = (new ListService(Widget::class))->standalone(true)->columns(['title'])->list([])['columns'];
 
         $this->assertSame([
-            'name', 'title', 'translatable', 'type', 'format', 'presentation', 'group', 'op',
+            'name', 'title', 'translatable', 'type', 'format', 'presentation', 'group', 'hint', 'op',
             'options', 'path', 'placeholder', 'remark', 'readonly', 'required', 'rule', 'sortable', 'tab',
             'writable', 'default', 'replaces'
         ], array_keys($columns[0]));

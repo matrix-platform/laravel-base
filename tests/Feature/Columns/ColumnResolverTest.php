@@ -219,11 +219,12 @@ class ColumnResolverTest extends FeatureTestCase {
         $this->assertSame('Trinkets', $this->resolve('count(trinkets)')->title);
     }
 
-    public function test_the_placeholder_and_remark_come_from_suffixed_keys(): void {
+    public function test_the_placeholder_remark_and_hint_come_from_suffixed_keys(): void {
         $column = $this->resolve('title');
 
         $this->assertSame('Type a title', $column->placeholder);
         $this->assertSame('Shown in the list', $column->remark);
+        $this->assertSame('Keep it short', $column->hint);
     }
 
     public function test_a_named_bundle_becomes_a_bundle_option_provider(): void {

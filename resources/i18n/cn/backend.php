@@ -21,6 +21,7 @@ return [
     'common.all' => '全部',
     'common.cancel' => '取消',
     'common.goto' => '跳转',
+    'common.hint' => '说明',
     'common.leave' => '离开',
     'common.leave_confirm' => '尚有未保存的修改,确定要离开吗?',
     'common.next' => '下一步',
