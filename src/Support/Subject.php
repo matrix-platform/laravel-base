@@ -35,7 +35,7 @@ class Subject {
     }
 
     public function generic(string $prefix): ?string {
-        $replaced = preg_replace('/\{[^}]+\}/u', '{id}', $prefix);
+        $replaced = preg_replace('/\{[^}]+\}(?=[^{]*$)/u', '{id}', $prefix);
 
         return is_string($replaced) ? $replaced : null;
     }

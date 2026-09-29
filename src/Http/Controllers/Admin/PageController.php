@@ -10,7 +10,7 @@ class PageController extends CrudController {
     /**
      * @var list<string|array<string, mixed>>|null
      */
-    protected ?array $lists = ['path', 'title', 'count(blocks)'];
+    protected ?array $lists = ['path', 'title', 'count(blocks)', 'update_time'];
 
     protected string $model = Page::class;
 

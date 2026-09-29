@@ -28,6 +28,8 @@ class ScheduleServiceTest extends FeatureTestCase {
     protected function setUp(): void {
         parent::setUp();
 
+        $this->useMenuFixtures('base crud');
+
         app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget', enable: 'enable_time', disable: 'disable_time')));
 
         $this->actAsRoot();

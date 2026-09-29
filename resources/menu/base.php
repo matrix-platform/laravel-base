@@ -59,6 +59,7 @@ return [
             'page/{page_id}/block' => ['icon' => 'fa-solid fa-layer-group', 'parent' => 'page', 'group' => true, 'tag' => 'query'],
 
                 'page/{page_id}/block/{id}' => ['parent' => 'page/{page_id}/block', 'tag' => 'query'],
+                'page/{page_id}/block/{id}/copy' => ['parent' => 'page/{page_id}/block', 'tag' => 'insert'],
                 'page/{page_id}/block/{id}/update' => ['parent' => 'page/{page_id}/block', 'tag' => 'update'],
                 'page/{page_id}/block/arrange' => ['parent' => 'page/{page_id}/block', 'tag' => 'update'],
                 'page/{page_id}/block/arrange/save' => ['parent' => 'page/{page_id}/block', 'tag' => 'update'],
@@ -69,6 +70,7 @@ return [
                 'page/{page_id}/block/{block_id}/item' => ['icon' => 'fa-solid fa-list-ul', 'parent' => 'page/{page_id}/block', 'group' => true, 'tag' => 'query'],
 
                     'page/{page_id}/block/{block_id}/item/{id}' => ['parent' => 'page/{page_id}/block/{block_id}/item', 'tag' => 'query'],
+                    'page/{page_id}/block/{block_id}/item/{id}/copy' => ['parent' => 'page/{page_id}/block/{block_id}/item', 'tag' => 'insert'],
                     'page/{page_id}/block/{block_id}/item/{id}/update' => ['parent' => 'page/{page_id}/block/{block_id}/item', 'tag' => 'update'],
                     'page/{page_id}/block/{block_id}/item/arrange' => ['parent' => 'page/{page_id}/block/{block_id}/item', 'tag' => 'update'],
                     'page/{page_id}/block/{block_id}/item/arrange/save' => ['parent' => 'page/{page_id}/block/{block_id}/item', 'tag' => 'update'],

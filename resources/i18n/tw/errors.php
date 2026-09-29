@@ -96,6 +96,8 @@ return [
 
     'nested-composite-not-supported' => '複合欄位不支援巢狀',
 
+    'page-content-locked' => '預設內容區塊只能由系統建立，不可複製或刪除',
+
     'permission-denied' => '權限不足',
 
     'push-delivery-failed' => '推播通知無法送達任何訂閱',

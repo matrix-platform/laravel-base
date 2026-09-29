@@ -25,6 +25,8 @@ use MatrixPlatform\Models\Declarations\BlockDeclaration;
 #[Declared(BlockDeclaration::class)]
 class Block extends BaseModel {
 
+    const PAGE_CONTENT = 'page-content';
+
     protected $table = 'base_block';
 
     /**

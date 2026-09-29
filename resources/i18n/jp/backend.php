@@ -320,6 +320,7 @@ return [
     'validation.file' => 'ファイルをアップロードしてください',
     'validation.gt' => '指定された値より大きい値を入力してください',
     'validation.gte' => '指定された値以上の値を入力してください',
+    'validation.image-invalid' => '画像はJPG・PNG・WebP形式でアップロードしてください',
     'validation.in' => '選択された値は無効です',
     'validation.integer' => '整数を入力してください',
     'validation.invalid-captcha' => 'キャプチャが正しくありません',

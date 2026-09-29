@@ -456,6 +456,14 @@ translatable 的子欄位就是一個 `translatable: true` 的普通 column,前�
 
 **`resolve()` 的第二個參數只有 `new` / `insert` / `update` 拿得到值。** `get`(編輯頁)、`api/common/page`、`api/common/menu` 一律傳 `null`。所以 page 與 menu 的 driver 必須只靠 model 或常數就能決定 —— 只看 `$input` 的寫法會在編輯頁與前台端點失效。巢狀路由的 `new` 與 `insert` 在呼叫 `resolve()` 之前就已經把路由上的父層外鍵填進 model(例如 `menu/{parent_id}/children/insert` 的 `parent_id`),body 不必另外帶。
 
+**區塊與子項目的後台另外有這些規則:**
+
+- **型別只收 `options/block-module` 清單裡的值**,`page-content`(`Block::PAGE_CONTENT`)除外 —— 它標記頁面固定內容在區塊序列中的位置,只能由 seeder 預建;已有的 `page-content` 可以編輯、排序、上下架,但複製、刪除回 409 `page-content-locked`。
+- **新增表單的預設值**:`block-data` 的 `Variant` 同時實作 `Presets`(`defaults(): array`,子欄位名 => 值)時,`new` 會把它們以 `data__{子欄位}` 補進沒帶的輸入,只影響表單、不影響驗證。
+- **`data` 在驗證規則之外還會檢查**(`BlockDataGuard`,新增與修改都會):`BundleOptions` 選單的值必須在選項內(空白交給 `required`),`DriveImage` 限 JPG / PNG / WebP(不限大小)(`validation.image-invalid`)。
+- **區塊複製連同子項目**,複本排在最後、預設隱藏,連帶複製的子項目沿用來源子項目的上下架狀態。區塊與子項目的 `copy` 節點(`page/{page_id}/block/{id}/copy`、`page/{page_id}/block/{block_id}/item/{id}/copy`)由套件選單直接登記,和其他資源預設不開 `copy` 不同;宿主不要複製時在選單設為 `null`。
+- **只有父區塊型別有註冊 `block-item-data` 的區塊有子項目**,其餘整組子項目端點回 404 `data-not-found`。子項目表單不顯示上下架,新增與複製後預設隱藏,由清單上架。
+
 `page-data` 的最小接線是一個回傳常數的 driver:
 
 ```php
@@ -777,6 +785,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | POST | `admin/page/{page_id}/block/new` | 授權 |
 | POST | `admin/page/{page_id}/block/insert` | 授權 |
 | POST | `admin/page/{page_id}/block/{id}` | 授權 |
+| POST | `admin/page/{page_id}/block/{id}/copy` | 授權 |
 | POST | `admin/page/{page_id}/block/{id}/update` | 授權 |
 | POST | `admin/page/{page_id}/block/delete` | 授權 |
 | POST | `admin/page/{page_id}/block/arrange` | 授權 |
@@ -785,6 +794,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | POST | `admin/page/{page_id}/block/{block_id}/item/new` | 授權 |
 | POST | `admin/page/{page_id}/block/{block_id}/item/insert` | 授權 |
 | POST | `admin/page/{page_id}/block/{block_id}/item/{id}` | 授權 |
+| POST | `admin/page/{page_id}/block/{block_id}/item/{id}/copy` | 授權 |
 | POST | `admin/page/{page_id}/block/{block_id}/item/{id}/update` | 授權 |
 | POST | `admin/page/{page_id}/block/{block_id}/item/delete` | 授權 |
 | POST | `admin/page/{page_id}/block/{block_id}/item/arrange` | 授權 |
@@ -1047,6 +1057,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `mfa-already-enabled` | 雙因子驗證已經啟用 |
 | `name-already-exists` | 這個名稱在此位置已經存在 |
 | `nested-composite-not-supported` | 複合欄位不支援巢狀 |
+| `page-content-locked` | 預設內容區塊只能由系統建立，不可複製或刪除 |
 | `permission-denied` | 權限不足 |
 | `push-delivery-failed` | 推播通知無法送達任何訂閱 |
 | `push-subscription-not-found` | 這個收件者沒有可用的推播訂閱 |
@@ -1077,7 +1088,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `base_member` | 前台會員 |
 | `base_member_log` | 會員行為紀錄 |
 | `base_menu` | 可線上維護的選單資料 |
-| `base_page` | 可線上維護的前台頁面;`path` 是前台查找用的唯一網址,`data` 的欄位形狀由消費端在 `config('matrix.variants.page-data')` 接線決定 |
+| `base_page` | 可線上維護的前台頁面;`path` 是前台查找用的唯一網址,`seo_title` 每個語系都必填,`data` 的欄位形狀由消費端在 `config('matrix.variants.page-data')` 接線決定 |
 | `base_block` | 頁面底下的區塊,`page_id` 掛在 `base_page`;`type` 決定 `data` 的欄位形狀,由消費端在 `config('matrix.variants.block-data')` 接線定義。`type` 在 `insert` 時決定、之後不可改 |
 | `base_block_item` | 區塊底下的子項目,`block_id` 掛在 `base_block`;型別跟著父區塊走,所以自己沒有 `type` 欄位 |
 | `base_passkey_credential` | 後台帳號(`User`)的 Passkey 憑證(credential ID、COSE 公鑰、sign count 等) |

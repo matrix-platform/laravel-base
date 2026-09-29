@@ -7,6 +7,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Testing\TestResponse;
 use MatrixPlatform\Models\Page;
 use MatrixPlatform\Models\User;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Factories\PageFactory;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
@@ -29,8 +30,8 @@ class PageControllerTest extends FeatureTestCase {
         return array_merge([
             'path' => $path,
             'title' => "{$path} TW",
-            'seo_title__tw' => null,
-            'seo_title__en' => null,
+            'seo_title__tw' => "{$path} SEO TW",
+            'seo_title__en' => "{$path} SEO EN",
             'seo_description__tw' => null,
             'seo_description__en' => null,
             'og_image__tw' => null,
@@ -53,12 +54,12 @@ class PageControllerTest extends FeatureTestCase {
         return $this->withToken($this->token)->postJson($uri, $input);
     }
 
-    public function test_the_listing_reports_the_path_the_title_and_the_block_count(): void {
+    public function test_the_listing_reports_the_path_the_title_the_block_count_and_the_update_time(): void {
         $this->page('about-us');
 
         $response = $this->send('admin/page');
 
-        $this->assertSame(['path', 'title', 'blocks_count'], array_column($response->json('data.columns'), 'name'));
+        $this->assertEqualsCanonicalizing(['path', 'title', 'blocks_count', 'update_time'], array_column($response->json('data.columns'), 'name'));
         $this->assertSame('about-us', $response->json('data.rows.0.path'));
         $this->assertSame(0, $response->json('data.rows.0.blocks_count'));
     }
@@ -111,6 +112,32 @@ class PageControllerTest extends FeatureTestCase {
             ->assertJsonPath('code', 422);
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function seoTitleProvider(): array {
+        return [
+            'tw' => ['seo_title__tw'],
+            'en' => ['seo_title__en']
+        ];
+    }
+
+    #[DataProvider('seoTitleProvider')]
+    public function test_inserting_with_a_blank_seo_title_in_any_locale_is_refused(string $field): void {
+        $response = $this->send('admin/page/insert', $this->payload('about-us', [$field => '']));
+
+        $response->assertJsonPath('code', 422);
+        $response->assertJsonPath("fields.{$field}", ['required']);
+    }
+
+    public function test_the_edit_form_marks_the_seo_title_required(): void {
+        $page = $this->page('about-us');
+
+        $column = $this->columnByName($this->send("admin/page/{$page->id}")->json('data.columns'), 'seo_title');
+
+        $this->assertTrue($column['required']);
+    }
+
     public function test_updating_keeps_its_own_path_without_tripping_the_unique_rule(): void {
         $page = $this->page('about-us');
 
@@ -119,6 +146,23 @@ class PageControllerTest extends FeatureTestCase {
         ]))->assertJsonPath('success', true);
 
         $this->assertSame('Renamed', Page::query()->findOrFail($page->id)->seo_title__en);
+    }
+
+    public function test_updating_can_change_the_path(): void {
+        $page = $this->page('about-us');
+
+        $this->send("admin/page/{$page->id}/update", $this->payload('about'))->assertJsonPath('success', true);
+
+        $this->assertSame('about', Page::query()->findOrFail($page->id)->path);
+    }
+
+    public function test_the_edit_form_keeps_the_path_writable(): void {
+        $page = $this->page('about-us');
+
+        $column = $this->columnByName($this->send("admin/page/{$page->id}")->json('data.columns'), 'path');
+
+        $this->assertFalse($column['readonly']);
+        $this->assertTrue($column['writable']);
     }
 
     public function test_reading_one_page_reports_its_columns(): void {

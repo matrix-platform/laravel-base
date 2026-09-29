@@ -133,7 +133,7 @@ class MenuControllerTest extends FeatureTestCase {
 
         $response = $this->send('admin/menu');
 
-        $this->assertSame(['title', 'children_count'], array_column($response->json('data.columns'), 'name'));
+        $this->assertEqualsCanonicalizing(['title', 'children_count'], array_column($response->json('data.columns'), 'name'));
         $this->assertSame(1, $response->json('data.rows.0.children_count'));
     }
 

@@ -38,6 +38,8 @@ class ManipulationLogServiceTest extends FeatureTestCase {
     protected function setUp(): void {
         parent::setUp();
 
+        $this->useMenuFixtures('base crud');
+
         $this->actAsRoot();
     }
 

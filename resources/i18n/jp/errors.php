@@ -96,6 +96,8 @@ return [
 
     'nested-composite-not-supported' => '複合フィールドの入れ子はサポートされていません',
 
+    'page-content-locked' => '既定コンテンツブロックはシステムのみが作成でき、複製・削除はできません',
+
     'permission-denied' => '権限がありません',
 
     'push-delivery-failed' => 'プッシュ通知をどの購読先にも送信できませんでした',

@@ -19,6 +19,7 @@ use MatrixPlatform\Support\PackageRegistry;
 use MatrixPlatform\Support\ResourceGroup;
 use MatrixPlatform\Support\Resources;
 use Tests\Factories\UserFactory;
+use Tests\Stubs\TestBannerFields;
 use Tests\Stubs\TestBlockItemTypeResolver;
 use Tests\Stubs\TestBlockTypeResolver;
 use Tests\Stubs\TestEditorFields;
@@ -215,6 +216,7 @@ class FeatureTestCase extends TestCase {
         $this->useVariants([
             'block-data' => [
                 'driver' => TestBlockTypeResolver::class,
+                'banner' => TestBannerFields::class,
                 'editor' => TestEditorFields::class,
                 'gallery' => TestGalleryBlockFields::class
             ],

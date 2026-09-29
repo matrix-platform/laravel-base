@@ -6,7 +6,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Testing\TestResponse;
 use MatrixPlatform\Models\Block;
 use MatrixPlatform\Models\BlockItem;
+use MatrixPlatform\Models\DriveNode;
+use MatrixPlatform\Models\DriveNodeType;
 use MatrixPlatform\Models\User;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Factories\BlockFactory;
 use Tests\Factories\BlockItemFactory;
 use Tests\Factories\PageFactory;
@@ -24,6 +27,42 @@ class BlockControllerTest extends FeatureTestCase {
     }
 
     /**
+     * @param array<string, mixed> $overrides
+     * @return array<string, mixed>
+     */
+    private function banner(array $overrides = []): array {
+        return ['type' => 'banner', 'title' => 'Banner', 'data__layout' => 'wide', 'data__image' => [], 'enable_time' => null, 'disable_time' => null, ...$overrides];
+    }
+
+    /**
+     * @return list<array{id: int}>
+     */
+    private function drive(string $mime, int $size): array {
+        $node = new DriveNode();
+
+        $node->parent_id = DriveNode::ROOT;
+        $node->type = DriveNodeType::File;
+        $node->name = str()->random(8) . '.img';
+        $node->hash = 'hash-' . $node->name;
+        $node->path = date('Ym') . '/' . str()->random(32);
+        $node->size = $size;
+        $node->mime_type = $mime;
+        $node->width = 400;
+        $node->height = 300;
+
+        $node->save();
+
+        return [['id' => $node->id]];
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function order(int $page): array {
+        return array_values(array_map(intval(...), Block::query()->where('page_id', $page)->orderBy('ranking')->orderBy('id')->pluck('id')->all()));
+    }
+
+    /**
      * @param array<string, mixed> $input
      * @return TestResponse<JsonResponse>
      */
@@ -32,6 +71,8 @@ class BlockControllerTest extends FeatureTestCase {
     }
 
     public function test_every_mounted_action_answers(): void {
+        $this->useBlockDataFixtures();
+
         $page = PageFactory::new()->createOne();
         $block = BlockFactory::new()->createOne(['page_id' => $page->id]);
         $prefix = "admin/page/{$page->id}/block";
@@ -40,8 +81,8 @@ class BlockControllerTest extends FeatureTestCase {
             $this->send($uri)->assertJsonPath('success', true);
         }
 
-        $this->send("{$prefix}/insert", ['type' => 'editor', 'title' => 'a', 'enable_time' => null, 'disable_time' => null])->assertJsonPath('success', true);
-        $this->send("{$prefix}/{$block->id}/update", ['title' => 'b', 'enable_time' => null, 'disable_time' => null])->assertJsonPath('success', true);
+        $this->send("{$prefix}/insert", ['type' => 'editor', 'title' => 'a', 'data__content__tw' => null, 'data__content__en' => null, 'enable_time' => null, 'disable_time' => null])->assertJsonPath('success', true);
+        $this->send("{$prefix}/{$block->id}/update", ['title' => 'b', 'data__content__tw' => null, 'data__content__en' => null, 'enable_time' => null, 'disable_time' => null])->assertJsonPath('success', true);
         $this->send("{$prefix}/arrange/save", ['enabled' => []])->assertJsonPath('success', true);
         $this->send("{$prefix}/delete", ['id' => [$block->id]])->assertJsonPath('success', true);
     }
@@ -268,6 +309,196 @@ class BlockControllerTest extends FeatureTestCase {
         $this->assertTrue($column['readonly']);
         $this->assertFalse($column['writable']);
         $this->assertSame('editor', $response->json('data.data.type'));
+    }
+
+    public function test_the_listing_shows_the_type_the_title_the_item_count_and_the_update_time(): void {
+        $page = PageFactory::new()->createOne();
+
+        BlockFactory::new()->createOne(['page_id' => $page->id]);
+
+        $columns = $this->send("admin/page/{$page->id}/block")->json('data.columns');
+
+        $this->assertEqualsCanonicalizing(['type', 'title', 'items_count', 'update_time'], array_column($columns, 'name'));
+    }
+
+    public function test_the_new_form_opens_with_the_defaults_of_the_type(): void {
+        $this->useBlockDataFixtures();
+
+        $page = PageFactory::new()->createOne();
+
+        $this->assertSame('wide', $this->send("admin/page/{$page->id}/block/new", ['type' => 'banner'])->json('data.data.data__layout'));
+    }
+
+    public function test_the_new_form_keeps_a_given_value_over_the_default(): void {
+        $this->useBlockDataFixtures();
+
+        $page = PageFactory::new()->createOne();
+
+        $this->assertSame('narrow', $this->send("admin/page/{$page->id}/block/new", ['type' => 'banner', 'data__layout' => 'narrow'])->json('data.data.data__layout'));
+    }
+
+    public function test_a_type_outside_the_module_options_is_refused(): void {
+        $this->useBlockDataFixtures();
+
+        $page = PageFactory::new()->createOne();
+
+        $this->send("admin/page/{$page->id}/block/insert", $this->banner(['type' => 'unknown']))
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('fields.type', ['in']);
+
+        $this->assertSame(0, Block::query()->count());
+    }
+
+    public function test_a_page_content_block_cannot_be_inserted(): void {
+        $this->useBlockDataFixtures();
+
+        $page = PageFactory::new()->createOne();
+
+        $this->send("admin/page/{$page->id}/block/insert", ['type' => Block::PAGE_CONTENT, 'title' => 'Content', 'enable_time' => null, 'disable_time' => null])
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('fields.type', ['in']);
+
+        $this->assertSame(0, Block::query()->count());
+    }
+
+    public function test_a_page_content_block_cannot_be_copied(): void {
+        $this->useBlockDataFixtures();
+
+        $page = PageFactory::new()->createOne();
+        $block = BlockFactory::new()->createOne(['page_id' => $page->id, 'type' => Block::PAGE_CONTENT]);
+
+        $this->send("admin/page/{$page->id}/block/{$block->id}/copy")
+            ->assertJson(['success' => false, 'code' => 409, 'error' => 'page-content-locked']);
+
+        $this->assertSame([$block->id], $this->order($page->id));
+    }
+
+    public function test_a_page_content_block_cannot_be_deleted(): void {
+        $page = PageFactory::new()->createOne();
+        $block = BlockFactory::new()->createOne(['page_id' => $page->id, 'type' => Block::PAGE_CONTENT]);
+
+        $this->send("admin/page/{$page->id}/block/delete", ['id' => [$block->id]])
+            ->assertJson(['success' => false, 'code' => 409, 'error' => 'page-content-locked']);
+
+        $this->assertSame([$block->id], $this->order($page->id));
+    }
+
+    public function test_a_page_content_block_can_still_be_edited(): void {
+        $this->useBlockDataFixtures();
+
+        $page = PageFactory::new()->createOne();
+        $block = BlockFactory::new()->createOne(['page_id' => $page->id, 'type' => Block::PAGE_CONTENT]);
+
+        $this->send("admin/page/{$page->id}/block/{$block->id}/update", ['title' => 'Renamed', 'enable_time' => null, 'disable_time' => null])
+            ->assertJsonPath('success', true);
+
+        $this->assertSame('Renamed', $block->refresh()->title);
+    }
+
+    public function test_a_select_value_outside_its_options_is_refused_on_insert(): void {
+        $this->useBlockDataFixtures();
+
+        $page = PageFactory::new()->createOne();
+
+        $this->send("admin/page/{$page->id}/block/insert", $this->banner(['data__layout' => 'huge']))
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('fields.data__layout', ['in']);
+
+        $this->assertSame(0, Block::query()->count());
+    }
+
+    public function test_a_select_value_outside_its_options_is_refused_on_update(): void {
+        $this->useBlockDataFixtures();
+
+        $page = PageFactory::new()->createOne();
+        $block = BlockFactory::new()->createOne(['page_id' => $page->id, 'type' => 'banner', 'data' => ['layout' => 'wide']]);
+
+        $this->send("admin/page/{$page->id}/block/{$block->id}/update", $this->banner(['data__layout' => 'huge']))
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('fields.data__layout', ['in']);
+
+        $this->assertSame('wide', array_get_value($block->refresh()->data, 'layout'));
+    }
+
+    public function test_a_blank_select_value_is_left_to_the_required_rule(): void {
+        $this->useBlockDataFixtures();
+
+        $page = PageFactory::new()->createOne();
+
+        $this->send("admin/page/{$page->id}/block/insert", $this->banner(['data__layout' => null]))->assertJsonPath('success', true);
+    }
+
+    /**
+     * @return array<string, array{string, int}>
+     */
+    public static function badImages(): array {
+        return [
+            'gif' => ['image/gif', 1024],
+            'svg' => ['image/svg+xml', 1024]
+        ];
+    }
+
+    #[DataProvider('badImages')]
+    public function test_an_image_of_a_wrong_format_is_refused(string $mime, int $size): void {
+        $this->useBlockDataFixtures();
+
+        $page = PageFactory::new()->createOne();
+
+        $this->send("admin/page/{$page->id}/block/insert", $this->banner(['data__image' => $this->drive($mime, $size)]))
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('fields.data__image', ['image-invalid']);
+
+        $this->assertSame(0, Block::query()->count());
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function goodImages(): array {
+        return [
+            'jpg' => ['image/jpeg'],
+            'png' => ['image/png'],
+            'webp' => ['image/webp']
+        ];
+    }
+
+    #[DataProvider('goodImages')]
+    public function test_an_image_of_any_size_in_an_allowed_format_is_accepted(string $mime): void {
+        $this->useBlockDataFixtures();
+
+        $page = PageFactory::new()->createOne();
+
+        $this->send("admin/page/{$page->id}/block/insert", $this->banner(['data__image' => $this->drive($mime, 10 * 1024 * 1024)]))
+            ->assertJsonPath('success', true);
+    }
+
+    public function test_a_kept_image_without_file_details_is_left_alone(): void {
+        $this->useBlockDataFixtures();
+
+        $page = PageFactory::new()->createOne();
+
+        $this->send("admin/page/{$page->id}/block/insert", $this->banner(['data__image' => [['name' => 'old.gif', 'path' => 'block/old.gif']]]))
+            ->assertJsonPath('success', true);
+    }
+
+    public function test_a_copy_carries_its_items(): void {
+        $this->useBlockDataFixtures();
+
+        $page = PageFactory::new()->createOne();
+        $source = BlockFactory::new()->createOne(['page_id' => $page->id, 'type' => 'gallery']);
+
+        BlockItemFactory::new()->createOne(['block_id' => $source->id, 'title' => 'first', 'ranking' => 1]);
+        BlockItemFactory::new()->createOne(['block_id' => $source->id, 'title' => 'second', 'ranking' => 2]);
+
+        $response = $this->send("admin/page/{$page->id}/block/{$source->id}/copy");
+
+        $response->assertJsonPath('success', true);
+
+        $copy = Block::query()->findOrFail(intval($response->json('data.id')));
+
+        $this->assertNull($copy->enable_time);
+        $this->assertSame(['first', 'second'], $copy->items()->orderBy('ranking')->pluck('title')->all());
+        $this->assertSame(2, $source->items()->count());
     }
 
 }
