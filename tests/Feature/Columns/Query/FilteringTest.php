@@ -175,6 +175,27 @@ class FilteringTest extends FeatureTestCase {
         $this->assertSame(['alpha'], $this->labels($columns, ['create_time' => ['op' => 'between', 'from' => '2026-01-01 00:00:00', 'to' => '2026-01-31 23:59:59']]));
     }
 
+    public function test_a_null_byte_in_a_date_value_is_refused_instead_of_raising_a_value_error(): void {
+        app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label'), [
+            'create_time' => Definition::date(),
+            'label' => Definition::text(),
+            'update_time' => Definition::dateTime()
+        ]));
+
+        $this->trinkets();
+
+        $columns = ['label', ['name' => 'create_time', 'op' => ['eq', 'between', 'in']], ['name' => 'update_time', 'op' => 'eq']];
+
+        foreach ([
+            ['create_time' => ['op' => 'eq', 'value' => "2026-01-15\0"]],
+            ['create_time' => ['op' => 'between', 'from' => '2026-01-01', 'to' => "2026-01-31\0"]],
+            ['create_time' => ['op' => 'in', 'value' => ['2026-01-01', "\0"]]],
+            ['update_time' => ['op' => 'eq', 'value' => "2026-01-15 09:30:00\0"]]
+        ] as $filters) {
+            $this->refuses('invalid-filter-value', fn () => $this->labels($columns, $filters));
+        }
+    }
+
     public function test_a_date_column_refuses_a_datetime_value(): void {
         app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label'), [
             'create_time' => Definition::date(),

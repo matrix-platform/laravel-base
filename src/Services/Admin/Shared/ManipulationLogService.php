@@ -6,8 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 use MatrixPlatform\Columns\ColumnResolver;
 use MatrixPlatform\Columns\Declarations\Definitions;
 use MatrixPlatform\Columns\Syntax\ColumnParser;
+use MatrixPlatform\Http\Controllers\Admin\CrudController;
 use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\Operator;
+use MatrixPlatform\Routing\ActionRoutes;
 use MatrixPlatform\Support\MetadataRegistry;
 
 class ManipulationLogService {
@@ -19,6 +21,12 @@ class ManipulationLogService {
      */
     public function query(string $prefix, int $id, int $page, int $size): array {
         $class = $this->resolver->permit($prefix, 'query');
+        $controller = ActionRoutes::controller($prefix);
+
+        if ($controller !== null && is_a($controller, CrudController::class, true) && !app($controller)->historyVisible($id)) {
+            error('data-not-found', 404);
+        }
+
         $model = new $class();
 
         $query = ManipulationLog::query()

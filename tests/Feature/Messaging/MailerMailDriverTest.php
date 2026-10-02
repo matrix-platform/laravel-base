@@ -2,11 +2,17 @@
 
 namespace Tests\Feature\Messaging;
 
+use Illuminate\Mail\MailManager;
 use Illuminate\Support\Facades\Mail;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Mail\MessageMail;
 use MatrixPlatform\Messaging\MailerMailDriver;
 use MatrixPlatform\Models\MailLog;
+use MatrixPlatform\Models\ResourceOverride;
+use MatrixPlatform\Support\Resources;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
+use Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport;
+use Symfony\Component\Mailer\Transport\Smtp\Stream\SocketStream;
 use Tests\FeatureTestCase;
 
 class MailerMailDriverTest extends FeatureTestCase {
@@ -26,6 +32,13 @@ class MailerMailDriverTest extends FeatureTestCase {
         $log->content = '<p>Body</p>';
 
         return $log;
+    }
+
+    private function sendIgnoringTheRefusedConnection(): void {
+        try {
+            (new MailerMailDriver())->send($this->log());
+        } catch (TransportExceptionInterface) {
+        }
     }
 
     public function test_a_message_goes_to_the_real_recipient(): void {
@@ -100,6 +113,29 @@ class MailerMailDriverTest extends FeatureTestCase {
         $this->assertSame(cfg('gmail.host'), config('mail.mailers.matrix-smtp:gmail.host'));
         $this->assertSame('smtp.relay.example', config('mail.mailers.matrix-smtp:relay.host'));
         $this->assertNull(config('mail.mailers.matrix-smtp'));
+    }
+
+    public function test_a_changed_connection_rebuilds_the_transport_of_an_already_resolved_mailer(): void {
+        Mail::swap(new MailManager(app()));
+
+        $this->useCfg('gmail', ['host' => '127.0.0.1', 'port' => 1, 'encryption' => 'tls']);
+        $this->sendIgnoringTheRefusedConnection();
+
+        $override = ResourceOverride::query()->where('bundle', 'cfg/gmail')->firstOrFail();
+        $override->data = ['host' => '127.0.0.1', 'port' => 2, 'encryption' => 'tls'];
+        $override->save();
+
+        app(Resources::class)->forget();
+        $this->sendIgnoringTheRefusedConnection();
+
+        $transport = Mail::mailer('matrix-smtp:gmail')->getSymfonyTransport();
+
+        $this->assertInstanceOf(EsmtpTransport::class, $transport);
+
+        $stream = $transport->getStream();
+
+        $this->assertInstanceOf(SocketStream::class, $stream);
+        $this->assertSame(2, $stream->getPort());
     }
 
     public function test_the_body_is_delivered_as_html_without_escaping(): void {

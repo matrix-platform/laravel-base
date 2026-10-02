@@ -128,6 +128,35 @@ class DriveServiceTest extends FeatureTestCase {
         $this->refuses('name-already-exists', fn () => $service->createFolder($root, 'shared', $owner));
     }
 
+    public function test_a_file_cannot_be_the_parent_of_a_new_folder(): void {
+        $service = $this->service();
+        $owner = $this->user();
+        $file = $service->upload($service->root(), $this->blob('report.pdf', 'content'), $owner);
+
+        $this->refuses('invalid-drive-folder', fn () => $service->createFolder($file, 'nested', $owner));
+        $this->assertFalse(DriveNode::query()->where('parent_id', $file->id)->exists());
+    }
+
+    public function test_a_file_cannot_be_the_parent_of_an_upload(): void {
+        $service = $this->service();
+        $owner = $this->user();
+        $file = $service->upload($service->root(), $this->blob('report.pdf', 'content'), $owner);
+
+        $this->refuses('invalid-drive-folder', fn () => $service->upload($file, $this->blob('inner.txt', 'inner'), $owner));
+        $this->assertFalse(DriveNode::query()->where('parent_id', $file->id)->exists());
+    }
+
+    public function test_a_file_cannot_be_the_destination_of_a_move(): void {
+        $service = $this->service();
+        $root = $service->root();
+        $owner = $this->user();
+        $file = $service->upload($root, $this->blob('report.pdf', 'content'), $owner);
+        $folder = $service->createFolder($root, 'folder', $owner);
+
+        $this->refuses('invalid-drive-folder', fn () => $service->move($folder, $file, $owner));
+        $this->assertSame($root->id, $folder->fresh()?->parent_id);
+    }
+
     public function test_upload_auto_renames_on_collision(): void {
         $service = $this->service();
         $root = $service->root();

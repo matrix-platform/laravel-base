@@ -195,6 +195,38 @@ class ResourcesTest extends FeatureTestCase {
         File::deleteDirectory($path);
     }
 
+    public function test_forgetting_all_drops_the_defaults_of_a_deleted_file(): void {
+        $path = $this->temporary();
+        $file = "{$path}/resources/cfg/temp.php";
+
+        File::put($file, "<?php return ['key' => 'cached'];");
+
+        $this->packaged($path)->config('temp.key');
+
+        File::delete($file);
+        clearstatcache();
+
+        $this->packaged($path)->forgetAll();
+
+        $this->assertNull($this->packaged($path)->config('temp.key'));
+
+        File::deleteDirectory($path);
+    }
+
+    public function test_forgetting_all_drops_the_defaults_of_a_removed_package(): void {
+        $path = $this->temporary();
+
+        File::put("{$path}/resources/cfg/temp.php", "<?php return ['key' => 'cached'];");
+
+        $this->packaged($path)->config('temp.key');
+
+        File::deleteDirectory($path);
+
+        $this->packaged($path)->forgetAll();
+
+        $this->assertNull($this->packaged($path)->config('temp.key'));
+    }
+
     public function test_a_missing_bundle_stays_missing_even_for_a_different_resources_instance(): void {
         $path = $this->temporary();
 

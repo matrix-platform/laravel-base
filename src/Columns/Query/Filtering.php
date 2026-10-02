@@ -11,7 +11,7 @@ use MatrixPlatform\Columns\ColumnType;
 class Filtering {
 
     public static function formatted(mixed $value, string $format): bool {
-        if (!is_string($value)) {
+        if (!is_string($value) || str_contains($value, "\0")) {
             return false;
         }
 

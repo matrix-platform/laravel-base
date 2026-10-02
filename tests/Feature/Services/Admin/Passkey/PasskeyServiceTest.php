@@ -251,9 +251,8 @@ class PasskeyServiceTest extends FeatureTestCase {
         [$challengeKey, $response] = $this->assertionRequest($authenticator, self::RP_ID, self::ORIGIN, (string) $user->id);
         $response['response']['signature'] = base64_encode('tampered');
 
-        // RollbackCallbacks only fires on the framework's TransactionRolledBack event
-        // (see BaseServiceProvider::boot()), so the real transaction wrapper that
-        // BaseController::callAction() provides in production must be simulated here.
+        // Simulates the transaction wrapper that BaseController::callAction() provides
+        // in production, so the log is proven to survive the rollback.
         try {
             DB::transaction(fn () => $this->service()->authenticate($challengeKey, $response));
         } catch (ServiceException) {

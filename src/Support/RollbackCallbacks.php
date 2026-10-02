@@ -3,26 +3,36 @@
 namespace MatrixPlatform\Support;
 
 use Closure;
+use Illuminate\Database\DatabaseTransactionRecord;
+use Illuminate\Database\DatabaseTransactionsManager;
+use Illuminate\Support\Facades\DB;
 
 class RollbackCallbacks {
 
-    /**
-     * @var list<Closure>
-     */
-    private array $callbacks = [];
+    public function persist(Closure $callback, ?string $connection = null): void {
+        $transaction = $this->transaction($connection);
 
-    public function register(Closure $callback): void {
-        $this->callbacks[] = $callback;
+        if ($transaction === null) {
+            $callback();
+
+            return;
+        }
+
+        $transaction->addCallback($callback);
+        $transaction->addCallbackForRollback($callback);
     }
 
-    public function run(): void {
-        $callbacks = $this->callbacks;
+    public function register(Closure $callback, ?string $connection = null): void {
+        $this->transaction($connection)?->addCallbackForRollback($callback);
+    }
 
-        $this->callbacks = [];
+    private function transaction(?string $connection): ?DatabaseTransactionRecord {
+        $name = $connection === null ? DB::getDefaultConnection() : $connection;
 
-        foreach ($callbacks as $callback) {
-            $callback();
-        }
+        /** @var DatabaseTransactionsManager $manager */
+        $manager = app('db.transactions');
+
+        return $manager->callbackApplicableTransactions()->last(fn (DatabaseTransactionRecord $transaction) => $transaction->connection === $name);
     }
 
 }

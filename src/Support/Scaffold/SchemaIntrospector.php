@@ -118,7 +118,10 @@ class SchemaIntrospector {
     private function constraintQuery(string $table, string $type): Builder {
         return DB::table('information_schema.table_constraints as tc')
             ->join('information_schema.key_column_usage as kcu', function (JoinClause $join): void {
-                $join->on('tc.constraint_name', '=', 'kcu.constraint_name')->on('tc.table_schema', '=', 'kcu.table_schema');
+                $join->on('tc.constraint_name', '=', 'kcu.constraint_name')
+                    ->on('tc.constraint_schema', '=', 'kcu.constraint_schema')
+                    ->on('tc.table_schema', '=', 'kcu.table_schema')
+                    ->on('tc.table_name', '=', 'kcu.table_name');
             })
             ->where('tc.table_schema', 'public')
             ->where('tc.table_name', $table)
@@ -129,23 +132,23 @@ class SchemaIntrospector {
      * @return array<string, string>
      */
     private function foreignKeys(string $table): array {
-        $rows = $this->constraintQuery($table, 'FOREIGN KEY')
-            ->join('information_schema.constraint_column_usage as ccu', 'tc.constraint_name', '=', 'ccu.constraint_name')
-            ->get(['tc.constraint_name', 'kcu.column_name', 'ccu.table_name as referenced_table']);
-
-        $groups = [];
-
-        foreach ($rows as $row) {
-            $groups[strval($row->constraint_name)][] = [strval($row->column_name), strval($row->referenced_table)];
-        }
+        $rows = DB::table('pg_constraint as c')
+            ->join('pg_class as t', 't.oid', '=', 'c.conrelid')
+            ->join('pg_namespace as n', 'n.oid', '=', 't.relnamespace')
+            ->join('pg_class as r', 'r.oid', '=', 'c.confrelid')
+            ->join('pg_attribute as a', function (JoinClause $join): void {
+                $join->on('a.attrelid', '=', 'c.conrelid')->whereRaw('a.attnum = c.conkey[1]');
+            })
+            ->where('c.contype', 'f')
+            ->where('n.nspname', 'public')
+            ->where('t.relname', $table)
+            ->whereRaw('cardinality(c.conkey) = 1')
+            ->get(['a.attname as column_name', 'r.relname as referenced_table']);
 
         $foreign = [];
 
-        foreach ($groups as $group) {
-            if (count($group) === 1) {
-                [$column, $referenced] = $group[0];
-                $foreign[$column] = $referenced;
-            }
+        foreach ($rows as $row) {
+            $foreign[strval($row->column_name)] = strval($row->referenced_table);
         }
 
         return $foreign;

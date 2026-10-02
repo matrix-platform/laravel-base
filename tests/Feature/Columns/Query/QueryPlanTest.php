@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Columns\Query;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use MatrixPlatform\Columns\ColumnResolver;
 use MatrixPlatform\Columns\Declarations\Definition;
@@ -25,6 +26,7 @@ class QueryPlanTest extends FeatureTestCase {
 
         app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
         app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label')));
+        app(MetadataRegistry::class)->register(Relic::class, new StubDeclaration(new Metadata('relic', 'label')));
     }
 
     /**
@@ -97,7 +99,7 @@ class QueryPlanTest extends FeatureTestCase {
 
         $this->assertSame(
             'select "stub_trinket"."id", "widget"."title" as "widget_title" from "stub_trinket" '
-                . 'left join "stub_widget" as "widget" on "widget"."id" = "stub_trinket"."widget_id"',
+                . 'left join (select "stub_widget".* from "stub_widget") as "widget" on "widget"."id" = "stub_trinket"."widget_id"',
             $sql
         );
     }
@@ -108,7 +110,7 @@ class QueryPlanTest extends FeatureTestCase {
             ->toSql();
 
         $this->assertStringContainsString(
-            'left join "stub_trinket" as "sole" on "sole"."widget_id" = "stub_widget"."id"',
+            'left join (select "stub_trinket".* from "stub_trinket") as "sole" on "sole"."widget_id" = "stub_widget"."id"',
             $sql
         );
     }
@@ -119,12 +121,12 @@ class QueryPlanTest extends FeatureTestCase {
             ->toSql();
 
         $this->assertStringContainsString(
-            'left join "stub_trinket" as "trinket" on "trinket"."id" = "stub_trinket"."trinket_id"',
+            'left join (select "stub_trinket".* from "stub_trinket") as "trinket" on "trinket"."id" = "stub_trinket"."trinket_id"',
             $sql
         );
 
         $this->assertStringContainsString(
-            'left join "stub_widget" as "trinket__widget" on "trinket__widget"."id" = "trinket"."widget_id"',
+            'left join (select "stub_widget".* from "stub_widget") as "trinket__widget" on "trinket__widget"."id" = "trinket"."widget_id"',
             $sql
         );
     }
@@ -155,7 +157,7 @@ class QueryPlanTest extends FeatureTestCase {
 
         $this->assertSame(
             'select "stub_trinket".*, "widget"."title" as "widget_title" from "stub_trinket" '
-                . 'left join "stub_widget" as "widget" on "widget"."id" = "stub_trinket"."widget_id"',
+                . 'left join (select "stub_widget".* from "stub_widget") as "widget" on "widget"."id" = "stub_trinket"."widget_id"',
             $sql
         );
     }
@@ -171,7 +173,7 @@ class QueryPlanTest extends FeatureTestCase {
     public function test_a_virtual_column_keeps_its_join_so_that_it_stays_filterable(): void {
         $plan = $this->plan([['name' => '+widget.title', 'op' => 'eq']], new Trinket());
 
-        $this->assertStringContainsString('left join "stub_widget" as "widget"', $plan->projection()->toSql());
+        $this->assertStringContainsString('left join (select "stub_widget".* from "stub_widget") as "widget"', $plan->projection()->toSql());
         $this->assertSame('"widget"."title"', $plan->field('widget_title'));
     }
 
@@ -194,7 +196,7 @@ class QueryPlanTest extends FeatureTestCase {
         $this->assertSame(
             'select "stub_widget"."id", coalesce("trinkets"."trinkets_count", 0) as "trinkets_count" from "stub_widget" '
                 . 'left join (select "trinkets"."widget_id", count(*) as "trinkets_count" '
-                . 'from "stub_trinket" as "trinkets" group by "trinkets"."widget_id") as "trinkets" '
+                . 'from (select "stub_trinket".* from "stub_trinket") as "trinkets" group by "trinkets"."widget_id") as "trinkets" '
                 . 'on "trinkets"."widget_id" = "stub_widget"."id"',
             $sql
         );
@@ -220,8 +222,6 @@ class QueryPlanTest extends FeatureTestCase {
     }
 
     public function test_an_aggregate_leaves_out_rows_hidden_by_a_global_scope(): void {
-        app(MetadataRegistry::class)->register(Relic::class, new StubDeclaration(new Metadata('relic', 'label')));
-
         $parent = Relic::forceCreate(['label' => 'parent']);
 
         Relic::forceCreate(['label' => 'kept', 'relic_id' => $parent->id]);
@@ -234,6 +234,102 @@ class QueryPlanTest extends FeatureTestCase {
             ->first();
 
         $this->assertSame(1, $row?->getAttribute('relics_count'));
+    }
+
+    public function test_a_joined_relation_leaves_out_a_row_hidden_by_a_global_scope(): void {
+        $parent = Relic::forceCreate(['label' => 'parent']);
+        $child = Relic::forceCreate(['label' => 'child', 'relic_id' => $parent->id]);
+        $parent->delete();
+
+        $row = $this->plan(['label', 'relic.label'], new Relic())
+            ->projection()
+            ->where('stub_relic.id', $child->id)
+            ->first();
+
+        $this->assertNotNull($row);
+        $this->assertNull($row->getAttribute('relic_label'));
+    }
+
+    public function test_a_nested_aggregate_leaves_out_rows_under_an_intermediate_hidden_by_a_global_scope(): void {
+        $root = Relic::forceCreate(['label' => 'root']);
+        $kept = Relic::forceCreate(['label' => 'kept', 'relic_id' => $root->id]);
+        $gone = Relic::forceCreate(['label' => 'gone', 'relic_id' => $root->id]);
+
+        Relic::forceCreate(['label' => 'kept-leaf', 'relic_id' => $kept->id]);
+        Relic::forceCreate(['label' => 'gone-leaf', 'relic_id' => $gone->id]);
+        $gone->delete();
+
+        $row = $this->plan(['label', 'count(relics.relics)'], new Relic())
+            ->projection()
+            ->where('stub_relic.id', $root->id)
+            ->first();
+
+        $this->assertSame(1, $row?->getAttribute('relics__relics_count'));
+    }
+
+    public function test_a_joined_relation_leaves_out_a_row_hidden_by_the_relation_itself(): void {
+        Widget::forceCreate(['title' => 'Alpha', 'relic_id' => Relic::forceCreate(['label' => 'shown'])->id]);
+        Widget::forceCreate(['title' => 'Beta', 'relic_id' => Relic::forceCreate(['label' => 'hidden'])->id]);
+
+        $rows = $this->plan(['title', 'visibleRelic.label'])
+            ->projection()
+            ->orderBy('title')
+            ->get();
+
+        $this->assertSame(['shown', null], $rows->pluck('visibleRelic_label')->all());
+    }
+
+    public function test_a_joined_relation_keeps_a_global_scope_the_relation_removes(): void {
+        $relic = Relic::forceCreate(['label' => 'gone']);
+        $relic->delete();
+
+        Widget::forceCreate(['title' => 'Alpha', 'relic_id' => $relic->id]);
+
+        $rows = $this->plan(['relic.label', 'anyRelic.label'])
+            ->projection()
+            ->get();
+
+        $this->assertNull($rows->first()?->getAttribute('relic_label'));
+        $this->assertSame('gone', $rows->first()?->getAttribute('anyRelic_label'));
+    }
+
+    public function test_a_joined_relation_keeps_a_global_scope_that_joins_another_table(): void {
+        $allowed = Relic::forceCreate(['label' => 'allowed']);
+        $denied = Relic::forceCreate(['label' => 'denied']);
+
+        Trinket::forceCreate(['label' => 'permit', 'owner_id' => $allowed->id, 'owner_type' => 'relic']);
+        Trinket::forceCreate(['label' => 'refuse', 'owner_id' => $denied->id, 'owner_type' => 'relic']);
+        Widget::forceCreate(['title' => 'Alpha', 'relic_id' => $allowed->id]);
+        Widget::forceCreate(['title' => 'Beta', 'relic_id' => $denied->id]);
+
+        $this->beforeApplicationDestroyed(fn () => Model::clearBootedModels());
+
+        Relic::addGlobalScope('permit', fn (Builder $query) => $query->join('stub_trinket as permit', 'permit.owner_id', '=', 'stub_relic.id')->where('permit.label', 'permit'));
+
+        $rows = $this->plan(['title', 'relic.label'])
+            ->projection()
+            ->orderBy('title')
+            ->get();
+
+        $this->assertSame(['allowed', null], $rows->pluck('relic_label')->all());
+    }
+
+    public function test_a_nested_aggregate_leaves_out_rows_under_an_intermediate_hidden_by_the_relation_itself(): void {
+        $shown = Relic::forceCreate(['label' => 'shown']);
+        $hidden = Relic::forceCreate(['label' => 'hidden']);
+
+        Relic::forceCreate(['label' => 'shown-leaf', 'relic_id' => $shown->id]);
+        Relic::forceCreate(['label' => 'hidden-leaf', 'relic_id' => $hidden->id]);
+        Widget::forceCreate(['title' => 'Alpha', 'relic_id' => $shown->id]);
+        Widget::forceCreate(['title' => 'Beta', 'relic_id' => $hidden->id]);
+
+        $rows = $this->plan(['title', 'count(visibleRelic.relics)', 'x=count(relic.relics)'])
+            ->projection()
+            ->orderBy('title')
+            ->get();
+
+        $this->assertSame([1, 0], $rows->pluck('visibleRelic__relics_count')->all());
+        $this->assertSame([1, 1], $rows->pluck('x')->all());
     }
 
     public function test_the_other_aggregates_use_the_qualified_column(): void {
@@ -332,8 +428,8 @@ class QueryPlanTest extends FeatureTestCase {
         $this->assertSame(
             'select "stub_widget"."id", coalesce("trinkets__trinket"."trinkets__trinket_count", 0) as "trinkets__trinket_count" '
                 . 'from "stub_widget" left join (select "trinkets"."widget_id", count(*) as "trinkets__trinket_count" '
-                . 'from "stub_trinket" as "trinkets__trinket" '
-                . 'inner join "stub_trinket" as "trinkets" on "trinkets__trinket"."id" = "trinkets"."trinket_id" '
+                . 'from (select "stub_trinket".* from "stub_trinket") as "trinkets__trinket" '
+                . 'inner join (select "stub_trinket".* from "stub_trinket") as "trinkets" on "trinkets__trinket"."id" = "trinkets"."trinket_id" '
                 . 'group by "trinkets"."widget_id") as "trinkets__trinket" '
                 . 'on "trinkets__trinket"."widget_id" = "stub_widget"."id"',
             $sql
@@ -429,7 +525,7 @@ class QueryPlanTest extends FeatureTestCase {
             'select "stub_trinket".*, "gadget"."translated__tw" as "gadget_translated__tw", '
                 . '"gadget"."translated__en" as "gadget_translated__en", '
                 . '"gadget"."translated__en" as "gadget_translated" from "stub_trinket" '
-                . 'left join "stub_gadget" as "gadget" on "gadget"."id" = "stub_trinket"."gadget_id"',
+                . 'left join (select "stub_gadget".* from "stub_gadget") as "gadget" on "gadget"."id" = "stub_trinket"."gadget_id"',
             $sql
         );
     }

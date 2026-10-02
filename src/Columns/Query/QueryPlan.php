@@ -26,9 +26,9 @@ class QueryPlan {
     private array $joins = [];
 
     /**
-     * @var array<string, Model>
+     * @var array<string, Builder<Model>>
      */
-    private array $models = [];
+    private array $relations = [];
 
     /**
      * @var array<string, array{field: string, qualifier: string}>
@@ -136,7 +136,7 @@ class QueryPlan {
 
                 $query->leftJoinSub($sub, $join->alias, "{$join->alias}.{$top->key}", '=', "{$top->target}.{$top->foreign}");
             } elseif ($join->referenced) {
-                $query->leftJoin("{$join->table} as {$join->alias}", "{$join->alias}.{$join->key}", '=', "{$join->target}.{$join->foreign}");
+                $query->leftJoinSub($this->scoped($join), $join->alias, "{$join->alias}.{$join->key}", '=', "{$join->target}.{$join->foreign}");
             }
         }
     }
@@ -158,7 +158,7 @@ class QueryPlan {
 
                 if (!array_key_exists($alias, $structure)) {
                     [$key, $foreign] = $this->keys($relation);
-                    $this->models[$alias] = $relation->getRelated();
+                    $this->relations[$alias] = $relation->getQuery();
 
                     $structure[$alias] = [
                         'foreign' => $foreign,
@@ -254,7 +254,7 @@ class QueryPlan {
      * @return Relation<Model, Model, mixed>
      */
     private function relation(Model $current, string $token): Relation {
-        $relation = $current->isRelation($token) ? $current->{$token}() : null;
+        $relation = $current->isRelation($token) ? Relation::noConstraints(fn () => $current->{$token}()) : null;
 
         if (!$relation instanceof Relation) {
             error('invalid-column-expression');
@@ -264,26 +264,25 @@ class QueryPlan {
     }
 
     private function scoped(Join $join): QueryBuilder {
-        $model = $this->models[$join->alias]->newInstance();
-        $model->setTable($join->alias);
-
-        $query = $model->newQuery();
-        $query->getQuery()->from("{$join->table} as {$join->alias}");
-
-        return $query->toBase();
+        return (clone $this->relations[$join->alias])
+            ->toBase()
+            ->select("{$join->table}.*");
     }
 
     /**
      * @return array{QueryBuilder, Join}
      */
     private function subquery(Join $join): array {
-        $sub = $this->scoped($join);
+        $sub = $this->root
+            ->getConnection()
+            ->query()
+            ->fromSub($this->scoped($join), $join->alias);
         $top = $join;
 
         while ($top->target !== $this->table()) {
             $node = $this->joins[$top->target];
 
-            $sub->join("{$node->table} as {$node->alias}", "{$top->alias}.{$top->key}", '=', "{$node->alias}.{$top->foreign}");
+            $sub->joinSub($this->scoped($node), $node->alias, "{$top->alias}.{$top->key}", '=', "{$node->alias}.{$top->foreign}");
 
             $top = $node;
         }

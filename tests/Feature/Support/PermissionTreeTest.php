@@ -153,4 +153,13 @@ class PermissionTreeTest extends FeatureTestCase {
         $this->assertSame([], $allowed['report']);
     }
 
+    public function test_a_revision_grants_only_true_one_and_the_string_one(): void {
+        $this->useMenuFixtures('authority');
+        $this->actAsRoot();
+
+        $revised = app(PermissionTree::class)->revise(['user' => ['delete' => true]], ['user' => ['query' => '1', 'delete' => 'false', 'insert' => 1, 'update' => 'yes']]);
+
+        $this->assertSame(['user' => ['query' => true, 'insert' => true]], $revised);
+    }
+
 }

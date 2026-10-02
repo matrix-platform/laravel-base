@@ -22,6 +22,8 @@ return [
 
     'file-too-large' => 'ファイルサイズが上限を超えています',
 
+    'file-write-failed' => 'ファイルの書き込みに失敗しました',
+
     'geolocation-database-not-found' => '位置情報データベースファイルが見つかりません',
 
     'geolocation-request-failed' => '位置情報の取得に失敗しました',
@@ -43,6 +45,8 @@ return [
     'invalid-column-expression' => '列の式が不正です',
 
     'invalid-drive-file' => '有効なドライブファイルではありません',
+
+    'invalid-drive-folder' => '有効なドライブフォルダではありません',
 
     'invalid-envelope' => '暗号化されたリクエストを読み取れません',
 

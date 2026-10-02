@@ -21,7 +21,12 @@ class MailerMailDriver implements Driver {
         $to = $sandbox === null ? $log->receiver : $sandbox;
         $subject = $sandbox === null ? $log->subject : "{$log->subject} [{$log->receiver}]";
 
-        config()->set("mail.mailers.{$mailer}", $this->mailer($bundle));
+        $config = $this->mailer($bundle);
+
+        if (config("mail.mailers.{$mailer}") !== $config) {
+            config()->set("mail.mailers.{$mailer}", $config);
+            Mail::purge($mailer);
+        }
 
         $sent = Mail::mailer($mailer)
             ->to($to)

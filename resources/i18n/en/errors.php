@@ -22,6 +22,8 @@ return [
 
     'file-too-large' => 'File exceeds the size limit',
 
+    'file-write-failed' => 'Failed to write the file',
+
     'geolocation-database-not-found' => 'Geolocation database file not found',
 
     'geolocation-request-failed' => 'Geolocation request failed',
@@ -43,6 +45,8 @@ return [
     'invalid-column-expression' => 'Invalid column expression',
 
     'invalid-drive-file' => 'Not a valid drive file',
+
+    'invalid-drive-folder' => 'Not a valid drive folder',
 
     'invalid-envelope' => 'Encrypted request could not be read',
 

@@ -5,6 +5,7 @@ namespace Tests\Feature\Console;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\PendingCommand;
+use Mockery;
 use Tests\FeatureTestCase;
 use ZipArchive;
 
@@ -96,6 +97,45 @@ class UpdateGeolocationDatabaseCommandTest extends FeatureTestCase {
         Storage::disk($this->disk())->assertMissing("{$path}.tmp");
 
         $this->assertSame($contents, Storage::disk($this->disk())->get($path));
+    }
+
+    public function test_a_write_the_disk_reports_as_failed_fails(): void {
+        $this->useCfg('ip2location-bin', ['download-token' => 'a-token']);
+
+        Http::fake(['www.ip2location.com/*' => Http::response($this->archive('DB11.BIN', 'payload'))]);
+
+        $disk = Mockery::mock(Storage::disk($this->disk()));
+        $disk->shouldReceive('writeStream')->andReturnFalse();
+
+        Storage::set($this->disk(), $disk);
+
+        $this->command()
+            ->doesntExpectOutput('Geolocation database updated')
+            ->assertExitCode(1);
+
+        Storage::disk($this->disk())->assertMissing(strval(cfg('ip2location-bin.bin-path')));
+    }
+
+    public function test_a_move_the_disk_reports_as_failed_fails_and_leaves_no_temporary_file(): void {
+        $this->useCfg('ip2location-bin', ['download-token' => 'a-token']);
+
+        Http::fake(['www.ip2location.com/*' => Http::response($this->archive('DB11.BIN', 'payload'))]);
+
+        $path = strval(cfg('ip2location-bin.bin-path'));
+
+        Storage::disk($this->disk())->put($path, 'previous');
+
+        $disk = Mockery::mock(Storage::disk($this->disk()));
+        $disk->shouldReceive('move')->andReturnFalse();
+
+        Storage::set($this->disk(), $disk);
+
+        $this->command()
+            ->doesntExpectOutput('Geolocation database updated')
+            ->assertExitCode(1);
+
+        Storage::disk($this->disk())->assertMissing("{$path}.tmp");
+        $this->assertSame('previous', Storage::disk($this->disk())->get($path));
     }
 
     public function test_the_configured_token_and_db_code_are_sent(): void {

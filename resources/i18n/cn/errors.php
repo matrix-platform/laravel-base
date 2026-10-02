@@ -22,6 +22,8 @@ return [
 
     'file-too-large' => '文件大小超过限制',
 
+    'file-write-failed' => '文件写入失败',
+
     'geolocation-database-not-found' => '找不到地理位置数据库文件',
 
     'geolocation-request-failed' => '地理位置查询请求失败',
@@ -43,6 +45,8 @@ return [
     'invalid-column-expression' => '字段表达式语法错误',
 
     'invalid-drive-file' => '不是有效的云端硬盘文件',
+
+    'invalid-drive-folder' => '不是有效的云端硬盘文件夹',
 
     'invalid-envelope' => '无法读取加密请求',
 

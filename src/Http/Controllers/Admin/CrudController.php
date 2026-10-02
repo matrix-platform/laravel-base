@@ -138,6 +138,10 @@ abstract class CrudController extends BaseController {
         return $this->onGet($this->prepare(new GetService($this->model), $request))->get($this->identifier($request));
     }
 
+    public function historyVisible(int $id): bool {
+        return true;
+    }
+
     /**
      * @return array<string, mixed>
      */

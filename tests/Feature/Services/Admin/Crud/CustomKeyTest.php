@@ -4,12 +4,15 @@ namespace Tests\Feature\Services\Admin\Crud;
 
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
+use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Services\Admin\Crud\ArrangeService;
 use MatrixPlatform\Services\Admin\Crud\DeleteService;
 use MatrixPlatform\Services\Admin\Crud\ExportService;
 use MatrixPlatform\Services\Admin\Crud\GetService;
 use MatrixPlatform\Services\Admin\Crud\ListService;
 use MatrixPlatform\Services\Admin\Crud\SortService;
+use MatrixPlatform\Services\Admin\Crud\UpdateService;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
 use Tests\FeatureTestCase;
@@ -40,6 +43,39 @@ class CustomKeyTest extends FeatureTestCase {
 
     private function keyed(int $code, string $title): Keyed {
         return Keyed::forceCreate(['code' => $code, 'title' => $title]);
+    }
+
+    public function test_an_update_keeping_its_own_unique_value_passes(): void {
+        app(MetadataRegistry::class)->register(Keyed::class, new StubDeclaration(new Metadata('keyed', 'title'), ['title' => Definition::text(required: true, unique: true)]));
+
+        $this->keyed(1, 'first');
+
+        (new UpdateService(Keyed::class))
+            ->standalone(true)
+            ->columns(['title'])
+            ->update(1, ['title' => 'first']);
+
+        $this->assertSame('first', Keyed::query()->findOrFail(1)->title);
+    }
+
+    public function test_an_update_taking_another_rows_unique_value_is_rejected(): void {
+        app(MetadataRegistry::class)->register(Keyed::class, new StubDeclaration(new Metadata('keyed', 'title'), ['title' => Definition::text(required: true, unique: true)]));
+
+        $this->keyed(1, 'first');
+        $this->keyed(2, 'second');
+
+        try {
+            (new UpdateService(Keyed::class))
+                ->standalone(true)
+                ->columns(['title'])
+                ->update(1, ['title' => 'second']);
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('Unique', $exception->validator->failed()['title']);
+
+            return;
+        }
+
+        $this->fail('the update was expected to be rejected');
     }
 
     public function test_delete_finds_the_rows_by_the_model_key(): void {

@@ -48,7 +48,7 @@ class PermissionMap implements CastsAttributes, ComparesCastableAttributes, Seri
 
         foreach ($this->decode($value) as $path => $actions) {
             foreach (is_array($actions) ? $actions : [] as $action => $granted) {
-                if ($granted == true) {
+                if (in_array($granted, [true, 1, '1'], true)) {
                     $data[strval($path)][strval($action)] = true;
                 }
             }

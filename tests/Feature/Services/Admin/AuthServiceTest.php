@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Cache;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\AuthToken;
 use MatrixPlatform\Models\IdentityType;
+use MatrixPlatform\Models\UserLog;
+use MatrixPlatform\Models\UserLogType;
 use MatrixPlatform\Services\Admin\AuthService;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
@@ -89,6 +91,19 @@ class AuthServiceTest extends FeatureTestCase {
         }
 
         $this->fail('the login was expected to be rejected');
+    }
+
+    public function test_a_wrong_password_is_logged_even_outside_a_transaction(): void {
+        $user = UserFactory::new()->createOne();
+
+        Cache::put('captcha:test-token', hash('sha256', 'ABCDE'), 60);
+
+        try {
+            app(AuthService::class)->login($user->username, 'not-the-real-password', 'test-token', 'ABCDE', null);
+        } catch (ServiceException) {
+        }
+
+        $this->assertSame(1, UserLog::query()->where('user_id', $user->id)->where('type', UserLogType::LoginFailed)->count());
     }
 
     public function test_logging_out_with_an_unknown_token_leaves_the_live_session_alone(): void {

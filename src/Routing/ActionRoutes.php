@@ -36,15 +36,7 @@ class ActionRoutes {
         $stripped = strval(config('matrix.admin-api-prefix')) . '/';
 
         foreach (Route::getRoutes()->getRoutes() as $route) {
-            $uri = $route->uri();
-
-            if (!str_starts_with($uri, $stripped)) {
-                continue;
-            }
-
-            $relative = substr($uri, strlen($stripped));
-
-            if ($relative === $prefix || Str::startsWith($relative, "{$prefix}/")) {
+            if (str_starts_with($route->uri(), $stripped) && $route->getAction('mount') === $prefix) {
                 $action = $route->getAction('controller');
 
                 return is_string($action) ? Str::before($action, '@') : null;
@@ -62,7 +54,7 @@ class ActionRoutes {
      * @param class-string $controller
      */
     public static function mount(string $prefix, string $controller, ?string $scope = null): void {
-        Route::prefix($prefix)->group(fn () => self::scan($controller, $scope));
+        Route::prefix($prefix)->group(fn () => self::scan($controller, $scope, $prefix));
     }
 
     /**
@@ -92,9 +84,13 @@ class ActionRoutes {
     /**
      * @param class-string $controller
      */
-    public static function scan(string $controller, ?string $scope = null): void {
+    public static function scan(string $controller, ?string $scope = null, ?string $mount = null): void {
         foreach (self::resolve($controller, $scope) as $route) {
             $registered = Route::post($route['path'], [$controller, $route['method']])->middleware(Arr::wrap($route['middleware']));
+
+            if ($mount !== null) {
+                $registered->setAction([...$registered->getAction(), 'mount' => $mount]);
+            }
 
             if (!$route['encrypted']) {
                 $registered->withoutMiddleware(EncryptedEnvelopeMiddleware::class);

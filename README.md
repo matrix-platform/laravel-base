@@ -1020,6 +1020,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `encryption-unavailable` | 金鑰圈沒有可用的金鑰(還沒跑過 `matrix:rotate-encryption-key`) |
 | `endpoint-not-found` | 端點不存在 |
 | `file-too-large` | 檔案大小超過限制 |
+| `file-write-failed` | 檔案寫入失敗 |
 | `geolocation-database-not-found` | 找不到地理位置資料庫檔案 |
 | `geolocation-request-failed` | 地理位置查詢請求失敗 |
 | `image-decode-failed` | 無法解析圖片 |
@@ -1031,6 +1032,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `invalid-column-condition` | 欄位條件語法錯誤 |
 | `invalid-column-expression` | 欄位運算式語法錯誤 |
 | `invalid-drive-file` | 不是有效的雲端硬碟檔案 |
+| `invalid-drive-folder` | 不是有效的雲端硬碟資料夾 |
 | `invalid-envelope` | 加密信封無法解讀:`kid` 不存在或已過期、GCM 驗證失敗、`ts` 超出容許誤差,或同一個信封被重送 |
 | `invalid-filter-value` | 篩選值的格式不正確 |
 | `invalid-geolocation-driver` | 地理位置服務設定錯誤 |
@@ -1398,10 +1400,10 @@ parameters:
 | **上傳不沿用使用者送來的副檔名** | 磁碟上是 `年月/32 碼隨機名`,沒有副檔名,所以放在公開 disk 也不會被 web server 當程式執行。下載的 Content-Type 取自 `base_file.mime_type`,檔名取自 `base_file.name`（原始檔名,含副檔名）,使用者端無感 |
 | **上傳不限制大小**（`cfg('file.max-size')` 出貨 `0`）。真正的上限是 PHP 的 `upload_max_filesize` / `post_max_size` | 兩層都要調。只調 cfg 沒用,只調 ini 的話使用者會拿到 422 而不是 `file-too-large` |
 | 檔案的 `privilege` 決定存哪個 disk（`0` 公開 / `1` 私有）。下載一律走 `admin/file/download`,**要登入** | 公開 disk 若做了 `storage:link`,那些檔案就有公開 URL —— 這是 disk 設定的結果,不是套件的存取控制。另外「要登入」**只是登入** —— `admin/file/*` 掛的是 `user-api`,沒有 `permission-api`,所以**選單權限完全為空的管理員**也能下載 / 改名任何 path 的檔案。要更細的檔案授權,自己在該路由前加 middleware |
-| **前台沒有任何檔案端點** | 前台要上傳就自己呼叫 `FileService::upload()`,並自己決定權限與限制 |
+| **前台沒有上傳端點** | 前台要上傳就自己呼叫 `FileService::upload()`,並自己決定權限與限制 |
 | **雲端硬碟(`drive/*`)上傳不檢查型別或大小**,沒有等同 `file.max-size` / `file.mime-patterns` 的設定 | 要限制就自己在 `DriveService::upload()` 前面加檢查 |
 | **`drive/*` 沒有選單節點,只掛 `user-api`**(比照 `admin/auth/passwd`、`admin/file/*`)——任何登入的後台 User 都能呼叫,不需要選單授權 | 節點層級的 owner/群組存取完全交給 `DrivePermissionService` 這一層把關,不是靠選單權限 |
-| **`manipulation-log/query`、`schedule/toggle` 同樣沒有專屬選單節點、只掛 `user-api`**,但跟上面兩列不同——這兩支端點呼叫時會依請求帶的 `prefix` 找出目標資料實際所屬的既有選單節點,動態呼叫 `AdminPermission::permits()` 檢查 `query`/`update` 權限,行為上等同「借用」該資料原本的選單授權,不是完全不設防 | `prefix` 必須是某個已掛載 `ActionRoutes::mount()` 的 CRUD 資源的路由前綴(如 `group`);對應不到就回 `unsupported-model`,對應得到但沒權限一律 403 |
+| **`manipulation-log/query`、`schedule/toggle` 同樣沒有專屬選單節點、只掛 `user-api`**,但跟上面兩列不同——這兩支端點呼叫時會依請求帶的 `prefix` 找出目標資料實際所屬的既有選單節點,動態呼叫 `AdminPermission::permits()` 檢查 `query`/`update` 權限,行為上等同「借用」該資料原本的選單授權,不是完全不設防 | `prefix` 必須是某個已掛載 `ActionRoutes::mount()` 的 CRUD 資源的路由前綴(如 `group`);對應不到就回 `unsupported-model`,對應得到但沒權限一律 403。`manipulation-log/query` 另外會呼叫該資源 controller 的 `historyVisible(int $id)`,回 `false` 就回 404 `data-not-found`:預設一律 `true`,`UserController` 依帳號階層判斷(Admin 查不到 Root、Regular 只查得到 Regular)。判斷只拿得到 id(硬刪除的資料也要查得到歷史),所以 controller 有資料範圍限制時要自己覆寫;稽核紀錄是依**資料表**存的,多個 model 共用同一張表時,也要在這裡排除不屬於自己的 id |
 | **`manipulation-log/query` 的回應帶一份 `options`**(欄位名 → 選項清單,與 CRUD `columns[].options` 同構),而且**含已被軟刪除的關聯**,那些選項的 `deleted` 是 `true` | 歷史紀錄裡存的是 id,要翻得出名字就不能像表單那樣把軟刪除的關聯濾掉。CRUD 自己的 `new` / `{id}` / 清單 / 匯出維持原樣(只給沒刪除的),不受影響 |
 | **`drive/{id}/delete` 只軟刪除目標本身,不遞迴子項目**;但被刪節點底下**沒被動到**的子孫會變成整體不可操作——`DrivePermissionService::allowed()` 往上爬錨點時遇到已軟刪除的祖先就直接判定沒有權限,**`User::ROOT` 也不例外** | 這是刻意的設計:不用遞迴刪除/還原,單純靠「祖先鏈斷在已軟刪除的節點」讓整個子樹自然變成不可操作;`restore()` 也只還原目標本身,把祖先救回來,子孫的可操作性就自動恢復。**但「看不看得到」是另一回事**——`drive/trashed` 跟 `drive/{id}/path` 用的是 `visible()`,爬的時候會穿過軟刪除的祖先繼續找,所以子孫依然會出現在垃圾桶列表、路徑依然查得到,只是在祖先還原之前 `restore()` 會報 `permission-denied` |
 | **欄位 DSL 是開發者輸入**,識別字會被插值進 SQL | 絕對不要把使用者輸入拼進 `$lists` / `$updates` |
@@ -1473,7 +1475,7 @@ php artisan matrix:clear-resource-cache
 | 事實 | 說明 |
 |---|---|
 | **每個 `#[Action]` 都要有選單節點** | 漏一個,那個端點對所有人 403,包含 ROOT |
-| **每一個 action 都跑在一個交易裡** | `BaseController::callAction()` 用 `DB::transaction()` 包住整個動作。要在 rollback 之後仍然執行的副作用（寄信、打第三方、刪檔）請註冊到 `RollbackCallbacks`,不要直接做 |
+| **每一個 action 都跑在一個交易裡** | `BaseController::callAction()` 用 `DB::transaction()` 包住整個動作。要在 rollback 之後仍然執行的副作用（寄信、打第三方、刪檔）請註冊到 `RollbackCallbacks`,不要直接做:`register()` 是撤銷,只在登記當下那一層交易 rollback 時執行(巢狀交易內層 rollback 不會動到外層登記的;交易外登記不會執行);`persist()` 是一定要留下的寫入(例如登入失敗紀錄),交易 commit 或 rollback 後執行一次,交易外則立即執行 |
 | **`#[Action]` 會沿繼承鏈繼承** | 覆寫 action 不需要重新宣告 attribute |
 | **套件的 controller 可以整個換成子類別** | 路由掛的是套件的類別,但 controller 由容器建立,所以 `$app->bind(MailLogController::class, App\...\MailLogController::class)` 就會改用子類別(例如改 `$lists`、加 guard);要加欄位就另外 `app(MetadataRegistry::class)->register(MailLog::class, new 子類別宣告())`,放在 `$app->booted()` 裡 |
 | **`#[Action(encrypted: false)]` 讓那支 action 不受所屬前綴的加密開關約束** | 呼叫方不可能封信封的端點要標記它:出貨已標的是 telegram webhook、兩支 multipart 上傳(`file/upload`、`drive/{id}/upload`)與 `encryption-key`。自己的上傳端點也要自己標,漏標的症狀是開關一開就變 `invalid-envelope` |
@@ -1488,7 +1490,7 @@ php artisan matrix:clear-resource-cache
 | 事實 | 說明 |
 |---|---|
 | **權限樹只認四個動作** | `query` / `insert` / `update` / `delete`。選單節點上寫別的 `tag`（例如 `system`）不會變成可勾選的權限項目 |
-| **手寫進資料庫的權限,形狀錯了會被靜默丟掉** | 存進去的形狀必須是 `{"路徑": {"動作": true}}`。值不是 true 的項目在下一次寫入時就消失,而且不會有任何錯誤 |
+| **手寫進資料庫的權限,形狀錯了會被靜默丟掉** | 存進去的形狀必須是 `{"路徑": {"動作": true}}`。值只認 `true`、`1`、`"1"`(寫入時一律存成 `true`),其他值(包括 `"true"`、`"false"` 這類字串)的項目在下一次寫入時就消失,而且不會有任何錯誤 |
 | **權限的寫入是「範圍內修訂」** | 編輯者只能授出自己有的權限,也洗不掉自己碰不到的;白名單以外的權限（例如維運用 SQL 寫的）會被保留 |
 | **`guard` 是疊加的,套件先、宿主後** | 宿主看到的是已經過濾的值,而且無法覆蓋套件自己的 guard（例如「不能刪自己」） |
 | **`user` 的 `copy` 與 `export` 同受等級範圍約束** | 與 `get` / `update` / `delete` 一樣,管不到的帳號一律 `data-not-found`、匯不出來。`copy`、`export` 都是宿主加選單節點就開啟;`sort` 對 `user` 不可用（`base_user` 沒有 `ranking` 欄位）。`group` 不受等級範圍約束 |
@@ -1515,9 +1517,8 @@ php artisan matrix:clear-resource-cache
 | **`$hidden` 只對 root model 的欄位有效** | join 進來的別名不受它保護 |
 | **匯出回應的 `columns[]` 不含 `op` / `sortable` / `options`** | 前端要知道能篩什麼,必須先呼叫清單端點 |
 | **`base_city_area.ranking` 與 `base_ranking` 序列不同量級** | 後台第一次拖曳排序就會把整組重編 |
-| **jsonb 欄位會宣稱自己可排序** | 引擎沒有把 Json 型別排除在排序之外。對它排序不會壞,但結果沒有意義 |
 | **巢狀資源的父層鏈驗證用的是父層 model 的預設查詢** | 每個請求對路由上的每一層父層各多一次查詢(`admin/page/{page_id}/block/{block_id}/item` 多兩次)。父層被軟刪除或被自己的 global scope 排除時,底下的子資料在後台整組變成 404;要讓後台操作這種父層底下的資料,得在父層 model 調整 scope,或改用 standalone 並自己加條件。`admin/page/999/block/31/item` 這種祖父層對不上的網址也回 404,不會再顯示網址與麵包屑不符的資料 |
-| **兩層以上的巢狀資源,`count()` 的鑽取路徑要自己寫** | `ColumnResolver::path()` 推導出前綴後會經過 `Subject::generic()`,那會把**每一個**佔位符都換成 `{id}`。一層巢狀沒事(`city/{id}/area`),兩層就變成 `page/{id}/block/{id}/item` —— 兩個 `{id}` 分不出誰是誰。解法是在 `$lists` 用陣列語法明寫:`['name' => 'count(items)', 'path' => 'page/{page_id}/block/{id}/item']`,明寫的值直接送出,不經過 `generic()` 也不查 `Menus::has()`。前端是拿**那一列**去填佔位符的,而列本身帶著自己的外鍵(`page_id`)與 `id`,所以具名佔位符填得滿。代價是這個字串與路由、選單三處必須人工保持一致,沒有任何機制會驗證,寫錯的症狀是點數字連到 404 |
+| **`count()` 的鑽取路徑只把最後一個佔位符換成 `{id}`** | `ColumnResolver::path()` 推導出前綴後會經過 `Subject::generic()`,它只替換**最後一個**佔位符:一層巢狀是 `city/{id}/area`,兩層是 `page/{page_id}/block/{id}/item`。前端是拿**那一列**去填佔位符的,而列本身帶著自己的外鍵(`page_id`)與 `id`,所以具名佔位符填得滿,兩層以上也不必自己寫。推導不出來時(選單沒有對應節點)`path` 是 `null`;要指定別的路徑,在 `$lists` 用陣列語法明寫 `path`,明寫的值直接送出,不經過 `generic()` 也不查 `Menus::has()`,代價是這個字串與路由、選單三處必須人工保持一致,寫錯的症狀是點數字連到 404 |
 | **`$counts` 在設了 `$lists` 或 `$updates` 的 controller 上會靜默失效** | `CrudController::listing()` 只有在 `$lists` 為 null **且** `$updates` 為空時才把 `counted()` 併進清單。設了其中任何一個,`$counts` 就完全沒有作用,也不會有任何警告。要 count 欄位就直接寫進 `$lists`(`'count(items)'`),不要用 `$counts` |
 | **自我參照的樹,巢狀資源必須掛在與關聯名同名的路由段下** | `count(children)` 的鑽取路徑是這樣推出來的:`Subject::path()` 遇到自我參照會停在 alias(`menu`),引擎改用關聯名 `children` 去選單裡找 `menu/{任意參數}/children`,找到才有 `path`。掛成別的名字(例如 `menu/{parent_id}/sub`)不會壞,但 `path` 會是 `null`,前端的數字就點不進去。`admin/menu` 只列頂層,子層一律走 `admin/menu/{parent_id}/children`,每一層都回到同一個 pattern,深度不限 |
 

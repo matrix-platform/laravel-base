@@ -22,6 +22,8 @@ return [
 
     'file-too-large' => '檔案大小超過限制',
 
+    'file-write-failed' => '檔案寫入失敗',
+
     'geolocation-database-not-found' => '找不到地理位置資料庫檔案',
 
     'geolocation-request-failed' => '地理位置查詢請求失敗',
@@ -43,6 +45,8 @@ return [
     'invalid-column-expression' => '欄位運算式語法錯誤',
 
     'invalid-drive-file' => '不是有效的雲端硬碟檔案',
+
+    'invalid-drive-folder' => '不是有效的雲端硬碟資料夾',
 
     'invalid-envelope' => '無法讀取加密請求',
 

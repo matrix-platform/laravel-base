@@ -16,6 +16,7 @@ use MatrixPlatform\Models\User;
 use MatrixPlatform\Services\Admin\DriveService;
 use MatrixPlatform\Services\FileService;
 use MatrixPlatform\Services\FileStorage;
+use Mockery;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
 
@@ -235,6 +236,17 @@ class FileServiceTest extends FeatureTestCase {
         $this->refuses('invalid-mime-type', fn () => $this->service()->upload($this->blob('doc.pdf', 'x'), File::PUBLIC, null, ['#^image/#']));
 
         $this->assertSame([], Storage::disk('public')->allFiles());
+    }
+
+    public function test_a_write_the_disk_reports_as_failed_is_refused_and_records_nothing(): void {
+        $disk = Mockery::mock(Storage::disk('public'));
+        $disk->shouldReceive('putFileAs')->andReturnFalse();
+
+        Storage::set('public', $disk);
+
+        $this->refuses('file-write-failed', fn () => $this->service()->upload($this->blob('a.bin', 'content')));
+
+        $this->assertSame(0, File::query()->count());
     }
 
     public function test_a_zero_size_limit_means_no_limit(): void {

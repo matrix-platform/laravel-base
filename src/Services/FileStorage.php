@@ -34,7 +34,9 @@ class FileStorage {
     public function store(UploadedFile $file, string $disk, string $folder): string {
         $path = date('Ym') . '/' . Str::random(32);
 
-        Storage::disk($disk)->putFileAs($folder, $file, $path);
+        if (Storage::disk($disk)->putFileAs($folder, $file, $path) === false) {
+            error('file-write-failed');
+        }
 
         app(RollbackCallbacks::class)->register(fn () => Storage::disk($disk)->delete($folder . $path));
 

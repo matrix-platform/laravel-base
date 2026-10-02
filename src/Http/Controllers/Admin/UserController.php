@@ -48,6 +48,10 @@ class UserController extends CrudController {
         return ['id' => $model->getKey()];
     }
 
+    public function historyVisible(int $id): bool {
+        return $id >= $this->minimumManageableId();
+    }
+
     /**
      * @return array{id: mixed, revoked: int}
      */

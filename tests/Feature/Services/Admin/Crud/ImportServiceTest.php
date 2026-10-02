@@ -263,6 +263,12 @@ class ImportServiceTest extends FeatureTestCase {
         ]));
     }
 
+    public function test_a_null_byte_in_a_date_time_is_a_date_failure(): void {
+        $this->assertFailed([$this->failure(2, ['enable_time' => ['date']])], $this->importer(['enable_time']), $this->input([
+            ['enable_time' => "2026-01-02\0 03:04:05"]
+        ]));
+    }
+
     public function test_a_blank_required_column_is_required_and_a_blank_optional_one_is_accepted(): void {
         $this->assertFailed([$this->failure(3, ['title' => ['required']])], $this->importer(['*title', 'enable_time']), $this->input([
             ['title' => 'Alpha', 'enable_time' => ''],

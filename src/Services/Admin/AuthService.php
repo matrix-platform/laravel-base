@@ -48,7 +48,7 @@ class AuthService {
 
         if ($user === null || !$verified) {
             if ($user !== null) {
-                app(RollbackCallbacks::class)->register(fn () => $user->writeLog(UserLogType::LoginFailed));
+                app(RollbackCallbacks::class)->persist(fn () => $user->writeLog(UserLogType::LoginFailed));
             }
 
             invalid('password', 'invalid-username-or-password');
@@ -97,7 +97,7 @@ class AuthService {
         }
 
         if (!$this->mfa->verify($user, $code)) {
-            app(RollbackCallbacks::class)->register(fn () => $user->writeLog(UserLogType::MfaChallengeFailed));
+            app(RollbackCallbacks::class)->persist(fn () => $user->writeLog(UserLogType::MfaChallengeFailed));
 
             invalid('code', 'invalid-code');
         }

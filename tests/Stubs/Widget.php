@@ -44,6 +44,13 @@ class Widget extends BaseModel {
     protected $table = 'stub_widget';
 
     /**
+     * @return BelongsTo<Relic, $this>
+     */
+    public function anyRelic(): BelongsTo {
+        return $this->belongsTo(Relic::class, 'relic_id')->withTrashed();
+    }
+
+    /**
      * @return MorphMany<Trinket, $this>
      */
     public function owned(): MorphMany {
@@ -83,6 +90,13 @@ class Widget extends BaseModel {
      */
     public function trinkets(): HasMany {
         return $this->hasMany(Trinket::class, 'widget_id');
+    }
+
+    /**
+     * @return BelongsTo<Relic, $this>
+     */
+    public function visibleRelic(): BelongsTo {
+        return $this->belongsTo(Relic::class, 'relic_id')->where('stub_relic.label', '!=', 'hidden');
     }
 
     /**

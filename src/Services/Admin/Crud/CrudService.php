@@ -1096,7 +1096,7 @@ abstract class CrudService {
             $rule->withoutTrashed($this->model->getDeletedAtColumn());
         }
 
-        return $ignoreId === null ? $rule : $rule->ignore($ignoreId);
+        return $ignoreId === null ? $rule : $rule->ignore($ignoreId, $this->model->getKeyName());
     }
 
     private function verifyLineage(): void {

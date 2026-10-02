@@ -49,6 +49,15 @@ class PermissionMapTest extends FeatureTestCase {
         $this->assertSame(['user' => ['query' => true, 'update' => true]], $group->refresh()->permissions);
     }
 
+    public function test_only_true_one_and_the_string_one_grant_an_action(): void {
+        $group = $this->stored(['user' => [
+            'a' => true, 'b' => 1, 'c' => '1',
+            'd' => false, 'e' => 0, 'f' => '0', 'g' => 'true', 'h' => 'false', 'i' => null, 'j' => ['x'], 'k' => 2, 'l' => ''
+        ]]);
+
+        $this->assertSame(['user' => ['a' => true, 'b' => true, 'c' => true]], $group->refresh()->permissions);
+    }
+
     public function test_a_resource_left_without_any_granted_action_is_dropped(): void {
         $group = $this->stored(['user' => ['query' => false], 'group' => [], 'nowhere' => 'granted']);
 

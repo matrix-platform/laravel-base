@@ -107,11 +107,11 @@ class UpdateGeolocationDatabaseCommand extends Command {
                 return false;
             }
 
-            $this->replace($stream);
+            $replaced = $this->replace($stream);
 
             fclose($stream);
 
-            return true;
+            return $replaced;
         } finally {
             $archive->close();
         }
@@ -120,13 +120,26 @@ class UpdateGeolocationDatabaseCommand extends Command {
     /**
      * @param resource $stream
      */
-    private function replace($stream): void {
+    private function replace($stream): bool {
         $disk = app(FileStorage::class)->requireLocal(config()->string('matrix.file-private-disk'));
         $path = strval(cfg('ip2location-bin.bin-path'));
         $temporary = "{$path}.tmp";
 
-        Storage::disk($disk)->writeStream($temporary, $stream);
-        Storage::disk($disk)->move($temporary, $path);
+        if (!Storage::disk($disk)->writeStream($temporary, $stream)) {
+            Storage::disk($disk)->delete($temporary);
+            $this->error('Failed to write the .BIN file to the disk');
+
+            return false;
+        }
+
+        if (!Storage::disk($disk)->move($temporary, $path)) {
+            Storage::disk($disk)->delete($temporary);
+            $this->error('Failed to replace the geolocation database with the new .BIN file');
+
+            return false;
+        }
+
+        return true;
     }
 
 }

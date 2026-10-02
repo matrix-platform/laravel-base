@@ -30,8 +30,12 @@ class Resources {
         return $base;
     }
 
-    public static function defaultsCacheKey(string $name): string {
-        return "matrix:resources:defaults:{$name}";
+    public static function defaultsCacheKey(string $name, string $generation): string {
+        return "matrix:resources:defaults:{$generation}:{$name}";
+    }
+
+    public static function generationCacheKey(): string {
+        return 'matrix:resources:generation';
     }
 
     public static function overridesCacheKey(): string {
@@ -46,6 +50,8 @@ class Resources {
      * @var array<string, array<string, mixed>|null>
      */
     private array $bundles = [];
+
+    private ?string $generation = null;
 
     /**
      * @var array<string, array<string, mixed>>|null
@@ -88,9 +94,14 @@ class Resources {
     }
 
     public function forgetAll(): void {
+        $cache = $this->cache();
+        $generation = strval($cache->get(self::generationCacheKey(), ''));
+
         foreach ($this->allBundleNames() as $name) {
-            $this->cache()->forget(self::defaultsCacheKey($name));
+            $cache->forget(self::defaultsCacheKey($name, $generation));
         }
+
+        $cache->forever(self::generationCacheKey(), bin2hex(random_bytes(8)));
 
         $this->forget();
     }
@@ -124,8 +135,8 @@ class Resources {
             error('invalid-resource-token');
         }
 
-        $key = self::defaultsCacheKey($name);
         $store = $this->store();
+        $key = self::defaultsCacheKey($name, $this->generation($store));
         $cached = $store->get($key);
 
         if ($cached !== null) {
@@ -182,6 +193,7 @@ class Resources {
     public function reset(): void {
         $this->bundles = [];
         $this->overrides = null;
+        $this->generation = null;
     }
 
     public function translate(string $token, ?string $locale = null): string {
@@ -223,6 +235,14 @@ class Resources {
 
     private function enabled(): bool {
         return (bool) config('matrix.resource-cache-enabled');
+    }
+
+    private function generation(Repository $store): string {
+        if ($this->generation === null) {
+            $this->generation = strval($store->get(self::generationCacheKey(), ''));
+        }
+
+        return $this->generation;
     }
 
     /**

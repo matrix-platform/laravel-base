@@ -2,76 +2,34 @@
 
 namespace Tests\Unit\Support;
 
+use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Support\RollbackCallbacks;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 class RollbackCallbacksTest extends TestCase {
 
-    public function test_run_executes_registered_callbacks_in_order(): void {
-        $calls = [];
-        $callbacks = new RollbackCallbacks();
-
-        $callbacks->register(function () use (&$calls): void {
-            $calls[] = 'first';
-        });
-
-        $callbacks->register(function () use (&$calls): void {
-            $calls[] = 'second';
-        });
-
-        $callbacks->run();
-
-        $this->assertSame(['first', 'second'], $calls);
-    }
-
-    public function test_run_clears_the_queue_so_callbacks_fire_once(): void {
+    public function test_outside_a_transaction_a_persisted_callback_runs_at_once(): void {
         $calls = 0;
-        $callbacks = new RollbackCallbacks();
 
-        $callbacks->register(function () use (&$calls): void {
+        $this->assertSame(0, DB::transactionLevel());
+
+        (new RollbackCallbacks())->persist(function () use (&$calls): void {
             $calls++;
         });
-
-        $callbacks->run();
-        $callbacks->run();
 
         $this->assertSame(1, $calls);
     }
 
-    public function test_run_on_empty_queue_leaves_the_object_usable(): void {
-        $calls = 0;
-        $callbacks = new RollbackCallbacks();
+    public function test_outside_a_transaction_a_registered_callback_never_runs(): void {
+        $ran = false;
 
-        $callbacks->run();
+        $this->assertSame(0, DB::transactionLevel());
 
-        $callbacks->register(function () use (&$calls): void {
-            $calls++;
+        (new RollbackCallbacks())->register(function () use (&$ran): void {
+            $ran = true;
         });
 
-        $callbacks->run();
-
-        $this->assertSame(1, $calls);
-    }
-
-    public function test_callback_registered_during_run_waits_for_the_next_run(): void {
-        $calls = [];
-        $callbacks = new RollbackCallbacks();
-
-        $callbacks->register(function () use (&$calls, $callbacks): void {
-            $calls[] = 'outer';
-
-            $callbacks->register(function () use (&$calls): void {
-                $calls[] = 'inner';
-            });
-        });
-
-        $callbacks->run();
-
-        $this->assertSame(['outer'], $calls);
-
-        $callbacks->run();
-
-        $this->assertSame(['outer', 'inner'], $calls);
+        $this->assertFalse($ran);
     }
 
 }

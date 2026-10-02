@@ -246,7 +246,7 @@ class PermissionTree implements OptionProvider {
     private function wanted(array $requested, string $path, string $tag): bool {
         $actions = array_get_value($requested, $path);
 
-        return is_array($actions) && array_get_value($actions, $tag) == true;
+        return is_array($actions) && in_array(array_get_value($actions, $tag), [true, 1, '1'], true);
     }
 
 }

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Support\Scaffold;
 
+use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Support\Scaffold\SchemaIntrospector;
 use Tests\FeatureTestCase;
@@ -40,11 +41,46 @@ class SchemaIntrospectorTest extends FeatureTestCase {
         $this->assertSame([], $introspector->compositeUniqueConstraints('scaffold_simple'));
     }
 
+    public function test_a_unique_constraint_sharing_its_name_with_another_tables_foreign_key_is_still_detected(): void {
+        DB::statement('create table introspect_parent (id integer primary key)');
+        DB::statement('create table introspect_unique (id integer primary key, email text, constraint introspect_shared unique (email))');
+        DB::statement('create table introspect_child (id integer primary key, parent_id integer, constraint introspect_shared foreign key (parent_id) references introspect_parent (id))');
+
+        $introspector = new SchemaIntrospector();
+        $columns = $introspector->columns('introspect_unique');
+
+        $this->assertTrue($columns['email']->unique);
+        $this->assertSame([], $introspector->compositeUniqueConstraints('introspect_unique'));
+        $this->assertSame('introspect_parent', $introspector->columns('introspect_child')['parent_id']->foreignTable);
+    }
+
     public function test_a_single_column_foreign_key_and_its_referenced_table_are_detected(): void {
         $columns = (new SchemaIntrospector())->columns('scaffold_widget');
 
         $this->assertSame('scaffold_parent', $columns['parent_id']->foreignTable);
         $this->assertNull($columns['code']->foreignTable);
+    }
+
+    public function test_a_foreign_key_sharing_its_name_with_another_table_is_still_detected(): void {
+        DB::statement('create table introspect_parent (id integer primary key)');
+        DB::statement('create table introspect_child_a (id integer primary key, parent_id integer, constraint introspect_shared_fk foreign key (parent_id) references introspect_parent (id))');
+        DB::statement('create table introspect_child_b (id integer primary key, other_id integer, constraint introspect_shared_fk foreign key (other_id) references introspect_parent (id))');
+
+        $introspector = new SchemaIntrospector();
+
+        $this->assertSame('introspect_parent', $introspector->columns('introspect_child_a')['parent_id']->foreignTable);
+        $this->assertSame('introspect_parent', $introspector->columns('introspect_child_b')['other_id']->foreignTable);
+        $this->assertArrayNotHasKey('other_id', $introspector->columns('introspect_child_a'));
+    }
+
+    public function test_a_composite_foreign_key_is_skipped(): void {
+        DB::statement('create table introspect_pair (a integer, b integer, primary key (a, b))');
+        DB::statement('create table introspect_pair_child (id integer primary key, a integer, b integer, foreign key (a, b) references introspect_pair (a, b))');
+
+        $columns = (new SchemaIntrospector())->columns('introspect_pair_child');
+
+        $this->assertNull($columns['a']->foreignTable);
+        $this->assertNull($columns['b']->foreignTable);
     }
 
     public function test_a_column_comment_is_reported_when_present(): void {

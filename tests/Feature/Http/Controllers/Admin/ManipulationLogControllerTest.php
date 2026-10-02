@@ -51,6 +51,42 @@ class ManipulationLogControllerTest extends FeatureTestCase {
             ->assertJson(['success' => false, 'code' => 403, 'error' => 'permission-denied']);
     }
 
+    public function test_a_regular_user_cannot_read_the_history_of_a_root_or_an_admin(): void {
+        $admin = UserFactory::new()->createOne(['id' => 2]);
+        $token = UserFactory::new()->createOne(['id' => 1001, 'permissions' => ['user' => ['query' => true]]])->createToken();
+
+        foreach ([User::ROOT, $admin->id] as $id) {
+            $this->send($token, ['prefix' => 'user', 'id' => $id])
+                ->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
+        }
+    }
+
+    public function test_an_admin_cannot_read_the_history_of_the_root(): void {
+        $token = UserFactory::new()->createOne(['id' => 2, 'permissions' => ['user' => ['query' => true]]])->createToken();
+
+        $this->send($token, ['prefix' => 'user', 'id' => User::ROOT])
+            ->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
+    }
+
+    public function test_the_history_of_a_manageable_user_is_still_reported(): void {
+        $admin = UserFactory::new()->createOne(['id' => 2, 'permissions' => ['user' => ['query' => true]]]);
+        $regular = UserFactory::new()->createOne(['id' => 1001, 'permissions' => ['user' => ['query' => true]]]);
+        $other = UserFactory::new()->createOne(['id' => 1002]);
+
+        $this->send($this->token, ['prefix' => 'user', 'id' => $admin->id])->assertJsonPath('data.rows.0.type', 'Created');
+        $this->send($admin->createToken(), ['prefix' => 'user', 'id' => $other->id])->assertJsonPath('data.rows.0.type', 'Created');
+        $this->send($regular->createToken(), ['prefix' => 'user', 'id' => $other->id])->assertJsonPath('data.rows.0.type', 'Created');
+    }
+
+    public function test_the_history_of_a_deleted_manageable_user_is_still_reported(): void {
+        $token = UserFactory::new()->createOne(['id' => 2, 'permissions' => ['user' => ['query' => true]]])->createToken();
+        $other = UserFactory::new()->createOne(['id' => 1002]);
+
+        $other->delete();
+
+        $this->send($token, ['prefix' => 'user', 'id' => $other->id])->assertJsonPath('data.rows.0.type', 'Deleted');
+    }
+
     public function test_a_huge_size_request_is_capped_at_one_hundred(): void {
         $group = GroupFactory::new()->createOne();
 

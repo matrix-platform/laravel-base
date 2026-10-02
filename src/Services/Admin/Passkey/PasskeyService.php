@@ -81,7 +81,7 @@ class PasskeyService {
             $result = AuthenticatorAssertionResponseValidator::create($this->ceremonies()->requestCeremony())
                 ->check($record, $publicKeyCredential->response, $options, request()->getHost(), null);
         } catch (Throwable) {
-            app(RollbackCallbacks::class)->register(fn () => $user->writeLog(UserLogType::PasskeyLoginFailed));
+            app(RollbackCallbacks::class)->persist(fn () => $user->writeLog(UserLogType::PasskeyLoginFailed));
 
             invalid('credential', 'invalid-passkey');
         }

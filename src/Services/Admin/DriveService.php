@@ -39,6 +39,7 @@ class DriveService {
 
     public function createFolder(DriveNode $parent, string $name, User $user): DriveNode {
         $this->requireAllowed($parent, $user);
+        $this->requireContainer($parent);
 
         if ($this->exists($parent->id, $name)) {
             error('name-already-exists');
@@ -162,6 +163,7 @@ class DriveService {
 
         $this->requireAllowed($node, $user);
         $this->requireAllowed($newParent, $user);
+        $this->requireContainer($newParent);
 
         if ($newParent->id === $node->id || $this->isDescendant($newParent, $node)) {
             error('invalid-move-target');
@@ -256,6 +258,7 @@ class DriveService {
 
     public function upload(DriveNode $parent, UploadedFile $file, User $user): DriveNode {
         $this->requireAllowed($parent, $user);
+        $this->requireContainer($parent);
 
         $mimeType = $file->getMimeType();
         $fileService = app(FileService::class);
@@ -348,6 +351,12 @@ class DriveService {
         }
 
         return false;
+    }
+
+    private function requireContainer(DriveNode $node): void {
+        if ($node->type === DriveNodeType::File) {
+            error('invalid-drive-folder');
+        }
     }
 
     private function uniqueName(DriveNode $parent, string $name): string {
