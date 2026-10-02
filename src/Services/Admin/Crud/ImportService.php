@@ -176,7 +176,7 @@ class ImportService extends CrudService {
         $unsupported = array_filter($scoped, fn (Column $column): bool => $column->required && !$this->supported($column));
 
         if ($unsupported !== []) {
-            error('import-column-unsupported', 500, ['columns' => array_column($unsupported, 'name')]);
+            error('import-column-unsupported', extra: ['columns' => array_column($unsupported, 'name')]);
         }
 
         $this->swap(array_values(array_filter($scoped, $this->supported(...))));

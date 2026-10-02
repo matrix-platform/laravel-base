@@ -88,6 +88,10 @@ return [
 
     'invalid-type-resolver' => '复合字段的类型判断器设置错误',
 
+    'menu-depth-exceeded' => '此菜单项目底下不能再新增项目',
+
+    'menu-locked' => '此菜单项目由系统管理，不可删除或修改',
+
     'message-provider-has-no-driver' => '消息提供商未设置发送器',
 
     'message-refused-by-provider' => '消息被提供商拒绝',

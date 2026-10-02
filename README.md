@@ -458,7 +458,7 @@ translatable 的子欄位就是一個 `translatable: true` 的普通 column,前�
 
 **區塊與子項目的後台另外有這些規則:**
 
-- **型別只收 `options/block-module` 清單裡的值**,`page-content`(`Block::PAGE_CONTENT`)除外 —— 它標記頁面固定內容在區塊序列中的位置,只能由 seeder 預建;已有的 `page-content` 可以編輯、排序、上下架,但複製、刪除回 409 `page-content-locked`。
+- **型別只收 `options/block-module` 清單裡的值**,`page-content`(`Block::PAGE_CONTENT`)除外 —— 它標記頁面固定內容在區塊序列中的位置,只能由 seeder 預建;已有的 `page-content` 可以編輯、排序、上下架,但複製、刪除回 `page-content-locked`。
 - **新增表單的預設值**:`block-data` 的 `Variant` 同時實作 `Presets`(`defaults(): array`,子欄位名 => 值)時,`new` 會把它們以 `data__{子欄位}` 補進沒帶的輸入,只影響表單、不影響驗證。
 - **`data` 在驗證規則之外還會檢查**(`BlockDataGuard`,新增與修改都會):`BundleOptions` 選單的值必須在選項內(空白交給 `required`),`DriveImage` 限 JPG / PNG / WebP(不限大小)(`validation.image-invalid`)。
 - **區塊複製連同子項目**,複本排在最後、預設隱藏,連帶複製的子項目沿用來源子項目的上下架狀態。區塊與子項目的 `copy` 節點(`page/{page_id}/block/{id}/copy`、`page/{page_id}/block/{block_id}/item/{id}/copy`)由套件選單直接登記,和其他資源預設不開 `copy` 不同;宿主不要複製時在選單設為 `null`。
@@ -494,6 +494,25 @@ public function resolve(?Model $model, mixed $input): ?string {
 ```
 
 子欄位標題分別放 `resources/i18n/{locale}/model/page-data.php` 與 `model/menu-data.php`。
+
+**選單項目可以鎖定。** `menu-data` 的 variant 實作下列標記介面(都沒有方法)時,`Menu` 的 model 事件會擋下後台對該項目的操作,回 `menu-locked`(`Leaf` 回 `menu-depth-exceeded`)。`Leaf` 用來限制層數:把最後一層的 variant 標成 `Leaf`,那一層就不能再往下新增。擋在 model 事件,所以 `{id}/update`、`delete`、`{id}/copy`、`arrange/save`、`schedule/toggle` 都涵蓋:
+
+| 介面 | 擋下 | 仍可以 |
+|---|---|---|
+| `Leaf` | 在它底下新增子項目(`menu-depth-exceeded`) | 其他操作 |
+| `Locked` | 刪除 | 其他操作 |
+| `Synced`(繼承 `Leaf`、`Locked`) | 刪除、新增(含複製出來的複本)、修改 `ranking` 與稽核欄位以外的任何欄位(含上下架時間)、在它底下新增子項目 | 排序(`arrange/save` 只改順序) |
+
+`MenuChildrenController` 另外處理畫面:`Synced` 項目的編輯頁所有欄位唯讀(複合欄位的子欄位跟著唯讀)、不出現儲存按鈕;`Leaf`(含 `Synced`)項目在清單上不列子項目數(不能點進下一層);`Locked`(含 `Synced`)項目的那一列沒有刪除按鈕;`arrange` 回傳的列與清單的列(清單只在有上下架欄位時)多一個 `fixed`(`true` = 只能排序、不能改上下架,前端的啟用開關停用),其餘列為 `false`。其他 controller 要同樣的效果,在 `onArrange` / `onList` 對 `ArrangeService` / `ListService` 呼叫 `fixed(fn (Model $row): bool => …)`。
+
+資料由系統同步時(例如依其他資料表自動建立、更新、刪除選單項目),把寫入包在 `MenuLocks::release()` 裡就不受上述限制:
+
+```php
+MenuLocks::release(function () use ($menu): void {
+    $menu->title__tw = $category->title__tw;
+    $menu->save();
+});
+```
 
 ### 4. Controller
 
@@ -1053,6 +1072,8 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `invalid-token` | 登入憑證無效或已過期 |
 | `invalid-translation-driver` | 翻譯服務設定錯誤 |
 | `invalid-type-resolver` | 複合欄位的型別判斷器設定錯誤 |
+| `menu-depth-exceeded` | 此選單項目底下不能再新增項目 |
+| `menu-locked` | 此選單項目由系統管理，不可刪除或修改 |
 | `message-provider-has-no-driver` | 訊息供應商未設定傳送器 |
 | `message-refused-by-provider` | 訊息被供應商拒絕 |
 | `message-template-not-found` | 查無訊息樣板 |

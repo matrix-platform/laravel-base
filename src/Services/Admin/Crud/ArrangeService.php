@@ -2,6 +2,7 @@
 
 namespace MatrixPlatform\Services\Admin\Crud;
 
+use Closure;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
@@ -14,6 +15,8 @@ class ArrangeService extends CrudService {
     private string $disable;
 
     private string $enable;
+
+    private ?Closure $fixed = null;
 
     private bool $rankable = false;
 
@@ -29,6 +32,12 @@ class ArrangeService extends CrudService {
         $this->ranking = $this->field($metadata?->ranking, 'ranking');
     }
 
+    public function fixed(Closure $fixed): static {
+        $this->fixed = $fixed;
+
+        return $this;
+    }
+
     /**
      * @return array{rows: list<array<string, mixed>>, sortable: bool}
      */
@@ -39,7 +48,8 @@ class ArrangeService extends CrudService {
             $rows[] = [
                 'id' => $model->getKey(),
                 'title' => $this->subject->title($model),
-                'enabled' => $this->enabled($model)
+                'enabled' => $this->enabled($model),
+                'fixed' => $this->fixed !== null && ($this->fixed)($model) === true
             ];
         }
 

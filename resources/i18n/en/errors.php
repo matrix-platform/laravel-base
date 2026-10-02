@@ -88,6 +88,10 @@ return [
 
     'invalid-type-resolver' => 'Invalid composite field type resolver configuration',
 
+    'menu-depth-exceeded' => 'No items can be added under this menu item',
+
+    'menu-locked' => 'This menu item is managed by the system and cannot be deleted or changed',
+
     'message-provider-has-no-driver' => 'Message provider has no driver configured',
 
     'message-refused-by-provider' => 'The provider refused the message',

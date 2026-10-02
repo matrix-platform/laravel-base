@@ -88,6 +88,10 @@ return [
 
     'invalid-type-resolver' => '複合フィールドのタイプリゾルバー設定が不正です',
 
+    'menu-depth-exceeded' => 'このメニュー項目の下には項目を追加できません',
+
+    'menu-locked' => 'このメニュー項目はシステムで管理されているため、削除・変更できません',
+
     'message-provider-has-no-driver' => 'メッセージプロバイダーに送信ドライバーが設定されていません',
 
     'message-refused-by-provider' => 'プロバイダーによってメッセージが拒否されました',

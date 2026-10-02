@@ -761,7 +761,7 @@ abstract class CrudService {
                 path: null,
                 placeholder: $this->label($bundle, "{$field}:placeholder"),
                 presentation: $presentation === null ? ($options === null ? Presentation::Plain : Presentation::Select) : $presentation,
-                readonly: false,
+                readonly: $composite->readonly,
                 remark: $this->label($bundle, "{$field}:remark"),
                 required: $definition->required,
                 rule: $definition->rule instanceof Closure ? ($definition->rule)() : $definition->rule,

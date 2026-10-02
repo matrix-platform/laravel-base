@@ -370,7 +370,7 @@ class BlockControllerTest extends FeatureTestCase {
         $block = BlockFactory::new()->createOne(['page_id' => $page->id, 'type' => Block::PAGE_CONTENT]);
 
         $this->send("admin/page/{$page->id}/block/{$block->id}/copy")
-            ->assertJson(['success' => false, 'code' => 409, 'error' => 'page-content-locked']);
+            ->assertJson(['success' => false, 'error' => 'page-content-locked']);
 
         $this->assertSame([$block->id], $this->order($page->id));
     }
@@ -380,7 +380,7 @@ class BlockControllerTest extends FeatureTestCase {
         $block = BlockFactory::new()->createOne(['page_id' => $page->id, 'type' => Block::PAGE_CONTENT]);
 
         $this->send("admin/page/{$page->id}/block/delete", ['id' => [$block->id]])
-            ->assertJson(['success' => false, 'code' => 409, 'error' => 'page-content-locked']);
+            ->assertJson(['success' => false, 'error' => 'page-content-locked']);
 
         $this->assertSame([$block->id], $this->order($page->id));
     }

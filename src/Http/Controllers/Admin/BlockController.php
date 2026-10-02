@@ -79,7 +79,7 @@ class BlockController extends CrudController {
 
     private function lock(Model $model): void {
         if ($model instanceof Block && $model->type === Block::PAGE_CONTENT) {
-            error('page-content-locked', 409);
+            error('page-content-locked');
         }
     }
 

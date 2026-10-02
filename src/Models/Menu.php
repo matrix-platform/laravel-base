@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use MatrixPlatform\Attributes\Declared;
 use MatrixPlatform\Models\Declarations\MenuDeclaration;
+use MatrixPlatform\Support\MenuLocks;
 
 /**
  * @property int $id
@@ -24,6 +25,14 @@ use MatrixPlatform\Models\Declarations\MenuDeclaration;
  */
 #[Declared(MenuDeclaration::class)]
 class Menu extends BaseModel {
+
+    protected static function booted(): void {
+        parent::booted();
+
+        static::creating(fn (Menu $menu) => MenuLocks::creating($menu));
+        static::deleting(fn (Menu $menu) => MenuLocks::deleting($menu));
+        static::updating(fn (Menu $menu) => MenuLocks::updating($menu));
+    }
 
     protected $table = 'base_menu';
 

@@ -88,6 +88,10 @@ return [
 
     'invalid-type-resolver' => '複合欄位的型別判斷器設定錯誤',
 
+    'menu-depth-exceeded' => '此選單項目底下不能再新增項目',
+
+    'menu-locked' => '此選單項目由系統管理，不可刪除或修改',
+
     'message-provider-has-no-driver' => '訊息供應商未設定傳送器',
 
     'message-refused-by-provider' => '訊息被供應商拒絕',

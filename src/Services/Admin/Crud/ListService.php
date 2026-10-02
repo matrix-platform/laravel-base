@@ -24,6 +24,8 @@ class ListService extends CrudService {
      */
     private array $countable = [];
 
+    private ?Closure $fixed = null;
+
     /**
      * @var list<string|array<string, mixed>>
      */
@@ -51,6 +53,12 @@ class ListService extends CrudService {
 
     public function countable(string $name, Closure $when): static {
         $this->countable[$name] = $when;
+
+        return $this;
+    }
+
+    public function fixed(Closure $fixed): static {
+        $this->fixed = $fixed;
 
         return $this;
     }
@@ -188,6 +196,10 @@ class ListService extends CrudService {
             if ($enable !== null && $disable !== null) {
                 $data = Arr::except($data, [$enable, $disable]);
                 $data['enabled'] = Schedule::isEnabled($row, $enable, $disable);
+
+                if ($this->fixed !== null) {
+                    $data['fixed'] = ($this->fixed)($row) === true;
+                }
             }
 
             foreach ($this->countable as $name => $when) {
