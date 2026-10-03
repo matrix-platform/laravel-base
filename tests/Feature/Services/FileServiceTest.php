@@ -283,6 +283,79 @@ class FileServiceTest extends FeatureTestCase {
         Storage::disk('public')->assertExists("files/{$file->path}");
     }
 
+    public function test_an_image_is_stored_with_the_extension_of_its_detected_type(): void {
+        $file = $this->service()->upload(UploadedFile::fake()->image('photo.png', 20, 10));
+
+        $this->assertMatchesRegularExpression('#^' . date('Ym') . '/[A-Za-z0-9]{32}\\.png$#', $file->path);
+        Storage::disk('public')->assertExists("files/{$file->path}");
+    }
+
+    public function test_the_extension_follows_the_detected_content_not_the_name_the_client_sent(): void {
+        $image = UploadedFile::fake()->image('a.png', 4, 4);
+        $disguised = tempnam(sys_get_temp_dir(), 'upload');
+        $svg = tempnam(sys_get_temp_dir(), 'upload');
+
+        copy($image->getPathname(), $disguised);
+        file_put_contents($svg, '<svg xmlns="http://www.w3.org/2000/svg"></svg>');
+
+        $png = $this->service()->upload(new UploadedFile($disguised, 'shell.php', null, null, true));
+        $icon = $this->service()->upload(new UploadedFile($svg, 'icon.txt', null, null, true));
+
+        $this->assertStringEndsWith('.png', $png->path);
+        $this->assertSame('shell.php', $png->name);
+        $this->assertStringEndsWith('.svg', $icon->path);
+    }
+
+    public function test_a_file_outside_the_image_whitelist_gets_no_extension(): void {
+        $file = $this->service()->upload($this->blob('report.pdf', '%PDF-1.4 test'));
+
+        $this->assertMatchesRegularExpression('#^' . date('Ym') . '/[A-Za-z0-9]{32}$#', $file->path);
+    }
+
+    public function test_new_directories_take_the_configured_permission_despite_the_umask(): void {
+        config()->set('matrix.directory-permission', 0777);
+
+        $previous = umask(0022);
+
+        try {
+            $file = $this->service()->upload($this->blob('a.bin', 'content'));
+            $root = Storage::disk('public')->path('');
+            $thumbnail = Storage::disk('public')->path($this->service()->thumbnailLocation($file, 'thumb'));
+
+            app(FileStorage::class)->ensureDirectory(dirname($thumbnail));
+        } finally {
+            umask($previous);
+        }
+
+        $this->assertSame(0777, fileperms("{$root}files") & 0777);
+        $this->assertSame(0777, fileperms("{$root}files/" . date('Ym')) & 0777);
+        $this->assertSame(0777, fileperms(dirname($thumbnail)) & 0777);
+    }
+
+    public function test_new_directories_keep_the_umask_without_a_configured_permission(): void {
+        $previous = umask(0022);
+
+        try {
+            $this->service()->upload($this->blob('a.bin', 'content'));
+        } finally {
+            umask($previous);
+        }
+
+        $this->assertSame(0755, fileperms(Storage::disk('public')->path('files/' . date('Ym'))) & 0777);
+    }
+
+    public function test_an_existing_directory_is_left_alone(): void {
+        config()->set('matrix.directory-permission', 0777);
+
+        $directory = Storage::disk('public')->path('files/' . date('Ym'));
+
+        mkdir($directory, 0700, true);
+
+        $this->service()->upload($this->blob('a.bin', 'content'));
+
+        $this->assertSame(0700, fileperms($directory) & 0777);
+    }
+
     public function test_a_rollback_removes_the_file_that_was_just_written(): void {
         $stored = null;
 
@@ -605,6 +678,63 @@ class FileServiceTest extends FeatureTestCase {
 
         $this->assertSame($existing, $resolved[0]);
         $this->assertSame(File::DRIVE_PREFIX . $node->path, $resolved[1]['path']);
+    }
+
+
+    public function test_importing_a_local_file_stores_a_public_copy_and_leaves_the_source_alone(): void {
+        $source = tempnam(sys_get_temp_dir(), 'source') . '.svg';
+
+        file_put_contents($source, '<svg xmlns="http://www.w3.org/2000/svg"></svg>');
+
+        $file = $this->service()->import($source);
+
+        $this->assertSame(File::PUBLIC, $file->privilege);
+        $this->assertSame(basename($source), $file->name);
+        $this->assertSame('image/svg+xml', $file->mime_type);
+        Storage::disk('public')->assertExists($this->service()->location($file));
+        $this->assertSame('<svg xmlns="http://www.w3.org/2000/svg"></svg>', file_get_contents($source));
+    }
+
+    public function test_importing_the_same_content_twice_reuses_the_record(): void {
+        $source = tempnam(sys_get_temp_dir(), 'source') . '.txt';
+
+        file_put_contents($source, 'same content');
+
+        $first = $this->service()->import($source);
+        $second = $this->service()->import($source);
+
+        $this->assertSame($first->id, $second->id);
+        $this->assertSame(1, File::query()->count());
+    }
+
+    public function test_importing_ignores_the_upload_limits(): void {
+        $this->useCfg('file', ['max-size' => 1, 'mime-patterns' => '/^image\\//']);
+
+        $source = tempnam(sys_get_temp_dir(), 'source') . '.txt';
+
+        file_put_contents($source, 'larger than one byte');
+
+        $this->assertSame('text/plain', $this->service()->import($source)->mime_type);
+    }
+
+    public function test_importing_a_missing_file_is_refused(): void {
+        $this->expectException(ServiceException::class);
+
+        $this->service()->import(sys_get_temp_dir() . '/missing-' . Str::random(8) . '.png');
+    }
+
+    public function test_the_entry_of_a_file_matches_what_an_image_field_stores(): void {
+        $file = $this->service()->upload(UploadedFile::fake()->image('photo.png', 20, 10));
+
+        $this->assertSame([
+            'path' => $file->path,
+            'name' => 'photo.png',
+            'mime_type' => 'image/png',
+            'size' => $file->size,
+            'width' => 20,
+            'height' => 10,
+            'seconds' => null
+        ], $this->service()->entry($file));
     }
 
 }

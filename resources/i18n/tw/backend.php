@@ -323,7 +323,7 @@ return [
     'validation.file' => '請上傳檔案',
     'validation.gt' => '必須大於指定值',
     'validation.gte' => '不可小於指定值',
-    'validation.image-invalid' => '圖片須為 JPG、PNG 或 WebP 格式',
+    'validation.image-invalid' => '圖片須為 JPG、PNG、GIF、WebP 或 SVG 格式',
     'validation.in' => '所選的值無效',
     'validation.integer' => '必須為整數',
     'validation.invalid-captcha' => '驗證碼錯誤',

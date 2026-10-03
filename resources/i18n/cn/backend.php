@@ -323,7 +323,7 @@ return [
     'validation.file' => '请上传文件',
     'validation.gt' => '必须大于指定值',
     'validation.gte' => '不可小于指定值',
-    'validation.image-invalid' => '图片须为 JPG、PNG 或 WebP 格式',
+    'validation.image-invalid' => '图片须为 JPG、PNG、GIF、WebP 或 SVG 格式',
     'validation.in' => '所选的值无效',
     'validation.integer' => '必须为整数',
     'validation.invalid-captcha' => '验证码错误',

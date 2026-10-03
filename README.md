@@ -326,6 +326,8 @@ bundle 一律**扁平**:只有一層 key,key 本身可以含點,取值時當字�
 
 其他資源群組同理:型別表放 `resources/style/{群組}/{name}.php`(例如訊息樣板 `resources/style/i18n/template/{name}.php`)。同一群組很多份 bundle 欄位相同時(例如一堆訊息樣板都有 `subject`、`content`),可以改放**群組層**的 `resources/style/{群組}.php`(例如 `resources/style/i18n/template.php`),群組內每份 bundle 都套用;bundle 自己的型別表有列到的 key 以它為準,**以 key 為單位整筆取代**,不逐屬性合併。欄位標題同理:先找 `resource.{群組}/{name}.{key}`,找不到再找群組層的 `resource.{群組}.{key}`,都沒有才退回 key 本身。
 
+**值是陣列的 key 預設不出現在資源後台**,型別表把它宣告成 `json` 才會列出;再加上 `'presentation' => 'drive-image'`(或 `drive-file`)就是圖片／檔案欄位,存檔時從雲端硬碟選的檔案轉成檔案路徑(與 CRUD 表單相同,見 `FileService::entry()`),送空清單就回到檔案預設值。例如 `'logo' => ['type' => 'json', 'presentation' => 'drive-image']`,bundle 檔案裡的預設值寫 `[]`。
+
 機密欄位的實際值**永遠不離開伺服器**——`data` 回傳的是遮罩 `••••••••`(沒設定過則是空字串),`default` 與 `placeholder` 一律空白。寫回時遮罩值代表「不變更」,送新值才覆寫,送空字串才清除。出貨已標的是 `gmail.password`、`telegram.bot-token`、`telegram.webhook-secret`、`webpush.private-key`、`mitake.password`、`google-translate.api-key`、`gemini-translate.api-key`、`ip2location-bin.download-token`、`ip2location-webservice.api-key`、`captcha-recaptcha.secret`、`captcha-turnstile.secret`;自訂 bundle 裡的憑證要自己標,**漏標的症狀是那把密鑰以明文出現在後台 API 回應裡**。
 
 這一層跟 `matrix.resource-cfg` 的 bundle 白名單是兩件事:白名單決定「這個 bundle 能不能編輯」,`secret` 決定「bundle 裡哪些 key 的值看得到」。有了後者,含憑證的混合型 bundle 才能安全地進白名單。
@@ -460,7 +462,7 @@ translatable 的子欄位就是一個 `translatable: true` 的普通 column,前�
 
 - **型別只收 `options/block-module` 清單裡的值**,`page-content`(`Block::PAGE_CONTENT`)除外 —— 它標記頁面固定內容在區塊序列中的位置,只能由 seeder 預建;已有的 `page-content` 可以編輯、排序、上下架,但複製、刪除回 `page-content-locked`。
 - **新增表單的預設值**:`block-data` 的 `Variant` 同時實作 `Presets`(`defaults(): array`,子欄位名 => 值)時,`new` 會把它們以 `data__{子欄位}` 補進沒帶的輸入,只影響表單、不影響驗證。
-- **`data` 在驗證規則之外還會檢查**(`BlockDataGuard`,新增與修改都會):`BundleOptions` 選單的值必須在選項內(空白交給 `required`),`DriveImage` 限 JPG / PNG / WebP(不限大小)(`validation.image-invalid`)。
+- **`data` 在驗證規則之外還會檢查**(`BlockDataGuard`,新增與修改都會):`BundleOptions` 選單的值必須在選項內(空白交給 `required`),`DriveImage` 限 JPG / PNG / GIF / WebP / SVG(不限大小)(`validation.image-invalid`)。
 - **區塊複製連同子項目**,複本排在最後、預設隱藏,連帶複製的子項目沿用來源子項目的上下架狀態。區塊與子項目的 `copy` 節點(`page/{page_id}/block/{id}/copy`、`page/{page_id}/block/{block_id}/item/{id}/copy`)由套件選單直接登記,和其他資源預設不開 `copy` 不同;宿主不要複製時在選單設為 `null`。
 - **只有父區塊型別有註冊 `block-item-data` 的區塊有子項目**,其餘整組子項目端點回 404 `data-not-found`。子項目表單不顯示上下架,新增與複製後預設隱藏,由清單上架。
 
@@ -906,6 +908,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `matrix.api-prefix` | `'api'` | 前台路由前綴 |
 | `matrix.date-format` | `'Y-m-d'` | 日期顯示格式 |
 | `matrix.datetime-format` | `'Y-m-d H:i:s'` | 日期時間顯示格式 |
+| `matrix.directory-permission` | `null` | 上傳與縮圖自動建立目錄時,對新建的每一層 `chmod` 的權限(例如 `0777`)。`null` = 不處理,權限由 umask 決定(通常 `0755`,只有建立者能寫)。command(例如 seeder 匯入檔案)與 web server 用不同帳號執行時,先建立當月目錄的一方會讓另一方寫不進去,要設這個值;已存在的目錄不會變更 |
 | `matrix.drive-disk` | `'local'` | 雲端硬碟實體檔案的 disk,獨立於 `file-*-disk`。**必須是 local driver**(見下方限制) |
 | `matrix.file-private-disk` | `'local'` | 非公開檔案的 disk。**必須是 local driver** |
 | `matrix.file-public-disk` | `'public'` | 公開檔案的 disk。**必須是 local driver** |
@@ -1418,10 +1421,12 @@ parameters:
 | **`base_auth_token.token` 是明文** | 資料庫外洩等於所有人的登入狀態外洩,備份與存取控制要照這個等級處理 |
 | **cookie 的 `secure` 跟隨 `config('session.secure')`** | 生產環境務必設成 true,否則 token 會在明文連線上傳 |
 | **上傳不檢查型別**（`cfg('file.mime-patterns')` 出貨空白 = 全部放行） | 要限制就設 `mime-patterns`（正則,空白分隔,**不能含逗號或分號** —— 那是分隔字元） |
-| **上傳不沿用使用者送來的副檔名** | 磁碟上是 `年月/32 碼隨機名`,沒有副檔名,所以放在公開 disk 也不會被 web server 當程式執行。下載的 Content-Type 取自 `base_file.mime_type`,檔名取自 `base_file.name`（原始檔名,含副檔名）,使用者端無感 |
+| **上傳不沿用使用者送來的副檔名** | 磁碟上是 `年月/32 碼隨機名`;只有伺服器偵測到的類型在 `FileStorage::EXTENSIONS` 白名單內(JPG / PNG / GIF / WebP / AVIF / SVG)才加上對應的副檔名,讓公開 disk 由 web server 直接提供時帶得出正確的 Content-Type(SVG 沒有 `image/svg+xml` 瀏覽器不會當圖片畫);副檔名看內容不看檔名,所以改名成 `.jpg` 的程式不會拿到可執行的副檔名,名單外的檔案一律不帶副檔名。下載的 Content-Type 取自 `base_file.mime_type`,檔名取自 `base_file.name`（原始檔名,含副檔名）,使用者端無感 |
+| **公開 disk 上的 SVG 由 web server 直接提供** | SVG 可以內嵌程式碼:以 `<img>` 載入不會執行,但直接開啟它的網址會在那個網域上執行。正式環境建議讓 web server 對 `.svg` 加上 `Content-Security-Policy: sandbox`(例如 nginx `location ~* \.svg$ { add_header Content-Security-Policy "sandbox"; }`),或不開放上傳 SVG(`file.mime-patterns`) |
 | **上傳不限制大小**（`cfg('file.max-size')` 出貨 `0`）。真正的上限是 PHP 的 `upload_max_filesize` / `post_max_size` | 兩層都要調。只調 cfg 沒用,只調 ini 的話使用者會拿到 422 而不是 `file-too-large` |
 | 檔案的 `privilege` 決定存哪個 disk（`0` 公開 / `1` 私有）。下載一律走 `admin/file/download`,**要登入** | 公開 disk 若做了 `storage:link`,那些檔案就有公開 URL —— 這是 disk 設定的結果,不是套件的存取控制。另外「要登入」**只是登入** —— `admin/file/*` 掛的是 `user-api`,沒有 `permission-api`,所以**選單權限完全為空的管理員**也能下載 / 改名任何 path 的檔案。要更細的檔案授權,自己在該路由前加 middleware |
 | **前台沒有上傳端點** | 前台要上傳就自己呼叫 `FileService::upload()`,並自己決定權限與限制 |
+| **seeder 要預建圖片時用 `FileService::import($path)`** | 把專案內的檔案匯入 `base_file`(預設公開),走 `upload()` 的去重所以重跑 seeder 不會重複建檔;不套用 `file.max-size` / `file.mime-patterns`;以暫存複本上傳,不動來源檔。存進圖片／檔案欄位(`DriveImage` / `DriveFile`)的值用 `FileService::entry($file)` 產生,形狀與從雲端硬碟選檔後存下的相同 |
 | **雲端硬碟(`drive/*`)上傳不檢查型別或大小**,沒有等同 `file.max-size` / `file.mime-patterns` 的設定 | 要限制就自己在 `DriveService::upload()` 前面加檢查 |
 | **`drive/*` 沒有選單節點,只掛 `user-api`**(比照 `admin/auth/passwd`、`admin/file/*`)——任何登入的後台 User 都能呼叫,不需要選單授權 | 節點層級的 owner/群組存取完全交給 `DrivePermissionService` 這一層把關,不是靠選單權限 |
 | **`manipulation-log/query`、`schedule/toggle` 同樣沒有專屬選單節點、只掛 `user-api`**,但跟上面兩列不同——這兩支端點呼叫時會依請求帶的 `prefix` 找出目標資料實際所屬的既有選單節點,動態呼叫 `AdminPermission::permits()` 檢查 `query`/`update` 權限,行為上等同「借用」該資料原本的選單授權,不是完全不設防 | `prefix` 必須是某個已掛載 `ActionRoutes::mount()` 的 CRUD 資源的路由前綴(如 `group`);對應不到就回 `unsupported-model`,對應得到但沒權限一律 403。`manipulation-log/query` 另外會呼叫該資源 controller 的 `historyVisible(int $id)`,回 `false` 就回 404 `data-not-found`:預設一律 `true`,`UserController` 依帳號階層判斷(Admin 查不到 Root、Regular 只查得到 Regular)。判斷只拿得到 id(硬刪除的資料也要查得到歷史),所以 controller 有資料範圍限制時要自己覆寫;稽核紀錄是依**資料表**存的,多個 model 共用同一張表時,也要在這裡排除不屬於自己的 id |
@@ -1581,4 +1586,4 @@ php artisan matrix:clear-resource-cache
 | **驗證錯誤的鍵名** | 舊版是 `errors`,新版統一成 `error`（slug）+ `fields`（欄位明細） |
 | **匯入重新設計** | 舊版的匯入功能不相容;新版由前端讀 xlsx 送 JSON、只做新增(見[匯入](#匯入)) |
 | **清單回應多一個 `filters` 鍵** | 可上下架清單多一個上下架篩選;這類 model 上 `filters.schedule` 成為保留名稱,宿主同名的可篩選欄位會被取代 |
-| **上傳的儲存 path 不再帶副檔名** | 舊資料不用動（既有帶副檔名的 path 照樣找得到、下載得到）。若有程式直接從 `base_file.path` 解析副檔名,改讀 `mime_type` 或 `name` |
+| **上傳的儲存 path 只有白名單內的圖片類型帶副檔名** | 舊資料不用動（既有沒帶或帶副檔名的 path 照樣找得到、下載得到）。副檔名只反映伺服器偵測到的類型,要判斷類型仍請讀 `mime_type`,原始檔名讀 `name` |

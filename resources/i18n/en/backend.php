@@ -323,7 +323,7 @@ return [
     'validation.file' => 'Please upload a file',
     'validation.gt' => 'Must be greater than the allowed value',
     'validation.gte' => 'Must not be less than the allowed value',
-    'validation.image-invalid' => 'Images must be JPG, PNG or WebP',
+    'validation.image-invalid' => 'Images must be JPG, PNG, GIF, WebP or SVG',
     'validation.in' => 'The selected value is invalid',
     'validation.integer' => 'Must be a whole number',
     'validation.invalid-captcha' => 'Invalid captcha',

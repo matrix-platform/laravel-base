@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Models\ResourceOverride;
+use MatrixPlatform\Services\FileService;
 use MatrixPlatform\Support\Actions;
 use MatrixPlatform\Support\AdminPermission;
 use MatrixPlatform\Support\Menus;
@@ -16,6 +17,8 @@ use MatrixPlatform\Support\Resources;
  * @phpstan-type Column array{name: string, title: string, type: string, presentation: string, readonly: bool, secret: bool, rule: list<string>, default: mixed, placeholder: string}
  */
 class ResourceService {
+
+    private const DRIVES = ['drive-file', 'drive-image'];
 
     private const MASK = '••••••••';
 
@@ -156,6 +159,10 @@ class ResourceService {
      * @param array<string, mixed> $column
      */
     private function coerce(array $column, mixed $value): mixed {
+        if (in_array(array_get_value($column, 'presentation'), self::DRIVES, true) && is_array($value)) {
+            return app(FileService::class)->resolveDriveReferences(array_values(array_filter($value, is_array(...))), actor()->requireUser());
+        }
+
         return match (array_get_value($column, 'type')) {
             ColumnType::Boolean->value => filter_var($value, FILTER_VALIDATE_BOOL),
             ColumnType::Float->value => floatval($value),
@@ -173,13 +180,14 @@ class ResourceService {
         $columns = [];
 
         foreach ($defaults as $key => $value) {
-            if (is_array($value)) {
-                continue;
-            }
-
             $meta = array_get_value($schema, $key);
             $meta = is_array($meta) ? $meta : [];
             $type = $this->type($meta);
+
+            if (is_array($value) && $type !== ColumnType::Json) {
+                continue;
+            }
+
             $rule = array_get_value($meta, 'rule');
             $presentation = array_get_value($meta, 'presentation');
 
@@ -194,7 +202,7 @@ class ResourceService {
                 'secret' => $secret,
                 'rule' => is_array($rule) ? array_map(strval(...), array_values($rule)) : [$type->rule()],
                 'default' => $secret ? '' : $value,
-                'placeholder' => $secret ? '' : strval($value)
+                'placeholder' => $secret || !is_scalar($value) ? '' : strval($value)
             ];
         }
 

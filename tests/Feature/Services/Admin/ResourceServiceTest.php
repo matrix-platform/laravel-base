@@ -5,6 +5,9 @@ namespace Tests\Feature\Services\Admin;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use MatrixPlatform\Exceptions\ServiceException;
+use MatrixPlatform\Models\DriveNode;
+use MatrixPlatform\Models\DriveNodeType;
+use MatrixPlatform\Models\File;
 use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\ManipulationType;
 use MatrixPlatform\Models\ResourceOverride;
@@ -24,13 +27,31 @@ class ResourceServiceTest extends FeatureTestCase {
         $this->useResourceFixtures();
 
         $this->useResourceWhitelist([
-            'cfg' => ['admin', 'dotted', 'structured'],
+            'cfg' => ['admin', 'dotted', 'gallery', 'structured'],
             'i18n' => ['errors', 'widget'],
             'i18n/options' => ['color'],
             'i18n/template' => ['greeting']
         ]);
 
         actor()->setUser(UserFactory::new()->createOne(['id' => User::ROOT]));
+    }
+
+    private function driveImage(): DriveNode {
+        $node = new DriveNode();
+
+        $node->parent_id = DriveNode::ROOT;
+        $node->type = DriveNodeType::File;
+        $node->name = 'logo.png';
+        $node->hash = 'hash-logo';
+        $node->path = date('Ym') . '/' . str()->random(32);
+        $node->size = 100;
+        $node->mime_type = 'image/png';
+        $node->width = 210;
+        $node->height = 80;
+
+        $node->save();
+
+        return $node;
     }
 
     private function override(string $bundle): mixed {
@@ -235,6 +256,46 @@ class ResourceServiceTest extends FeatureTestCase {
         $columns = array_column($this->service()->get(ResourceGroup::Cfg, 'structured')['columns'], 'name');
 
         $this->assertSame(['scalar'], $columns);
+    }
+
+    public function test_a_json_column_declared_by_the_schema_keeps_its_list_default(): void {
+        $columns = array_column($this->service()->get(ResourceGroup::Cfg, 'gallery')['columns'], null, 'name');
+
+        $this->assertSame('json', $columns['logo']['type']);
+        $this->assertSame('drive-image', $columns['logo']['presentation']);
+        $this->assertSame(['array'], $columns['logo']['rule']);
+        $this->assertSame([], $columns['logo']['default']);
+        $this->assertSame('', $columns['logo']['placeholder']);
+    }
+
+    public function test_a_picked_drive_image_is_stored_as_a_file_entry(): void {
+        $node = $this->driveImage();
+
+        $payload = $this->service()->update(ResourceGroup::Cfg, 'gallery', ['logo' => [['id' => $node->id]]]);
+
+        $path = File::DRIVE_PREFIX . $node->path;
+        $stored = $this->override('cfg/gallery');
+
+        $this->assertIsArray($stored);
+        $this->assertSame($path, $stored['logo'][0]['path']);
+        $this->assertSame('logo.png', $stored['logo'][0]['name']);
+        $this->assertSame($path, array_get_value($payload, 'data')['logo'][0]['path']);
+        $this->assertTrue(File::query()->where('path', $path)->exists());
+    }
+
+    public function test_an_already_stored_image_entry_is_kept_and_an_empty_list_restores_the_default(): void {
+        $entry = ['path' => '202610/logo', 'name' => 'logo.svg', 'mime_type' => 'image/svg+xml'];
+
+        $this->service()->update(ResourceGroup::Cfg, 'gallery', ['logo' => [$entry]]);
+
+        $stored = $this->override('cfg/gallery');
+
+        $this->assertIsArray($stored);
+        $this->assertEquals([$entry], $stored['logo']);
+
+        $this->service()->update(ResourceGroup::Cfg, 'gallery', ['logo' => []]);
+
+        $this->assertNull($this->override('cfg/gallery'));
     }
 
     public function test_a_label_comes_from_the_resource_bundle_and_falls_back_to_the_key(): void {

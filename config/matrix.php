@@ -25,6 +25,8 @@ return [
 
     'datetime-format' => 'Y-m-d H:i:s',
 
+    'directory-permission' => null,
+
     'drive-disk' => 'local',
 
     'file-private-disk' => 'local',

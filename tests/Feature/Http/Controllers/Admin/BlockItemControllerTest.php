@@ -249,7 +249,7 @@ class BlockItemControllerTest extends FeatureTestCase {
         $page = PageFactory::new()->createOne();
         $block = BlockFactory::new()->createOne(['page_id' => $page->id, 'type' => 'gallery']);
 
-        $this->send("admin/page/{$page->id}/block/{$block->id}/item/insert", $this->input(['data__image' => $this->drive('image/gif')]))
+        $this->send("admin/page/{$page->id}/block/{$block->id}/item/insert", $this->input(['data__image' => $this->drive('application/pdf')]))
             ->assertJsonPath('success', false)
             ->assertJsonPath('fields.data__image', ['image-invalid']);
 

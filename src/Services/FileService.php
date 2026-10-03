@@ -36,8 +36,41 @@ class FileService {
         return app(FileStorage::class)->requireLocal(config()->string($privilege === File::PUBLIC ? 'matrix.file-public-disk' : 'matrix.file-private-disk'));
     }
 
+    /**
+     * @return array{path: string, name: string, mime_type: ?string, size: int, width: ?int, height: ?int, seconds: ?int}
+     */
+    public function entry(File $file): array {
+        return [
+            'path' => $file->path,
+            'name' => $file->name,
+            'mime_type' => $file->mime_type,
+            'size' => $file->size,
+            'width' => $file->width,
+            'height' => $file->height,
+            'seconds' => $file->seconds
+        ];
+    }
+
     public function find(string $path): File {
         return File::query()->where('path', $path)->firstOrFail();
+    }
+
+    public function import(string $path, int $privilege = File::PUBLIC, ?string $usage = null): File {
+        if (!is_file($path)) {
+            error('data-not-found', 404);
+        }
+
+        $copy = strval(tempnam(sys_get_temp_dir(), 'import'));
+
+        copy($path, $copy);
+
+        try {
+            return $this->upload(new UploadedFile($copy, basename($path), null, null, true), $privilege, 0, [], $usage);
+        } finally {
+            if (is_file($copy)) {
+                unlink($copy);
+            }
+        }
     }
 
     public function isRasterImage(?string $mimeType): bool {
@@ -147,11 +180,7 @@ class FileService {
             return;
         }
 
-        $directory = dirname($destinationPath);
-
-        if (!is_dir($directory) && !@mkdir($directory, recursive: true) && !is_dir($directory)) {
-            error('directory-create-failed');
-        }
+        app(FileStorage::class)->ensureDirectory(dirname($destinationPath));
 
         $encoded = (string) $this->decode($sourcePath)
             ->scaleDown(width: $width)

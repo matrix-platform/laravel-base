@@ -10,7 +10,7 @@ use MatrixPlatform\Columns\Presentation;
 
 class BlockDataGuard {
 
-    const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+    const IMAGE_TYPES = ['image/gif', 'image/jpeg', 'image/png', 'image/svg+xml', 'image/webp'];
 
     private static function error(Definition $definition, mixed $value): ?string {
         if ($definition->presentation === Presentation::Select && $definition->options instanceof BundleOptions) {

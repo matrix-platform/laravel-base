@@ -9,6 +9,33 @@ use MatrixPlatform\Support\RollbackCallbacks;
 
 class FileStorage {
 
+    const EXTENSIONS = [
+        'image/avif' => 'avif',
+        'image/gif' => 'gif',
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/svg+xml' => 'svg',
+        'image/webp' => 'webp'
+    ];
+
+    public function ensureDirectory(string $path): void {
+        if (is_dir($path)) {
+            return;
+        }
+
+        $this->ensureDirectory(dirname($path));
+
+        if (!@mkdir($path) && !is_dir($path)) {
+            error('directory-create-failed');
+        }
+
+        $mode = config('matrix.directory-permission');
+
+        if (is_int($mode)) {
+            chmod($path, $mode);
+        }
+    }
+
     public function hash(UploadedFile $file): string {
         $hash = hash_file('sha256', $file->getPathname());
 
@@ -32,7 +59,10 @@ class FileStorage {
     }
 
     public function store(UploadedFile $file, string $disk, string $folder): string {
-        $path = date('Ym') . '/' . Str::random(32);
+        $extension = array_get_value(self::EXTENSIONS, strval($file->getMimeType()));
+        $path = date('Ym') . '/' . Str::random(32) . (is_string($extension) ? ".{$extension}" : '');
+
+        $this->ensureDirectory(Storage::disk($disk)->path($folder . date('Ym')));
 
         if (Storage::disk($disk)->putFileAs($folder, $file, $path) === false) {
             error('file-write-failed');

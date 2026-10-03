@@ -435,8 +435,8 @@ class BlockControllerTest extends FeatureTestCase {
      */
     public static function badImages(): array {
         return [
-            'gif' => ['image/gif', 1024],
-            'svg' => ['image/svg+xml', 1024]
+            'bmp' => ['image/bmp', 1024],
+            'pdf' => ['application/pdf', 1024]
         ];
     }
 
@@ -458,8 +458,10 @@ class BlockControllerTest extends FeatureTestCase {
      */
     public static function goodImages(): array {
         return [
+            'gif' => ['image/gif'],
             'jpg' => ['image/jpeg'],
             'png' => ['image/png'],
+            'svg' => ['image/svg+xml'],
             'webp' => ['image/webp']
         ];
     }
