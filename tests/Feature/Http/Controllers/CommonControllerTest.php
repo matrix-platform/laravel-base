@@ -293,4 +293,61 @@ class CommonControllerTest extends FeatureTestCase {
         $this->assertNotSame($fallback->json('message'), $localised->json('message'));
     }
 
+    public function test_cfg_values_set_in_the_resource_backend_are_returned(): void {
+        $this->useResourceFixtures();
+
+        config(['matrix.public-cfg' => ['dotted']]);
+
+        $this->useCfg('dotted', ['plain' => 'changed']);
+
+        $this->postJson('api/common/cfg', ['name' => 'dotted'])
+            ->assertOk()
+            ->assertJson(['success' => true, 'data' => ['plain' => 'changed', 'nested.key' => 'flat']]);
+    }
+
+    public function test_a_cfg_bundle_outside_the_public_list_reads_as_null(): void {
+        $this->postJson('api/common/cfg', ['name' => 'gmail'])
+            ->assertOk()
+            ->assertJson(['success' => true, 'data' => null]);
+    }
+
+    public function test_a_cfg_name_that_climbs_out_of_the_resource_directory_reads_as_null(): void {
+        $this->postJson('api/common/cfg', ['name' => '../../../config/app'])
+            ->assertOk()
+            ->assertJson(['success' => true, 'data' => null]);
+    }
+
+    public function test_the_cfg_endpoint_rejects_a_missing_name(): void {
+        $this->postJson('api/common/cfg')
+            ->assertOk()
+            ->assertJson(['success' => false, 'code' => 422]);
+    }
+
+    public function test_a_public_i18n_bundle_follows_the_requested_locale(): void {
+        $this->useResourceFixtures();
+
+        config(['matrix.public-i18n' => ['widget']]);
+
+        $this->postJson('api/common/i18n', ['name' => 'widget'], ['Matrix-Locale' => 'en'])
+            ->assertOk()
+            ->assertJsonPath('data.hello', 'Hello');
+
+        $this->postJson('api/common/i18n', ['name' => 'widget'], ['Matrix-Locale' => 'tw'])
+            ->assertJsonPath('data.hello', 'Hello TW');
+    }
+
+    public function test_an_i18n_bundle_outside_the_public_list_reads_as_null(): void {
+        $this->useResourceFixtures();
+
+        $this->postJson('api/common/i18n', ['name' => 'widget'], ['Matrix-Locale' => 'en'])
+            ->assertOk()
+            ->assertJson(['success' => true, 'data' => null]);
+    }
+
+    public function test_the_i18n_endpoint_rejects_a_missing_name(): void {
+        $this->postJson('api/common/i18n')
+            ->assertOk()
+            ->assertJson(['success' => false, 'code' => 422]);
+    }
+
 }

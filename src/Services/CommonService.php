@@ -10,12 +10,20 @@ use MatrixPlatform\Models\City;
 use MatrixPlatform\Models\CityArea;
 use MatrixPlatform\Models\Menu;
 use MatrixPlatform\Models\Page;
+use MatrixPlatform\Support\Resources;
 use MatrixPlatform\Support\Subject;
 use MatrixPlatform\Support\Variants;
 
 class CommonService {
 
-    public function __construct(private Subject $subject, private Variants $variants) {}
+    public function __construct(private Resources $resources, private Subject $subject, private Variants $variants) {}
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function cfg(string $name): ?array {
+        return in_array($name, config()->array('matrix.public-cfg'), true) ? $this->resources->getConfigBundle($name) : null;
+    }
 
     /**
      * @return list<array{id: int, title: ?string, areas: list<array{id: int, title: ?string, post_code: string}>}>
@@ -27,6 +35,13 @@ class CommonService {
             ->get();
 
         return array_values($cities->map(fn (City $city): array => ['id' => $city->id, 'title' => $this->subject->title($city), 'areas' => $this->areas($city)])->all());
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function i18n(string $name): ?array {
+        return in_array($name, config()->array('matrix.public-i18n'), true) ? $this->resources->getI18nBundle($name) : null;
     }
 
     /**

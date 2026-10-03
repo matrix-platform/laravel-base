@@ -11,11 +11,35 @@ class CommonController extends BaseController {
     public function __construct(private CommonService $service) {}
 
     /**
+     * @return array<string, mixed>|null
+     */
+    #[Action]
+    public function cfg(Request $request): ?array {
+        $request->validate([
+            'name' => ['required', 'string']
+        ]);
+
+        return $this->service->cfg($request->string('name')->value());
+    }
+
+    /**
      * @return list<array{id: int, title: ?string, areas: list<array{id: int, title: ?string, post_code: string}>}>
      */
     #[Action]
     public function city(): array {
         return $this->service->city();
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    #[Action]
+    public function i18n(Request $request): ?array {
+        $request->validate([
+            'name' => ['required', 'string']
+        ]);
+
+        return $this->service->i18n($request->string('name')->value());
     }
 
     /**

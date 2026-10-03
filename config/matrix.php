@@ -52,6 +52,10 @@ return [
 
     'passkey-rp-id' => null,
 
+    'public-cfg' => [],
+
+    'public-i18n' => [],
+
     'resource-cache-enabled' => false,
 
     'resource-cache-store' => null,

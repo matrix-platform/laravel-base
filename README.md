@@ -879,7 +879,9 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | POST | `admin/telegram-log/{id}` | 授權 |
 | POST | `admin/telegram-log/{id}/resend` | 授權 |
 | POST | `admin/telegram-log/{id}/cancel` | 授權 |
+| POST | `api/common/cfg` | 匿名 |
 | POST | `api/common/city` | 匿名 |
+| POST | `api/common/i18n` | 匿名 |
 | POST | `api/common/menu` | 匿名 |
 | POST | `api/common/page` | 匿名 |
 | GET\|HEAD | `api/files/{path}` | **匿名,不走信封** |
@@ -920,6 +922,8 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `matrix.passkey-rp-id` | `null` | Passkey Relying Party ID。`null` 時 fallback 用當次請求的主機名稱——若後台前端與此 API 不同源,務必明確設定,見[已知限制與取捨](#已知限制與取捨)。允許的 origin 由此值(加上 `admin.passkey-allow-subdomains`)推導,預設一律要求 `https://{rp-id}`;此值出現在 `admin.passkey-http-rp-ids` 白名單裡才會額外放行 `http://{rp-id}`(本機開發用) |
 | `matrix.resource-cache-enabled` | `false` | 是否快取資源 bundle defaults(檔案)與 override(DB)。預設不快取,每次都直接讀檔案/DB;設 `true` 才會讀寫 cache store |
 | `matrix.resource-cache-store` | `null` | 資源 bundle defaults(檔案)與 override(DB)要快取到哪個 cache store,`null` = 用預設 store(`cache.default`)。清快取見 `matrix:clear-resource-cache` |
+| `matrix.public-cfg` | `[]` | `api/common/cfg` 可匿名讀取的 cfg bundle 白名單(含資源後台的覆蓋值),不在名單內的一律回 `null` |
+| `matrix.public-i18n` | `[]` | `api/common/i18n` 可匿名讀取的翻譯檔白名單,依 `Matrix-Locale` 回傳該語系 |
 | `matrix.resource-cfg` | `[]` | 資源後台開放編輯的 cfg bundle 白名單,**空 = 全部不開放** |
 | `matrix.resource-i18n` | `[]` | 同上,一般翻譯 |
 | `matrix.resource-i18n-menu` | `[]` | 同上,選單標題 |
@@ -1410,7 +1414,8 @@ parameters:
 | **驗證碼的 site key 是公開的,不設 `hostnames` 就擋不住別人拿它在自己的網站養 token** —— 攻擊者把你的 site key 放進自己的頁面,訪客產生的 token 有 `success`、有正確的 `action`(那是他自己設的)、分數還是真人的高分,拿來打你的登入端點會完全穿透驗證碼這一關 | 設 `captcha-recaptcha.hostnames` / `captcha-turnstile.hostnames` 為後台登入頁的網域(可多個)。**出貨是空的 = 不檢查**,因為預設開啟會讓既有部署升級後全部登不進去,而症狀只會是「驗證碼錯誤」。這件事在本套件特別要緊——見下面那條,登入節流擋不住拿一組密碼掃一堆帳號,驗證碼是應用層唯一能讓 spraying 變貴的東西 |
 | **`captcha-recaptcha` 是 Enterprise 分數式的,低於 `captcha-recaptcha.threshold` 的真人沒有任何自證管道** —— 它不跳挑戰,分數不夠就是進不去(傳統的 v2 隱形式已無法申請新金鑰) | 用這顆就要求管理員都註冊 passkey(passkey 登入完全不經過驗證碼),否則唯一的出路是下方的 cfg override。要「可疑時才要求互動、互動完就過」請改用 `captcha-turnstile` |
 | **第三方驗證碼 driver(`captcha-turnstile` / `captcha-recaptcha`)是 fail-closed 的** —— 對方服務打不通時回 `captcha-request-failed`,登入一律擋下。而且每一次被擋都吃掉一格登入節流(`afterCallback` 只計失敗),五次之後同一組 IP+帳號連 `too-many-requests` 都會拿到 | 接受它,但事先知道逃生門怎麼走:見下方〈驗證碼服務掛掉時怎麼進後台〉。**不要改成「打不通就放行」**,那等於給攻擊者一個把驗證碼關掉的開關 |
-| **`api/common/*` 三個端點匿名且沒有節流**,`base_menu.data` 與 `base_page.data` 的內容會原樣出現在回應裡 | 不要在這些 `data` 欄位放非公開資料。`api/common/page` 另外會把區塊引用的雲端硬碟檔案路徑吐出來,而 `api/files/{path}` 對 drive 檔案匿名可取、不看 `privilege` —— 區塊放什麼圖就等於公開發佈什麼圖 |
+| **`api/common/city`、`menu`、`page` 匿名且沒有節流**,`base_menu.data` 與 `base_page.data` 的內容會原樣出現在回應裡 | 不要在這些 `data` 欄位放非公開資料。`api/common/page` 另外會把區塊引用的雲端硬碟檔案路徑吐出來,而 `api/files/{path}` 對 drive 檔案匿名可取、不看 `privilege` —— 區塊放什麼圖就等於公開發佈什麼圖 |
+| **`api/common/cfg`、`api/common/i18n` 匿名且沒有節流**,`matrix.public-cfg`、`matrix.public-i18n` 列出的 bundle 會原樣出現在回應裡(cfg 的 `secret` 欄位也不例外) | 不要把含非公開內容或憑證的 bundle 列進這兩份白名單 |
 | **登入節流的鍵是「IP + 帳號」** —— 同一個 IP 換帳號就換一份配額,擋不住拿一組密碼掃一堆帳號 | 要擋就在應用層之外做（WAF / 反向代理） |
 | **Passkey 登入端點沒有帳號欄位,節流退化成近似純 IP** | 比密碼登入更粗放的取捨,若濫用明顯可考慮改用 `IP + credential_id 前綴` 當節流鍵 |
 | **`matrix.passkey-rp-id` 的 fallback 是當次請求的主機名稱,只在後台前端與此 API 同源時才正確**;RP ID 一旦設錯或事後變更,所有已註冊 passkey 會**全部永久失效,無遷移路徑**(WebAuthn 規格的密碼學綁定特性) | 若前後端分離部署在不同網域,啟用 passkey 前務必明確設定 `matrix.passkey-rp-id`,不要依賴 fallback |
