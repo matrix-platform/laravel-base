@@ -296,10 +296,15 @@ return [
 
     'toastClose' => '閉じる',
 
+    'transfer.source' => '選択可能',
+    'transfer.target' => '選択済み',
+
     'transferAllToSource' => 'すべて解除',
     'transferAllToTarget' => 'すべて追加',
     'transferDown' => '下へ移動',
     'transferDrag' => 'ドラッグで並び替え',
+    'transferEmpty' => '項目がありません',
+    'transferFilterEmpty' => '該当する項目がありません',
     'transferToSource' => '解除',
     'transferToTarget' => '追加',
     'transferUp' => '上へ移動',

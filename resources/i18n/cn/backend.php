@@ -296,10 +296,15 @@ return [
 
     'toastClose' => '关闭',
 
+    'transfer.source' => '可选项目',
+    'transfer.target' => '已选项目',
+
     'transferAllToSource' => '全部下架',
     'transferAllToTarget' => '全部上架',
     'transferDown' => '下移',
     'transferDrag' => '拖拽排序',
+    'transferEmpty' => '无项目',
+    'transferFilterEmpty' => '无符合项目',
     'transferToSource' => '下架',
     'transferToTarget' => '上架',
     'transferUp' => '上移',

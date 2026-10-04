@@ -296,10 +296,15 @@ return [
 
     'toastClose' => 'Close',
 
+    'transfer.source' => 'Available',
+    'transfer.target' => 'Selected',
+
     'transferAllToSource' => 'Remove All',
     'transferAllToTarget' => 'Add All',
     'transferDown' => 'Move Down',
     'transferDrag' => 'Drag to Sort',
+    'transferEmpty' => 'No Items',
+    'transferFilterEmpty' => 'No Matching Items',
     'transferToSource' => 'Remove',
     'transferToTarget' => 'Add',
     'transferUp' => 'Move Up',
