@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Services\Admin\Crud;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Options\Option;
@@ -81,6 +82,21 @@ class ImportServiceTest extends FeatureTestCase {
      */
     private function option(int|string $id, string $title, array $children = []): Option {
         return new Option($children, $id, 0, $title);
+    }
+
+    /**
+     * Finds the record by the raw `key` cell, rejecting the row when the narrowed query has no such record.
+     */
+    private function located(ImportService $service): ImportService {
+        return $service->locate(function (Builder $query, array $values): Model {
+            $found = $query->find(intval(array_get_value($values, 'key')));
+
+            if (!$found instanceof Model) {
+                invalid('key', 'exists');
+            }
+
+            return $found;
+        });
     }
 
     private function trinkets(Widget $widget): ImportService {
@@ -365,6 +381,66 @@ class ImportServiceTest extends FeatureTestCase {
                 $this->assertSame('validation-failed', $exception->getError());
             }
         }
+    }
+
+    public function test_a_located_import_writes_the_filled_cells_and_keeps_the_blank_ones(): void {
+        $first = Widget::forceCreate(['title' => 'Alpha', 'enable_time' => '2026-01-02 03:04:05']);
+        $second = Widget::forceCreate(['title' => 'Beta']);
+
+        $result = $this->located($this->importer(['title', 'enable_time']))->import($this->input([
+            ['key' => strval($first->id), 'title' => 'Gamma', 'enable_time' => ''],
+            ['key' => strval($second->id), 'title' => '', 'enable_time' => '2026-03-04 05:06:07']
+        ]));
+
+        $this->assertSame(['count' => 2], $result);
+        $this->assertSame(2, Widget::query()->count());
+        $this->assertSame(['Gamma', '2026-01-02 03:04:05'], [$first->refresh()->title, $first->enable_time?->format('Y-m-d H:i:s')]);
+        $this->assertSame(['Beta', '2026-03-04 05:06:07'], [$second->refresh()->title, $second->enable_time?->format('Y-m-d H:i:s')]);
+    }
+
+    public function test_a_located_row_with_only_blank_cells_is_skipped_without_looking_it_up(): void {
+        $called = false;
+
+        $service = $this->importer(['title'])->locate(function () use (&$called): Model {
+            $called = true;
+
+            return Widget::forceCreate(['title' => 'Alpha']);
+        });
+        $result = $service->import($this->input([['key' => '999', 'title' => ' ']]));
+
+        $this->assertSame(['count' => 0], $result);
+        $this->assertFalse($called);
+    }
+
+    public function test_a_row_the_locator_rejects_fails_without_stopping_the_later_rows(): void {
+        $widget = Widget::forceCreate(['title' => 'Alpha']);
+        $service = $this->located($this->importer(['title']));
+
+        $this->assertFailed([$this->failure(2, ['key' => ['exists']])], $service, $this->input([
+            ['key' => '999', 'title' => 'Lost'],
+            ['key' => strval($widget->id), 'title' => 'Beta']
+        ]));
+        $this->assertSame('Beta', $widget->refresh()->title);
+    }
+
+    public function test_the_locator_query_is_narrowed_to_the_parent(): void {
+        $owner = Widget::forceCreate(['title' => 'Owner']);
+        $other = Widget::forceCreate(['title' => 'Other']);
+        $trinket = Trinket::forceCreate(['label' => 'Alpha', 'widget_id' => $other->id]);
+
+        $this->assertFailed([$this->failure(2, ['key' => ['exists']])], $this->located($this->trinkets($owner)), $this->input([
+            ['key' => strval($trinket->id), 'label' => 'Moved']
+        ]));
+        $this->assertSame('Alpha', $trinket->refresh()->label);
+    }
+
+    public function test_a_located_record_keeps_its_own_unique_value(): void {
+        $widget = Widget::forceCreate(['title' => 'Owner']);
+        $trinket = Trinket::forceCreate(['label' => 'Alpha', 'widget_id' => $widget->id, 'amount' => 5]);
+
+        $this->located($this->trinkets($widget))->import($this->input([['key' => strval($trinket->id), 'label' => 'Beta', 'amount' => '5']]));
+
+        $this->assertSame(['Beta', 5], [$trinket->refresh()->label, $trinket->amount]);
     }
 
 }

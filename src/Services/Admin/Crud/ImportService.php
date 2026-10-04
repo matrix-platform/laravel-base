@@ -3,8 +3,10 @@
 namespace MatrixPlatform\Services\Admin\Crud;
 
 use Closure;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use MatrixPlatform\Columns\Column;
 use MatrixPlatform\Columns\ColumnType;
@@ -16,6 +18,8 @@ use MatrixPlatform\Exceptions\ServiceException;
 class ImportService extends CrudService {
 
     private const EXCLUDED = [Presentation::Composite, Presentation::DriveFile, Presentation::DriveImage, Presentation::Hidden, Presentation::MultiSelect, Presentation::Password];
+
+    private ?Closure $locator = null;
 
     /**
      * @var array<string, Closure>
@@ -42,8 +46,12 @@ class ImportService extends CrudService {
         foreach ($rows as $item) {
             [$data, $failures] = $this->convert($fields, $item['values'], $item['row']);
 
+            if ($this->locator !== null && $data === [] && $failures === []) {
+                continue;
+            }
+
             if ($failures === []) {
-                $failures = $this->insert($data);
+                $failures = $this->locator === null ? $this->insert($data) : $this->update($item, $data);
             }
 
             if ($failures === []) {
@@ -60,6 +68,12 @@ class ImportService extends CrudService {
         }
 
         return ['count' => $count];
+    }
+
+    public function locate(Closure $locator): static {
+        $this->locator = $locator;
+
+        return $this;
     }
 
     public function lookup(string $name, Closure $callback): static {
@@ -90,6 +104,24 @@ class ImportService extends CrudService {
         }
 
         return ['title' => $this->heading(), 'columns' => $columns, 'rows' => []];
+    }
+
+    /**
+     * @param Closure(): void $write
+     * @return array<string, list<string>>
+     */
+    private function attempt(Closure $write): array {
+        try {
+            DB::transaction($write);
+        } catch (ValidationException $exception) {
+            return validation_fields($exception);
+        } catch (ServiceException $exception) {
+            return $this->failures($exception);
+        } catch (QueryException) {
+            return ['*' => ['query-failed']];
+        }
+
+        return [];
     }
 
     /**
@@ -124,7 +156,9 @@ class ImportService extends CrudService {
             $text = is_scalar($raw) ? trim(strval($raw)) : '';
 
             if ($text === '') {
-                $data[$field['name']] = $column->type === ColumnType::Boolean ? false : null;
+                if ($this->locator === null) {
+                    $data[$field['name']] = $column->type === ColumnType::Boolean ? false : null;
+                }
 
                 continue;
             }
@@ -157,17 +191,7 @@ class ImportService extends CrudService {
      * @return array<string, list<string>>
      */
     private function insert(array $data): array {
-        try {
-            DB::transaction(fn () => $this->store($this->model->newInstance(), $data));
-        } catch (ValidationException $exception) {
-            return validation_fields($exception);
-        } catch (ServiceException $exception) {
-            return $this->failures($exception);
-        } catch (QueryException) {
-            return ['*' => ['query-failed']];
-        }
-
-        return [];
+        return $this->attempt(fn () => $this->store($this->model->newInstance(), $data));
     }
 
     private function narrow(): void {
@@ -220,6 +244,29 @@ class ImportService extends CrudService {
 
     private function supported(Column $column): bool {
         return $column->type !== ColumnType::Json && !in_array($column->presentation, self::EXCLUDED, true) && $column->expression->field !== $this->model->getKeyName();
+    }
+
+    /**
+     * @param array{row: int, values: array<mixed>} $item
+     * @param array<string, mixed> $data
+     * @return array<string, list<string>>
+     */
+    private function update(array $item, array $data): array {
+        return $this->attempt(function () use ($item, $data): void {
+            $locator = $this->locator;
+            $model = $locator === null ? null : $locator($this->plain(), $item['values'], $item['row']);
+
+            if (!$model instanceof Model) {
+                error('data-not-found', 404);
+            }
+
+            $before = $model->toArray();
+
+            $this->assign($model, Validator::make($data, array_intersect_key($this->rules($model->getKey()), $data))->validate());
+            $this->inspect($model, $before);
+
+            $model->save();
+        });
     }
 
     private function value(Column $column, string $name, string $text, int $row): mixed {

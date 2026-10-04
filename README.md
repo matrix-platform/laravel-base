@@ -569,6 +569,7 @@ class WidgetController extends CrudController {
 - **多語欄位一律展開全部語系**,表頭同匯出(`backend.export.locale-column`)。
 - **轉換**:值先 trim;空白 → `null`(必填得 `required`),**布林欄空白 → `false`**;有選項的欄位以標題完全比對反查 id(查不到或同名兩個以上 → `in`,不默默取第一個);`Date` / `DateTime` 嚴格依 `matrix.date-format` / `matrix.datetime-format`(擋 `2026-02-31`)。`lookup($name, fn)` 取代該欄的選項反查,可用 `invalid()` 回自訂代碼,空白值不會呼叫。
 - **往返**:只有明寫 `$exports` 與 `$imports` 且兩者一致時,匯出檔才能直接拿來匯入;預設匯出的是使用者選的清單欄位(關聯欄位是標題欄而非外鍵),請從範本開始填。
+- **更新既有資料**:`locate(fn (Builder $query, array $values, int $row): Model => ...)` 把匯入改成「每列更新一筆既有資料」,不再新增。`$query` 已套父層與 scope(巢狀資源同樣先驗父層鏈);`$values` 是整列原始值,含不在可匯入欄位裡的鍵(用來放對應鍵,例如編號欄)。找不到時在 callback 裡 `invalid($name, $code)`,當成該列錯誤。只驗證、寫入有填的儲存格(唯一規則排除這一筆),**空白儲存格保留原值**(布林欄也不會變 `false`),所以無法用匯入清空欄位;可匯入欄位全空白的列直接跳過、不呼叫 callback、不計數。guard 的第二個參數是更新前的 `toArray()`(同 `update`)。範本仍只有可匯入欄位,對應鍵欄與預填列由 controller 自己補(覆寫 `importTemplate()`)。
 - **跨 model 匯入**(在 A 的頁面匯入 B)沒有框架支援:覆寫 `import()` / `importTemplate()`,自己建 `(new ImportService(B::class))->standalone(true)`。
 
 ### 5. 路由 —— 必須掛在 `admin` 前綴之下
