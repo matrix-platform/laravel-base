@@ -178,11 +178,11 @@ return [
     'import.submit' => 'インポート',
     'import.template' => 'テンプレートをダウンロード',
 
-    'list.hide' => '列を非表示',
+    'list.hide' => '非表示の列',
     'list.lock' => '列をロック',
     'list.restore' => '既定値に戻す',
     'list.settings' => '列の設定',
-    'list.show' => '列を表示',
+    'list.show' => '表示する列',
     'list.unlock' => '列のロックを解除',
 
     'loadingMask' => '読み込み中',

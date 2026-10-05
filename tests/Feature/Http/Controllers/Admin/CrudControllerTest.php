@@ -315,13 +315,22 @@ class CrudControllerTest extends FeatureTestCase {
         $this->assertSame([true, true, false], array_column($columns, 'default'));
     }
 
-    public function test_the_get_and_new_responses_carry_the_column_preference_of_the_list(): void {
-        app(PreferenceService::class)->save(User::findOrFail(User::ROOT), ['column:widget' => ['enable_time', 'title']], false);
+    public function test_the_get_and_new_responses_carry_the_form_preference_under_the_edit_key(): void {
+        app(PreferenceService::class)->save(User::findOrFail(User::ROOT), ['column:widget-edit' => ['enable_time', 'title']], false);
 
         $widget = $this->widget('Alpha');
 
         $this->admin("admin/widget/{$widget->id}")->assertJsonPath('data.preference', ['enable_time', 'title']);
         $this->admin('admin/widget/new')->assertJsonPath('data.preference', ['enable_time', 'title']);
+    }
+
+    public function test_the_get_and_new_responses_ignore_the_column_preference_of_the_list(): void {
+        app(PreferenceService::class)->save(User::findOrFail(User::ROOT), ['column:widget' => ['enable_time', 'title']], false);
+
+        $widget = $this->widget('Alpha');
+
+        $this->admin("admin/widget/{$widget->id}")->assertJsonPath('data.preference', null);
+        $this->admin('admin/widget/new')->assertJsonPath('data.preference', null);
     }
 
     public function test_the_get_and_new_preference_is_null_without_a_saved_value(): void {
@@ -335,10 +344,20 @@ class CrudControllerTest extends FeatureTestCase {
         $alpha = $this->widget('Alpha');
         $trinket = Trinket::forceCreate(['label' => 'mine', 'widget_id' => $alpha->id]);
 
-        app(PreferenceService::class)->save(User::findOrFail(User::ROOT), ['column:widget-trinket' => ['amount', 'label']], false);
+        app(PreferenceService::class)->save(User::findOrFail(User::ROOT), ['column:widget-trinket-edit' => ['amount', 'label']], false);
 
         $this->admin("admin/widget/{$alpha->id}/trinket/{$trinket->id}")->assertJsonPath('data.preference', ['amount', 'label']);
         $this->admin("admin/widget/{$alpha->id}/trinket/new")->assertJsonPath('data.preference', ['amount', 'label']);
+    }
+
+    // Only what $updates names can be ordered: the audit columns the get page appends are left where they are.
+    public function test_the_get_and_new_responses_offer_the_update_columns_to_order(): void {
+        $alpha = $this->widget('Alpha');
+        $trinket = Trinket::forceCreate(['label' => 'mine', 'widget_id' => $alpha->id]);
+
+        $this->admin("admin/widget/{$alpha->id}")->assertJsonPath('data.orderable', ['title', 'secret', 'enable_time']);
+        $this->admin('admin/widget/new')->assertJsonPath('data.orderable', ['title', 'secret', 'enable_time']);
+        $this->admin("admin/widget/{$alpha->id}/trinket/{$trinket->id}")->assertJsonPath('data.orderable', ['label', 'amount', 'ranking']);
     }
 
     public function test_the_get_response_carries_the_row_and_its_columns(): void {

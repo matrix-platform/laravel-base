@@ -41,7 +41,8 @@ class GetService extends CrudService {
             'breadcrumbs' => $this->breadcrumbs([$model, ...$parents], $model),
             'data' => $this->flattenComposites($this->dated(array_intersect_key($model->toArray(), array_flip($names)), $model, $this->columns), $model),
             'columns' => $this->payload($this->columns, $model),
-            'preference' => $this->columnPreference($this->preference()),
+            'preference' => $this->formPreference($this->preference()),
+            'orderable' => $this->orderable,
             'actions' => $this->operations($this->passing($this->traceable($this->actions), $model), $this->prefix())
         ];
     }

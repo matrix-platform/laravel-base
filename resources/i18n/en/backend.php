@@ -178,11 +178,11 @@ return [
     'import.submit' => 'Import',
     'import.template' => 'Download template',
 
-    'list.hide' => 'Hide Column',
+    'list.hide' => 'Hidden Columns',
     'list.lock' => 'Lock Column',
     'list.restore' => 'Restore Defaults',
     'list.settings' => 'Column Settings',
-    'list.show' => 'Show Column',
+    'list.show' => 'Visible Columns',
     'list.unlock' => 'Unlock Column',
 
     'loadingMask' => 'Loading',

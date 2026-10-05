@@ -38,7 +38,8 @@ class NewService extends CrudService {
             'breadcrumbs' => $this->breadcrumbs([$model, ...$parents], $model),
             'data' => array_merge($blank, $model->toArray(), $this->defaults($input)),
             'columns' => $this->payload($this->columns, $model),
-            'preference' => $this->columnPreference($this->preference()),
+            'preference' => $this->formPreference($this->preference()),
+            'orderable' => $this->orderable,
             'actions' => $this->operations($this->passing($this->actions, $model), $this->prefix())
         ];
     }

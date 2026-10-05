@@ -56,6 +56,11 @@ abstract class CrudService {
     protected ?string $mount = null;
 
     /**
+     * @var list<string>
+     */
+    protected array $orderable = [];
+
+    /**
      * @var array<string, mixed>
      */
     protected array $params = [];
@@ -122,6 +127,15 @@ abstract class CrudService {
 
     public function mount(?string $prefix): static {
         $this->mount = $prefix;
+
+        return $this;
+    }
+
+    /**
+     * @param list<string|array<string, mixed>> $columns
+     */
+    public function orderable(array $columns): static {
+        $this->orderable = array_map(fn (string|array $column): string => $this->resolve($column)->name, $columns);
 
         return $this;
     }
@@ -470,6 +484,13 @@ abstract class CrudService {
 
     protected function foreign(): ?string {
         return $this->standalone ? null : $this->subject->foreign($this->model);
+    }
+
+    /**
+     * @param array<string, mixed> $preference
+     */
+    protected function formPreference(array $preference): mixed {
+        return array_get_value($preference, "column:{$this->subject->key($this->prefix())}-edit");
     }
 
     protected function heading(): string {

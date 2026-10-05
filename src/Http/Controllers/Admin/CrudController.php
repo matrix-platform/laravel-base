@@ -232,7 +232,7 @@ abstract class CrudController extends BaseController {
     }
 
     protected function onGet(GetService $service): GetService {
-        return $service->columns([...$this->updates(), ...$this->audited()]);
+        return $service->columns([...$this->updates(), ...$this->audited()])->orderable($this->updates());
     }
 
     protected function onImport(ImportService $service): ImportService {
@@ -252,7 +252,7 @@ abstract class CrudController extends BaseController {
     }
 
     protected function onNew(NewService $service): NewService {
-        return $service->columns($this->forming());
+        return $service->columns($this->forming())->orderable($this->updates());
     }
 
     protected function onSort(SortService $service): SortService {
