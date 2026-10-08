@@ -72,16 +72,19 @@ class ColumnResolver {
      * @return array<string, mixed>
      */
     private function bundle(Model $root): array {
-        $table = $root->getTable();
+        $class = $root::class;
 
-        if (!array_key_exists($table, $this->bundles)) {
+        if (!array_key_exists($class, $this->bundles)) {
+            $table = $root->getTable();
+            $alias = $this->registry->of($class)?->alias;
             $default = $this->resources->getI18nBundle('model/default');
             $specific = $this->resources->getI18nBundle("model/{$table}");
+            $aliased = $alias === null ? null : $this->resources->getI18nBundle("model/{$table}-{$alias}");
 
-            $this->bundles[$table] = array_replace($default === null ? [] : $default, $specific === null ? [] : $specific);
+            $this->bundles[$class] = array_replace($default === null ? [] : $default, $specific === null ? [] : $specific, $aliased === null ? [] : $aliased);
         }
 
-        return $this->bundles[$table];
+        return $this->bundles[$class];
     }
 
     private function cast(Model $terminal, ?string $field): ?string {

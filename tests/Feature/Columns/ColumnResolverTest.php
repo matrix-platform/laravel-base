@@ -227,6 +227,15 @@ class ColumnResolverTest extends FeatureTestCase {
         $this->assertSame('Keep it short', $column->hint);
     }
 
+    public function test_the_alias_bundle_overrides_the_table_bundle_key_by_key(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('gizmo')));
+
+        $column = $this->resolve('title');
+
+        $this->assertSame('Keep it shorter', $column->hint);
+        $this->assertSame('Widget Title', $column->title);
+    }
+
     public function test_a_named_bundle_becomes_a_bundle_option_provider(): void {
         $this->assertInstanceOf(BundleOptions::class, $this->resolve('title:text:status')->options);
     }

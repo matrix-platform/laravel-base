@@ -7,7 +7,7 @@ use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Columns\Syntax\ColumnParser;
 use MatrixPlatform\Columns\Syntax\ParsedColumn;
 use MatrixPlatform\Exceptions\ServiceException;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 class ColumnParserTest extends TestCase {
 
@@ -113,6 +113,16 @@ class ColumnParserTest extends TestCase {
 
         $this->assertSame('owner', $column->name);
         $this->assertSame('title', $column->expression->field);
+        $this->assertSame(['group'], $column->expression->path);
+    }
+
+    public function test_a_locale_token_becomes_the_current_locale(): void {
+        app()->setLocale('en');
+
+        $column = $this->parse('!owner=group.title__{locale}');
+
+        $this->assertSame('owner', $column->name);
+        $this->assertSame('title__en', $column->expression->field);
         $this->assertSame(['group'], $column->expression->path);
     }
 

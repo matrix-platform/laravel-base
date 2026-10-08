@@ -66,7 +66,7 @@ class ColumnParser {
             $source = $name;
         }
 
-        $expression = $this->expression($source);
+        $expression = $this->expression(str_replace('{locale}', app()->getLocale(), $source));
         $sortable = array_get_value($given, 'sortable');
 
         return new ParsedColumn(

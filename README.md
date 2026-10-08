@@ -312,6 +312,7 @@ token 兩種帶法:`Authorization: Bearer {token}`,或登入時自動下的 `mat
 | 選單 | `resources/menu/{bundle}.php` |
 | 選單的標題 | `resources/i18n/{語系}/menu/{bundle}.php` |
 | 資料表欄位的標題 | `resources/i18n/{語系}/model/{資料表名}.php` |
+| 同一張表的某個 model 自己的欄位標題(逐 key 覆蓋上一列) | `resources/i18n/{語系}/model/{資料表名}-{Metadata alias}.php` |
 | 下拉選項 | `resources/i18n/{語系}/options/{name}.php` |
 | 錯誤訊息 | `resources/i18n/{語系}/errors.php` |
 | 訊息樣板 | `resources/i18n/{語系}/template/{name}.php` |
@@ -530,7 +531,7 @@ class WidgetController extends CrudController {
 }
 ```
 
-`*` 開頭代表必填。`!` 開頭代表唯讀。`+` 開頭代表虛擬。`=` **開頭**代表鎖定(見下段)。`=` 夾在中間是別名(`alias=source`)。`.` 走關聯。`:` 後面是型別或呈現方式。
+`*` 開頭代表必填。`!` 開頭代表唯讀。`+` 開頭代表虛擬。`=` **開頭**代表鎖定(見下段)。`=` 夾在中間是別名(`alias=source`)。`.` 走關聯。`:` 後面是型別或呈現方式。來源裡的 `{locale}` 在解析時換成當前語系,用來取多語欄位的單一語系值而不展成多語欄位(例如 `'!tour_name=session.tour.name__{locale}'`)。
 
 **虛擬欄位(`+` 前綴或宣告 `virtual: true`)預設不能篩選、不能排序**(`op` 為 `null`、`sortable` 為 `false`),因為資料庫沒有這個欄位。要讓它出現在搜尋條件,明寫 `op`(例如 `['name' => '+contact_name', 'op' => 'contains']`),並在覆寫的 `list()` / `export()` 從 `filters` 取出這個條件自己套用 —— 留在 `filters` 裡的虛擬欄位條件會被照一般欄位查詢而失敗。
 
