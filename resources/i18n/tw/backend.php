@@ -161,6 +161,8 @@ return [
     'home.mfa' => '雙因子驗證',
     'home.new-password' => '新密碼',
     'home.passkey' => 'Passkey 管理',
+    'home.preference' => '偏好設定',
+    'home.preference-reset' => '還原預設',
     'home.title' => null,
     'home.username' => '帳號',
 

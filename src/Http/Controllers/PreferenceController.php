@@ -15,7 +15,9 @@ class PreferenceController extends BaseController {
      */
     #[Action]
     public function get(): array {
-        return $this->service->get(actor()->requireCurrent());
+        $identity = actor()->requireCurrent();
+
+        return $this->service->mask($identity, $this->service->get($identity));
     }
 
     /**
@@ -28,7 +30,25 @@ class PreferenceController extends BaseController {
             'merge' => ['sometimes', 'boolean']
         ]);
 
-        return $this->service->save(actor()->requireCurrent(), $request->array('data'), $request->boolean('merge'));
+        $identity = actor()->requireCurrent();
+
+        return $this->service->mask($identity, $this->service->save($identity, $request->array('data'), $request->boolean('merge')));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[Action]
+    public function settings(): array {
+        return $this->service->settings(actor()->requireCurrent());
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[Action('settings/update')]
+    public function update(Request $request): array {
+        return $this->service->update(actor()->requireCurrent(), $request->all());
     }
 
 }

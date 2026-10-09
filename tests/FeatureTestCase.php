@@ -231,6 +231,10 @@ class FeatureTestCase extends TestCase {
         $this->useVariants(['page-data' => ['driver' => TestPageTypeResolver::class, 'page' => TestPageFields::class]]);
     }
 
+    protected function usePreferenceFixtures(): void {
+        $this->usePackageFixtures('preference-fixture', 'package-preference');
+    }
+
     /**
      * @param array<string, list<string>> $groups
      */

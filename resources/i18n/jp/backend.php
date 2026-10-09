@@ -161,6 +161,8 @@ return [
     'home.mfa' => '二段階認証',
     'home.new-password' => '新しいパスワード',
     'home.passkey' => 'パスキー管理',
+    'home.preference' => '個人設定',
+    'home.preference-reset' => 'デフォルトに戻す',
     'home.title' => null,
     'home.username' => 'ユーザー名',
 

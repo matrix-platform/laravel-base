@@ -78,6 +78,10 @@ return [
 
     'invalid-parent-relation' => '上層關聯必須是 belongsTo',
 
+    'invalid-preference-column' => '雲端硬碟呈現方式僅適用於後台使用者的偏好設定',
+
+    'invalid-preference-key' => '未宣告的偏好設定項目',
+
     'invalid-resource-token' => '資源代碼格式錯誤',
 
     'invalid-sort-order' => '排序內容與資料不符',

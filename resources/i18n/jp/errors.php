@@ -78,6 +78,10 @@ return [
 
     'invalid-parent-relation' => '親リレーションは belongsTo である必要があります',
 
+    'invalid-preference-column' => 'ドライブ表示はバックエンドユーザーの設定項目でのみ使用できます',
+
+    'invalid-preference-key' => '宣言されていない設定項目です',
+
     'invalid-resource-token' => 'リソーストークンが不正です',
 
     'invalid-sort-order' => '並び替えの内容がデータと一致しません',

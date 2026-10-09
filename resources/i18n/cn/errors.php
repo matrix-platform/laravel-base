@@ -78,6 +78,10 @@ return [
 
     'invalid-parent-relation' => '上级关联必须是 belongsTo',
 
+    'invalid-preference-column' => '云端硬盘呈现方式仅适用于后台用户的偏好设置',
+
+    'invalid-preference-key' => '未声明的偏好设置项目',
+
     'invalid-resource-token' => '资源代码格式错误',
 
     'invalid-sort-order' => '排序内容与数据不符',

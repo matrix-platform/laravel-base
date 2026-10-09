@@ -78,6 +78,10 @@ return [
 
     'invalid-parent-relation' => 'Parent relation must be a belongsTo',
 
+    'invalid-preference-column' => 'Drive presentations are only available for backend user preferences',
+
+    'invalid-preference-key' => 'Preference item is not declared',
+
     'invalid-resource-token' => 'Invalid resource token',
 
     'invalid-sort-order' => 'Sort order does not match the data',

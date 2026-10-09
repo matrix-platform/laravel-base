@@ -161,6 +161,8 @@ return [
     'home.mfa' => '双重验证',
     'home.new-password' => '新密码',
     'home.passkey' => 'Passkey 管理',
+    'home.preference' => '偏好设置',
+    'home.preference-reset' => '还原默认',
     'home.title' => null,
     'home.username' => '账号',
 

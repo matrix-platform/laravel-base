@@ -5,6 +5,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\User;
+use MatrixPlatform\Services\PreferenceService;
 use MatrixPlatform\Support\Actor;
 use MatrixPlatform\Support\Resources;
 
@@ -49,6 +50,10 @@ function locales(): array {
 
 function member(): ?Model {
     return actor()->member();
+}
+
+function preference(string $key, ?Model $identity = null): mixed {
+    return app(PreferenceService::class)->value($identity === null ? actor()->requireCurrent() : $identity, $key);
 }
 
 /**

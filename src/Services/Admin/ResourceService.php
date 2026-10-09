@@ -3,30 +3,24 @@
 namespace MatrixPlatform\Services\Admin;
 
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
-use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Models\ResourceOverride;
-use MatrixPlatform\Services\FileService;
 use MatrixPlatform\Support\Actions;
 use MatrixPlatform\Support\AdminPermission;
+use MatrixPlatform\Support\CfgSchema;
 use MatrixPlatform\Support\Menus;
 use MatrixPlatform\Support\ResourceGroup;
 use MatrixPlatform\Support\Resources;
 
 /**
- * @phpstan-type Column array{name: string, title: string, type: string, presentation: string, readonly: bool, secret: bool, rule: list<string>, default: mixed, placeholder: string}
+ * @phpstan-import-type Column from CfgSchema
  */
 class ResourceService {
-
-    private const DRIVES = ['drive-file', 'drive-image'];
-
-    private const MASK = '••••••••';
 
     private bool $pinned = false;
 
     private string $prefix = 'resource';
 
-    public function __construct(private Resources $resources, private Actions $actions) {}
+    public function __construct(private Resources $resources, private Actions $actions, private CfgSchema $schema) {}
 
     /**
      * @return array<string, mixed>
@@ -38,7 +32,7 @@ class ResourceService {
         $relative = $this->relative($group, $name);
         $defaults = $this->defaults($relative);
 
-        return $this->payload($id, $name, $relative, $defaults, $this->columns($group, $id, $defaults));
+        return $this->payload($id, $name, $relative, $defaults, $this->schema->columns($group, $id, $defaults));
     }
 
     /**
@@ -86,24 +80,9 @@ class ResourceService {
         $id = $this->identify($group, $name);
         $relative = $this->relative($group, $name);
         $defaults = $this->defaults($relative);
-        $columns = $this->columns($group, $id, $defaults);
-        $values = is_array($input) ? $input : [];
-        $writable = $this->writable($columns, $values);
-
-        $this->validate(array_filter($writable, fn (string $key): bool => !$this->cleared($values[$key]), ARRAY_FILTER_USE_KEY), $values);
-
+        $columns = $this->schema->columns($group, $id, $defaults);
         $record = $this->locked($relative);
-        $override = $record === null ? [] : $record->data;
-
-        foreach ($writable as $key => $column) {
-            $coerced = $this->cleared($values[$key]) ? null : $this->coerce($column, $values[$key]);
-
-            if ($coerced === null || $coerced === array_get_value($defaults, $key)) {
-                unset($override[$key]);
-            } else {
-                $override[$key] = $coerced;
-            }
-        }
+        $override = $this->schema->apply($record === null ? [] : $record->data, $columns, is_array($input) ? $input : [], $defaults);
 
         $this->save($relative, $record, $override);
 
@@ -151,64 +130,6 @@ class ResourceService {
         return array_reverse($crumbs);
     }
 
-    private function cleared(mixed $value): bool {
-        return $value === null || $value === '';
-    }
-
-    /**
-     * @param array<string, mixed> $column
-     */
-    private function coerce(array $column, mixed $value): mixed {
-        if (in_array(array_get_value($column, 'presentation'), self::DRIVES, true) && is_array($value)) {
-            return app(FileService::class)->resolveDriveReferences(array_values(array_filter($value, is_array(...))), actor()->requireUser());
-        }
-
-        return match (array_get_value($column, 'type')) {
-            ColumnType::Boolean->value => filter_var($value, FILTER_VALIDATE_BOOL),
-            ColumnType::Float->value => floatval($value),
-            ColumnType::Integer->value => intval($value),
-            default => is_scalar($value) ? strval($value) : $value
-        };
-    }
-
-    /**
-     * @param array<string, mixed> $defaults
-     * @return list<Column>
-     */
-    private function columns(ResourceGroup $group, string $id, array $defaults): array {
-        $schema = $this->resources->getStyleBundle($id) + $this->resources->getStyleBundle($group->value);
-        $columns = [];
-
-        foreach ($defaults as $key => $value) {
-            $meta = array_get_value($schema, $key);
-            $meta = is_array($meta) ? $meta : [];
-            $type = $this->type($meta);
-
-            if (is_array($value) && $type !== ColumnType::Json) {
-                continue;
-            }
-
-            $rule = array_get_value($meta, 'rule');
-            $presentation = array_get_value($meta, 'presentation');
-
-            $secret = array_get_value($meta, 'secret') === true;
-
-            $columns[] = [
-                'name' => strval($key),
-                'title' => $this->title("{$id}.{$key}", $this->title("{$group->value}.{$key}", strval($key))),
-                'type' => $type->value,
-                'presentation' => is_string($presentation) ? $presentation : 'plain',
-                'readonly' => array_get_value($meta, 'readonly') === true,
-                'secret' => $secret,
-                'rule' => is_array($rule) ? array_map(strval(...), array_values($rule)) : [$type->rule()],
-                'default' => $secret ? '' : $value,
-                'placeholder' => $secret || !is_scalar($value) ? '' : strval($value)
-            ];
-        }
-
-        return $columns;
-    }
-
     /**
      * @return array<string, mixed>
      */
@@ -236,13 +157,6 @@ class ResourceService {
     }
 
     /**
-     * @param array<string, mixed> $column
-     */
-    private function masked(array $column, mixed $value): bool {
-        return array_get_value($column, 'secret') === true && $value === self::MASK;
-    }
-
-    /**
      * @param array<string, mixed> $defaults
      * @param list<Column> $columns
      * @param array<string, mixed>|null $override the values just written, so a write inside a transaction never reads them back through the cache
@@ -257,12 +171,12 @@ class ResourceService {
             $key = $column['name'];
             $value = array_key_exists($key, $override) ? $override[$key] : $column['default'];
 
-            $data[$key] = $column['secret'] === true && !$this->cleared($value) ? self::MASK : $value;
+            $data[$key] = $column['secret'] === true && !$this->schema->cleared($value) ? CfgSchema::MASK : $value;
         }
 
         return [
             'title' => $this->heading(),
-            'subtitle' => $this->title($id, $name),
+            'subtitle' => $this->schema->title($id, $name),
             'breadcrumbs' => $this->breadcrumbs(),
             'id' => $id,
             'columns' => $columns,
@@ -297,7 +211,7 @@ class ResourceService {
     private function row(ResourceGroup $group, string $name): array {
         return [
             'id' => $name,
-            'name' => $this->title($this->identify($group, $name), $name),
+            'name' => $this->schema->title($this->identify($group, $name), $name),
             'actions' => ['edit']
         ];
     }
@@ -320,59 +234,10 @@ class ResourceService {
         DB::afterCommit(fn () => $this->resources->forget());
     }
 
-    private function title(string $token, string $fallback): string {
-        $label = i18n("resource.{$token}");
-
-        return $label === "resource.{$token}" ? $fallback : $label;
-    }
-
-    /**
-     * @param array<string, mixed> $meta
-     */
-    private function type(array $meta): ColumnType {
-        $declared = array_get_value($meta, 'type');
-        $type = is_string($declared) ? ColumnType::tryFrom($declared) : null;
-
-        return $type === null ? ColumnType::Text : $type;
-    }
-
-    /**
-     * @param array<string, Column> $writable
-     * @param array<string, mixed> $values
-     */
-    private function validate(array $writable, array $values): void {
-        $rules = [];
-
-        foreach ($writable as $key => $column) {
-            $rules[str_replace('.', '\\.', $key)] = $column['rule'];
-        }
-
-        Validator::make(array_intersect_key($values, $writable), $rules)->validate();
-    }
-
     private function verify(ResourceGroup $group, string $name): void {
         if (!in_array($name, $this->resources->bundleNames($group->directory()), true)) {
             error('data-not-found', 404);
         }
-    }
-
-    /**
-     * @param list<Column> $columns
-     * @param array<string, mixed> $values
-     * @return array<string, Column>
-     */
-    private function writable(array $columns, array $values): array {
-        $writable = [];
-
-        foreach ($columns as $column) {
-            $key = $column['name'];
-
-            if (!$column['readonly'] && array_key_exists($key, $values) && !$this->masked($column, $values[$key])) {
-                $writable[$key] = $column;
-            }
-        }
-
-        return $writable;
     }
 
 }

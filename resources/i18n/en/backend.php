@@ -161,6 +161,8 @@ return [
     'home.mfa' => 'Two-Factor Authentication',
     'home.new-password' => 'New Password',
     'home.passkey' => 'Passkey',
+    'home.preference' => 'Preferences',
+    'home.preference-reset' => 'Restore defaults',
     'home.title' => null,
     'home.username' => 'Username',
 

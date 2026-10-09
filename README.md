@@ -27,6 +27,7 @@ class WidgetController extends CrudController {
 - [開一個自己的功能](#開一個自己的功能)
 - [前台身分（member / vendor）](#前台身分member--vendor) —— 套件只給零件
 - [訊息](#訊息) —— [送訊息](#送訊息)、[派送與 worker](#派送與-worker)、[後台查詢、重發與取消](#後台查詢重發與取消)、[Push 訂閱(Member)](#push-訂閱member)、[Telegram 綁定與 Webhook](#telegram-綁定與-webhook)、[自訂訊息通道](#自訂訊息通道)
+- [偏好設定](#偏好設定) —— [宣告](#宣告)、[生效值](#生效值)、[寫入](#寫入)
 - [參考](#參考) —— [端點](#端點)、[設定鍵](#設定鍵)、[cfg 設定鍵](#cfg-設定鍵)、[主控台指令](#主控台指令)、[錯誤代碼](#錯誤代碼)、[資料表](#資料表)
 - [給前端](#給前端) —— [請求形狀](#請求形狀)、[回應形狀](#回應形狀)、[語系](#語系)、[`api/common/page`](#apicommonpage)、[驗證碼](#驗證碼)、[傳輸加密](#傳輸加密)
 - [沿用套件的 lint](#沿用套件的-lint) —— 選用,共用同一套風格檢查([style-check 檢查什麼](#style-check-檢查什麼))
@@ -718,6 +719,60 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 
 ---
 
+## 偏好設定
+
+每個身分(user / member / vendor)在 `base_preference` 各有一筆偏好資料。資料分兩種:
+
+- **宣告過的項目**:寫法和系統設定一樣,用 cfg bundle 宣告。後端用 `preference()` 讀取,前端用 `preference/settings` 取得欄位與生效值。
+- **沒宣告的鍵**:例如 CRUD 的 `listSize`、`column:{key}`,內容由前端決定,後端照原樣存取。
+
+套件目前沒有出貨任何宣告項目。
+
+### 宣告
+
+bundle 名稱固定是 `preference-user`、`preference-member`、`preference-vendor`。預設值寫在 `resources/cfg/`,型別、rule、呈現方式寫在 `resources/style/cfg/`,格式與[系統設定](#cfg-設定鍵)相同:
+
+```php
+// resources/cfg/preference-user.php
+return ['locale' => 'tw', 'page-size' => 20];
+
+// resources/style/cfg/preference-user.php
+return [
+    'locale' => ['type' => 'text', 'presentation' => 'select', 'rule' => ['string', 'in:tw,en']],
+    'page-size' => ['type' => 'integer', 'rule' => ['integer', 'min:1']],
+];
+```
+
+欄位標題沿用系統設定的翻譯 `resource.cfg/preference-user.{key}`。某種身分沒有對應的 bundle,就表示它沒有宣告項目。
+
+- **`secret`**:三種身分都能用。後端存原值,`preference()` 讀到的也是原值;回給前端的 `get`、`save`、`settings` 一律換成遮罩 `••••••••`,系統預設值也不外流(`default` 為空字串)。送回遮罩代表不變更,不帶 `merge` 的 `save` 也會保留原值。
+- **`drive-image` / `drive-file`**:只有 `preference-user` 能用。挑檔時依目前後台使用者的雲端硬碟權限檢查,存成檔案項目,與系統設定相同。member 與 vendor 沒有雲端硬碟,宣告了就回 `invalid-preference-column`。
+
+### 生效值
+
+依序取第一個有值的:
+
+1. 個人存的值
+2. 系統預設值:cfg bundle 的值。把 bundle 列進 `matrix.resource-cfg`,管理者就能在資源後台修改全站預設
+3. 檔案預設值
+
+```php
+preference('locale');           // 目前登入的身分
+preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指定身分
+```
+
+讀沒宣告的鍵會回 `invalid-preference-key`。
+
+### 寫入
+
+`preference/settings/update` 與 `preference/save` 都會對宣告項目做驗證(依 rule)與轉型(依 type)。存 `null`、空字串,或跟系統預設值相同的值,會移除這個鍵,之後就跟著系統預設值變動。`readonly` 的項目不會被寫入。
+
+`save` 不帶 `merge` 時是整份覆蓋,所以沒帶上來的宣告項目也會回到預設值。
+
+`preference/settings` 回 `{columns, data, default}`:`columns[]` 的形狀與系統設定編輯頁相同,`data` 是生效值,`default` 是系統預設值。`settings/update` 只收宣告項目,收到的鍵直接放在請求最外層(例如 `{"locale": "en"}`),回傳更新後的 `settings`。
+
+---
+
 ## 參考
 
 以下表格是**契約**。守門測試（`tests/Feature/ReadmeTest.php`）會把第一欄的識別字拿去跟實際的路由表、設定、指令、資料表對照 —— 表格寫錯或程式改了沒回來改表,測試就會紅。
@@ -833,6 +888,8 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | POST | `admin/user/delete` | 授權 |
 | POST | `admin/user/preference/get` | 登入 |
 | POST | `admin/user/preference/save` | 登入 |
+| POST | `admin/user/preference/settings` | 登入 |
+| POST | `admin/user/preference/settings/update` | 登入 |
 | POST | `admin/user/telegram/link` | 登入 |
 | POST | `admin/user/telegram/unsubscribe` | 登入 |
 | POST | `admin/user/passkey` | 登入 |
@@ -889,12 +946,16 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | GET\|HEAD | `api/files/{path}` | **匿名,不走信封** |
 | POST | `api/member/preference/get` | 登入 |
 | POST | `api/member/preference/save` | 登入 |
+| POST | `api/member/preference/settings` | 登入 |
+| POST | `api/member/preference/settings/update` | 登入 |
 | POST | `api/member/push/subscribe` | 登入 |
 | POST | `api/member/push/unsubscribe` | 登入 |
 | POST | `api/telegram/webhook` | 匿名* |
 | POST | `encryption-key` | 匿名 |
 | POST | `vendor/preference/get` | 登入 |
 | POST | `vendor/preference/save` | 登入 |
+| POST | `vendor/preference/settings` | 登入 |
+| POST | `vendor/preference/settings/update` | 登入 |
 
 「授權」= 登入 + 該選單節點的權限。`user` / `group` 的 `export`、`import`、`import/template`、`copy`、`sort` 端點存在但**套件出貨的選單沒有對應節點**,所以預設對所有人 403 —— 那幾個動作在套件自己的兩個 controller 上是關閉的。`mail-log` / `sms-log` / `push-log` / `telegram-log` 更進一步:選單只登記了列表、`{id}`、`{id}/resend`、`{id}/cancel` 四個節點,其餘十二個(`new`、`insert`、`{id}/update`、`{id}/copy`、`delete`、`export`、`import`、`import/template`、`sort`、`sort/save`、`arrange`、`arrange/save`)全部因為選單沒有節點而預設對所有人(含 ROOT)403——是刻意設計,訊息紀錄只能查詢與重發/取消,不能被手動增刪改。`api/telegram/webhook` 標「匿名*」是因為它不掛任何登入態 middleware(呼叫方是 Telegram 伺服器,沒有我們的 session/token 可帶),但自己驗證 `X-Telegram-Bot-Api-Secret-Token` header 等於 `cfg('telegram.webhook-secret')`,**沒設定這把密鑰就對所有請求一律 403**(見[Telegram 綁定與 Webhook](#telegram-綁定與-webhook))。
 
@@ -1076,6 +1137,8 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | `invalid-mime-type` | 不接受這種檔案類型 |
 | `invalid-move-target` | 無法移動到該目的地 |
 | `invalid-parent-relation` | 上層關聯必須是 belongsTo |
+| `invalid-preference-column` | 雲端硬碟呈現方式僅適用於後台使用者的偏好設定 |
+| `invalid-preference-key` | 未宣告的偏好設定項目 |
 | `invalid-resource-token` | 資源代碼格式錯誤 |
 | `invalid-sort-order` | 排序內容與資料不符 |
 | `invalid-token` | 登入憑證無效或已過期 |
