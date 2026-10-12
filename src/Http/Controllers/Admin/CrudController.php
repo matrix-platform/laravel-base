@@ -378,8 +378,7 @@ abstract class CrudController extends BaseController {
 
     private function instance(): Model {
         if ($this->instance === null) {
-            $model = $this->model;
-            $this->instance = new $model();
+            $this->instance = new $this->model();
         }
 
         return $this->instance;
@@ -486,7 +485,7 @@ abstract class CrudController extends BaseController {
 
         $ranking = $this->ranking();
 
-        return $ranking === null ? [(new $this->model())->getKeyName()] : [$ranking];
+        return $ranking === null ? [$this->instance()->getKeyName()] : [$ranking];
     }
 
     /**

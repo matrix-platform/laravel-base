@@ -46,7 +46,7 @@ class PackageRegistry {
     public function paths(): array {
         $packages = config('matrix.packages');
 
-        return array_map(fn (string $name): string => $this->path($name), tokenize(is_string($packages) ? $packages : null));
+        return array_map($this->path(...), tokenize(is_string($packages) ? $packages : null));
     }
 
     public function register(string $name, string $path): void {

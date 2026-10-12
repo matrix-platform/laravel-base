@@ -4,6 +4,7 @@ namespace MatrixPlatform\Http\Controllers\Admin;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use MatrixPlatform\Columns\Declarations\Presets;
 use MatrixPlatform\Columns\Options\BundleOptions;
 use MatrixPlatform\Columns\Options\Option;
@@ -42,7 +43,7 @@ class BlockController extends CrudController {
         $variant = app(Variants::class)->variant('block-data', null, $request->all());
         $defaults = $variant instanceof Presets ? $variant->defaults() : [];
 
-        $request->mergeIfMissing(array_combine(array_map(fn (string $field): string => "data__{$field}", array_keys($defaults)), $defaults));
+        $request->mergeIfMissing(Arr::prependKeysWith($defaults, 'data__'));
 
         return parent::new($request);
     }

@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Arr;
 use MatrixPlatform\Attributes\Action;
 use MatrixPlatform\Http\Controllers\BaseController;
 use MatrixPlatform\Models\DriveNode;
@@ -226,9 +227,9 @@ class DriveController extends BaseController {
      */
     private function present(DriveNode $node, ?array $createdByMap = null, ?array $deletedByMap = null): array {
         return [
-            ...array_intersect_key($node->toArray(), array_flip([
+            ...Arr::only($node->toArray(), [
                 'id', 'parent_id', 'type', 'name', 'size', 'description', 'mime_type', 'width', 'height', 'seconds', 'create_time', 'update_time', 'deleted_at'
-            ])),
+            ]),
             'created_by' => $this->mapped($node, $createdByMap, fn (): ?string => $this->service->createdBy($node)),
             'deleted_by' => $this->mapped($node, $deletedByMap, fn (): ?string => $this->service->deletedBy($node))
         ];

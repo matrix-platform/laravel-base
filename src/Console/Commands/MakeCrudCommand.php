@@ -160,7 +160,7 @@ class MakeCrudCommand extends Command {
     /**
      * @param list<string> $extraNotes
      */
-    private function printPendingNotes(ScaffoldPlan $plan, array $extraNotes = []): void {
+    private function printPendingNotes(ScaffoldPlan $plan, array $extraNotes): void {
         $notes = [...$plan->pendingNotes, ...$extraNotes];
 
         if ($notes === []) {
@@ -187,7 +187,7 @@ class MakeCrudCommand extends Command {
      */
     private function targetLocales(): array {
         $option = array_get_value($this->options(), 'locale');
-        $requested = is_array($option) ? array_values(array_filter($option, 'is_string')) : [];
+        $requested = is_array($option) ? array_values(array_filter($option, is_string(...))) : [];
 
         return $requested === [] ? locales() : $requested;
     }

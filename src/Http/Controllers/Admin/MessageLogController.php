@@ -10,9 +10,7 @@ use MatrixPlatform\Support\MetadataRegistry;
 abstract class MessageLogController extends CrudController {
 
     public function __construct(protected MessageService $service) {
-        $definitions = app(MetadataRegistry::class)->definitions($this->model);
-
-        $this->readonly = $definitions === null ? [] : array_keys($definitions);
+        $this->readonly = array_keys(app(MetadataRegistry::class)->definitions($this->model) ?: []);
     }
 
     /**

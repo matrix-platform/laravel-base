@@ -53,7 +53,7 @@ function member(): ?Model {
 }
 
 function preference(string $key, ?Model $identity = null): mixed {
-    return app(PreferenceService::class)->value($identity === null ? actor()->requireCurrent() : $identity, $key);
+    return app(PreferenceService::class)->value($identity ?: actor()->requireCurrent(), $key);
 }
 
 /**

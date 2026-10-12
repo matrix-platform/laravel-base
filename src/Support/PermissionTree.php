@@ -169,19 +169,7 @@ class PermissionTree implements OptionProvider {
             }
         }
 
-        $grants = [];
-
-        foreach ($tags as $path => $granted) {
-            $grants[$path] = [];
-
-            foreach (self::ACTIONS as $ranking => $action) {
-                if (array_key_exists($action, $granted)) {
-                    $grants[$path][$action] = $ranking;
-                }
-            }
-        }
-
-        return $grants;
+        return array_map(fn (array $granted): array => array_intersect_key(array_flip(self::ACTIONS), $granted), $tags);
     }
 
     private function header(MenuNode $node): ?MenuNode {
@@ -197,7 +185,7 @@ class PermissionTree implements OptionProvider {
 
         foreach ($this->nodes() as $path => $node) {
             if ($node->group && $owners[$path] !== null) {
-                $children[strval($owners[$path])][] = $node;
+                $children[$owners[$path]][] = $node;
             }
         }
 
@@ -228,7 +216,7 @@ class PermissionTree implements OptionProvider {
         foreach ($this->nodes() as $path => $node) {
             $found = $this->ascend($node, fn (MenuNode $found): bool => $found->group);
 
-            $owners[$path] = $found === null ? null : $found->path;
+            $owners[$path] = $found?->path;
         }
 
         $this->owners = $owners;

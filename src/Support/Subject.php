@@ -29,15 +29,11 @@ class Subject {
     }
 
     public function foreign(Model $model): ?string {
-        $relation = $this->parent($model);
-
-        return $relation?->getForeignKeyName();
+        return $this->parent($model)?->getForeignKeyName();
     }
 
     public function generic(string $prefix): ?string {
-        $replaced = preg_replace('/\{[^}]+\}(?=[^{]*$)/u', '{id}', $prefix);
-
-        return is_string($replaced) ? $replaced : null;
+        return preg_replace('/\{[^}]+\}(?=[^{]*$)/u', '{id}', $prefix);
     }
 
     public function key(string $prefix): string {
@@ -103,8 +99,7 @@ class Subject {
 
     public function title(Model $model): ?string {
         $field = $this->metadata($model)->title;
-        $definitions = $this->registry->definitions($model::class);
-        $definition = $definitions === null ? null : array_get_value($definitions, $field);
+        $definition = array_get_value($this->registry->definitions($model::class), $field);
         $translatable = $definition instanceof Definition && $definition->translatable;
         $value = $model->getAttribute($translatable ? "{$field}__" . app()->getLocale() : $field);
 

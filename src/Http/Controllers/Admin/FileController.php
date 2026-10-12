@@ -47,15 +47,7 @@ class FileController extends BaseController {
 
         $record = $this->service->upload($file, $request->integer('privilege'), null, null, $this->optionalString($request, 'usage'));
 
-        return [
-            'path' => $record->path,
-            'name' => $record->name,
-            'mime_type' => $record->mime_type,
-            'size' => $record->size,
-            'width' => $record->width,
-            'height' => $record->height,
-            'seconds' => $record->seconds
-        ];
+        return $this->service->entry($record);
     }
 
 }

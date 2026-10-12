@@ -10,8 +10,7 @@ class Actions {
      * @return array<string, mixed>
      */
     public function define(string $type): array {
-        $configured = $this->resources->getConfigBundle("action-{$type}");
-        $action = $configured === null ? [] : $configured;
+        $action = $this->resources->getConfigBundle("action-{$type}") ?: [];
         $confirm = array_get_value($action, 'confirm');
 
         $action['type'] = $type;

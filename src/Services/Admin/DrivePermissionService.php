@@ -61,7 +61,7 @@ class DrivePermissionService {
                 return ['anchor' => null, 'chain' => $chain];
             }
 
-            $parent = $includeTrashed ? DriveNode::withTrashed()->find($node->parent_id) : DriveNode::query()->find($node->parent_id);
+            $parent = $includeTrashed ? $this->parent($node) : DriveNode::query()->find($node->parent_id);
 
             if ($parent === null) {
                 return ['anchor' => null, 'chain' => $chain];

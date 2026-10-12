@@ -171,7 +171,7 @@ class ResourceService {
             $key = $column['name'];
             $value = array_key_exists($key, $override) ? $override[$key] : $column['default'];
 
-            $data[$key] = $column['secret'] === true && !$this->schema->cleared($value) ? CfgSchema::MASK : $value;
+            $data[$key] = $column['secret'] && !$this->schema->cleared($value) ? CfgSchema::MASK : $value;
         }
 
         return [
@@ -193,8 +193,8 @@ class ResourceService {
      */
     private function redacted(array $defaults, array $columns): array {
         foreach ($columns as $column) {
-            if ($column['secret'] === true) {
-                $defaults[strval($column['name'])] = '';
+            if ($column['secret']) {
+                $defaults[$column['name']] = '';
             }
         }
 

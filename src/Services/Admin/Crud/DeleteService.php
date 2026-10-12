@@ -2,8 +2,10 @@
 
 namespace MatrixPlatform\Services\Admin\Crud;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOneOrMany;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Arr;
 use ReflectionClass;
 use ReflectionMethod;
@@ -45,10 +47,11 @@ class DeleteService extends CrudService {
         }
 
         $branches = $this->branches(array_map(fn (string $relation): array => explode('.', $relation), $this->cascade));
+        $counts = $this->referenceCounts($models, array_keys($branches));
 
         foreach ($models as $model) {
             $this->inspect($model);
-            $this->guardReferences($model, array_keys($branches));
+            $this->guardReferences($model, array_keys($branches), $counts);
         }
 
         foreach ($models as $model) {
@@ -88,10 +91,11 @@ class DeleteService extends CrudService {
 
     /**
      * @param list<string> $excluded
+     * @param array<string, array{key: string, counts: array<string, int>}> $counts
      */
-    private function guardReferences(Model $model, array $excluded): void {
+    private function guardReferences(Model $model, array $excluded, array $counts = []): void {
         foreach (array_diff($this->referencingRelations($model), $excluded) as $relation) {
-            $count = $this->cascading($model, $relation)->count();
+            $count = $this->referenceCount($model, $relation, $counts);
 
             if ($count > 0) {
                 error('data-in-use', extra: ['count' => $count]);
@@ -114,6 +118,64 @@ class DeleteService extends CrudService {
                 $child->delete();
             }
         }
+    }
+
+    /**
+     * @param array<string, array{key: string, counts: array<string, int>}> $counts
+     */
+    private function referenceCount(Model $model, string $relation, array $counts): int {
+        if (!array_key_exists($relation, $counts)) {
+            return $this->cascading($model, $relation)->count();
+        }
+
+        $key = $model->getAttribute($counts[$relation]['key']);
+
+        return is_scalar($key) ? intval(array_get_value($counts[$relation]['counts'], strval($key), 0)) : 0;
+    }
+
+    /**
+     * @template TModel of Model
+     * @param Collection<int, TModel> $models
+     * @param list<string> $excluded
+     * @return array<string, array{key: string, counts: array<string, int>}>
+     */
+    private function referenceCounts(Collection $models, array $excluded): array {
+        $first = $models->first();
+
+        if ($first === null) {
+            return [];
+        }
+
+        $counts = [];
+
+        foreach (array_diff($this->referencingRelations($first), $excluded) as $name) {
+            $relation = Relation::noConstraints(fn (): HasOneOrMany => $this->cascading($first, $name));
+
+            $relation->addEagerConstraints($models->all());
+
+            $query = $relation->getQuery()->toBase();
+
+            if ($query->limit !== null || $query->offset !== null || $query->groups !== null || $query->havings !== null || $query->unions !== null || $query->joins !== null) {
+                continue;
+            }
+
+            $foreign = $relation->getQualifiedForeignKeyName();
+            $grouped = [];
+
+            $rows = $query->reorder()
+                ->select("{$foreign} as reference")
+                ->selectRaw('count(*) as aggregate')
+                ->groupBy($foreign)
+                ->pluck('aggregate', 'reference');
+
+            foreach ($rows as $reference => $aggregate) {
+                $grouped[strval($reference)] = intval($aggregate);
+            }
+
+            $counts[$name] = ['key' => $relation->getLocalKeyName(), 'counts' => $grouped];
+        }
+
+        return $counts;
     }
 
     /**

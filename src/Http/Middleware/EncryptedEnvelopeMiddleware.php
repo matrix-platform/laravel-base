@@ -24,7 +24,7 @@ class EncryptedEnvelopeMiddleware {
         try {
             [$secret, $aad] = $this->unseal($request);
         } catch (ServiceException $exception) {
-            return $this->rejected($exception);
+            return EnvelopeMiddleware::json($exception->getCode(), $exception->getError(), $exception->getExtra());
         }
 
         return $this->sealed($next($request), $secret, $aad);
@@ -52,10 +52,6 @@ class EncryptedEnvelopeMiddleware {
         if (!Cache::add('api-nonce:' . hash('sha256', $epk), true, $window * 2)) {
             error('invalid-envelope', 400);
         }
-    }
-
-    private function rejected(ServiceException $exception): JsonResponse {
-        return EnvelopeMiddleware::json($exception->getCode(), $exception->getError(), $exception->getExtra());
     }
 
     private function rewrite(Request $request, string $plain): void {

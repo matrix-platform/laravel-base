@@ -300,7 +300,7 @@ class QueryPlan {
                 continue;
             }
 
-            [$where, $bindings] = Conditions::compile($aggregate->conditions, fn (string $alias, string $field): string => $this->wrap($alias, $field));
+            [$where, $bindings] = Conditions::compile($aggregate->conditions, $this->wrap(...));
 
             $sub->addSelect(new Raw("{$sql} FILTER (WHERE {$where}) as {$this->quote($aggregate->name)}"))->addBinding($bindings, 'select');
         }

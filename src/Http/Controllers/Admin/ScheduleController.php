@@ -14,7 +14,7 @@ class ScheduleController extends BaseController {
     /**
      * @return array<string, mixed>
      */
-    #[Action('toggle')]
+    #[Action]
     public function toggle(Request $request): array {
         $request->validate([
             'prefix' => ['required', 'string'],

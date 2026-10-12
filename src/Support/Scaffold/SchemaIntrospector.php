@@ -43,10 +43,11 @@ class SchemaIntrospector {
 
                 $emitted[$field] = true;
                 $present = $groups[$field];
-                $info = $raw["{$field}__{$present[0]}"];
+                $column = "{$field}__{$present[0]}";
+                $info = $raw[$column];
                 $missing = array_values(array_diff(locales(), $present));
 
-                $resolved[$field] = new ResolvedColumn($field, $info['type'], $info['nullable'], true, in_array("{$field}__{$present[0]}", $unique, true), null, $info['comment'], $missing);
+                $resolved[$field] = new ResolvedColumn($field, $info['type'], $info['nullable'], true, in_array($column, $unique, true), null, $info['comment'], $missing);
 
                 continue;
             }

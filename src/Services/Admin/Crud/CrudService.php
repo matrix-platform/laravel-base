@@ -278,8 +278,7 @@ abstract class CrudService {
                 }
             }
 
-            $parent = $menu->parent;
-            $menu = $parent === null ? null : $menus->node($parent);
+            $menu = $menus->above($menu);
         }
 
         return array_reverse($breadcrumbs);
@@ -340,21 +339,8 @@ abstract class CrudService {
      * @return list<array<string, mixed>>
      */
     protected function driveEntries(array $value): array {
-        $entries = [];
-
-        foreach ($value as $entry) {
-            if (!is_array($entry)) {
-                continue;
-            }
-
-            $normalized = [];
-
-            foreach ($entry as $key => $item) {
-                $normalized[(string) $key] = $item;
-            }
-
-            $entries[] = $normalized;
-        }
+        /** @var list<array<string, mixed>> $entries */
+        $entries = array_values(array_filter($value, is_array(...)));
 
         return $entries;
     }
@@ -527,7 +513,7 @@ abstract class CrudService {
      * @return list<Column>
      */
     protected function local(): array {
-        return array_values(array_filter($this->columns, fn (Column $column): bool => $this->isLocal($column)));
+        return array_values(array_filter($this->columns, $this->isLocal(...)));
     }
 
     protected function localized(string $title, string $locale): string {
@@ -588,7 +574,7 @@ abstract class CrudService {
             'hint' => $column->hint,
             'locked' => $column->locked,
             'op' => $column->op,
-            'options' => $column->options === null ? null : $column->options->options($record),
+            'options' => $column->options?->options($record),
             'path' => $column->path,
             'placeholder' => $column->placeholder,
             'remark' => $column->remark,
@@ -1015,7 +1001,7 @@ abstract class CrudService {
 
     private function render(string $template, ?Model $context): string {
         $replaced = preg_replace_callback('/\{(\w+)\}/u', function (array $matches) use ($context): string {
-            $value = $context === null ? null : $context->getAttribute($matches[1]);
+            $value = $context?->getAttribute($matches[1]);
 
             if (!is_scalar($value)) {
                 $value = array_get_value($this->params, $matches[1]);

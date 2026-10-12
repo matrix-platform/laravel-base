@@ -5,7 +5,8 @@ namespace MatrixPlatform\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
-use MatrixPlatform\Services\FileStorage;
+use MatrixPlatform\Models\File;
+use MatrixPlatform\Services\FileService;
 use ZipArchive;
 
 class UpdateGeolocationDatabaseCommand extends Command {
@@ -121,19 +122,19 @@ class UpdateGeolocationDatabaseCommand extends Command {
      * @param resource $stream
      */
     private function replace($stream): bool {
-        $disk = app(FileStorage::class)->requireLocal(config()->string('matrix.file-private-disk'));
+        $storage = Storage::disk(app(FileService::class)->disk(File::PRIVATE));
         $path = strval(cfg('ip2location-bin.bin-path'));
         $temporary = "{$path}.tmp";
 
-        if (!Storage::disk($disk)->writeStream($temporary, $stream)) {
-            Storage::disk($disk)->delete($temporary);
+        if (!$storage->writeStream($temporary, $stream)) {
+            $storage->delete($temporary);
             $this->error('Failed to write the .BIN file to the disk');
 
             return false;
         }
 
-        if (!Storage::disk($disk)->move($temporary, $path)) {
-            Storage::disk($disk)->delete($temporary);
+        if (!$storage->move($temporary, $path)) {
+            $storage->delete($temporary);
             $this->error('Failed to replace the geolocation database with the new .BIN file');
 
             return false;

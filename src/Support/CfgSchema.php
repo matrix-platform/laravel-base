@@ -118,9 +118,8 @@ class CfgSchema {
      */
     private function type(array $meta): ColumnType {
         $declared = array_get_value($meta, 'type');
-        $type = is_string($declared) ? ColumnType::tryFrom($declared) : null;
 
-        return $type === null ? ColumnType::Text : $type;
+        return (is_string($declared) ? ColumnType::tryFrom($declared) : null) ?: ColumnType::Text;
     }
 
     /**

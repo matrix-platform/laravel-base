@@ -417,7 +417,7 @@ class CitySeeder extends Seeder {
 
     public function run(): void {
         foreach (self::CITIES as $city) {
-            $this->city($city[0], $city[1], $city[2], $city[3], $city[4], $city[5]);
+            $this->city(...$city);
         }
 
         foreach (self::AREAS as $area) {

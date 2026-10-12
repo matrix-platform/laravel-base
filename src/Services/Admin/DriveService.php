@@ -132,9 +132,6 @@ class DriveService {
         return $query->findOrFail((int) $id);
     }
 
-    /**
-     * @return ?DriveNode
-     */
     public function group(User $user): ?DriveNode {
         if ($user->group_id === null) {
             return null;
@@ -247,10 +244,9 @@ class DriveService {
      */
     public function trashed(User $user, ?int $days, bool $all): Collection {
         $limit = $days === null ? intval(cfg('drive.trash-default-days')) : $days;
-        $cutoff = $all ? null : now()->subDays($limit);
 
         return DriveNode::onlyTrashed()
-            ->when($cutoff !== null, fn (Builder $query) => $query->where('deleted_at', '>=', $cutoff))
+            ->when(!$all, fn (Builder $query) => $query->where('deleted_at', '>=', now()->subDays($limit)))
             ->get()
             ->filter(fn (DriveNode $node) => $this->permission->visible($node, $user))
             ->values();
@@ -298,9 +294,6 @@ class DriveService {
         return $node;
     }
 
-    /**
-     * @return ?DriveNode
-     */
     private function duplicate(string $hash, int $size): ?DriveNode {
         return DriveNode::withTrashed()
             ->where('type', DriveNodeType::File)

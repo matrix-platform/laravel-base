@@ -3,6 +3,7 @@
 namespace MatrixPlatform\Http\Controllers\Admin;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use MatrixPlatform\Attributes\Action;
 use MatrixPlatform\Http\Controllers\BaseController;
 use MatrixPlatform\Models\PasskeyCredential;
@@ -23,14 +24,14 @@ class PasskeyController extends BaseController {
     #[Action('')]
     public function index(): array {
         return array_values($this->service->credentials(actor()->requireUser())
-            ->map(fn (PasskeyCredential $credential): array => $this->present($credential))
+            ->map($this->present(...))
             ->all());
     }
 
     /**
      * @return array{id: mixed}
      */
-    #[Action('register')]
+    #[Action]
     public function register(Request $request): array {
         $request->validate([
             'challenge' => ['required'],
@@ -67,7 +68,7 @@ class PasskeyController extends BaseController {
      * @return array<string, mixed>
      */
     private function present(PasskeyCredential $credential): array {
-        return array_intersect_key($credential->toArray(), array_flip(['id', 'name', 'create_time', 'last_used_time']));
+        return Arr::only($credential->toArray(), ['id', 'name', 'create_time', 'last_used_time']);
     }
 
 }

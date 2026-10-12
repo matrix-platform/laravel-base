@@ -2,6 +2,8 @@
 
 namespace MatrixPlatform\Services\Admin\Crud;
 
+use Illuminate\Support\Arr;
+
 class GetService extends CrudService {
 
     /**
@@ -39,7 +41,7 @@ class GetService extends CrudService {
             'title' => $this->title(),
             'subtitle' => $this->subject->title($model),
             'breadcrumbs' => $this->breadcrumbs([$model, ...$parents], $model),
-            'data' => $this->flattenComposites($this->dated(array_intersect_key($model->toArray(), array_flip($names)), $model, $this->columns), $model),
+            'data' => $this->flattenComposites($this->dated(Arr::only($model->toArray(), $names), $model, $this->columns), $model),
             'columns' => $this->payload($this->columns, $model),
             'preference' => $this->formPreference($this->preference()),
             'orderable' => $this->orderable,

@@ -230,7 +230,7 @@ class ExportService extends CrudService {
      * @return array<string, mixed>
      */
     private function requested(mixed $filters, array $allowed): array {
-        return is_array($filters) ? array_intersect_key($filters, array_flip($allowed)) : [];
+        return is_array($filters) ? Arr::only($filters, $allowed) : [];
     }
 
     /**

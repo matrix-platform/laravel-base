@@ -29,9 +29,9 @@ class Menu extends BaseModel {
     protected static function booted(): void {
         parent::booted();
 
-        static::creating(fn (Menu $menu) => MenuLocks::creating($menu));
-        static::deleting(fn (Menu $menu) => MenuLocks::deleting($menu));
-        static::updating(fn (Menu $menu) => MenuLocks::updating($menu));
+        static::creating(MenuLocks::creating(...));
+        static::deleting(MenuLocks::deleting(...));
+        static::updating(MenuLocks::updating(...));
     }
 
     protected $table = 'base_menu';

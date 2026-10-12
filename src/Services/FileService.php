@@ -117,6 +117,8 @@ class FileService {
         $nodes = $ids === [] ? [] : DriveNode::query()->whereIn('id', $ids)->get()->keyBy('id')->all();
         $paths = array_values(array_unique(array_map(fn (DriveNode $node): string => File::DRIVE_PREFIX . $node->path, $nodes)));
         $files = $paths === [] ? [] : File::query()->whereIn('path', $paths)->get()->keyBy('path')->all();
+        $drive = app(DriveService::class);
+        $allowed = [];
         $resolved = [];
 
         foreach ($entries as $entry) {
@@ -132,7 +134,11 @@ class FileService {
                 error('invalid-drive-file');
             }
 
-            app(DriveService::class)->requireAllowed($node, $actor);
+            if (!array_key_exists($node->id, $allowed)) {
+                $drive->requireAllowed($node, $actor);
+
+                $allowed[$node->id] = true;
+            }
 
             $path = File::DRIVE_PREFIX . $node->path;
             $file = array_get_value($files, $path);
@@ -197,13 +203,7 @@ class FileService {
     }
 
     public function thumbnailWidth(string $size): ?int {
-        $sizes = config()->array('matrix.thumbnail-sizes');
-
-        if (!array_key_exists($size, $sizes)) {
-            return null;
-        }
-
-        $width = $sizes[$size];
+        $width = array_get_value(config()->array('matrix.thumbnail-sizes'), $size);
 
         return is_int($width) ? $width : null;
     }

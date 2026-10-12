@@ -85,10 +85,7 @@ class ScaffoldPlan {
     }
 
     private static function defaultModelName(string $table): string {
-        $parts = explode('_', $table, 2);
-        $base = count($parts) === 2 ? $parts[1] : $parts[0];
-
-        return Str::studly($base);
+        return Str::studly(Str::after($table, '_'));
     }
 
     /**
@@ -454,7 +451,7 @@ class ScaffoldPlan {
     }
 
     private function membersBlock(): string {
-        $parts = array_values(array_filter([$this->relationMember(), $this->castsMember()], fn (?string $part): bool => $part !== null));
+        $parts = array_values(array_filter([$this->relationMember(), $this->castsMember()]));
 
         return $parts === [] ? '' : "\n" . implode("\n\n", $parts) . "\n";
     }
@@ -488,9 +485,7 @@ class ScaffoldPlan {
 
         foreach ($this->columns as $name => $column) {
             if ($column->translatable) {
-                $present = array_values(array_diff(locales(), $column->missingLocales));
-
-                foreach ($present as $locale) {
+                foreach (array_diff(locales(), $column->missingLocales) as $locale) {
                     $lines[] = " * @property ?string \${$name}__{$locale}";
                 }
 
@@ -546,9 +541,9 @@ class ScaffoldPlan {
      * @param list<string> $imports
      */
     private function useBlock(array $imports): string {
-        $unique = array_values(array_unique($imports));
+        $unique = array_unique($imports);
 
-        usort($unique, strcmp(...));
+        sort($unique, SORT_STRING);
 
         return implode("\n", array_map(fn (string $import): string => "use {$import};", $unique));
     }

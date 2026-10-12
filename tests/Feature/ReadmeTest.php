@@ -20,8 +20,7 @@ class ReadmeTest extends FeatureTestCase {
         '## 開一個自己的功能',
         '## 參考',
         '## 給前端',
-        '## 已知限制與取捨',
-        '## 從舊版升級'
+        '## 已知限制與取捨'
     ];
 
     /**

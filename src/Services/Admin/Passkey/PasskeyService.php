@@ -117,9 +117,9 @@ class PasskeyService {
      * @return Collection<int, PasskeyCredential>
      */
     public function credentials(User $user): Collection {
-        $query = $this->credentialsOf($user);
-
-        return $query->orderByDesc('last_used_time')->get();
+        return $this->credentialsOf($user)
+            ->orderByDesc('last_used_time')
+            ->get();
     }
 
     public function delete(User $user, int $id): void {
@@ -275,7 +275,7 @@ class PasskeyService {
     private function httpRpIds(): array {
         $names = explode(',', (string) cfg('admin.passkey-http-rp-ids', ''));
 
-        return array_values(array_filter(array_map('trim', $names)));
+        return array_values(array_filter(array_map(trim(...), $names)));
     }
 
     private function record(PasskeyCredential $stored, User $user): CredentialRecord {

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Services\Admin\Crud;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Exceptions\ServiceException;
@@ -527,6 +528,73 @@ class CrudServiceTest extends FeatureTestCase {
         }
 
         $this->fail('the delete was expected to be refused');
+    }
+
+    public function test_deleting_several_records_is_refused_when_any_of_them_is_referenced(): void {
+        $clean = $this->widgets();
+        $referenced = $this->widgets();
+
+        $this->trinkets($referenced->id, ['a', 'b']);
+
+        try {
+            (new DeleteService(Widget::class))->standalone(true)->delete(['id' => [$clean->id, $referenced->id]]);
+        } catch (ServiceException $exception) {
+            $this->assertSame('data-in-use', $exception->getError());
+            $this->assertSame(['count' => 2], $exception->getExtra());
+            $this->assertSame(2, Widget::query()->count());
+
+            return;
+        }
+
+        $this->fail('the delete was expected to be refused');
+    }
+
+    public function test_a_refused_delete_reports_the_first_referencing_relation(): void {
+        $widget = $this->widgets();
+
+        Trinket::forceCreate(['label' => 'owned', 'owner_id' => $widget->id, 'owner_type' => Widget::class]);
+        $this->trinkets($widget->id, ['a', 'b', 'c']);
+
+        try {
+            (new DeleteService(Widget::class))->standalone(true)->delete(['id' => $widget->id]);
+        } catch (ServiceException $exception) {
+            $this->assertSame(['count' => 1], $exception->getExtra());
+
+            return;
+        }
+
+        $this->fail('the delete was expected to be refused');
+    }
+
+    public function test_a_morph_row_of_another_type_does_not_block_a_delete(): void {
+        $widget = $this->widgets();
+
+        Trinket::forceCreate(['label' => 'owned', 'owner_id' => $widget->id, 'owner_type' => Trinket::class]);
+
+        (new DeleteService(Widget::class))->standalone(true)->delete(['id' => $widget->id]);
+
+        $this->assertSame(0, Widget::query()->count());
+    }
+
+    public function test_deleting_several_records_counts_each_relation_once(): void {
+        $queries = function (int $total): int {
+            $ids = [];
+
+            for ($index = 0; $index < $total; $index++) {
+                $ids[] = $this->widgets()->id;
+            }
+
+            DB::flushQueryLog();
+            DB::enableQueryLog();
+
+            (new DeleteService(Widget::class))->standalone(true)->delete(['id' => $ids]);
+
+            DB::disableQueryLog();
+
+            return count(array_filter(DB::getQueryLog(), fn (array $query): bool => str_contains($query['query'], 'count(*)')));
+        };
+
+        $this->assertSame($queries(1), $queries(3));
     }
 
     public function test_cascade_delete_reaches_a_morph_relation(): void {

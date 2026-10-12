@@ -220,9 +220,7 @@ class ColumnParser {
             return null;
         }
 
-        $presentation = Presentation::tryFrom($type);
-
-        return $presentation === null ? $type : $presentation;
+        return Presentation::tryFrom($type) ?: $type;
     }
 
     private function provider(mixed $options): ?OptionProvider {

@@ -40,7 +40,7 @@ class RelationOptions implements OptionProvider {
 
             $parent = $metadata->parent;
             $relation = $parent === null ? null : $current->{$parent}();
-            $foreign = $relation === null ? null : $relation->getForeignKeyName();
+            $foreign = $relation?->getForeignKeyName();
             $owner = $relation === null ? null : $relation->getRelated()::class;
 
             $query = $current::query();

@@ -146,7 +146,7 @@ class AuthController extends BaseController {
      */
     #[Action(scope: 'user-aware')]
     public function profile(): array {
-        return $this->service->profile(actor()->user());
+        return $this->service->profile(user());
     }
 
     /**

@@ -27,7 +27,9 @@ trait Thumbnails {
 
         $destination = $thumbnailLocation($size);
 
-        $service->thumbnail(Storage::disk($disk)->path($location), Storage::disk($disk)->path($destination), $size);
+        $storage = Storage::disk($disk);
+
+        $service->thumbnail($storage->path($location), $storage->path($destination), $size);
 
         return ['location' => $destination, 'mime_type' => 'image/webp'];
     }

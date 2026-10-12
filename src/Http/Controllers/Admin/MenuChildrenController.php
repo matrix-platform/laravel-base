@@ -36,7 +36,7 @@ class MenuChildrenController extends CrudController {
     }
 
     protected function onArrange(ArrangeService $service): ArrangeService {
-        return parent::onArrange($service)->fixed(fn (Menu $menu): bool => MenuLocks::synced($menu));
+        return parent::onArrange($service)->fixed(MenuLocks::synced(...));
     }
 
     protected function onGet(GetService $service): GetService {
@@ -46,7 +46,7 @@ class MenuChildrenController extends CrudController {
     protected function onList(ListService $service): ListService {
         return parent::onList($service)
             ->countable('children_count', fn (Menu $menu): bool => !MenuLocks::leaf($menu))
-            ->fixed(fn (Menu $menu): bool => MenuLocks::synced($menu))
+            ->fixed(MenuLocks::synced(...))
             ->rowActions(['edit', 'copy', new Operation('delete', fn (Menu $menu): bool => !MenuLocks::locked($menu))]);
     }
 

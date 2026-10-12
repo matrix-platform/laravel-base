@@ -19,11 +19,11 @@ class Variants {
     private array $variants = [];
 
     public function of(string $group, ?string $type): ?Variant {
-        $key = "{$group}.{$type}";
-
         if ($type === null) {
             return null;
         }
+
+        $key = "{$group}.{$type}";
 
         if (!array_key_exists($key, $this->variants)) {
             $class = config("matrix.variants.{$group}.{$type}");
@@ -35,9 +35,7 @@ class Variants {
     }
 
     public function type(string $group, ?Model $model, mixed $input): ?string {
-        $resolver = $this->resolver($group);
-
-        return $resolver?->resolve($model, $input);
+        return $this->resolver($group)?->resolve($model, $input);
     }
 
     public function variant(string $group, ?Model $model, mixed $input): ?Variant {

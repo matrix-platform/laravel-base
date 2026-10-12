@@ -2,7 +2,7 @@
 
 namespace MatrixPlatform\Services\Admin\Crud;
 
-use MatrixPlatform\Columns\Column;
+use Illuminate\Support\Arr;
 
 class NewService extends CrudService {
 
@@ -49,9 +49,9 @@ class NewService extends CrudService {
      */
     private function defaults(mixed $input): array {
         $values = is_array($input) ? $input : [];
-        $writable = array_values(array_filter($this->local(), fn (Column $column): bool => $this->writable($column)));
+        $writable = array_values(array_filter($this->local(), $this->writable(...)));
 
-        return array_intersect_key($values, array_flip($this->names($writable)));
+        return Arr::only($values, $this->names($writable));
     }
 
 }

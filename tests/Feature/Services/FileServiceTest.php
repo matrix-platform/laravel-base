@@ -88,6 +88,20 @@ class FileServiceTest extends FeatureTestCase {
     }
 
     /**
+     * @param list<array<string, mixed>> $entries
+     */
+    private function driveQueries(array $entries, User $actor): int {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $this->service()->resolveDriveReferences($entries, $actor);
+
+        DB::disableQueryLog();
+
+        return count(array_filter(DB::getQueryLog(), fn (array $query): bool => str_contains($query['query'], 'base_drive_node')));
+    }
+
+    /**
      * @param positive-int $width
      * @param positive-int $height
      */
@@ -678,6 +692,51 @@ class FileServiceTest extends FeatureTestCase {
 
         $this->assertSame($existing, $resolved[0]);
         $this->assertSame(File::DRIVE_PREFIX . $node->path, $resolved[1]['path']);
+    }
+
+    public function test_the_same_drive_node_twice_in_one_call_resolves_both_entries_to_one_base_file(): void {
+        $node = $this->driveFile();
+
+        $resolved = $this->service()->resolveDriveReferences([['id' => $node->id], ['id' => $node->id]], $this->user());
+
+        $this->assertCount(2, $resolved);
+        $this->assertSame($resolved[0], $resolved[1]);
+        $this->assertSame(1, File::query()->where('path', $resolved[0]['path'])->count());
+    }
+
+    public function test_the_same_drive_node_twice_in_one_call_checks_its_permission_once(): void {
+        $node = $this->driveFile();
+        $actor = $this->user();
+
+        $this->driveQueries([['id' => $node->id]], $actor);
+
+        $this->assertSame($this->driveQueries([['id' => $node->id]], $actor), $this->driveQueries([['id' => $node->id], ['id' => $node->id]], $actor));
+    }
+
+    public function test_drive_reference_errors_follow_the_entry_order(): void {
+        $owner = $this->user();
+        $home = new DriveNode();
+
+        $home->id = $owner->id;
+        $home->parent_id = null;
+        $home->type = DriveNodeType::Root;
+        $home->name = $owner->username;
+
+        $home->save();
+
+        $foreign = $this->driveFile(parent: $home);
+        $folder = $this->driveFolder();
+        $stranger = $this->user();
+
+        foreach ([[[$foreign, $folder], 'permission-denied'], [[$folder, $foreign], 'invalid-drive-file']] as [$nodes, $error]) {
+            try {
+                $this->service()->resolveDriveReferences(array_map(fn (DriveNode $node): array => ['id' => $node->id], $nodes), $stranger);
+
+                $this->fail('expected an exception');
+            } catch (ServiceException $exception) {
+                $this->assertSame($error, $exception->getError());
+            }
+        }
     }
 
 

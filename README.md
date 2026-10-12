@@ -32,7 +32,6 @@ class WidgetController extends CrudController {
 - [給前端](#給前端) —— [請求形狀](#請求形狀)、[回應形狀](#回應形狀)、[語系](#語系)、[`api/common/page`](#apicommonpage)、[驗證碼](#驗證碼)、[傳輸加密](#傳輸加密)
 - [沿用套件的 lint](#沿用套件的-lint) —— 選用,共用同一套風格檢查([style-check 檢查什麼](#style-check-檢查什麼))
 - [已知限制與取捨](#已知限制與取捨) —— [安全](#安全)、[規模與效能](#規模與效能)、[資料生命週期](#資料生命週期)、[行為細節](#行為細節)
-- [從舊版升級](#從舊版升級)
 
 ---
 
@@ -1223,7 +1222,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 
 - 每個欄位可以用哪些 `op`,由清單回應的 `columns[].op` 告訴你。送不被允許的欄位或運算子會**靜默忽略**,不會報錯。
 - `between` 用 `from` / `to`（可以只給一邊）,其餘用 `value`。
-- **`date` / `datetime` 欄位的值必須完全符合 `columns[].format` 給的格式**,一個字元都不能差:`date` 只收 `matrix.date-format`（出貨 `Y-m-d`）,`datetime` 只收 `matrix.datetime-format`（出貨 `Y-m-d H:i:s`）,兩者不互通。不符回 422 `invalid-filter-value`。所以查一整天要自己補時間:`from` 是 `00:00:00`、`to` 是 `23:59:59`——只送 `2026-01-31` 會被擋下,而**在舊版那樣送會漏掉當天所有資料**（`BETWEEN` 對 timestamp 欄位截在 `00:00:00`）。
+- **`date` / `datetime` 欄位的值必須完全符合 `columns[].format` 給的格式**,一個字元都不能差:`date` 只收 `matrix.date-format`（出貨 `Y-m-d`）,`datetime` 只收 `matrix.datetime-format`（出貨 `Y-m-d H:i:s`）,兩者不互通。不符回 422 `invalid-filter-value`。所以查一整天要自己補時間:`from` 是 `00:00:00`、`to` 是 `23:59:59`——只送 `2026-01-31` 會被擋下。
 - `page` 或 `size` 給 0 以下 = 不分頁,一次全回。
 - **可上下架的清單**(metadata 同時有 `enable` / `disable`)另收 `filters.schedule = { "op": "eq", "value": "<id>" }`。`schedule` 在這類 model 上是**保留名稱**,由框架處理,不交給一般欄位篩選。五個 id **有包含關係、不互斥**:
 
@@ -1550,6 +1549,7 @@ php artisan matrix:clear-resource-cache
 | **三個 disk 設定只能用 local driver** | 縮圖產生與 IP 資料庫讀取走的是原生檔案函式(`is_file`、`mkdir`、`file_put_contents`、`rename`),它們吃的是 `Storage::disk()->path()` 的回傳值——那個值對非 local driver 是**相對路徑**,會相對於行程當下的工作目錄解析,而 queue worker、artisan 指令與 php-fpm 的工作目錄各不相同,同一份縮圖可能寫在三個地方、讀的時候都找不到,而且全程沒有錯誤。套件本身也沒有安裝任何遠端 flysystem adapter。設成別的 driver 會在取用 disk 時直接回 `unsupported-disk-driver` |
 | **`Resources` 是 singleton** | Octane 這類長生命週期行程改了設定要重啟才看得到。**訊息 worker 例外**——`SendMessageJob` 每次執行前會先丟掉已快取的 bundle,所以在資源後台改了 cfg(SMTP 主機/帳密、`interval` 等)下一封信就生效,不必重啟 worker |
 | 級聯刪除會逐筆取出實例再刪（為了稽核） | 成本隨子資料列數成長 |
+| **刪除前的參照檢查,最上層是每個關聯一次分組計數,關聯條件不能依賴 model 屬性** | 要刪的那幾筆共用同一個關聯查詢(以第一筆建立、`whereIn` 全部的鍵),所以 `hasMany(X::class)->where('type', $this->type)` 這種依各筆屬性加條件的關聯會算錯數量——可能讓仍被引用的資料被刪掉。常數條件與 global scope(含軟刪除)不受影響。查詢帶 limit / offset / group / having / union / join(例如 `latestOfMany()`)的關聯,以及級聯刪除底下的子層,仍逐筆 `count()` |
 | **級聯刪除的路徑可以在任何一層分岔** | `cascade(['children.a', 'children.b'])` 依共同前綴合併:每個 `children` 只走訪一次,`a`、`b` 兩種孫資料都先刪掉、都不擋刪除;沒列進去的關聯有資料仍回 `data-in-use` |
 
 ### 資料生命週期
@@ -1575,7 +1575,7 @@ php artisan matrix:clear-resource-cache
 | **`#[Action]` 會沿繼承鏈繼承** | 覆寫 action 不需要重新宣告 attribute |
 | **套件的 controller 可以整個換成子類別** | 路由掛的是套件的類別,但 controller 由容器建立,所以 `$app->bind(MailLogController::class, App\...\MailLogController::class)` 就會改用子類別(例如改 `$lists`、加 guard);要加欄位就另外 `app(MetadataRegistry::class)->register(MailLog::class, new 子類別宣告())`,放在 `$app->booted()` 裡 |
 | **`#[Action(encrypted: false)]` 讓那支 action 不受所屬前綴的加密開關約束** | 呼叫方不可能封信封的端點要標記它:出貨已標的是 telegram webhook、兩支 multipart 上傳(`file/upload`、`drive/{id}/upload`)與 `encryption-key`。自己的上傳端點也要自己標,漏標的症狀是開關一開就變 `invalid-envelope` |
-| **篩選值的格式與型別都會驗證** | op 要的是單一值卻送陣列(`eq` / `contains` / `between` 的 from、to 等)、`in` / `notIn` 的清單裡有陣列,一律回 422 `invalid-filter-value`。以前這幾種格式有的靜默回**全量**、有的靠 binding 攤平湊出一個結果。值也要對得上欄位型別:`integer` 要整數或純數字字串、`float` 要 numeric、`boolean` 要 `true`/`false`/`0`/`1`、`date` 要完全符合 `matrix.date-format`、`datetime` 要完全符合 `matrix.datetime-format`（兩者不互通,也不收 `now`、`tomorrow`、`+1 day` 這類 PostgreSQL 或 PHP 認得的相對值,以及 `2026-02-31` 這種會被 PHP 悄悄進位的日期）,不符同樣回 422。**這一道是必要的**——不擋的話那個值會原樣進 SQL,PostgreSQL 丟 `22P02`,而 action 跑在交易裡,整個交易會進 aborted 狀態(`25P02`),該請求之後每一個查詢都失敗,真正的原因還被蓋掉。型別依的是欄位**宣告**的型別(DSL 標註 → 聚合函式 → `#[Declared]` 的 definition → model cast),都沒有就當 `text` 不檢查。欄位或 op 不被允許仍是靜默忽略（行為不變）,`in` 清單裡的 null 也照舊（合法 SQL,永不匹配） |
+| **篩選值的格式與型別都會驗證** | op 要的是單一值卻送陣列(`eq` / `contains` / `between` 的 from、to 等)、`in` / `notIn` 的清單裡有陣列,一律回 422 `invalid-filter-value`。值也要對得上欄位型別:`integer` 要整數或純數字字串、`float` 要 numeric、`boolean` 要 `true`/`false`/`0`/`1`、`date` 要完全符合 `matrix.date-format`、`datetime` 要完全符合 `matrix.datetime-format`（兩者不互通,也不收 `now`、`tomorrow`、`+1 day` 這類 PostgreSQL 或 PHP 認得的相對值,以及 `2026-02-31` 這種會被 PHP 悄悄進位的日期）,不符同樣回 422。**這一道是必要的**——不擋的話那個值會原樣進 SQL,PostgreSQL 丟 `22P02`,而 action 跑在交易裡,整個交易會進 aborted 狀態(`25P02`),該請求之後每一個查詢都失敗,真正的原因還被蓋掉。型別依的是欄位**宣告**的型別(DSL 標註 → 聚合函式 → `#[Declared]` 的 definition → model cast),都沒有就當 `text` 不檢查。欄位或 op 不被允許則靜默忽略,`in` 清單裡的 null 不擋（合法 SQL,永不匹配） |
 | **巢狀資源(非 standalone)的每個 CRUD 動作都會驗證路由上的父層鏈** | 所有查詢(清單、`get`、`update`、`delete` 含多筆 id、`copy`、排序、快速上下架、匯出)都加上直接父層的外鍵條件,不屬於該父層的 id 回 404 `data-not-found`(多筆刪除只要有一筆不屬於就整批拒絕)。另外在第一次取用父層外鍵時(`CrudService::owner()`),沿 `Subject::parent()` 往上逐層驗證:父層要能經由它自己的 model 查到(套用其 global scope 與軟刪除),且它的外鍵要等於路由上更上一層的參數,否則同樣回 404——所以父層不存在、被軟刪除、被 global scope 排除(例如共用表依類別分的 model),或祖父層參數對不上時,清單、新增頁、新增、匯入也一律 404。路由沒帶的上層參數不驗證;自我參照的樹(`menu/{parent_id}/children`)只驗證直接父層存在。standalone 模式不套用任何父層條件。`admin/schedule/toggle` 不走巢狀路由,只依 prefix 權限與 model 本身的 global scope 取資料 |
 | **子清單的條件不是父層外鍵時,用 `$mount` 指定動作前綴** | model 的 metadata 沒有父層(或父層不是路由上那一層),例如依行程所屬的群組列出資料,只能用 standalone 並在 `onList()` 等處自己加 `scope()`;這時動作 url 與權限節點仍依 metadata 推導(`{alias}/{id}`),會連到另一個資源。在 controller 設 `protected ?string $mount = 'tour/{tour_id}/reviews';`(對應 `CrudService::mount()`)後,所有動作 url 與權限檢查改用這個前綴,欄位偏好的 key 也跟著它。前綴裡的 `{tour_id}` 照常由前端用該列(列動作)或信封的 `context`(頁動作)展開,所以列資料與 `context` 要自己帶上這個值。`admin/schedule/toggle` 的權限仍看 model metadata 推導的前綴 |
 | **樂觀鎖要自己呼叫** | `BaseModel::lock()` 會重讀該列並逐欄比對,值被別人改過就回 `data-conflicted`。CRUD 引擎不會自動幫你呼叫 |
@@ -1633,27 +1633,9 @@ php artisan matrix:clear-resource-cache
 
 | 事實 | 說明 |
 |---|---|
-| 麵包屑的 `label` 在多層資源下可能與直覺不同,`title` 三層都正確 | 照舊版行為,已用測試釘住 |
+| 麵包屑的 `label` 在多層資源下可能與直覺不同,`title` 三層都正確 | 已用測試釘住 |
 | **`context.{父層}_id` 是字串**,而 `rows` 裡的 id 是整數 | 前端比對時要注意型別 |
-| **`getMenuNodes()` 的每個節點一定有 `group` 與 `tag`**（可能是 `false` / `null`） | 舊版是沒有就不輸出。用 `empty()` 判斷不受影響 |
+| **`getMenuNodes()` 的每個節點一定有 `group` 與 `tag`**（可能是 `false` / `null`） | 用 `empty()` 判斷即可 |
 | **`base_menu` 的迴圈與孤兒節點會被靜默丟掉** | 資料完整性由你負責,不會有錯誤訊息 |
 | **上下架篩選的「現在」以 PHP `now()`(app 時區)綁定** | 不用資料庫的 `NOW()`,因為 `timestamp without time zone` 欄位是以 app 時區寫入;結果是查詢當下的快照 |
 | **`whereActive()`／`whereExpired()`／`whereNotExpired()` 的欄位一律加 model 表名** | 以 `qualifyColumn()` 補成 `表.欄位`,查詢 join 了同樣有 `enable_time` 的表也不會 ambiguous;已帶表名(含 `.`)的欄位原樣使用。條件只套在 model 自己的表,要判斷 join 進來的表請在 `whereHas()` 裡呼叫 |
-
----
-
-## 從舊版升級
-
-這是下一個大版本,**不保證與舊版相容**。已知要動的:
-
-| 項目 | 怎麼改 |
-|---|---|
-| **權限的儲存位置** | 舊版存在 Storage 的 JSON 檔（`permission/User/{id}`、`permission/Group/{id}`）,新版存在 `base_user.permissions` / `base_group.permissions` jsonb 欄位。要寫一次性搬移,並順便檢查孤兒 path（選單裡已經不存在的節點） |
-| **`matrix:prune` 改名** | 新名字是 `matrix:prune-tokens`,**沒有別名**,cron 要改 |
-| **`admin-menus` 的語義** | 從路徑清單變成 bundle 名稱清單（`'app base'` 這種形式） |
-| **多選欄位變成可篩選** | payload 會帶 `op: 'in'`,舊版是不可篩選。前端會據此渲染篩選器 |
-| **匯出的 `columns[].type`** | 舊版是一個混合欄位,新版拆成 `type` + `presentation` |
-| **驗證錯誤的鍵名** | 舊版是 `errors`,新版統一成 `error`（slug）+ `fields`（欄位明細） |
-| **匯入重新設計** | 舊版的匯入功能不相容;新版由前端讀 xlsx 送 JSON、只做新增(見[匯入](#匯入)) |
-| **清單回應多一個 `filters` 鍵** | 可上下架清單多一個上下架篩選;這類 model 上 `filters.schedule` 成為保留名稱,宿主同名的可篩選欄位會被取代 |
-| **上傳的儲存 path 只有白名單內的圖片類型帶副檔名** | 舊資料不用動（既有沒帶或帶副檔名的 path 照樣找得到、下載得到）。副檔名只反映伺服器偵測到的類型,要判斷類型仍請讀 `mime_type`,原始檔名讀 `name` |

@@ -128,13 +128,11 @@ class AuthService {
      * @return array{nodes: array<string, array<string, mixed>>, profile: ?User, max_upload_size: int}
      */
     public function profile(?User $user): array {
-        $maxUploadSize = app(FileService::class)->maxUploadSize();
-
-        if ($user === null) {
-            return ['nodes' => [], 'profile' => null, 'max_upload_size' => $maxUploadSize];
-        }
-
-        return ['nodes' => app(AdminPermission::class)->getMenuNodes(), 'profile' => $user->makeHidden('permissions'), 'max_upload_size' => $maxUploadSize];
+        return [
+            'nodes' => $user === null ? [] : app(AdminPermission::class)->getMenuNodes(),
+            'profile' => $user?->makeHidden('permissions'),
+            'max_upload_size' => app(FileService::class)->maxUploadSize()
+        ];
     }
 
     private function captchaDriver(): Driver {

@@ -34,7 +34,7 @@ class PasswordService {
     }
 
     public function verify(?User $user, string $password): bool {
-        $hash = $user === null ? null : $user->password;
+        $hash = $user?->password;
         $verified = Hash::check($password, $hash ?: $this->dummyHash());
 
         return (bool) $hash && $verified;

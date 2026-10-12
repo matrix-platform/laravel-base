@@ -14,7 +14,7 @@ class ManipulationLogController extends BaseController {
     /**
      * @return array<string, mixed>
      */
-    #[Action('query')]
+    #[Action]
     public function query(Request $request): array {
         $request->validate([
             'prefix' => ['required', 'string'],

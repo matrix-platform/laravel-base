@@ -45,11 +45,12 @@ class Menus {
     public function nodes(): array {
         $nodes = [];
 
-        foreach (array_keys($this->bundle()) as $path) {
-            $node = $this->node(strval($path));
+        foreach (array_keys($this->bundle()) as $key) {
+            $path = strval($key);
+            $node = $this->node($path);
 
             if ($node !== null) {
-                $nodes[strval($path)] = $node;
+                $nodes[$path] = $node;
             }
         }
 
