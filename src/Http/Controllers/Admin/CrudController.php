@@ -2,6 +2,7 @@
 
 namespace MatrixPlatform\Http\Controllers\Admin;
 
+use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
@@ -88,6 +89,9 @@ abstract class CrudController extends BaseController {
      */
     protected array $updates = [];
 
+    /**
+     * @var BaseModel|null
+     */
     private ?Model $instance = null;
 
     /**
@@ -163,7 +167,9 @@ abstract class CrudController extends BaseController {
      */
     #[Action]
     public function insert(Request $request): array {
-        return $this->onInsert($this->prepare(new InsertService($this->model), $request))->insert($request->all());
+        $service = $this->onInsert($this->prepare(new InsertService($this->model), $request));
+
+        return $this->persist($request, fn (): array => $service->insert($request->all()));
     }
 
     /**
@@ -203,11 +209,31 @@ abstract class CrudController extends BaseController {
      */
     #[Action('{id}/update')]
     public function update(Request $request): array {
-        return $this->onUpdate($this->prepare(new UpdateService($this->model), $request))->update($this->identifier($request), $request->all());
+        $service = $this->onUpdate($this->prepare(new UpdateService($this->model), $request));
+
+        return $this->persist($request, fn (): array => $service->update($this->identifier($request), $request->all()));
+    }
+
+    /**
+     * @return list<string|array<string, mixed>>
+     */
+    protected function forming(): array {
+        return $this->inserts === null ? $this->updates() : $this->inserts;
     }
 
     protected function identifier(Request $request): string {
         return strval($request->route('id'));
+    }
+
+    /**
+     * @return BaseModel
+     */
+    protected function instance(): Model {
+        if ($this->instance === null) {
+            $this->instance = new $this->model();
+        }
+
+        return $this->instance;
     }
 
     protected function onArrange(ArrangeService $service): ArrangeService {
@@ -268,6 +294,57 @@ abstract class CrudController extends BaseController {
      */
     protected function optionals(): array {
         return $this->updates();
+    }
+
+    /**
+     * @param Closure(): array<string, mixed> $write
+     * @return array<string, mixed>
+     */
+    protected function persist(Request $request, Closure $write): array {
+        return $write();
+    }
+
+    /**
+     * @template TService of CrudService
+     * @param TService $service
+     * @return TService
+     */
+    protected function prepare(CrudService $service, Request $request): CrudService {
+        $route = $request->route();
+
+        return $service
+            ->standalone($this->standalone)
+            ->mount($this->mount)
+            ->params($route instanceof Route ? $route->parameters() : []);
+    }
+
+    protected function ranking(): ?string {
+        return app(MetadataRegistry::class)->of($this->model)?->ranking;
+    }
+
+    protected function sortable(): bool {
+        if ($this->sortable !== null) {
+            return $this->sortable;
+        }
+
+        $ranking = $this->ranking();
+
+        return $ranking !== null && ($this->sorting === [] || $this->sorting === [$ranking]);
+    }
+
+    protected function standalone(): bool {
+        return $this->standalone;
+    }
+
+    /**
+     * @return list<string|array<string, mixed>>
+     */
+    protected function updates(): array {
+        if ($this->updates !== []) {
+            return $this->updates;
+        }
+
+        return array_map(fn (string $name): string => in_array($name, $this->readonly, true) ? "!{$name}" : $name, $this->derived());
     }
 
     private function arrangeable(): bool {
@@ -358,13 +435,6 @@ abstract class CrudController extends BaseController {
         return $this->exports === null ? $this->listing() : $this->exports;
     }
 
-    /**
-     * @return list<string|array<string, mixed>>
-     */
-    private function forming(): array {
-        return $this->inserts === null ? $this->updates() : $this->inserts;
-    }
-
     private function importer(Request $request): ImportService {
         return $this->onImport($this->prepare(new ImportService($this->model), $request));
     }
@@ -374,14 +444,6 @@ abstract class CrudController extends BaseController {
      */
     private function importing(): array {
         return $this->imports === null ? $this->forming() : $this->imports;
-    }
-
-    private function instance(): Model {
-        if ($this->instance === null) {
-            $this->instance = new $this->model();
-        }
-
-        return $this->instance;
     }
 
     private function joined(string $name): string {
@@ -431,40 +493,12 @@ abstract class CrudController extends BaseController {
         return [...$names, ...$this->counted()];
     }
 
-    /**
-     * @template TService of CrudService
-     * @param TService $service
-     * @return TService
-     */
-    private function prepare(CrudService $service, Request $request): CrudService {
-        $route = $request->route();
-
-        return $service
-            ->standalone($this->standalone)
-            ->mount($this->mount)
-            ->params($route instanceof Route ? $route->parameters() : []);
-    }
-
-    private function ranking(): ?string {
-        return app(MetadataRegistry::class)->of($this->model)?->ranking;
-    }
-
     private function shown(Definition $definition): bool {
         if ($definition->presentation === Presentation::Hidden) {
             return false;
         }
 
         return $definition->presentation !== null || $definition->type !== ColumnType::Json;
-    }
-
-    private function sortable(): bool {
-        if ($this->sortable !== null) {
-            return $this->sortable;
-        }
-
-        $ranking = $this->ranking();
-
-        return $ranking !== null && ($this->sorting === [] || $this->sorting === [$ranking]);
     }
 
     private function sorter(Request $request): SortService {
@@ -486,17 +520,6 @@ abstract class CrudController extends BaseController {
         $ranking = $this->ranking();
 
         return $ranking === null ? [$this->instance()->getKeyName()] : [$ranking];
-    }
-
-    /**
-     * @return list<string|array<string, mixed>>
-     */
-    private function updates(): array {
-        if ($this->updates !== []) {
-            return $this->updates;
-        }
-
-        return array_map(fn (string $name): string => in_array($name, $this->readonly, true) ? "!{$name}" : $name, $this->derived());
     }
 
 }

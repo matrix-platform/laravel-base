@@ -86,6 +86,8 @@ return [
 
     'invalid-sort-order' => 'Sort order does not match the data',
 
+    'invalid-staged-child' => 'Staged child must be a mounted, non-standalone resource with a parent',
+
     'invalid-token' => 'Invalid or expired token',
 
     'invalid-translation-driver' => 'Invalid translation driver configuration',
@@ -119,6 +121,8 @@ return [
     'request-failed' => 'Request could not be processed',
 
     'server-error' => 'An unexpected error occurred',
+
+    'staged-key-conflict' => 'Staged key must not match a parent field',
 
     'too-many-requests' => 'Too many requests, please try again later',
 

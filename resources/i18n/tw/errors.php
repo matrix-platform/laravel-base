@@ -86,6 +86,8 @@ return [
 
     'invalid-sort-order' => '排序內容與資料不符',
 
+    'invalid-staged-child' => '暫存子資源必須是已掛載、非獨立且有父資料的資源',
+
     'invalid-token' => '登入憑證無效或已過期',
 
     'invalid-translation-driver' => '翻譯服務設定錯誤',
@@ -119,6 +121,8 @@ return [
     'request-failed' => '請求無法處理',
 
     'server-error' => '系統發生錯誤',
+
+    'staged-key-conflict' => '暫存子資源的 key 不可與父欄位同名',
 
     'too-many-requests' => '請求過於頻繁，請稍後再試',
 

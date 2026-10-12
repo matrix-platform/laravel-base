@@ -38,6 +38,7 @@ use MatrixPlatform\Support\PermissionTree;
 use MatrixPlatform\Support\Resources;
 use MatrixPlatform\Support\RollbackCallbacks;
 use MatrixPlatform\Support\SharedModels;
+use MatrixPlatform\Support\StagedContext;
 
 class BaseServiceProvider extends ServiceProvider {
 
@@ -87,6 +88,7 @@ class BaseServiceProvider extends ServiceProvider {
         $this->app->scoped(AdminPermission::class, fn () => new AdminPermission(actor()->requireUser(), app(Menus::class)));
         $this->app->scoped(PermissionTree::class);
         $this->app->scoped(RollbackCallbacks::class);
+        $this->app->scoped(StagedContext::class);
         $this->app->singleton(Channels::class);
         $this->app->singleton(Menus::class);
         $this->app->singleton(MetadataRegistry::class);

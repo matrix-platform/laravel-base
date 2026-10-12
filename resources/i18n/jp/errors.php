@@ -86,6 +86,8 @@ return [
 
     'invalid-sort-order' => '並び替えの内容がデータと一致しません',
 
+    'invalid-staged-child' => '一時保存の子リソースは、マウント済みで独立型ではなく、親を持つリソースである必要があります',
+
     'invalid-token' => 'トークンが無効か期限切れです',
 
     'invalid-translation-driver' => '翻訳サービスの設定が不正です',
@@ -119,6 +121,8 @@ return [
     'request-failed' => 'リクエストを処理できませんでした',
 
     'server-error' => '予期しないエラーが発生しました',
+
+    'staged-key-conflict' => '一時保存のキーは親フィールドと同じ名前にできません',
 
     'too-many-requests' => 'リクエストが多すぎます。しばらくしてから再度お試しください',
 

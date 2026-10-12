@@ -31,7 +31,7 @@ class WidgetController extends CrudController {
 - [參考](#參考) —— [端點](#端點)、[設定鍵](#設定鍵)、[cfg 設定鍵](#cfg-設定鍵)、[主控台指令](#主控台指令)、[錯誤代碼](#錯誤代碼)、[資料表](#資料表)
 - [給前端](#給前端) —— [請求形狀](#請求形狀)、[回應形狀](#回應形狀)、[語系](#語系)、[`api/common/page`](#apicommonpage)、[驗證碼](#驗證碼)、[傳輸加密](#傳輸加密)
 - [沿用套件的 lint](#沿用套件的-lint) —— 選用,共用同一套風格檢查([style-check 檢查什麼](#style-check-檢查什麼))
-- [已知限制與取捨](#已知限制與取捨) —— [安全](#安全)、[規模與效能](#規模與效能)、[資料生命週期](#資料生命週期)、[行為細節](#行為細節)
+- [已知限制與取捨](#已知限制與取捨) —— [安全](#安全)、[規模與效能](#規模與效能)、[資料生命週期](#資料生命週期)、[行為細節](#行為細節)、[暫存子項目的取捨](#暫存子項目的取捨)
 
 ---
 
@@ -572,6 +572,130 @@ class WidgetController extends CrudController {
 - **往返**:只有明寫 `$exports` 與 `$imports` 且兩者一致時,匯出檔才能直接拿來匯入;預設匯出的是使用者選的清單欄位(關聯欄位是標題欄而非外鍵),請從範本開始填。
 - **更新既有資料**:`locate(fn (Builder $query, array $values, int $row): Model => ...)` 把匯入改成「每列更新一筆既有資料」,不再新增。`$query` 已套父層與 scope(巢狀資源同樣先驗父層鏈);`$values` 是整列原始值,含不在可匯入欄位裡的鍵(用來放對應鍵,例如編號欄)。找不到時在 callback 裡 `invalid($name, $code)`,當成該列錯誤。只驗證、寫入有填的儲存格(唯一規則排除這一筆),**空白儲存格保留原值**(布林欄也不會變 `false`),所以無法用匯入清空欄位;可匯入欄位全空白的列直接跳過、不呼叫 callback、不計數。guard 的第二個參數是更新前的 `toArray()`(同 `update`)。範本仍只有可匯入欄位,對應鍵欄與預填列由 controller 自己補(覆寫 `importTemplate()`)。
 - **跨 model 匯入**(在 A 的頁面匯入 B)沒有框架支援:覆寫 `import()` / `importTemplate()`,自己建 `(new ImportService(B::class))->standalone(true)`。
+
+#### 暫存子項目
+
+子資源(例如城市底下的區域)可以直接在父表單裡新增、修改、刪除、排序。異動先暫存在頁面上,按下父表單的儲存才與父資料一起寫入,在同一個交易裡,失敗就全部不生效。父 controller `use StagesChildren`(`MatrixPlatform\Http\Controllers\Admin\Concerns\StagesChildren`),再宣告哪些子資源走這個模式;子 controller 不必 `use`:
+
+```php
+class CityController extends CrudController {
+
+    use StagesChildren;
+
+    protected function staged(): array {
+        return ['areas' => 'city/{city_id}/area']; // body key => 子資源前綴
+    }
+
+    protected function validateStaged(string $key, Model $parent): void {
+        // 全部子資源都寫完、排好序後才呼叫,跨列與跨子資源的規則放這裡
+    }
+
+    protected function afterStaged(string $key, Model $parent): void {
+        // 驗證都通過後才呼叫,處理副作用
+    }
+
+}
+```
+
+- **只有 `use StagesChildren` 的 controller 才有暫存模式**,也才會註冊下面四支端點。trait 覆寫 `CrudController` 的 `persist()`(`insert()` / `update()` 的寫入掛點),所以父 controller 自己覆寫 `insert()` / `update()` 並呼叫 `parent::` 時照樣會處理暫存子項目。
+- **宣告的是子資源前綴,不是 class。** 框架用 `ActionRoutes::controller($prefix)` 找出掛在這個前綴上的子 controller,權限也用同一個前綴檢查(`AdminPermission::permits($prefix, $tag)`)。子 controller 必須用 `ActionRoutes::mount()` 掛上、不是 standalone,且子 model 的 metadata 要有父層(外鍵靠它推導),否則丟 `invalid-staged-child`。key 與父表單欄位同名會丟 `staged-key-conflict`(存檔時 body 會互相覆蓋)。這兩項只在用到暫存模式時才檢查:打下面四支端點,或存檔的 body 帶了宣告的 key。
+- **子 service 一律由子 controller 的 `onInsert()` / `onUpdate()` / `onDelete()` / `onSort()` 建立**,子資源原本的欄位與 guard 都沿用。params 是父路由參數去掉 `id`,加上 `[外鍵 => 父 id]`;新增頁沒有父 id,不放外鍵。
+- **子 controller 覆寫的 `insert()` / `update()` 不會被呼叫**,框架只呼叫 service。副作用請掛在 guard 或父 controller 的 `afterStaged()`。父 controller 覆寫 `insert()` / `update()` 而不呼叫 `parent::` 的話,暫存子項目也不會被處理。
+- **子資源的 options、guard、`onX` 不可依賴 `request()` 讀子資源的路由參數。** 暫存模式下的 request 是父資源的路由(`city/5/update`),`request()->route('city_id')` 是 `null`,而且不會報錯。需要父資料時改讀 `app(StagedContext::class)`:`parent` 是父表單目前的值(端點的 body `parent`;存檔時是父 body 去掉暫存 key),`model` 是父 model(編輯頁,或存檔時剛寫好的父資料;新增頁的端點是 `null`)。
+
+**選單節點**:沒有節點的路由一律 403,所以每個用暫存模式的父資源都要登記這四支,tag 照下表。除了節點本身,還會檢查使用者對子資源前綴的權限。
+
+| 節點 | tag | 用途 | 子資源權限 |
+|---|---|---|---|
+| `city/staged/{key}` | `insert` | 新增頁:子表單欄位、可否排序、標題 | `insert` |
+| `city/{id}/staged/{key}` | `update` | 編輯頁:同上,另加所有既有子列 | `insert`、`update`、`delete` 任一 |
+| `city/staged/{key}/validate` | `insert` | 新增頁:驗一列,不寫入 | `insert` |
+| `city/{id}/staged/{key}/validate` | `update` | 編輯頁:驗一列,不寫入 | 新增列 `insert`,既有列 `update` |
+
+帶 `{id}` 的兩支先用父 controller 的 `onUpdate()` 查父資料(`findOrFail`),範圍外回 404。讀欄位不要求子資源的 `query` 權限:前端完全不打子資源的列表端點;編輯頁表格要用的列表欄位,由框架直接呼叫子 controller 的 `onList()` 與 `ListService` 取得,不經路由權限。彈窗一律用表單欄位。
+
+**端點 body**:`{ "parent": { 父表單目前的值 }, "data": { 子列目前的值 }, "id": 5 }`。
+
+- `id` 只在針對既有子列時帶:讀欄位時回傳那一列的 `onUpdate()` 欄位,驗證時走 update;不帶就是新列,用 `onInsert()` 欄位。
+- `data` 用來決定 variant / composite 欄位要展開哪一型(`Variants::type()` 收到的 input)。
+- 欄位端點回 `{ title, sortable, abilities, columns, rows }`:`title` 是子資源前綴的選單標題,`sortable` 照子 controller 的 `$sortable`,`abilities` 是 `{ insert, update, delete }` 三個布林(見下方「子資源自訂寫入」;沒實作時三項都是 `true`),`columns` 與 `new` / `get` 的 `columns` 同形,`rows` 是既有子列的表單格式資料(同 `get` 的 `data`,含 composite 攤平;子資源可排序時依 `ranking`、再依主鍵排序),新增頁固定是 `[]`。
+- 編輯頁另回 `list: { columns, sorting }`,是子資源列表信封(`list` 端點)的同名欄位,前端用來畫表頭(與子列表頁相同的欄位)。列表用子 controller 的 `onList()` 準備,params 同上、不分頁(`size: 0`),page / row actions 一律清空不用。列表列的值依主鍵併入 `rows` 的每一列:表單格式原樣保留,列表值補上,同名鍵以表單值為準(表單值是存檔要送的)。新增頁沒有父 id,查不了列表,不回 `list`,前端改用表單欄位畫表格。
+- validate 流程比照 `insert` / `update`(驗證、`assign`、guard),只是不 `save()`,而且整段在一個 savepoint 裡最後一律 rollback(雲端硬碟參照會寫 `base_file`)。新增頁沒有父 id,不 attach,guard 看到的外鍵是 `null`。通過回 `[]`,失敗是一般的 422;帶 `fields` 的其他 `ServiceException` 也改成 422 `validation-failed`,`fields` 原樣保留。子 controller 實作 `WritesStagedRows` 時,編輯頁的 validate 改成實際寫入後 rollback,並回傳試算資料(見下方)。
+
+**存檔**:照樣打 `insert` / `{id}/update`,body 多帶宣告的 key。body 沒帶任何宣告的 key 時,行為與一般存檔完全相同。
+
+```json
+{
+  "name": "台北",
+  "areas": {
+    "rows": [{ "id": 5, "name": "大安" }, { "name": "信義" }],
+    "delete": [7],
+    "order": [0, "id:3", 1]
+  }
+}
+```
+
+- `rows` 只放有新增或修改的列:有 `id` 是修改,沒有是新增。修改也是全量覆寫,列要帶完整的表單資料。
+- `order` 只在子資源可排序、而且順序有變動時才送,內容是畫面上的完整順序:數字是 `rows` 的索引,`id:3` 是沒有異動的既有列。框架換成實際 id 後交給子 controller 的 `onSort()` 與 `SortService::sort()`,所以順序不完整就是 `invalid-sort-order`。送了 `order` 需要子資源的 `update` 權限。
+- 新增列需要子資源的 `insert` 權限,修改列 `update`,刪除 `delete`;不足回 403,整筆不寫入。子 controller 實作 `WritesStagedRows` 時,每項改看 `stagedPermissionTag()` 回傳的 tag(四支端點的子資源權限也一樣)。
+
+**處理順序**(全部在 action 的交易裡):
+
+1. 寫父資料。父欄位驗證失敗時,編輯頁照樣用既有的父資料處理子列;新增頁沒有父 id,子列改用 validate 的方式檢查(不寫入),錯誤一樣累積。
+2. 依 `staged()` 宣告的順序處理每個 key;同一個 key 內先刪除、再修改、最後新增,每一列(每個刪除的 id)各自一個 savepoint,出錯就記下來,接著處理下一列。
+3. 這個 key 沒有錯誤才排序。
+4. 有任何錯誤,合併成一個 422 `validation-failed` 丟出,整筆 rollback。
+5. 全部 key 都寫完、排好序後,依序對每個 key 呼叫 `validateStaged()`,這時查資料庫看到的就是最終狀態;在裡面 `invalid($key, $code)` 會讓整筆 rollback。
+6. 再依序對每個 key 呼叫 `afterStaged()`。它仍在交易內,寄信、打第三方這類撤不回的副作用請包在 `DB::afterCommit()` 裡。
+
+兩個 hook 只對 body 有帶的 key 呼叫。
+
+**錯誤 key**:
+
+| 來源 | key |
+|---|---|
+| 父欄位 | 原本的欄位名(`name`) |
+| 新增或修改的列 | `areas.{rows 的索引}.{欄位}`,例如 `areas.1.name` |
+| 刪除失敗(`data-in-use`、刪除 guard 的錯誤等) | `areas.delete.{id}`,值是錯誤代碼,例如 `["data-in-use"]` |
+| 排序失敗、`validateStaged()` 的 `invalid($key, …)` | `areas` |
+
+列的錯誤除了 422 `validation-failed`,任何 extra 帶 `fields` 的 `ServiceException`(例如 `error('out-of-stock', 409, ['fields' => ['addon_id' => ['out-of-stock']]])`)也視為欄位錯誤,照上表改寫成列的 key,不會讓整次存檔以原本的狀態碼失敗。
+
+**子資源自訂寫入**:子 controller 實作 `WritesStagedRows`(`MatrixPlatform\Http\Controllers\Admin\Concerns\WritesStagedRows`),暫存模式下的新增、修改、刪除就改呼叫它的方法,不再走 `onInsert()` / `onUpdate()` / `onDelete()` 的 service。適合「一列怎麼寫入」有自己業務流程的子資源(例如要經過領域服務、要記金額)。排序,以及沒有父資料時的檢查(新增頁的 validate、新增頁父資料寫入失敗時的逐列檢查)仍走 service。
+
+```php
+class AreaController extends CrudController implements WritesStagedRows {
+
+    public function stagedInsertRow(array $row): Model {
+        $city = app(StagedContext::class)->model; // 父 model
+        // 業務檢查與寫入,回傳寫好的 model
+    }
+
+    public function stagedUpdateRow(string $id, array $row): Model {
+        // $id 由框架傳入;要自己確認這一列屬於父資料
+    }
+
+    public function stagedDeleteRow(string $id): void {}
+
+    public function stagedAbilities(Model $parent): array {
+        return ['insert' => true, 'update' => false, 'delete' => $parent->editable];
+    }
+
+    public function stagedPermissionTag(string $operation): string {
+        return $operation === 'delete' ? 'update' : $operation; // 刪除改看 update
+    }
+
+}
+```
+
+- **id 一律由框架傳入**(body 的 `rows[].id`、`delete`),父 model 從 `StagedContext::model` 取。`$row` 是 body 原樣的列資料,欄位驗證要自己做(例如呼叫 `invalid()`)。
+- **validate**:編輯頁在一個 savepoint 裡呼叫 `stagedInsertRow()` / `stagedUpdateRow()`,最後一律 rollback;after-commit 的事件隨 savepoint 丟棄,不會寄信。rollback 前用子 controller 的 `onUpdate()` 重新查出寫好的那一列(所以 join 的欄位也有值),轉成和欄位端點 `rows` 同格式的單列資料,再用 `onList()` 的列表查出同一列併入列表值(規則同欄位端點的 `rows`)後回傳,前端合併進暫存列,用來顯示金額這類由後端算出的值。寫入方法丟出帶 `fields` 的 `ServiceException`(例如 409 `out-of-stock`)時,validate 一律改回 422 `validation-failed`,`fields` 原樣保留(只驗一列,不加 key 前綴),與存檔的行為一致。
+- **abilities**:只在編輯頁由 `stagedAbilities($parent)` 決定,給前端隱藏按鈕用;新增頁三項都是 `true`。存檔時**不**據此擋,後端靠權限 tag 與各列自己的業務檢查。
+- **權限 tag**:`stagedPermissionTag()` 收到 `insert` / `update` / `delete`,回傳要檢查的子資源選單 tag。沒實作介面時就是原本的 tag。
+
+`data-not-found`(id 不屬於這個父資料)、`invalid-drive-file` 這類不屬於欄位驗證的錯誤不改寫 key,整筆直接失敗,照一般錯誤回應。
+
+已知限制見[暫存子項目的取捨](#暫存子項目的取捨)。
 
 ### 5. 路由 —— 必須掛在 `admin` 前綴之下
 
@@ -1140,6 +1264,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | `invalid-preference-key` | 未宣告的偏好設定項目 |
 | `invalid-resource-token` | 資源代碼格式錯誤 |
 | `invalid-sort-order` | 排序內容與資料不符 |
+| `invalid-staged-child` | 暫存子資源必須是已掛載、非獨立且有父資料的資源 |
 | `invalid-token` | 登入憑證無效或已過期 |
 | `invalid-translation-driver` | 翻譯服務設定錯誤 |
 | `invalid-type-resolver` | 複合欄位的型別判斷器設定錯誤 |
@@ -1157,6 +1282,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | `push-subscription-not-found` | 這個收件者沒有可用的推播訂閱 |
 | `request-failed` | 請求無法處理 |
 | `server-error` | 系統發生錯誤 |
+| `staged-key-conflict` | 暫存子資源的 key 不可與父欄位同名 |
 | `too-many-requests` | 請求過於頻繁，請稍後再試 |
 | `translation-request-failed` | 翻譯請求失敗 |
 | `undeclared-action` | Action 未宣告 |
@@ -1628,6 +1754,22 @@ php artisan matrix:clear-resource-cache
 | **稽核紀錄的 `after` 是 accessor 之後的值** | 你掛在可追蹤欄位上的 accessor 從此決定稽核內容 |
 | **`Operator` 掛在檢視表上** | 唯讀,不要對它 `save()` |
 | **`base_drive_node` 沒有 `deleter_id` 欄位** | API 回應的 `deleted_by` 是即時查 `base_manipulation_log`(`data_type`/`data_id` 對上該節點、`type = Deleted` 的最新一筆)反查出來的,只在 `deleted_at` 非空時才查一次;未刪除的節點固定回 `null`,不打這張表 |
+
+#### 暫存子項目的取捨
+
+| 事實 | 說明 |
+|---|---|
+| **跨列規則請放在 `validateStaged()`,guard 只放單列規則** | 按「確定」時的單列驗證,以及存檔時逐列寫入,guard 看到的都是「舊的」或「寫到一半」的資料庫。例如「刪掉房型 X 再新增 X」,查兄弟列的 guard 在按確定時就會擋下 |
+| **刪掉 A 再新增同值的 A 可以成功** | 同一個 key 內先刪除再新增,而且不預先驗證全部列(預先驗證會在刪除前就查 `unique`) |
+| **兩列互換單一 unique 欄位的值一定失敗** | 不管處理順序如何,第一列寫入時另一列仍佔著那個值 |
+| **新增頁的 validate,guard 看到的外鍵是 `null`** | 父資料還沒存;存檔時才 attach 真正的父 id |
+| **子資源的 options、guard、`onX` 讀 `request()` 拿不到子資源的路由參數** | 值是 `null` 而且不報錯。改讀 `StagedContext` |
+| **子 controller 覆寫的 `insert()` / `update()` 不會被呼叫** | 框架只呼叫 service |
+| **沒實作 `WritesStagedRows` 的子資源,新列與改過的列看不到列表專屬的值** | 它的 validate 不寫入、回 `[]`,所以表格裡這些列只有表單值;列表專屬欄位(join、guard 補的值)要存檔後重新載入才有 |
+| **`afterStaged()` 在交易內執行** | 外部副作用撤不回,請用 `DB::afterCommit()` |
+| **多人同時編輯同一筆的子項目是後存覆蓋** | 沒有樂觀鎖 |
+| **實作 `WritesStagedRows` 時,寫入方法要自己處理業務檢查** | 框架不呼叫子 service,子資源的欄位驗證、guard、`unique` 都不會自動執行;也不檢查傳入的 id 是否屬於父資料。寫入方法不可讀路由參數:暫存模式下路由的 `id` 是父資源的 id。父資料改讀 `StagedContext` |
+| **暫存模式只有新增、修改、刪除與排序** | 上下架、匯入、匯出、異動紀錄等子資源功能不在暫存模式裡;子資源原本的獨立端點不受影響,異動紀錄照子 service 的寫入流程每列各留一筆 |
 
 #### 選單與回應契約
 

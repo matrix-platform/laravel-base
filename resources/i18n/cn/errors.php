@@ -86,6 +86,8 @@ return [
 
     'invalid-sort-order' => '排序内容与数据不符',
 
+    'invalid-staged-child' => '暂存子资源必须是已挂载、非独立且有父数据的资源',
+
     'invalid-token' => '登录凭证无效或已过期',
 
     'invalid-translation-driver' => '翻译服务设置错误',
@@ -119,6 +121,8 @@ return [
     'request-failed' => '请求无法处理',
 
     'server-error' => '系统发生错误',
+
+    'staged-key-conflict' => '暂存子资源的 key 不可与父字段同名',
 
     'too-many-requests' => '请求过于频繁，请稍后再试',
 
