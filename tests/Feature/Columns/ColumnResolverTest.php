@@ -50,16 +50,16 @@ class ColumnResolverTest extends FeatureTestCase {
         return app(ColumnResolver::class)->resolve((new ColumnParser())->parse($column), $root === null ? new Widget() : $root);
     }
 
-    public function test_the_tab_a_definition_declares_reaches_the_column(): void {
-        $this->declare(['title' => Definition::text(tab: 'other')]);
+    public function test_the_section_a_definition_declares_reaches_the_column(): void {
+        $this->declare(['title' => Definition::text(section: 'other')]);
 
-        $this->assertSame('other', $this->resolve('title')->tab);
+        $this->assertSame('other', $this->resolve('title')->section);
     }
 
-    public function test_a_given_tab_overrides_the_declared_one(): void {
-        $this->declare(['title' => Definition::text(tab: 'other')]);
+    public function test_a_given_section_overrides_the_declared_one(): void {
+        $this->declare(['title' => Definition::text(section: 'other')]);
 
-        $this->assertSame('given', $this->resolve(['name' => 'title', 'tab' => 'given'])->tab);
+        $this->assertSame('given', $this->resolve(['name' => 'title', 'section' => 'given'])->section);
     }
 
     public function test_a_declared_class_string_provider_is_resolved_to_an_instance(): void {

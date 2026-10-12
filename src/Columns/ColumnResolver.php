@@ -58,7 +58,7 @@ class ColumnResolver {
             $column->required || ($definition !== null && $definition->required),
             $this->rule($column, $definition),
             $this->sortable($column, $type, $presentation, $virtual),
-            $column->tab === null ? $definition?->tab : $column->tab,
+            $column->section === null ? $definition?->section : $column->section,
             $silent ? $this->fallback($column) : $this->title($root, $column),
             $definition !== null && $definition->translatable,
             $type,

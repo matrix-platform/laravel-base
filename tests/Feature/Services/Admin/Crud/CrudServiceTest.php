@@ -191,17 +191,17 @@ class CrudServiceTest extends FeatureTestCase {
 
         $this->assertSame([
             'name', 'title', 'translatable', 'type', 'format', 'presentation', 'group', 'hint', 'locked', 'op',
-            'options', 'path', 'placeholder', 'remark', 'readonly', 'required', 'rule', 'sortable', 'tab',
+            'options', 'path', 'placeholder', 'remark', 'readonly', 'required', 'rule', 'section', 'sortable',
             'writable', 'default', 'replaces'
         ], array_keys($columns[0]));
     }
 
-    public function test_the_payload_carries_the_tab_a_definition_declared(): void {
-        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget'), ['title' => Definition::text(tab: 'other')]));
+    public function test_the_payload_carries_the_section_a_definition_declared(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget'), ['title' => Definition::text(section: 'other')]));
 
         $columns = (new ListService(Widget::class))->standalone(true)->columns(['title'])->list([])['columns'];
 
-        $this->assertSame('other', $columns[0]['tab']);
+        $this->assertSame('other', $columns[0]['section']);
     }
 
     public function test_a_virtual_non_readonly_column_is_still_writable(): void {

@@ -73,15 +73,15 @@ class PageControllerTest extends FeatureTestCase {
         );
     }
 
-    public function test_the_seo_columns_sit_on_the_seo_tab(): void {
+    public function test_the_seo_columns_sit_on_the_seo_section(): void {
         $columns = $this->send('admin/page/new')->json('data.columns');
-        $tabs = array_column($columns, 'tab', 'name');
+        $sections = array_column($columns, 'section', 'name');
 
-        $this->assertSame('seo', $tabs['seo_title']);
-        $this->assertSame('seo', $tabs['seo_description']);
-        $this->assertSame('seo', $tabs['og_image']);
-        $this->assertSame('other', $tabs['enable_time']);
-        $this->assertNull($tabs['path']);
+        $this->assertSame('seo', $sections['seo_title']);
+        $this->assertSame('seo', $sections['seo_description']);
+        $this->assertSame('seo', $sections['og_image']);
+        $this->assertSame('other', $sections['enable_time']);
+        $this->assertNull($sections['path']);
     }
 
     public function test_inserting_creates_the_page(): void {

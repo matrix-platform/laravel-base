@@ -227,7 +227,7 @@ class ColumnParserTest extends TestCase {
             'remark' => 'Note',
             'hint' => 'Tip',
             'sortable' => false,
-            'tab' => 'other'
+            'section' => 'other'
         ]);
 
         $this->assertSame('contains', $column->op);
@@ -239,7 +239,7 @@ class ColumnParserTest extends TestCase {
         $this->assertSame('Note', $column->remark);
         $this->assertSame('Tip', $column->hint);
         $this->assertFalse($column->sortable);
-        $this->assertSame('other', $column->tab);
+        $this->assertSame('other', $column->section);
     }
 
     public function test_an_explicit_null_operator_is_distinguishable_from_an_absent_one(): void {

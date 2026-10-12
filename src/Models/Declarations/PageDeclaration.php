@@ -19,9 +19,9 @@ class PageDeclaration implements Declares {
             [
                 'path' => Definition::text(required: true, unique: true),
                 'title' => Definition::text(required: true),
-                'seo_title' => Definition::text(translatable: true, required: true, tab: 'seo'),
-                'seo_description' => Definition::text(translatable: true, tab: 'seo'),
-                'og_image' => Definition::json(Presentation::DriveImage, translatable: true, tab: 'seo'),
+                'seo_title' => Definition::text(translatable: true, required: true, section: 'seo'),
+                'seo_description' => Definition::text(translatable: true, section: 'seo'),
+                'og_image' => Definition::json(Presentation::DriveImage, translatable: true, section: 'seo'),
                 'data' => Definition::composite('page-data')
             ],
             Definitions::schedules(),

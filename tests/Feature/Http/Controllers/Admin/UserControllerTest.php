@@ -170,11 +170,11 @@ class UserControllerTest extends FeatureTestCase {
         $this->assertNull(User::query()->find($id));
     }
 
-    public function test_the_account_form_shows_the_contact_and_schedule_columns_on_the_main_tab(): void {
+    public function test_the_account_form_shows_the_contact_and_schedule_columns_outside_any_section(): void {
         $columns = $this->send($this->signIn(self::ADMIN), 'admin/user/new')->json('data.columns');
 
         foreach (['name', 'mail', 'phone', 'enable_time', 'disable_time'] as $name) {
-            $this->assertNull(array_get_value($this->columnByName($columns, $name), 'tab'), $name);
+            $this->assertNull(array_get_value($this->columnByName($columns, $name), 'section'), $name);
         }
     }
 

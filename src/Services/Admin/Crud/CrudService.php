@@ -581,8 +581,8 @@ abstract class CrudService {
             'readonly' => $column->readonly,
             'required' => $column->required,
             'rule' => $column->rule,
+            'section' => $column->section,
             'sortable' => $column->sortable,
-            'tab' => $column->tab,
             'writable' => $this->writable($column) && !$column->locked
         ], $columns);
     }
@@ -773,7 +773,7 @@ abstract class CrudService {
                 required: $definition->required,
                 rule: $definition->rule instanceof Closure ? ($definition->rule)() : $definition->rule,
                 sortable: false,
-                tab: $definition->tab === null ? $composite->tab : $definition->tab,
+                section: $definition->section === null ? $composite->section : $definition->section,
                 title: $title === null ? "{{$field}}" : $title,
                 translatable: $definition->translatable,
                 type: $definition->type,
@@ -928,7 +928,7 @@ abstract class CrudService {
     }
 
     private function listable(ParsedColumn $parsed, Column $column): bool {
-        if (($column->virtual && $column->op === null) || ($column->tab !== null && !$this->auditing($column)) || is_string($column->presentation) || in_array($column->presentation, [Presentation::Composite, Presentation::Hidden, Presentation::Password], true)) {
+        if (($column->virtual && $column->op === null) || ($column->section !== null && !$this->auditing($column)) || is_string($column->presentation) || in_array($column->presentation, [Presentation::Composite, Presentation::Hidden, Presentation::Password], true)) {
             return false;
         }
 

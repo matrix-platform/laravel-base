@@ -277,15 +277,15 @@ return [
     'searchTo' => 'To',
     'searchValue' => 'Enter Value',
 
+    'section.general' => 'General',
+    'section.other' => 'Other',
+    'section.seo' => 'SEO',
+
     'sortableDown' => 'Move Down',
     'sortableDrag' => 'Drag to Sort',
     'sortableUp' => 'Move Up',
 
     'splitButtonCaret' => 'More Actions',
-
-    'tab.general' => 'General',
-    'tab.other' => 'Other',
-    'tab.seo' => 'SEO',
 
     'tableActions' => 'Actions',
     'tableEmpty' => 'No Data Found',

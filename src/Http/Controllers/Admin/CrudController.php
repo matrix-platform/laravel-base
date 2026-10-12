@@ -316,7 +316,7 @@ abstract class CrudController extends BaseController {
         foreach (array_intersect(array_keys($definitions), array_keys(Definitions::auditings())) as $name) {
             $relation = substr($name, 0, -3);
 
-            $columns[] = str_ends_with($name, '_id') ? ['name' => "{$relation}={$relation}.username", 'readonly' => true, 'tab' => 'other'] : "!{$name}";
+            $columns[] = str_ends_with($name, '_id') ? ['name' => "{$relation}={$relation}.username", 'readonly' => true, 'section' => 'other'] : "!{$name}";
         }
 
         return $columns;

@@ -277,15 +277,15 @@ return [
     'searchTo' => '終了',
     'searchValue' => '値を入力',
 
+    'section.general' => '基本情報',
+    'section.other' => 'その他',
+    'section.seo' => 'SEO',
+
     'sortableDown' => '下へ移動',
     'sortableDrag' => 'ドラッグで並び替え',
     'sortableUp' => '上へ移動',
 
     'splitButtonCaret' => 'その他の操作',
-
-    'tab.general' => '基本情報',
-    'tab.other' => 'その他',
-    'tab.seo' => 'SEO',
 
     'tableActions' => '操作',
     'tableEmpty' => 'データが見つかりません',

@@ -277,15 +277,15 @@ return [
     'searchTo' => '迄',
     'searchValue' => '輸入值',
 
+    'section.general' => '一般資料',
+    'section.other' => '其他',
+    'section.seo' => 'SEO',
+
     'sortableDown' => '下移',
     'sortableDrag' => '拖曳排序',
     'sortableUp' => '上移',
 
     'splitButtonCaret' => '更多操作',
-
-    'tab.general' => '一般資料',
-    'tab.other' => '其他',
-    'tab.seo' => 'SEO',
 
     'tableActions' => '操作',
     'tableEmpty' => '查無資料',

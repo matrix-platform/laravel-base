@@ -58,12 +58,12 @@ class DefinitionTest extends TestCase {
         $this->assertTrue(Definition::text(virtual: true)->virtual);
     }
 
-    public function test_tab_defaults_to_null(): void {
-        $this->assertNull(Definition::text()->tab);
+    public function test_section_defaults_to_null(): void {
+        $this->assertNull(Definition::text()->section);
     }
 
-    public function test_tab_can_be_named(): void {
-        $this->assertSame('other', Definition::dateTime(tab: 'other')->tab);
+    public function test_section_can_be_named(): void {
+        $this->assertSame('other', Definition::dateTime(section: 'other')->section);
     }
 
 }

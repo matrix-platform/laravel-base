@@ -296,17 +296,17 @@ class ListServiceTest extends FeatureTestCase {
         $this->assertSame('contains', $result['columns'][1]['op']);
     }
 
-    public function test_an_optional_column_on_a_tab_is_left_out_but_a_list_column_on_a_tab_stays(): void {
+    public function test_an_optional_column_on_a_section_is_left_out_but_a_list_column_on_a_section_stays(): void {
         app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget'), [
-            'enable_time' => Definition::dateTime(tab: 'other')
+            'enable_time' => Definition::dateTime(section: 'other')
         ]));
 
-        $result = $this->pooled(['title', 'enable_time'], [['name' => 'ip', 'tab' => 'seo'], 'disable_time', 'enable_time', 'title']);
+        $result = $this->pooled(['title', 'enable_time'], [['name' => 'ip', 'section' => 'seo'], 'disable_time', 'enable_time', 'title']);
 
         $this->assertSame(['title', 'enable_time', 'disable_time'], array_column($result['columns'], 'name'));
     }
 
-    public function test_an_audit_column_offered_as_optional_is_pooled_despite_its_tab(): void {
+    public function test_an_audit_column_offered_as_optional_is_pooled_despite_its_section(): void {
         app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget'), [
             'title' => Definition::text(),
             ...Definitions::auditings()
@@ -314,7 +314,7 @@ class ListServiceTest extends FeatureTestCase {
 
         $this->widget('Alpha');
 
-        $result = $this->pooled(['title'], [['name' => 'ip', 'tab' => 'seo'], 'title', 'update_time']);
+        $result = $this->pooled(['title'], [['name' => 'ip', 'section' => 'seo'], 'title', 'update_time']);
 
         $this->assertSame(['title', 'update_time'], array_column($result['columns'], 'name'));
         $this->assertSame([true, false], array_column($result['columns'], 'default'));

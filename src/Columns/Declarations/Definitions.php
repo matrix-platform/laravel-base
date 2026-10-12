@@ -11,8 +11,8 @@ class Definitions {
      */
     public static function auditings(bool $updated = true): array {
         $definitions = [
-            'creator_id' => Definition::integer(tab: 'other'),
-            'create_time' => Definition::dateTime(tab: 'other')
+            'creator_id' => Definition::integer(section: 'other'),
+            'create_time' => Definition::dateTime(section: 'other')
         ];
 
         if (!$updated) {
@@ -20,8 +20,8 @@ class Definitions {
         }
 
         return array_merge($definitions, [
-            'updater_id' => Definition::integer(tab: 'other'),
-            'update_time' => Definition::dateTime(tab: 'other')
+            'updater_id' => Definition::integer(section: 'other'),
+            'update_time' => Definition::dateTime(section: 'other')
         ]);
     }
 
@@ -58,8 +58,8 @@ class Definitions {
      */
     public static function schedules(): array {
         return [
-            'enable_time' => Definition::dateTime(tab: 'other'),
-            'disable_time' => Definition::dateTime(tab: 'other')
+            'enable_time' => Definition::dateTime(section: 'other'),
+            'disable_time' => Definition::dateTime(section: 'other')
         ];
     }
 

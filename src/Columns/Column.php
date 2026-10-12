@@ -27,7 +27,7 @@ class Column {
         public readonly bool $required,
         public readonly array $rule,
         public readonly bool $sortable,
-        public readonly ?string $tab,
+        public readonly ?string $section,
         public readonly string $title,
         public readonly bool $translatable,
         public readonly ColumnType $type,

@@ -372,7 +372,7 @@ class CrudControllerTest extends FeatureTestCase {
         $response->assertJsonPath('data.actions.1.url', 'widget/{id}/update');
     }
 
-    public function test_the_get_response_appends_the_auditings_readonly_in_the_other_tab(): void {
+    public function test_the_get_response_appends_the_auditings_readonly_in_the_other_section(): void {
         app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget'), [
             ...Definitions::primaryKey(),
             'title' => Definition::text(),
@@ -391,7 +391,7 @@ class CrudControllerTest extends FeatureTestCase {
         $this->assertSame(['title', 'creator', 'create_time', 'updater', 'update_time'], array_keys($columns));
 
         foreach (['creator', 'create_time', 'updater', 'update_time'] as $name) {
-            $this->assertSame('other', $columns[$name]['tab'], $name);
+            $this->assertSame('other', $columns[$name]['section'], $name);
             $this->assertTrue($columns[$name]['readonly'], $name);
             $this->assertFalse($columns[$name]['writable'], $name);
         }
