@@ -20,6 +20,9 @@ return [
 
     'common.all' => 'All',
     'common.cancel' => 'Cancel',
+    'common.copied' => 'Copied',
+    'common.copy' => 'Copy',
+    'common.copy-failed' => 'Copy failed',
     'common.goto' => 'Go to',
     'common.hint' => 'Hint',
     'common.leave' => 'Leave',

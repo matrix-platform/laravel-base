@@ -20,6 +20,9 @@ return [
 
     'common.all' => 'すべて',
     'common.cancel' => 'キャンセル',
+    'common.copied' => 'コピーしました',
+    'common.copy' => 'コピー',
+    'common.copy-failed' => 'コピーに失敗しました',
     'common.goto' => '移動',
     'common.hint' => '説明',
     'common.leave' => '離れる',

@@ -20,6 +20,9 @@ return [
 
     'common.all' => '全部',
     'common.cancel' => '取消',
+    'common.copied' => '已複製',
+    'common.copy' => '複製',
+    'common.copy-failed' => '複製失敗',
     'common.goto' => '跳頁',
     'common.hint' => '說明',
     'common.leave' => '離開',
