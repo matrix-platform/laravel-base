@@ -7,6 +7,7 @@ use MatrixPlatform\Routing\ActionRoutes;
 use PHPUnit\Framework\TestCase;
 use Tests\Stubs\LeafController;
 use Tests\Stubs\StubController;
+use Tests\Stubs\WidgetController;
 
 class ActionRoutesTest extends TestCase {
 
@@ -86,6 +87,13 @@ class ActionRoutesTest extends TestCase {
 
         $this->assertContains('middle-path', $paths);
         $this->assertNotContains('custom-path', $paths);
+    }
+
+    public function test_the_import_actions_are_routed_only_for_a_controller_that_uses_the_trait(): void {
+        $this->assertNotContains('import', $this->inherited(GroupController::class));
+        $this->assertNotContains('import/template', $this->inherited(GroupController::class));
+        $this->assertContains('import', $this->inherited(WidgetController::class));
+        $this->assertContains('import/template', $this->inherited(WidgetController::class));
     }
 
     public function test_a_non_public_method_is_not_routed(): void {

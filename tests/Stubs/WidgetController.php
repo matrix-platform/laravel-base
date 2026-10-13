@@ -3,10 +3,13 @@
 namespace Tests\Stubs;
 
 use Illuminate\Database\Eloquent\Model;
+use MatrixPlatform\Http\Controllers\Admin\Concerns\ImportsRows;
 use MatrixPlatform\Http\Controllers\Admin\CrudController;
 use MatrixPlatform\Services\Admin\Crud\CopyService;
 
 class WidgetController extends CrudController {
+
+    use ImportsRows;
 
     protected ?array $exports = [
         'title',

@@ -150,22 +150,6 @@ abstract class CrudController extends BaseController {
      * @return array<string, mixed>
      */
     #[Action]
-    public function import(Request $request): array {
-        return $this->importer($request)->import($request->all());
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    #[Action('import/template')]
-    public function importTemplate(Request $request): array {
-        return $this->importer($request)->template();
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    #[Action]
     public function insert(Request $request): array {
         $service = $this->onInsert($this->prepare(new InsertService($this->model), $request));
 
@@ -433,10 +417,6 @@ abstract class CrudController extends BaseController {
      */
     private function exporting(): array {
         return $this->exports === null ? $this->listing() : $this->exports;
-    }
-
-    private function importer(Request $request): ImportService {
-        return $this->onImport($this->prepare(new ImportService($this->model), $request));
     }
 
     /**

@@ -2,12 +2,15 @@
 
 namespace Tests\Stubs;
 
+use MatrixPlatform\Http\Controllers\Admin\Concerns\ImportsRows;
 use MatrixPlatform\Http\Controllers\Admin\CrudController;
 use MatrixPlatform\Services\Admin\Crud\DeleteService;
 use MatrixPlatform\Services\Admin\Crud\ListService;
 use MatrixPlatform\Services\Admin\Crud\Operation;
 
 class TrinketController extends CrudController {
+
+    use ImportsRows;
 
     protected ?array $lists = [
         'label',
