@@ -393,13 +393,11 @@ class UserControllerTest extends FeatureTestCase {
     }
 
     public function test_a_regular_user_cannot_copy_an_admin_account(): void {
-        $this->useMenuFixtures('authority');
-
         UserFactory::new()->createOne(['id' => self::ADMIN, 'username' => 'protected-admin']);
 
         $token = $this->signIn(self::REGULAR, ['user' => ['query' => true, 'insert' => true]]);
 
-        $this->send($token, 'admin/user/' . self::ADMIN . '/copy')->assertJsonPath('error', 'data-not-found');
+        $this->send($token, 'admin/exportable-user/' . self::ADMIN . '/copy')->assertJsonPath('error', 'data-not-found');
     }
 
     public function test_a_regular_user_exports_no_admin_accounts(): void {
@@ -445,7 +443,7 @@ class UserControllerTest extends FeatureTestCase {
         $token = $this->signIn(User::ROOT);
 
         foreach (['admin/user/1/copy', 'admin/user/export', 'admin/user/sort', 'admin/user/sort/save'] as $uri) {
-            $this->send($token, $uri)->assertJsonPath('error', 'permission-denied');
+            $this->send($token, $uri)->assertJsonPath('error', 'endpoint-not-found');
         }
     }
 
@@ -453,12 +451,12 @@ class UserControllerTest extends FeatureTestCase {
         $token = $this->signIn(self::REGULAR, ['user' => ['query' => true, 'export' => true], 'group' => ['query' => true, 'export' => true]]);
 
         foreach (['admin/user/export', 'admin/group/export'] as $uri) {
-            $this->send($token, $uri)->assertJsonPath('error', 'permission-denied');
+            $this->send($token, $uri)->assertJsonPath('error', 'endpoint-not-found');
         }
     }
 
     public function test_the_shipped_menu_keeps_group_export_closed_to_root(): void {
-        $this->send($this->signIn(User::ROOT), 'admin/group/export')->assertJsonPath('error', 'permission-denied');
+        $this->send($this->signIn(User::ROOT), 'admin/group/export')->assertJsonPath('error', 'endpoint-not-found');
     }
 
     public function test_an_admin_disables_mfa_for_an_account(): void {

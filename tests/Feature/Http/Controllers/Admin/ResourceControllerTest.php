@@ -22,6 +22,9 @@ class ResourceControllerTest extends FeatureTestCase {
      * @param Router $router
      */
     protected function defineRoutes($router): void {
+        $this->useResourceFixtures();
+        $this->useMenus('base resource');
+
         $router->middleware(['envelope-api', 'user-api', 'permission-api'])
             ->prefix('admin')
             ->group(fn () => Route::prefix('mail-setting')->group(fn () => ActionRoutes::scan(PinnedResourceController::class)));
@@ -29,9 +32,6 @@ class ResourceControllerTest extends FeatureTestCase {
 
     protected function setUp(): void {
         parent::setUp();
-
-        $this->useResourceFixtures();
-        $this->useMenus('base resource');
 
         $this->useResourceWhitelist([
             'cfg' => ['admin', 'dotted'],

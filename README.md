@@ -285,7 +285,7 @@ token 兩種帶法:`Authorization: Bearer {token}`,或登入時自動下的 `mat
 
 1. **key 就是路由 URI**(去掉 `admin/` 前綴),逐字相同,含 `{id}` 佔位符。
 2. **`group => true` 的節點是授權單位**,它底下子節點的 `tag` 匯總成可以授予的動作。
-3. **每一個端點都必須有對應的節點。漏一個,那個端點對所有人回 403 —— 包含 ROOT。**
+3. **每一個端點都必須有對應的節點。漏一個,那個端點對所有人打不到 —— 包含 ROOT。** 掛在 `permission-api` 群組裡的 `ActionRoutes::mount()` / `scan()` 只註冊選單有節點的 action,沒節點的路由根本不存在,回 404 `endpoint-not-found`;自己用 `Route::post()` 掛在群組裡的路由照常註冊,沒節點則由 `permission-api` 擋成 403。選單一律只來自檔案(不讀 `base_resource_override`,讀選單不碰資料庫),路由在開機時就依當下的 `admin-menus` 定案。
 
 權限值存在 `base_user.permissions` 與 `base_group.permissions` 兩個 jsonb 欄位,形狀是 `{"widget": {"query": true}}`。
 
@@ -607,7 +607,7 @@ class CityController extends CrudController {
 - **子 controller 覆寫的 `insert()` / `update()` 不會被呼叫**,框架只呼叫 service。副作用請掛在 guard 或父 controller 的 `afterStaged()`。父 controller 覆寫 `insert()` / `update()` 而不呼叫 `parent::` 的話,暫存子項目也不會被處理。
 - **子資源的 options、guard、`onX` 不可依賴 `request()` 讀子資源的路由參數。** 暫存模式下的 request 是父資源的路由(`city/5/update`),`request()->route('city_id')` 是 `null`,而且不會報錯。需要父資料時改讀 `app(StagedContext::class)`:`parent` 是父表單目前的值(端點的 body `parent`;存檔時是父 body 去掉暫存 key),`model` 是父 model(編輯頁,或存檔時剛寫好的父資料;新增頁的端點是 `null`)。
 
-**選單節點**:沒有節點的路由一律 403,所以每個用暫存模式的父資源都要登記這四支,tag 照下表。除了節點本身,還會檢查使用者對子資源前綴的權限。
+**選單節點**:沒有節點的路由不會註冊,所以每個用暫存模式的父資源都要登記這四支,tag 照下表。除了節點本身,還會檢查使用者對子資源前綴的權限。
 
 | 節點 | tag | 用途 | 子資源權限 |
 |---|---|---|---|
@@ -713,7 +713,7 @@ Route::middleware(['encrypted-api', 'envelope-api', 'locale-api'])->group(functi
 });
 ```
 
-**前綴不對,`AdminPermission` 認不出這是套件的路由,全部 403。**
+**前綴不對,對不上選單節點:`ActionRoutes::mount()` 一支都不會註冊(全部 404),自己用 `Route::post()` 掛的則被 `AdminPermission` 擋成 403。**
 
 **`encrypted-api` 漏掉的話,那一組路由不會解密,但前端還是會加密。** 前端是按前綴決定要不要封信封的(它不知道哪些路由掛了什麼 middleware),所以你自己的 `admin` 端點只要少掛這一層,收到的 body 就是 `{kid, epk, iv, ts, ct}` 這個信封本身,症狀是每一個欄位都 `validation-failed`。**這三個別名的順序也是約束**:`encrypted-api` 必須在 `envelope-api` 之前,否則錯誤信封不會被加密。
 
@@ -1084,7 +1084,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | POST | `vendor/preference/settings` | 登入 |
 | POST | `vendor/preference/settings/update` | 登入 |
 
-「授權」= 登入 + 該選單節點的權限。`user` / `group` 的 `export`、`import`、`import/template`、`copy`、`sort` 端點存在但**套件出貨的選單沒有對應節點**,所以預設對所有人 403 —— 那幾個動作在套件自己的兩個 controller 上是關閉的。`mail-log` / `sms-log` / `push-log` / `telegram-log` 更進一步:選單只登記了列表、`{id}`、`{id}/resend`、`{id}/cancel` 四個節點,其餘十二個(`new`、`insert`、`{id}/update`、`{id}/copy`、`delete`、`export`、`import`、`import/template`、`sort`、`sort/save`、`arrange`、`arrange/save`)全部因為選單沒有節點而預設對所有人(含 ROOT)403——是刻意設計,訊息紀錄只能查詢與重發/取消,不能被手動增刪改。`api/telegram/webhook` 標「匿名*」是因為它不掛任何登入態 middleware(呼叫方是 Telegram 伺服器,沒有我們的 session/token 可帶),但自己驗證 `X-Telegram-Bot-Api-Secret-Token` header 等於 `cfg('telegram.webhook-secret')`,**沒設定這把密鑰就對所有請求一律 403**(見[Telegram 綁定與 Webhook](#telegram-綁定與-webhook))。
+「授權」= 登入 + 該選單節點的權限。`user` / `group` 的 `export`、`copy`、`sort` **套件出貨的選單沒有對應節點**,所以不會註冊,對所有人回 404 `endpoint-not-found` —— 那幾個動作在套件自己的兩個 controller 上是關閉的(兩者也沒有 `use ImportsRows`,沒有匯入端點)。`mail-log` / `sms-log` / `push-log` / `telegram-log` 更進一步:選單只登記了列表、`{id}`、`{id}/resend`、`{id}/cancel` 四個節點,其餘的(`new`、`insert`、`{id}/update`、`{id}/copy`、`delete`、`export`、`sort`、`sort/save`、`arrange`、`arrange/save`)全部因為選單沒有節點而不註冊(含 ROOT 也打不到)——是刻意設計,訊息紀錄只能查詢與重發/取消,不能被手動增刪改。`api/telegram/webhook` 標「匿名*」是因為它不掛任何登入態 middleware(呼叫方是 Telegram 伺服器,沒有我們的 session/token 可帶),但自己驗證 `X-Telegram-Bot-Api-Secret-Token` header 等於 `cfg('telegram.webhook-secret')`,**沒設定這把密鑰就對所有請求一律 403**(見[Telegram 綁定與 Webhook](#telegram-綁定與-webhook))。
 
 ### 設定鍵
 
@@ -1728,7 +1728,7 @@ php artisan matrix:clear-resource-cache
 
 | 事實 | 說明 |
 |---|---|
-| **清單預設按鈕是 `pageActions(['new', 'delete', 'arrange', 'sort', 'export', 'import'])`、`rowActions(['edit', 'copy', 'delete'])`(可追蹤的 model 再補 `log`)** | 每一顆都要選單有對應節點(`{prefix}/export`、`{prefix}/import`、`{prefix}/{id}/copy` 等)且使用者有權限才會出現,所以開不開複製／匯出／匯入由選單決定——端點本身也一樣:沒有節點的 `export` / `import` / `{id}/copy` 請求被 `permission-api` 擋成 `permission-denied`(含 ROOT),controller 不需要另開旗標 |
+| **清單預設按鈕是 `pageActions(['new', 'delete', 'arrange', 'sort', 'export', 'import'])`、`rowActions(['edit', 'copy', 'delete'])`(可追蹤的 model 再補 `log`)** | 每一顆都要選單有對應節點(`{prefix}/export`、`{prefix}/import`、`{prefix}/{id}/copy` 等)且使用者有權限才會出現,所以開不開複製／匯出／匯入由選單決定——端點本身也一樣:沒有節點的 `export` / `import` / `{id}/copy` 不會註冊,請求回 `endpoint-not-found`(含 ROOT),controller 不需要另開旗標;匯入另外要 controller `use ImportsRows` |
 | **複製會沿用來源的 `ranking`** | 除非那個資源開了 `$sortable`,否則不會自我修復 |
 | 複製時 `$generators` 管的欄位（建立時間、建立者等）**重新產生**,不照抄 | —— |
 | **級聯複製只接受 `hasOne` / `hasMany` 及其 morph 形式** | `belongsToMany` 不支援 |

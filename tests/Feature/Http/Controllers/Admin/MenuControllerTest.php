@@ -362,7 +362,7 @@ class MenuControllerTest extends FeatureTestCase {
     public function test_the_independent_sort_action_is_not_exposed_in_favor_of_arrange(): void {
         $this->node(null, 'root', 100);
 
-        $this->send('admin/menu/sort')->assertJsonPath('error', 'permission-denied');
+        $this->send('admin/menu/sort')->assertJsonPath('error', 'endpoint-not-found');
     }
 
 }

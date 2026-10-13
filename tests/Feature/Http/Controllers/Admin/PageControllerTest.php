@@ -256,10 +256,10 @@ class PageControllerTest extends FeatureTestCase {
     public function test_the_unregistered_actions_stay_closed(): void {
         $page = $this->page('about-us');
 
-        $this->send("admin/page/{$page->id}/copy")->assertJsonPath('code', 403);
-        $this->send('admin/page/export')->assertJsonPath('code', 403);
-        $this->send('admin/page/sort')->assertJsonPath('code', 403);
-        $this->send('admin/page/sort/save')->assertJsonPath('code', 403);
+        $this->send("admin/page/{$page->id}/copy")->assertJsonPath('code', 404);
+        $this->send('admin/page/export')->assertJsonPath('code', 404);
+        $this->send('admin/page/sort')->assertJsonPath('code', 404);
+        $this->send('admin/page/sort/save')->assertJsonPath('code', 404);
     }
 
 }

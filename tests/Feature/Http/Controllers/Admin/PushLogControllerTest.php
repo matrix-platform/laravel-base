@@ -81,7 +81,7 @@ class PushLogControllerTest extends FeatureTestCase {
     }
 
     public function test_the_write_actions_are_unreachable_because_they_carry_no_menu_entry(): void {
-        $this->send('admin/push-log/insert')->assertJson(['success' => false, 'code' => 403, 'error' => 'permission-denied']);
+        $this->send('admin/push-log/insert')->assertJson(['success' => false, 'code' => 404, 'error' => 'endpoint-not-found']);
     }
 
 }

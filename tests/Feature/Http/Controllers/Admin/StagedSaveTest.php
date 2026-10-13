@@ -30,6 +30,8 @@ class StagedSaveTest extends FeatureTestCase {
      * @param Router $router
      */
     protected function defineRoutes($router): void {
+        $this->useMenuFixtures('staged');
+
         $router->middleware(['envelope-api', 'user-api', 'permission-api'])
             ->prefix('admin')
             ->group(function (): void {
@@ -42,7 +44,6 @@ class StagedSaveTest extends FeatureTestCase {
     protected function setUp(): void {
         parent::setUp();
 
-        $this->useMenuFixtures('staged');
         $this->useVariants(['stub-gadget' => ['driver' => TestMenuTypeResolver::class, 'header' => TestHeaderFields::class, 'social' => TestSocialFields::class]]);
 
         app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));

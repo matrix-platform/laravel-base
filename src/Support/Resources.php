@@ -171,7 +171,7 @@ class Resources {
      * @return array<string, mixed>|null
      */
     public function getMenuBundle(string $name): ?array {
-        return $this->getBundle("menu/{$name}");
+        return $this->getDefaults("menu/{$name}");
     }
 
     /**
