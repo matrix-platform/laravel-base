@@ -66,4 +66,12 @@ class DefinitionTest extends TestCase {
         $this->assertSame('other', Definition::dateTime(section: 'other')->section);
     }
 
+    public function test_props_default_to_empty(): void {
+        $this->assertSame([], Definition::text()->props);
+    }
+
+    public function test_props_can_be_declared(): void {
+        $this->assertSame(['defaultTime' => '10:00'], Definition::dateTime(props: ['defaultTime' => '10:00'])->props);
+    }
+
 }

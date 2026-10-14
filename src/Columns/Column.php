@@ -10,6 +10,7 @@ class Column {
     /**
      * @param string|list<string>|null $op
      * @param list<string> $rule
+     * @param array<string, mixed> $props
      */
     public function __construct(
         public readonly Expression $expression,
@@ -33,7 +34,8 @@ class Column {
         public readonly ColumnType $type,
         public readonly bool $unique,
         public readonly ?string $variantGroup,
-        public readonly bool $virtual
+        public readonly bool $virtual,
+        public readonly array $props = []
     ) {}
 
 }

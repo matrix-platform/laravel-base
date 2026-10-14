@@ -12,9 +12,10 @@ class Definition {
     /**
      * @param list<string>|Closure(): list<string> $rule
      * @param OptionProvider|class-string<OptionProvider>|null $options
+     * @param array<string, mixed> $props
      */
-    public static function boolean(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false, bool $virtual = false, ?string $section = null): self {
-        return new self(ColumnType::Boolean, $presentation, $rule, $options, $translatable, $required, $unique, virtual: $virtual, section: $section);
+    public static function boolean(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false, bool $virtual = false, ?string $section = null, array $props = []): self {
+        return new self(ColumnType::Boolean, $presentation, $rule, $options, $translatable, $required, $unique, virtual: $virtual, section: $section, props: $props);
     }
 
     /**
@@ -27,54 +28,61 @@ class Definition {
     /**
      * @param list<string>|Closure(): list<string> $rule
      * @param OptionProvider|class-string<OptionProvider>|null $options
+     * @param array<string, mixed> $props
      */
-    public static function date(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false, bool $virtual = false, ?string $section = null): self {
-        return new self(ColumnType::Date, $presentation, $rule, $options, $translatable, $required, $unique, virtual: $virtual, section: $section);
+    public static function date(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false, bool $virtual = false, ?string $section = null, array $props = []): self {
+        return new self(ColumnType::Date, $presentation, $rule, $options, $translatable, $required, $unique, virtual: $virtual, section: $section, props: $props);
     }
 
     /**
      * @param list<string>|Closure(): list<string> $rule
      * @param OptionProvider|class-string<OptionProvider>|null $options
+     * @param array<string, mixed> $props
      */
-    public static function dateTime(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false, bool $virtual = false, ?string $section = null): self {
-        return new self(ColumnType::DateTime, $presentation, $rule, $options, $translatable, $required, $unique, virtual: $virtual, section: $section);
+    public static function dateTime(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false, bool $virtual = false, ?string $section = null, array $props = []): self {
+        return new self(ColumnType::DateTime, $presentation, $rule, $options, $translatable, $required, $unique, virtual: $virtual, section: $section, props: $props);
     }
 
     /**
      * @param list<string>|Closure(): list<string> $rule
      * @param OptionProvider|class-string<OptionProvider>|null $options
+     * @param array<string, mixed> $props
      */
-    public static function float(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false, bool $virtual = false, ?string $section = null): self {
-        return new self(ColumnType::Float, $presentation, $rule, $options, $translatable, $required, $unique, virtual: $virtual, section: $section);
+    public static function float(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false, bool $virtual = false, ?string $section = null, array $props = []): self {
+        return new self(ColumnType::Float, $presentation, $rule, $options, $translatable, $required, $unique, virtual: $virtual, section: $section, props: $props);
     }
 
     /**
      * @param list<string>|Closure(): list<string> $rule
      * @param OptionProvider|class-string<OptionProvider>|null $options
+     * @param array<string, mixed> $props
      */
-    public static function integer(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false, bool $virtual = false, ?string $section = null): self {
-        return new self(ColumnType::Integer, $presentation, $rule, $options, $translatable, $required, $unique, virtual: $virtual, section: $section);
+    public static function integer(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false, bool $virtual = false, ?string $section = null, array $props = []): self {
+        return new self(ColumnType::Integer, $presentation, $rule, $options, $translatable, $required, $unique, virtual: $virtual, section: $section, props: $props);
     }
 
     /**
      * @param list<string>|Closure(): list<string> $rule
      * @param OptionProvider|class-string<OptionProvider>|null $options
+     * @param array<string, mixed> $props
      */
-    public static function json(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false, bool $virtual = false, ?string $section = null): self {
-        return new self(ColumnType::Json, $presentation, $rule, $options, $translatable, $required, $unique, virtual: $virtual, section: $section);
+    public static function json(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false, bool $virtual = false, ?string $section = null, array $props = []): self {
+        return new self(ColumnType::Json, $presentation, $rule, $options, $translatable, $required, $unique, virtual: $virtual, section: $section, props: $props);
     }
 
     /**
      * @param list<string>|Closure(): list<string> $rule
      * @param OptionProvider|class-string<OptionProvider>|null $options
+     * @param array<string, mixed> $props
      */
-    public static function text(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false, bool $virtual = false, ?string $section = null): self {
-        return new self(ColumnType::Text, $presentation, $rule, $options, $translatable, $required, $unique, virtual: $virtual, section: $section);
+    public static function text(Presentation|string|null $presentation = null, array|Closure $rule = [], OptionProvider|string|null $options = null, bool $translatable = false, bool $required = false, bool $unique = false, bool $virtual = false, ?string $section = null, array $props = []): self {
+        return new self(ColumnType::Text, $presentation, $rule, $options, $translatable, $required, $unique, virtual: $virtual, section: $section, props: $props);
     }
 
     /**
      * @param list<string>|Closure(): list<string> $rule
      * @param OptionProvider|class-string<OptionProvider>|null $options
+     * @param array<string, mixed> $props
      */
     private function __construct(
         public readonly ColumnType $type,
@@ -86,7 +94,8 @@ class Definition {
         public readonly bool $unique,
         public readonly ?string $group = null,
         public readonly bool $virtual = false,
-        public readonly ?string $section = null
+        public readonly ?string $section = null,
+        public readonly array $props = []
     ) {}
 
 }

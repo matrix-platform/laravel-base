@@ -577,6 +577,7 @@ abstract class CrudService {
             'options' => $column->options?->options($record),
             'path' => $column->path,
             'placeholder' => $column->placeholder,
+            'props' => $column->props,
             'remark' => $column->remark,
             'readonly' => $column->readonly,
             'required' => $column->required,
@@ -779,7 +780,8 @@ abstract class CrudService {
                 type: $definition->type,
                 unique: false,
                 variantGroup: null,
-                virtual: false
+                virtual: false,
+                props: $definition->props
             );
         }
 
