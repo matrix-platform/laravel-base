@@ -4,7 +4,7 @@ return [
 
     'icon' => 'fa-solid fa-clock-rotate-left',
 
-    'severity' => 'default',
+    'severity' => 'info',
 
     'secondary' => true,
 

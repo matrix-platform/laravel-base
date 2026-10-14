@@ -27,6 +27,8 @@ return [
     'cfg/vendor.password-pattern' => 'パスワードのパターン(正規表現)',
     'cfg/vendor.token-idle-minutes' => 'トークンのアイドルタイムアウト(分)',
 
+    'cfg/preference-user.returnToList' => '保存後に一覧へ戻る',
+
     'cfg/gmail' => 'Gmail SMTP',
     'cfg/gmail.driver' => 'ドライバー',
     'cfg/gmail.host' => 'SMTPホスト',

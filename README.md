@@ -853,7 +853,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 - **宣告過的項目**:寫法和系統設定一樣,用 cfg bundle 宣告。後端用 `preference()` 讀取,前端用 `preference/settings` 取得欄位與生效值。
 - **沒宣告的鍵**:例如 CRUD 的 `listSize`、`column:{key}`,內容由前端決定,後端照原樣存取。
 
-套件目前沒有出貨任何宣告項目。
+套件出貨的宣告項目只有 `preference-user` 的 `returnToList`(布林,預設 `true`):後台表單存檔後是否返回列表頁。站台的 bundle 會與它合併。
 
 ### 宣告
 

@@ -190,12 +190,12 @@ class PreferenceServiceTest extends FeatureTestCase {
         $payload = $this->service()->settings($user);
         $locale = $this->columnByName($payload['columns'], 'locale');
 
-        $this->assertSame(['avatar', 'code', 'digest', 'locale', 'page-size', 'token'], array_column($payload['columns'], 'name'));
+        $this->assertSame(['returnToList', 'avatar', 'code', 'digest', 'locale', 'page-size', 'token'], array_column($payload['columns'], 'name'));
         $this->assertSame('Language', $locale['title']);
         $this->assertSame('select', $locale['presentation']);
         $this->assertSame(['string', 'in:tw,en'], $locale['rule']);
-        $this->assertSame(['avatar' => [], 'code' => 'A1', 'digest' => true, 'locale' => 'en', 'page-size' => 20, 'token' => ''], $payload['data']);
-        $this->assertSame(['avatar' => [], 'code' => 'A1', 'digest' => true, 'locale' => 'tw', 'page-size' => 20, 'token' => ''], $payload['default']);
+        $this->assertSame(['returnToList' => true, 'avatar' => [], 'code' => 'A1', 'digest' => true, 'locale' => 'en', 'page-size' => 20, 'token' => ''], $payload['data']);
+        $this->assertSame(['returnToList' => true, 'avatar' => [], 'code' => 'A1', 'digest' => true, 'locale' => 'tw', 'page-size' => 20, 'token' => ''], $payload['default']);
     }
 
     public function test_update_writes_only_the_declared_keys_and_returns_the_settings(): void {

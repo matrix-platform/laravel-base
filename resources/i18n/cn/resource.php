@@ -27,6 +27,8 @@ return [
     'cfg/vendor.password-pattern' => '密码规则(正则表达式)',
     'cfg/vendor.token-idle-minutes' => '凭证闲置超时(分钟)',
 
+    'cfg/preference-user.returnToList' => '保存后返回列表页',
+
     'cfg/gmail' => 'Gmail SMTP',
     'cfg/gmail.driver' => '发送器',
     'cfg/gmail.host' => 'SMTP 主机',

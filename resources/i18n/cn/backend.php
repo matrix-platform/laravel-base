@@ -19,6 +19,7 @@ return [
     'colorConfirm' => '确定',
 
     'common.all' => '全部',
+    'common.back' => '返回',
     'common.cancel' => '取消',
     'common.copied' => '已复制',
     'common.copy' => '复制',

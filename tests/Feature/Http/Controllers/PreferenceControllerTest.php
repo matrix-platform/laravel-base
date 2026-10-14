@@ -119,7 +119,7 @@ class PreferenceControllerTest extends FeatureTestCase {
 
         $response->assertJson(['success' => true, 'data' => ['data' => ['locale' => 'tw'], 'default' => ['locale' => 'tw']]]);
 
-        $this->assertSame(['avatar', 'code', 'digest', 'locale', 'page-size', 'token'], array_column($response->json('data.columns'), 'name'));
+        $this->assertSame(['returnToList', 'avatar', 'code', 'digest', 'locale', 'page-size', 'token'], array_column($response->json('data.columns'), 'name'));
     }
 
     public function test_a_secret_key_is_masked_when_saved_and_read_back(): void {

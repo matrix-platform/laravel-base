@@ -27,6 +27,8 @@ return [
     'cfg/vendor.password-pattern' => 'Password pattern',
     'cfg/vendor.token-idle-minutes' => 'Token idle timeout (minutes)',
 
+    'cfg/preference-user.returnToList' => 'Return to list after saving',
+
     'cfg/gmail' => 'Gmail SMTP',
     'cfg/gmail.driver' => 'Driver',
     'cfg/gmail.host' => 'SMTP host',

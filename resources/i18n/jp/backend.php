@@ -19,6 +19,7 @@ return [
     'colorConfirm' => '確定',
 
     'common.all' => 'すべて',
+    'common.back' => '戻る',
     'common.cancel' => 'キャンセル',
     'common.copied' => 'コピーしました',
     'common.copy' => 'コピー',

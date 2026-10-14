@@ -27,6 +27,8 @@ return [
     'cfg/vendor.password-pattern' => '密碼規則(正規表達式)',
     'cfg/vendor.token-idle-minutes' => '憑證閒置逾時(分鐘)',
 
+    'cfg/preference-user.returnToList' => '儲存後返回列表頁',
+
     'cfg/gmail' => 'Gmail SMTP',
     'cfg/gmail.driver' => '傳送器',
     'cfg/gmail.host' => 'SMTP 主機',

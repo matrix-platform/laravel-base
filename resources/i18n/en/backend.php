@@ -19,6 +19,7 @@ return [
     'colorConfirm' => 'Confirm',
 
     'common.all' => 'All',
+    'common.back' => 'Back',
     'common.cancel' => 'Cancel',
     'common.copied' => 'Copied',
     'common.copy' => 'Copy',
