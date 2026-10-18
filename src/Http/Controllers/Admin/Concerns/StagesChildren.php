@@ -17,8 +17,10 @@ use MatrixPlatform\Http\Controllers\Admin\CrudController;
 use MatrixPlatform\Routing\ActionRoutes;
 use MatrixPlatform\Services\Admin\Crud\CrudService;
 use MatrixPlatform\Services\Admin\Crud\DeleteService;
+use MatrixPlatform\Services\Admin\Crud\GetService;
 use MatrixPlatform\Services\Admin\Crud\InsertService;
 use MatrixPlatform\Services\Admin\Crud\ListService;
+use MatrixPlatform\Services\Admin\Crud\NewService;
 use MatrixPlatform\Services\Admin\Crud\SortService;
 use MatrixPlatform\Services\Admin\Crud\UpdateService;
 use MatrixPlatform\Support\AdminPermission;
@@ -174,6 +176,21 @@ trait StagesChildren {
     }
 
     /**
+     * @template TService of CrudService
+     * @param TService $service
+     * @return TService
+     */
+    protected function prepare(CrudService $service, Request $request): CrudService {
+        $service = parent::prepare($service, $request);
+
+        if ($service instanceof GetService || $service instanceof NewService) {
+            $service->staged(array_map(fn (string $key, string $prefix): array => ['name' => $key, 'title' => $this->stagedTitle($prefix)], array_keys($this->staged()), $this->staged()));
+        }
+
+        return $service;
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function staged(): array {
@@ -274,10 +291,8 @@ trait StagesChildren {
      * @return array<string, mixed>
      */
     private function stagedForm(CrudController $child, string $prefix, array $columns, array $rows, ?Model $parent): array {
-        $menu = app(Menus::class)->node($prefix);
-
         return [
-            'title' => $menu === null ? null : i18n($menu->token()),
+            'title' => $this->stagedTitle($prefix),
             'sortable' => $child->sortable(),
             'abilities' => $child instanceof WritesStagedRows && $parent !== null ? $child->stagedAbilities($parent) : ['insert' => true, 'update' => true, 'delete' => true],
             'columns' => $columns,
@@ -447,6 +462,12 @@ trait StagesChildren {
         }
 
         return $this->stagedAttempt(fn () => $child->onSort($this->stagedPrepare(new SortService($child->instance()::class), $prefix, $request, $foreign, $parent))->sort(['order' => $sequence]), $key, true);
+    }
+
+    private function stagedTitle(string $prefix): ?string {
+        $menu = app(Menus::class)->node($prefix);
+
+        return $menu === null ? null : i18n($menu->token());
     }
 
     /**

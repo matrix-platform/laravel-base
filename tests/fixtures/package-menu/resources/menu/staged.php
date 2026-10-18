@@ -4,6 +4,10 @@ return [
 
     'widget' => ['ranking' => 100, 'parent' => null, 'group' => true, 'tag' => 'query'],
 
+    'widget/{id}' => ['parent' => 'widget', 'tag' => 'update'],
+
+    'widget/new' => ['parent' => 'widget', 'tag' => 'insert'],
+
     'widget/insert' => ['parent' => 'widget', 'tag' => 'insert'],
 
     'widget/{id}/update' => ['parent' => 'widget', 'tag' => 'update'],

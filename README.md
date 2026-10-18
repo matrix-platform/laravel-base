@@ -602,6 +602,7 @@ class CityController extends CrudController {
 ```
 
 - **只有 `use StagesChildren` 的 controller 才有暫存模式**,也才會註冊下面四支端點。trait 覆寫 `CrudController` 的 `persist()`(`insert()` / `update()` 的寫入掛點),所以父 controller 自己覆寫 `insert()` / `update()` 並呼叫 `parent::` 時照樣會處理暫存子項目。
+- **編輯頁(`get`)與新增頁(`new`)的回應帶 `staged`**,依 `staged()` 的宣告順序列出 `[{ name, title }]`,`title` 是子資源前綴選單節點的標題(沒有節點時為 `null`)。trait 為此覆寫 `CrudController` 的 `prepare()`。前端用它把暫存子清單放進表單的欄位設定,排好的位置與欄位一起存在同一份 preference(`column:{key}`)裡。
 - **宣告的是子資源前綴,不是 class。** 框架用 `ActionRoutes::controller($prefix)` 找出掛在這個前綴上的子 controller,權限也用同一個前綴檢查(`AdminPermission::permits($prefix, $tag)`)。子 controller 必須用 `ActionRoutes::mount()` 掛上、不是 standalone,且子 model 的 metadata 要有父層(外鍵靠它推導),否則丟 `invalid-staged-child`。key 與父表單欄位同名會丟 `staged-key-conflict`(存檔時 body 會互相覆蓋)。這兩項只在用到暫存模式時才檢查:打下面四支端點,或存檔的 body 帶了宣告的 key。
 - **子 service 一律由子 controller 的 `onInsert()` / `onUpdate()` / `onDelete()` / `onSort()` 建立**,子資源原本的欄位與 guard 都沿用。params 是父路由參數去掉 `id`,加上 `[外鍵 => 父 id]`;新增頁沒有父 id,不放外鍵。
 - **子 controller 覆寫的 `insert()` / `update()` 不會被呼叫**,框架只呼叫 service。副作用請掛在 guard 或父 controller 的 `afterStaged()`。父 controller 覆寫 `insert()` / `update()` 而不呼叫 `parent::` 的話,暫存子項目也不會被處理。
@@ -1352,7 +1353,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 
 - 每個欄位可以用哪些 `op`,由清單回應的 `columns[].op` 告訴你。送不被允許的欄位或運算子會**靜默忽略**,不會報錯。
 - `between` 用 `from` / `to`（可以只給一邊）,其餘用 `value`。
-- **`date` / `datetime` 欄位的值必須完全符合 `columns[].format` 給的格式**,一個字元都不能差:`date` 只收 `matrix.date-format`（出貨 `Y-m-d`）,`datetime` 只收 `matrix.datetime-format`（出貨 `Y-m-d H:i:s`）,兩者不互通。不符回 422 `invalid-filter-value`。所以查一整天要自己補時間:`from` 是 `00:00:00`、`to` 是 `23:59:59`——只送 `2026-01-31` 會被擋下。
+- **`date` / `datetime` 欄位的值必須完全符合 `columns[].format` 給的格式**,一個字元都不能差:`date` 只收 `matrix.date-format`（出貨 `Y-m-d`）,`datetime` 只收 `matrix.datetime-format`（出貨 `Y-m-d H:i:s`）,兩者不互通。不符回 500 `invalid-filter-value`。所以查一整天要自己補時間:`from` 是 `00:00:00`、`to` 是 `23:59:59`——只送 `2026-01-31` 會被擋下。
 - `page` 或 `size` 給 0 以下 = 不分頁,一次全回。
 - **可上下架的清單**(metadata 同時有 `enable` / `disable`)另收 `filters.schedule = { "op": "eq", "value": "<id>" }`。`schedule` 在這類 model 上是**保留名稱**,由框架處理,不交給一般欄位篩選。五個 id **有包含關係、不互斥**:
 
@@ -1364,7 +1365,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
   | `enabling` | 即將上架:上架時間晚於現在 |
   | `expired` | 已下架:下架時間不晚於現在 |
 
-  `value` 為 `null` 或空字串 = 不篩選;`op` 不是 `eq` 靜默忽略;未知 id 回 422 `invalid-filter-value`。上架時間在未來、下架時間已過的列同時命中 `enabling` 與 `expired`。匯出同樣適用。
+  `value` 為 `null` 或空字串 = 不篩選;`op` 不是 `eq` 靜默忽略;未知 id 回 500 `invalid-filter-value`。上架時間在未來、下架時間已過的列同時命中 `enabling` 與 `expired`。匯出同樣適用。
 
 **詳情 / 編輯頁**（`POST admin/widget/{id}`）不需要 body。
 
@@ -1705,7 +1706,7 @@ php artisan matrix:clear-resource-cache
 | **`#[Action]` 會沿繼承鏈繼承** | 覆寫 action 不需要重新宣告 attribute |
 | **套件的 controller 可以整個換成子類別** | 路由掛的是套件的類別,但 controller 由容器建立,所以 `$app->bind(MailLogController::class, App\...\MailLogController::class)` 就會改用子類別(例如改 `$lists`、加 guard);要加欄位就另外 `app(MetadataRegistry::class)->register(MailLog::class, new 子類別宣告())`,放在 `$app->booted()` 裡 |
 | **`#[Action(encrypted: false)]` 讓那支 action 不受所屬前綴的加密開關約束** | 呼叫方不可能封信封的端點要標記它:出貨已標的是 telegram webhook、兩支 multipart 上傳(`file/upload`、`drive/{id}/upload`)與 `encryption-key`。自己的上傳端點也要自己標,漏標的症狀是開關一開就變 `invalid-envelope` |
-| **篩選值的格式與型別都會驗證** | op 要的是單一值卻送陣列(`eq` / `contains` / `between` 的 from、to 等)、`in` / `notIn` 的清單裡有陣列,一律回 422 `invalid-filter-value`。值也要對得上欄位型別:`integer` 要整數或純數字字串、`float` 要 numeric、`boolean` 要 `true`/`false`/`0`/`1`、`date` 要完全符合 `matrix.date-format`、`datetime` 要完全符合 `matrix.datetime-format`（兩者不互通,也不收 `now`、`tomorrow`、`+1 day` 這類 PostgreSQL 或 PHP 認得的相對值,以及 `2026-02-31` 這種會被 PHP 悄悄進位的日期）,不符同樣回 422。**這一道是必要的**——不擋的話那個值會原樣進 SQL,PostgreSQL 丟 `22P02`,而 action 跑在交易裡,整個交易會進 aborted 狀態(`25P02`),該請求之後每一個查詢都失敗,真正的原因還被蓋掉。型別依的是欄位**宣告**的型別(DSL 標註 → 聚合函式 → `#[Declared]` 的 definition → model cast),都沒有就當 `text` 不檢查。欄位或 op 不被允許則靜默忽略,`in` 清單裡的 null 不擋（合法 SQL,永不匹配） |
+| **篩選值的格式與型別都會驗證** | op 要的是單一值卻送陣列(`eq` / `contains` / `between` 的 from、to 等)、`in` / `notIn` 的清單裡有陣列,一律回 500 `invalid-filter-value`。值也要對得上欄位型別:`integer` 要整數或純數字字串、`float` 要 numeric、`boolean` 要 `true`/`false`/`0`/`1`、`date` 要完全符合 `matrix.date-format`、`datetime` 要完全符合 `matrix.datetime-format`（兩者不互通,也不收 `now`、`tomorrow`、`+1 day` 這類 PostgreSQL 或 PHP 認得的相對值,以及 `2026-02-31` 這種會被 PHP 悄悄進位的日期）,不符同樣回 500。**這一道是必要的**——不擋的話那個值會原樣進 SQL,PostgreSQL 丟 `22P02`,而 action 跑在交易裡,整個交易會進 aborted 狀態(`25P02`),該請求之後每一個查詢都失敗,真正的原因還被蓋掉。型別依的是欄位**宣告**的型別(DSL 標註 → 聚合函式 → `#[Declared]` 的 definition → model cast),都沒有就當 `text` 不檢查。欄位或 op 不被允許則靜默忽略,`in` 清單裡的 null 不擋（合法 SQL,永不匹配） |
 | **巢狀資源(非 standalone)的每個 CRUD 動作都會驗證路由上的父層鏈** | 所有查詢(清單、`get`、`update`、`delete` 含多筆 id、`copy`、排序、快速上下架、匯出)都加上直接父層的外鍵條件,不屬於該父層的 id 回 404 `data-not-found`(多筆刪除只要有一筆不屬於就整批拒絕)。另外在第一次取用父層外鍵時(`CrudService::owner()`),沿 `Subject::parent()` 往上逐層驗證:父層要能經由它自己的 model 查到(套用其 global scope 與軟刪除),且它的外鍵要等於路由上更上一層的參數,否則同樣回 404——所以父層不存在、被軟刪除、被 global scope 排除(例如共用表依類別分的 model),或祖父層參數對不上時,清單、新增頁、新增、匯入也一律 404。路由沒帶的上層參數不驗證;自我參照的樹(`menu/{parent_id}/children`)只驗證直接父層存在。standalone 模式不套用任何父層條件。`admin/schedule/toggle` 不走巢狀路由,只依 prefix 權限與 model 本身的 global scope 取資料 |
 | **子清單的條件不是父層外鍵時,用 `$mount` 指定動作前綴** | model 的 metadata 沒有父層(或父層不是路由上那一層),例如依行程所屬的群組列出資料,只能用 standalone 並在 `onList()` 等處自己加 `scope()`;這時動作 url 與權限節點仍依 metadata 推導(`{alias}/{id}`),會連到另一個資源。在 controller 設 `protected ?string $mount = 'tour/{tour_id}/reviews';`(對應 `CrudService::mount()`)後,所有動作 url 與權限檢查改用這個前綴,欄位偏好的 key 也跟著它。前綴裡的 `{tour_id}` 照常由前端用該列(列動作)或信封的 `context`(頁動作)展開,所以列資料與 `context` 要自己帶上這個值。`admin/schedule/toggle` 的權限仍看 model metadata 推導的前綴 |
 | **樂觀鎖要自己呼叫** | `BaseModel::lock()` 會重讀該列並逐欄比對,值被別人改過就回 `data-conflicted`。CRUD 引擎不會自動幫你呼叫 |

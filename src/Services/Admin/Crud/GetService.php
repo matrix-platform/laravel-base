@@ -45,6 +45,7 @@ class GetService extends CrudService {
             'columns' => $this->payload($this->columns, $model),
             'preference' => $this->formPreference($this->preference()),
             'orderable' => $this->orderable,
+            'staged' => $this->staged,
             'actions' => $this->operations($this->passing($this->traceable($this->actions), $model), $this->prefix())
         ];
     }

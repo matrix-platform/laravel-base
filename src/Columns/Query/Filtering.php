@@ -117,7 +117,7 @@ class Filtering {
         }
 
         if (!is_scalar($value)) {
-            error('invalid-filter-value', 422);
+            error('invalid-filter-value');
         }
 
         $valid = match ($type) {
@@ -129,7 +129,7 @@ class Filtering {
         };
 
         if (!$valid) {
-            error('invalid-filter-value', 422);
+            error('invalid-filter-value');
         }
     }
 

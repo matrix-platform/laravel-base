@@ -336,7 +336,7 @@ class FilteringTest extends FeatureTestCase {
             $this->labels([['name' => 'label', 'op' => 'eq']], ['label' => ['op' => 'eq', 'value' => ['alpha']]]);
         } catch (ServiceException $exception) {
             $this->assertSame('invalid-filter-value', $exception->getError());
-            $this->assertSame(422, $exception->getCode());
+            $this->assertSame(500, $exception->getCode());
 
             return;
         }

@@ -4,6 +4,10 @@ return [
 
     'widget' => 'Widgets',
 
+    'widget/{id}' => 'Widget',
+
+    'widget/new' => 'New Widget',
+
     'widget/insert' => 'Save New Widget',
 
     'widget/{id}/update' => 'Edit Widget',

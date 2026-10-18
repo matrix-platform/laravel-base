@@ -109,6 +109,14 @@ class StagedSublistTest extends FeatureTestCase {
         return Widget::forceCreate(['title' => $title]);
     }
 
+    public function test_the_parent_form_lists_the_declared_sublists_with_their_titles(): void {
+        $widget = $this->widget('Alpha');
+        $expected = [['name' => 'trinkets', 'title' => 'Trinkets'], ['name' => 'gadgets', 'title' => 'Gadgets']];
+
+        $this->admin("admin/widget/{$widget->id}")->assertJsonPath('data.staged', $expected);
+        $this->admin('admin/widget/new')->assertJsonPath('data.staged', $expected);
+    }
+
     public function test_the_new_page_returns_the_insert_form_without_rows(): void {
         $response = $this->admin('admin/widget/staged/trinkets');
 

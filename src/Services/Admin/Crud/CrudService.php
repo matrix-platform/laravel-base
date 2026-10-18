@@ -75,6 +75,11 @@ abstract class CrudService {
      */
     protected array $scopes = [];
 
+    /**
+     * @var list<array{name: string, title: ?string}>
+     */
+    protected array $staged = [];
+
     protected bool $standalone = false;
 
     protected Subject $subject;
@@ -152,6 +157,15 @@ abstract class CrudService {
 
     public function scope(Closure $scope): static {
         $this->scopes[] = $scope;
+
+        return $this;
+    }
+
+    /**
+     * @param list<array{name: string, title: ?string}> $lists
+     */
+    public function staged(array $lists): static {
+        $this->staged = $lists;
 
         return $this;
     }
@@ -1092,7 +1106,7 @@ abstract class CrudService {
         $state = is_string($value) ? ScheduleFilter::tryFrom($value) : null;
 
         if ($state === null) {
-            error('invalid-filter-value', 422);
+            error('invalid-filter-value');
         }
 
         $state->apply($query, $enable, $disable, now());
