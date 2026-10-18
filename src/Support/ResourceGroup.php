@@ -16,7 +16,9 @@ enum ResourceGroup: string {
     }
 
     public function directory(): string {
-        return str_replace('i18n', 'i18n/' . app()->getLocale(), $this->value);
+        $locale = array_get_value(config()->array('matrix.resource-locales', []), $this->value, app()->getLocale());
+
+        return str_replace('i18n', 'i18n/' . strval($locale), $this->value);
     }
 
 }

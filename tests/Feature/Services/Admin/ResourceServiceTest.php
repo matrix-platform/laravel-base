@@ -468,6 +468,26 @@ class ResourceServiceTest extends FeatureTestCase {
         $this->assertSame('Welcome QA', Template::render('greeting', ['name' => 'QA'])['subject']);
     }
 
+    public function test_a_pinned_group_edits_its_configured_locale_whatever_the_request_locale(): void {
+        config()->set('matrix.resource-locales', ['i18n/template' => 'en']);
+        app()->setLocale('tw');
+
+        $this->assertSame(['greeting'], array_column(array_get_value($this->service()->list(ResourceGroup::Template, true), 'rows'), 'id'));
+
+        $this->service()->update(ResourceGroup::Template, 'greeting', ['subject' => 'Welcome {name}']);
+
+        $this->assertSame('i18n/en/template/greeting', ResourceOverride::query()->value('bundle'));
+    }
+
+    public function test_an_unpinned_group_still_follows_the_request_locale(): void {
+        config()->set('matrix.resource-locales', ['i18n/template' => 'en']);
+        app()->setLocale('tw');
+
+        $this->service()->update(ResourceGroup::I18n, 'widget', ['hello' => 'Hi']);
+
+        $this->assertSame('i18n/tw/widget', ResourceOverride::query()->value('bundle'));
+    }
+
     public function test_the_edited_locale_follows_the_request(): void {
         app()->setLocale('tw');
 

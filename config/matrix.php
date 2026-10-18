@@ -72,6 +72,8 @@ return [
 
     'resource-i18n-template' => [],
 
+    'resource-locales' => [],
+
     'thumbnail-quality' => 80,
 
     'thumbnail-sizes' => [
