@@ -78,6 +78,19 @@ class MenuLockTest extends FeatureTestCase {
         $this->assertNotNull(Menu::query()->find($locked->id));
     }
 
+    public function test_deleting_a_locked_item_with_children_reports_the_lock_rather_than_the_references(): void {
+        $root = $this->node(null, 'root', 100);
+        $locked = $this->node($root->id, 'locked', 100, ['kind' => 'locked']);
+        $plain = $this->node($root->id, 'plain', 200);
+        $this->node($locked->id, 'child', 100);
+
+        $this->send("admin/menu/{$root->id}/children/delete", ['id' => [$plain->id, $locked->id]])
+            ->assertJson(['success' => false, 'error' => 'menu-locked']);
+
+        $this->assertNotNull(Menu::query()->find($locked->id));
+        $this->assertNotNull(Menu::query()->find($plain->id));
+    }
+
     public function test_a_locked_item_can_still_be_edited(): void {
         $root = $this->node(null, 'root', 100);
         $locked = $this->node($root->id, 'locked', 100, ['kind' => 'locked']);

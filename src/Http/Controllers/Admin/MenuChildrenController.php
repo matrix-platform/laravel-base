@@ -2,9 +2,11 @@
 
 namespace MatrixPlatform\Http\Controllers\Admin;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use MatrixPlatform\Models\Menu;
 use MatrixPlatform\Services\Admin\Crud\ArrangeService;
+use MatrixPlatform\Services\Admin\Crud\DeleteService;
 use MatrixPlatform\Services\Admin\Crud\GetService;
 use MatrixPlatform\Services\Admin\Crud\ListService;
 use MatrixPlatform\Services\Admin\Crud\Operation;
@@ -37,6 +39,14 @@ class MenuChildrenController extends CrudController {
 
     protected function onArrange(ArrangeService $service): ArrangeService {
         return parent::onArrange($service)->fixed(MenuLocks::synced(...));
+    }
+
+    protected function onDelete(DeleteService $service): DeleteService {
+        return parent::onDelete($service)->guard(function (Model $menu): void {
+            if ($menu instanceof Menu && MenuLocks::locked($menu)) {
+                error('menu-locked');
+            }
+        });
     }
 
     protected function onGet(GetService $service): GetService {
