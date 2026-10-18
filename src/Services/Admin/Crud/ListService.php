@@ -105,7 +105,7 @@ class ListService extends CrudService {
             'rows' => $rows,
             'columns' => array_map(fn (array $column): array => [...$column, 'default' => in_array($column['name'], $defaults, true), 'replaces' => array_get_value($this->replaced, $column['name'])], $this->payload($columns, $context)),
             'filters' => $arrangeable ? $this->payload([$this->scheduleColumn()], $context) : [],
-            'features' => $arrangeable ? ['arrange'] : [],
+            'features' => $arrangeable ? $this->arrangeFeatures($prefix) : [],
             'preference' => $this->columnPreference($preference),
             'sorting' => array_map(fn (Sort $sort): array => ['name' => $sort->name, 'direction' => $sort->direction->value], $sorted),
             'pagination' => $pagination,
@@ -159,6 +159,13 @@ class ListService extends CrudService {
         $this->sorting = $sorting;
 
         return $this;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function arrangeFeatures(string $prefix): array {
+        return $this->permitted(['update'], $prefix) === [] ? ['arrange'] : ['arrange', 'schedule'];
     }
 
     /**

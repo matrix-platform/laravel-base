@@ -7,6 +7,7 @@ use MatrixPlatform\Columns\Declarations\Definitions;
 use MatrixPlatform\Services\Admin\Crud\ListService;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
+use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
 use Tests\Stubs\Gadget;
 use Tests\Stubs\StubDeclaration;
@@ -57,6 +58,7 @@ class ListServiceTest extends FeatureTestCase {
     }
 
     public function test_an_arrangeable_model_reports_the_enabled_state_and_hides_the_raw_schedule_fields(): void {
+        $this->useMenuFixtures('crud');
         $this->arrangeable();
 
         $widget = $this->widget('Alpha');
@@ -75,7 +77,24 @@ class ListServiceTest extends FeatureTestCase {
         $this->assertArrayNotHasKey('disable_time', $result['rows'][0]);
         $this->assertSame(['id', 'title', 'enabled', 'actions'], array_keys($result['rows'][0]));
         $this->assertSame(['title'], array_column($result['columns'], 'name'));
+        $this->assertSame(['arrange', 'schedule'], $result['features']);
+    }
+
+    public function test_an_arrangeable_model_without_the_update_permission_shows_the_switch_without_schedule(): void {
+        app()->forgetScopedInstances();
+        actor()->setUser(UserFactory::new()->createOne(['id' => 2000, 'permissions' => ['widget' => ['query' => true]]]));
+
+        $this->useMenuFixtures('crud');
+        $this->arrangeable();
+        $this->widget('Alpha');
+
+        $result = (new ListService(Widget::class))
+            ->standalone(true)
+            ->columns(['title'])
+            ->list([]);
+
         $this->assertSame(['arrange'], $result['features']);
+        $this->assertContains('edit', array_column($result['actions']['row'], 'type'));
     }
 
     public function test_a_non_arrangeable_model_has_no_enabled_state_or_arrange_feature(): void {
