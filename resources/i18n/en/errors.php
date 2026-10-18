@@ -8,7 +8,7 @@ return [
 
     'data-conflicted' => 'Data has been modified by someone else',
 
-    'data-in-use' => 'This record is still referenced by other data',
+    'data-in-use' => 'This record is still used by other data ({count} records) and cannot be deleted',
 
     'data-not-found' => 'Data not found',
 

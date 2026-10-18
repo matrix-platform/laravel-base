@@ -8,7 +8,7 @@ return [
 
     'data-conflicted' => '資料已被修改',
 
-    'data-in-use' => '這筆資料仍被其他資料參照，無法刪除',
+    'data-in-use' => '這筆資料仍被其他資料使用（{count} 筆），無法刪除',
 
     'data-not-found' => '查無資料',
 
