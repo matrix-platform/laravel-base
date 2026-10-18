@@ -7,7 +7,7 @@ use Illuminate\Support\Carbon;
 
 class Schedule {
 
-    private static function future(mixed $value): bool {
+    public static function future(mixed $value): bool {
         return ($value instanceof Carbon ? $value : Carbon::parse($value))->isFuture();
     }
 

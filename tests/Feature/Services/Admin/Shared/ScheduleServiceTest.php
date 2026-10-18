@@ -56,6 +56,21 @@ class ScheduleServiceTest extends FeatureTestCase {
         $this->assertNull($widget->disable_time);
     }
 
+    public function test_enabling_keeps_a_scheduled_disable_time(): void {
+        $widget = $this->widget();
+        $widget->disable_time = now()->addWeek();
+        $widget->save();
+
+        $disableAt = $widget->disable_time->toDateTimeString();
+
+        $this->service()->toggle('widget', $widget->id, true);
+
+        $widget->refresh();
+
+        $this->assertNotNull($widget->enable_time);
+        $this->assertSame($disableAt, $widget->disable_time?->toDateTimeString());
+    }
+
     public function test_disabling_sets_the_disable_time_and_leaves_the_enable_time_untouched(): void {
         $widget = $this->widget();
         $widget->enable_time = now()->subDay();

@@ -114,6 +114,23 @@ class ArrangeServiceTest extends FeatureTestCase {
         $this->assertNull($alpha->refresh()->disable_time);
     }
 
+    public function test_enabling_a_row_keeps_a_scheduled_disable_time(): void {
+        $alpha = $this->widget('Alpha');
+        $alpha->enable_time = now()->addDay();
+        $alpha->disable_time = now()->addWeek();
+        $alpha->save();
+
+        $disableAt = $alpha->disable_time->toDateTimeString();
+
+        (new ArrangeService(Widget::class))->standalone(true)->save(['enabled' => [$alpha->id]]);
+
+        $alpha->refresh();
+
+        $this->assertNotNull($alpha->enable_time);
+        $this->assertFalse($alpha->enable_time->isFuture());
+        $this->assertSame($disableAt, $alpha->disable_time?->toDateTimeString());
+    }
+
     public function test_an_unknown_identifier_is_rejected(): void {
         $this->widget('Alpha');
 

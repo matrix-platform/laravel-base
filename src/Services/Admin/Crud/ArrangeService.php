@@ -102,7 +102,12 @@ class ArrangeService extends CrudService {
 
         if ($enable) {
             $model->setAttribute($this->enable, now());
-            $model->setAttribute($this->disable, null);
+
+            $disable = $model->getAttribute($this->disable);
+
+            if ($disable !== null && !Schedule::future($disable)) {
+                $model->setAttribute($this->disable, null);
+            }
         } else {
             $model->setAttribute($this->disable, now());
         }

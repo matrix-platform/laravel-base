@@ -3,6 +3,7 @@
 namespace MatrixPlatform\Services\Admin\Shared;
 
 use MatrixPlatform\Support\MetadataRegistry;
+use MatrixPlatform\Support\Schedule;
 
 class ScheduleService {
 
@@ -21,7 +22,12 @@ class ScheduleService {
 
         if ($enabled) {
             $model->setAttribute($metadata->enable, now());
-            $model->setAttribute($metadata->disable, null);
+
+            $disable = $model->getAttribute($metadata->disable);
+
+            if ($disable !== null && !Schedule::future($disable)) {
+                $model->setAttribute($metadata->disable, null);
+            }
         } else {
             $model->setAttribute($metadata->disable, now());
         }
