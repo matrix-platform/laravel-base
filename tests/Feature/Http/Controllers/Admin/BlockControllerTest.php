@@ -153,6 +153,18 @@ class BlockControllerTest extends FeatureTestCase {
         $this->assertTrue($this->columnByName($columns, 'type')['locked']);
     }
 
+    // The picker greys page-content out instead of letting it fail on save; the other types stay selectable.
+    public function test_the_listing_offers_page_content_as_an_unselectable_type(): void {
+        $this->useBlockDataFixtures();
+
+        $page = PageFactory::new()->createOne();
+        $options = array_column($this->columnByName($this->send("admin/page/{$page->id}/block")->json('data.columns'), 'type')['options'], null, 'id');
+
+        $this->assertFalse($options[Block::PAGE_CONTENT]['selectable']);
+        $this->assertSame('Built-in content', $options[Block::PAGE_CONTENT]['title']);
+        $this->assertNotContains(false, array_column(array_diff_key($options, [Block::PAGE_CONTENT => true]), 'selectable'));
+    }
+
     public function test_a_nested_list_is_scoped_to_its_page(): void {
         $mine = PageFactory::new()->createOne();
         $theirs = PageFactory::new()->createOne();

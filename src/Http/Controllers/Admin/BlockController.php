@@ -8,6 +8,7 @@ use Illuminate\Support\Arr;
 use MatrixPlatform\Columns\Declarations\Presets;
 use MatrixPlatform\Columns\Options\BundleOptions;
 use MatrixPlatform\Columns\Options\Option;
+use MatrixPlatform\Columns\Options\StaticOptions;
 use MatrixPlatform\Models\Block;
 use MatrixPlatform\Services\Admin\Crud\CopyService;
 use MatrixPlatform\Services\Admin\Crud\DeleteService;
@@ -69,7 +70,7 @@ class BlockController extends CrudController {
         $variants = app(Variants::class);
         $unlocked = fn (Block $block): bool => $block->type !== Block::PAGE_CONTENT;
 
-        return parent::onList($service)
+        return parent::onList($service->columns([['name' => '=type:text:block-module', 'options' => $this->listedTypes()]]))
             ->countable('items_count', fn (Block $block): bool => $variants->of('block-item-data', $block->type) !== null)
             ->rowActions(['edit', new Operation('copy', $unlocked), new Operation('delete', $unlocked)]);
     }
@@ -80,6 +81,15 @@ class BlockController extends CrudController {
 
     private function inspect(Block $block): void {
         BlockDataGuard::inspect(app(Variants::class)->of('block-data', $block->type), $block->data);
+    }
+
+    private function listedTypes(): StaticOptions {
+        $options = array_map(
+            fn (Option $option): Option => $option->id === Block::PAGE_CONTENT ? new Option($option->children, $option->id, $option->ranking, $option->title, $option->deleted, false) : $option,
+            (new BundleOptions('block-module'))->options()
+        );
+
+        return new StaticOptions($options);
     }
 
     private function lock(Model $model): void {
