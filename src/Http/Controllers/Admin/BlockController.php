@@ -13,6 +13,7 @@ use MatrixPlatform\Services\Admin\Crud\CopyService;
 use MatrixPlatform\Services\Admin\Crud\DeleteService;
 use MatrixPlatform\Services\Admin\Crud\InsertService;
 use MatrixPlatform\Services\Admin\Crud\ListService;
+use MatrixPlatform\Services\Admin\Crud\Operation;
 use MatrixPlatform\Services\Admin\Crud\UpdateService;
 use MatrixPlatform\Support\BlockDataGuard;
 use MatrixPlatform\Support\Variants;
@@ -66,8 +67,11 @@ class BlockController extends CrudController {
 
     protected function onList(ListService $service): ListService {
         $variants = app(Variants::class);
+        $unlocked = fn (Block $block): bool => $block->type !== Block::PAGE_CONTENT;
 
-        return parent::onList($service)->countable('items_count', fn (Block $block): bool => $variants->of('block-item-data', $block->type) !== null);
+        return parent::onList($service)
+            ->countable('items_count', fn (Block $block): bool => $variants->of('block-item-data', $block->type) !== null)
+            ->rowActions(['edit', new Operation('copy', $unlocked), new Operation('delete', $unlocked)]);
     }
 
     protected function onUpdate(UpdateService $service): UpdateService {

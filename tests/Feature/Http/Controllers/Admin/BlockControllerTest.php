@@ -385,6 +385,17 @@ class BlockControllerTest extends FeatureTestCase {
         $this->assertSame([$block->id], $this->order($page->id));
     }
 
+    public function test_the_listing_offers_no_copy_or_delete_on_a_page_content_block(): void {
+        $page = PageFactory::new()->createOne();
+        $content = BlockFactory::new()->createOne(['page_id' => $page->id, 'type' => Block::PAGE_CONTENT]);
+        $editor = BlockFactory::new()->createOne(['page_id' => $page->id, 'type' => 'editor']);
+
+        $rows = array_column($this->send("admin/page/{$page->id}/block")->json('data.rows'), 'actions', 'id');
+
+        $this->assertSame(['edit'], array_values(array_diff($rows[$content->id], ['log'])));
+        $this->assertSame(['edit', 'copy', 'delete'], array_values(array_diff($rows[$editor->id], ['log'])));
+    }
+
     public function test_a_page_content_block_can_still_be_edited(): void {
         $this->useBlockDataFixtures();
 
