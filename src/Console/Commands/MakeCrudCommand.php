@@ -134,7 +134,7 @@ class MakeCrudCommand extends Command {
         $parentKey = $plan->parent === null ? "'TODO-parent-menu-key'" : "'{$plan->parent['alias']}'";
         $group = ["'icon' => 'fa-solid fa-TODO'", "'parent' => {$parentKey}"];
 
-        if ($plan->parent === null && $plan->sortable) {
+        if ($plan->parent === null) {
             $group[] = "'ranking' => 100";
         }
 

@@ -197,6 +197,12 @@ class MakeCrudCommandTest extends FeatureTestCase {
         $this->assertDirectoryDoesNotExist("{$this->root}/resources/i18n/tw/menu");
     }
 
+    public function test_a_top_level_menu_snippet_always_carries_a_ranking(): void {
+        $this->artisanCommand('matrix:make-crud scaffold_plain --path=' . $this->root . ' --dry-run')
+            ->expectsOutputToContain("'ranking' => 100")
+            ->assertExitCode(0);
+    }
+
     public function test_the_locale_option_limits_which_i18n_files_are_produced(): void {
         $this->artisanCommand('matrix:make-crud scaffold_simple --path=' . $this->root . ' --locale=tw')->assertExitCode(0);
 
