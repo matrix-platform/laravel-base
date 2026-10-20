@@ -189,6 +189,26 @@ class ColumnParserTest extends TestCase {
         $this->assertSame('NOT IN', $conditions['a'][1]->operator);
     }
 
+    public function test_a_colon_inside_a_condition_value_is_not_a_type_separator(): void {
+        $conditions = $this->parse('count(logs[ip=::1])')->expression->conditions;
+
+        $this->assertSame('::1', $conditions['logs'][0]->value);
+    }
+
+    public function test_a_hash_inside_a_condition_value_is_not_a_group_separator(): void {
+        $conditions = $this->parse('count(logs[tag=#a])')->expression->conditions;
+
+        $this->assertSame('#a', $conditions['logs'][0]->value);
+    }
+
+    public function test_modifiers_after_the_conditions_are_still_split_off(): void {
+        $column = $this->parse('count(logs[status=a:b]):integer#grp');
+
+        $this->assertSame('a:b', $column->expression->conditions['logs'][0]->value);
+        $this->assertSame(ColumnType::Integer, $column->type);
+        $this->assertSame('grp', $column->group);
+    }
+
     public function test_every_comparison_operator_is_recognised(): void {
         foreach (['^=', '$=', '*=', '>=', '<=', '!=', '=', '>', '<'] as $operator) {
             $conditions = $this->parse("count(a[x{$operator}5])")->expression->conditions;

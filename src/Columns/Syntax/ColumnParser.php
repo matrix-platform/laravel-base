@@ -45,12 +45,19 @@ class ColumnParser {
         $group = $this->text(array_get_value($given, 'group'));
         $type = $this->text(array_get_value($given, 'type'));
 
-        if (str_contains($name, '#')) {
-            [$name, $group] = explode('#', $name, 2);
+        $offset = intval(strrpos($name, ']'));
+        $hash = strpos($name, '#', $offset);
+
+        if ($hash !== false) {
+            $group = substr($name, $hash + 1);
+            $name = substr($name, 0, $hash);
         }
 
-        if (str_contains($name, ':')) {
-            [$name, $type] = explode(':', $name, 2);
+        $colon = strpos($name, ':', min($offset, strlen($name)));
+
+        if ($colon !== false) {
+            $type = substr($name, $colon + 1);
+            $name = substr($name, 0, $colon);
         }
 
         $optionsName = null;
