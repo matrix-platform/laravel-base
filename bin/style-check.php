@@ -15,7 +15,7 @@ function check_arrow_functions(array $tokens): array {
         $next = $tokens[$index + 1];
 
         if (!is_array($next) || $next[0] !== T_WHITESPACE || $next[1] !== ' ') {
-            $violations[] = [$token[2], 'fn must be followed by a single space, see CLAUDE.md 7.2'];
+            $violations[] = [$token[2], 'fn must be followed by a single space, see manual 02.5 rule 3'];
         }
     }
 
@@ -44,13 +44,13 @@ function check_class_blank_lines(array $lines): array {
     $violations = [];
 
     if (array_key_exists($opening + 1, $lines) && trim($lines[$opening + 1]) !== '') {
-        $violations[] = [$opening + 2, 'class body must open with a blank line'];
+        $violations[] = [$opening + 2, 'class body must open with a blank line, see manual 02.5 rule 2'];
     }
 
     $closing = count($lines) - 1;
 
     if ($closing > $opening && in_array($lines[$closing], ['}', '};'], true) && trim($lines[$closing - 1]) !== '') {
-        $violations[] = [$closing, 'class body must close with a blank line'];
+        $violations[] = [$closing, 'class body must close with a blank line, see manual 02.5 rule 2'];
     }
 
     return $violations;
@@ -76,20 +76,20 @@ function check_event_bypass(array $tokens): array {
         }
 
         if (in_array($token[1], ['delete', 'insert', 'update'], true) && database_facade($tokens, $sequence, $slot, $aliases)) {
-            $violations[] = [$token[2], "DB::{$token[1]}() must not write, go through the model, see CLAUDE.md 7.9"];
+            $violations[] = [$token[2], "DB::{$token[1]}() must not write, go through the model, see manual 02.5 rule 6"];
 
             continue;
         }
 
         if (in_array($token[1], $quiet, true)) {
-            $violations[] = [$token[2], "{$token[1]}() skips model events, see CLAUDE.md 7.7"];
+            $violations[] = [$token[2], "{$token[1]}() skips model events, see manual 02.5 rule 6"];
 
             continue;
         }
 
         if ($token[1] === 'delete') {
             if (invoked_on_a_call($tokens, $sequence, $slot) && $tokens[$sequence[$slot + 1]] === '(' && $tokens[$sequence[$slot + 2]] === ')') {
-                $violations[] = [$token[2], 'delete() must be called on a model instance, not on a query, see CLAUDE.md 7.7'];
+                $violations[] = [$token[2], 'delete() must be called on a model instance, not on a query, see manual 02.5 rule 6'];
             }
 
             continue;
@@ -103,7 +103,7 @@ function check_event_bypass(array $tokens): array {
             $call = $tokens[$sequence[$cursor]];
 
             if (is_array($call) && $call[0] === T_STRING && in_array($call[1], $writes, true)) {
-                $violations[] = [$call[2], "DB::table() must not write ({$call[1]}), go through the model, see CLAUDE.md 7.9"];
+                $violations[] = [$call[2], "DB::table() must not write ({$call[1]}), go through the model, see manual 02.5 rule 6"];
             }
         }
     }
@@ -122,9 +122,9 @@ function check_member_order(array $tokens): array {
     foreach (collect_members($tokens) as $member) {
         if ($previous !== null) {
             if ($member['rank'] < $previous['rank']) {
-                $violations[] = [$member['line'], "'{$member['name']}' breaks the member group order, see CLAUDE.md 7.5"];
+                $violations[] = [$member['line'], "'{$member['name']}' breaks the member group order, see manual 02.5 rule 8"];
             } elseif ($member['rank'] === $previous['rank'] && strcmp($member['name'], $previous['name']) < 0) {
-                $violations[] = [$member['line'], "'{$member['name']}' should come before '{$previous['name']}', see CLAUDE.md 7.5"];
+                $violations[] = [$member['line'], "'{$member['name']}' should come before '{$previous['name']}', see manual 02.5 rule 8"];
             }
         }
 
@@ -168,7 +168,7 @@ function check_method_chains(array $tokens): array {
 
         foreach ($chain as $link) {
             if ($link['line'] === $previous) {
-                $violations[] = [$link['line'], 'a chain of more than two calls must break every -> onto its own line, see CLAUDE.md 7.2'];
+                $violations[] = [$link['line'], 'a chain of more than two calls must break every -> onto its own line, see manual 02.5 rule 7'];
             }
 
             $previous = $link['line'];
@@ -187,7 +187,7 @@ function check_null_coalescing(array $tokens): array {
 
     foreach ($tokens as $token) {
         if (is_array($token) && ($token[0] === T_COALESCE || $token[0] === T_COALESCE_EQUAL)) {
-            $violations[] = [$token[2], 'do not use ?? or ??=, see CLAUDE.md 7.7'];
+            $violations[] = [$token[2], 'do not use ?? or ??=, see manual 02.5 rule 4'];
         }
     }
 
@@ -203,7 +203,7 @@ function check_opening_tag(array $lines): array {
         return [];
     }
 
-    return [[1, 'file must start with <?php //>']];
+    return [[1, 'file must start with <?php //>, see manual 02.5 rule 1']];
 }
 
 /**
@@ -225,7 +225,7 @@ function check_trailing_commas(array $lines, bool $comma): array {
         }
 
         if (str_ends_with($previous, ',') !== $comma) {
-            $violations[] = [$index + 1, $comma ? 'multiline array must end with a trailing comma' : 'multiline array must not end with a trailing comma'];
+            $violations[] = [$index + 1, $comma ? 'multiline array must end with a trailing comma, see manual 02.5 rule 5' : 'multiline array must not end with a trailing comma, see manual 02.5 rule 5'];
         }
     }
 
