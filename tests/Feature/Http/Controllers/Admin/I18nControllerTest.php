@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Http\Controllers\Admin;
 
+use Illuminate\Support\Facades\Cache;
 use MatrixPlatform\Models\ResourceOverride;
+use MatrixPlatform\Support\Resources;
 use Tests\FeatureTestCase;
 
 class I18nControllerTest extends FeatureTestCase {
@@ -36,6 +38,18 @@ class I18nControllerTest extends FeatureTestCase {
         $this->postJson('admin/i18n/get', ['name' => 'does-not-exist'])
             ->assertOk()
             ->assertJson(['success' => true, 'data' => null]);
+    }
+
+    public function test_an_unknown_bundle_leaves_no_cache_entry(): void {
+        config()->set('matrix.resource-cache-enabled', true);
+        config()->set('matrix.resource-cache-store', 'array');
+
+        $this->postJson('admin/i18n/get', ['name' => 'does-not-exist'])->assertOk();
+
+        $store = Cache::store('array');
+        $generation = strval($store->get(Resources::generationCacheKey(), ''));
+
+        $this->assertNull($store->get(Resources::defaultsCacheKey('i18n/' . app()->getLocale() . '/does-not-exist', $generation)));
     }
 
     public function test_a_missing_name_is_rejected(): void {
