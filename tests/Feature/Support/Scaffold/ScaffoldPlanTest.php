@@ -69,9 +69,10 @@ class ScaffoldPlanTest extends FeatureTestCase {
     public function test_the_parent_foreign_key_is_never_required(): void {
         $this->declareParent();
 
-        $segments = $this->build('scaffold_widget', parent: 'parent', alias: 'items')->declarationTokens()['segments'];
+        $segments = $this->build('scaffold_child', parent: 'parent', alias: 'items')->declarationTokens()['segments'];
 
-        $this->assertStringNotContainsString("'parent_id' => Definition::integer(required: true)", $segments);
+        $this->assertStringContainsString("'label' => Definition::text(required: true)", $segments);
+        $this->assertStringContainsString("'parent_id' => Definition::integer()", $segments);
     }
 
     public function test_the_model_gets_a_casts_method_for_schedules_but_no_relation(): void {

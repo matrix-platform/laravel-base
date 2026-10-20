@@ -38,6 +38,16 @@ return new class extends Migration {
             $table->auditings();
         });
 
+        Schema::create('scaffold_child', function (BaseBlueprint $table) {
+            $table->primaryKey();
+            $table->integer('parent_id');
+            $table->text('label');
+            $table->auditings();
+            $table->foreign('parent_id')
+                ->references('id')
+                ->on('scaffold_parent');
+        });
+
         Schema::create('scaffold_widget', function (BaseBlueprint $table) {
             $table->primaryKey();
             $table->integer('parent_id')->nullable();
@@ -62,6 +72,7 @@ return new class extends Migration {
 
     public function down(): void {
         Schema::dropIfExists('scaffold_widget');
+        Schema::dropIfExists('scaffold_child');
         Schema::dropIfExists('scaffold_required');
         Schema::dropIfExists('scaffold_plain');
         Schema::dropIfExists('scaffold_simple');
