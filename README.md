@@ -257,7 +257,7 @@ worker 會睡掉供應商的 `interval` 來節流,所以 `--timeout` 與 connect
 | `envelope-api` | 把例外收斂成信封。**必須掛在 `encrypted-api` 以外的最外層** |
 | `locale-api` | 讀 `Matrix-Locale` header 決定語系。**放在最外層**(`encrypted-api` 之前),信封解不開時的錯誤訊息才會跟著語系走 |
 | `user-api` | 後台身分,解析 token,失敗回 401 `invalid-token` |
-| `permission-api` | 授權,**必須掛在 `user-api` 之後** |
+| `permission-api` | 授權,**必須掛在 `user-api` 之後**,而且只能用在 `admin` 前綴底下(用在其他前綴時,`ActionRoutes` 註冊路由就會丟 `LogicException`) |
 | `member-api` / `vendor-api` | 前台身分 |
 | `member-aware-api` | 有 token 就解析,沒有也放行 |
 | `login-throttle-api:{bundle}` | 登入節流,鍵是 `IP + 帳號` |

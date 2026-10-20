@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
+use LogicException;
 use MatrixPlatform\Attributes\Action;
 use MatrixPlatform\Http\Middleware\EncryptedEnvelopeMiddleware;
 use MatrixPlatform\Support\Menus;
@@ -64,7 +65,13 @@ class ActionRoutes {
 
         $menus = app(Menus::class);
         $prefix = trim(Route::getLastGroupPrefix(), '/');
-        $stripped = strlen(strval(config('matrix.admin-api-prefix')) . '/');
+        $admin = strval(config('matrix.admin-api-prefix')) . '/';
+
+        if (!str_starts_with("{$prefix}/", $admin)) {
+            throw new LogicException('permission-api can only be used under the admin api prefix');
+        }
+
+        $stripped = strlen($admin);
 
         return fn (string $path): bool => $menus->has(substr(trim("{$prefix}/{$path}", '/'), $stripped));
     }

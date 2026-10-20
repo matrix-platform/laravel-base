@@ -4,6 +4,7 @@ namespace Tests\Feature\Routing;
 
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
+use LogicException;
 use MatrixPlatform\Routing\ActionRoutes;
 use Tests\FeatureTestCase;
 use Tests\Stubs\WidgetController;
@@ -38,6 +39,13 @@ class MenuGatedRoutesTest extends FeatureTestCase {
         $this->assertNotContains('admin/widget/delete', $uris);
         $this->assertNotContains('admin/widget/export', $uris);
         $this->assertNotContains('admin/widget/{id}/copy', $uris);
+    }
+
+    public function test_the_permission_guard_outside_the_admin_prefix_is_refused_at_registration(): void {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('permission-api can only be used under the admin api prefix');
+
+        Route::prefix('api')->middleware('permission-api')->group(fn () => ActionRoutes::mount('widget', WidgetController::class));
     }
 
     public function test_a_mount_outside_the_permission_guard_keeps_every_action(): void {
