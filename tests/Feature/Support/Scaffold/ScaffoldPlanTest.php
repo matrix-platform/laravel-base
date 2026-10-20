@@ -45,6 +45,16 @@ class ScaffoldPlanTest extends FeatureTestCase {
         $this->assertSame("'simple', enable: 'enable_time', disable: 'disable_time', ranking: 'ranking'", $plan->declarationTokens()['metadata']);
     }
 
+    public function test_a_non_translatable_title_column_is_declared_as_a_plain_text_field(): void {
+        $plan = $this->build('scaffold_plain');
+        $segments = $plan->declarationTokens()['segments'];
+
+        $this->assertSame('title', $plan->titleField);
+        $this->assertSame(['title'], $plan->customFields);
+        $this->assertStringContainsString("'title' => Definition::text(", $segments);
+        $this->assertStringNotContainsString('Definitions::title()', $segments);
+    }
+
     public function test_the_model_gets_a_casts_method_for_schedules_but_no_relation(): void {
         $plan = $this->build('scaffold_simple');
         $members = $plan->modelTokens()['members'];

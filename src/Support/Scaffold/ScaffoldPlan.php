@@ -100,7 +100,7 @@ class ScaffoldPlan {
         $index = 0;
 
         while ($index < $total) {
-            $group = self::specialGroup($names, $index, $titleField);
+            $group = self::specialGroup($names, $index, $titleField, $columns);
 
             if ($group === null) {
                 $buffer[] = $names[$index];
@@ -225,9 +225,10 @@ class ScaffoldPlan {
 
     /**
      * @param list<string> $names
+     * @param array<string, ResolvedColumn> $columns
      * @return array{kind: 'primary'|'title'|'ranking'|'schedules'|'auditings', names: non-empty-list<string>}|null
      */
-    private static function specialGroup(array $names, int $index, string $titleField): ?array {
+    private static function specialGroup(array $names, int $index, string $titleField, array $columns): ?array {
         $name = $names[$index];
         [$enableKey, $disableKey] = array_keys(Definitions::schedules());
         [$creatorKey, $createKey, $updaterKey, $updateKey] = array_keys(Definitions::auditings());
@@ -236,7 +237,7 @@ class ScaffoldPlan {
             return ['kind' => 'primary', 'names' => [$name]];
         }
 
-        if ($name === 'title' && $name === $titleField) {
+        if ($name === 'title' && $name === $titleField && $columns[$name]->translatable && $columns[$name]->type === ColumnType::Text) {
             return ['kind' => 'title', 'names' => [$name]];
         }
 
