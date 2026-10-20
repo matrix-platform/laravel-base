@@ -20,6 +20,7 @@ class UpdateService extends CrudService {
             $before = $model->toArray();
 
             $this->assign($model, $values);
+            $this->attach($model);
             $this->inspect($model, $before);
         } finally {
             DB::rollBack();
@@ -89,6 +90,7 @@ class UpdateService extends CrudService {
         $before = $model->toArray();
 
         $this->assign($model, $values);
+        $this->attach($model);
         $this->inspect($model, $before);
 
         $model->save();

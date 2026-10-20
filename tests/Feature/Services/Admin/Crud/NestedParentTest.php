@@ -76,6 +76,33 @@ class NestedParentTest extends FeatureTestCase {
         }
     }
 
+    public function test_an_update_cannot_move_a_row_to_another_parent(): void {
+        [$relic, $mine, $trinket] = $this->tree('mine');
+        [, $theirs] = $this->tree('theirs');
+
+        (new UpdateService(Trinket::class))
+            ->columns(['label', 'widget_id'])
+            ->params(['relic_id' => $relic->id, 'widget_id' => $mine->id])
+            ->update($trinket->id, ['label' => 'renamed', 'widget_id' => (string) $theirs->id]);
+
+        $trinket->refresh();
+
+        $this->assertSame('renamed', $trinket->label);
+        $this->assertSame($mine->id, $trinket->widget_id);
+    }
+
+    public function test_a_standalone_update_can_move_a_row_to_another_parent(): void {
+        [, , $trinket] = $this->tree('mine');
+        [, $theirs] = $this->tree('theirs');
+
+        (new UpdateService(Trinket::class))
+            ->standalone(true)
+            ->columns(['label', 'widget_id'])
+            ->update($trinket->id, ['label' => 'moved', 'widget_id' => (string) $theirs->id]);
+
+        $this->assertSame($theirs->id, $trinket->refresh()->widget_id);
+    }
+
     public function test_a_batch_delete_is_refused_when_any_id_belongs_to_another_parent(): void {
         [$relic, $mine, $own] = $this->tree('mine');
         [, , $theirs] = $this->tree('theirs');
