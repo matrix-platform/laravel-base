@@ -19,6 +19,8 @@ use MatrixPlatform\Support\ScheduleFilter;
 
 class ListService extends CrudService {
 
+    private ?bool $arrangeable = null;
+
     /**
      * @var array<string, Closure>
      */
@@ -46,10 +48,18 @@ class ListService extends CrudService {
      */
     private array $selects = [];
 
+    private ?bool $sortable = null;
+
     /**
      * @var list<string>
      */
     private array $sorting = [];
+
+    public function arrangeable(bool $arrangeable): static {
+        $this->arrangeable = $arrangeable;
+
+        return $this;
+    }
 
     public function countable(string $name, Closure $when): static {
         $this->countable[$name] = $when;
@@ -105,12 +115,12 @@ class ListService extends CrudService {
             'rows' => $rows,
             'columns' => array_map(fn (array $column): array => [...$column, 'default' => in_array($column['name'], $defaults, true), 'replaces' => array_get_value($this->replaced, $column['name'])], $this->payload($columns, $context)),
             'filters' => $arrangeable ? $this->payload([$this->scheduleColumn()], $context) : [],
-            'features' => $arrangeable ? $this->arrangeFeatures($prefix) : [],
+            'features' => $arrangeable && $this->arrangeable !== false ? $this->arrangeFeatures($prefix) : [],
             'preference' => $this->columnPreference($preference),
             'sorting' => array_map(fn (Sort $sort): array => ['name' => $sort->name, 'direction' => $sort->direction->value], $sorted),
             'pagination' => $pagination,
             'actions' => [
-                'page' => $this->operations($this->passing($this->pageActions, $context), $prefix),
+                'page' => $this->operations($this->offered($context), $prefix),
                 'row' => $this->normalized($rowActions, $prefix)
             ]
         ];
@@ -152,6 +162,12 @@ class ListService extends CrudService {
         return $this;
     }
 
+    public function sortable(bool $sortable): static {
+        $this->sortable = $sortable;
+
+        return $this;
+    }
+
     /**
      * @param list<string> $sorting
      */
@@ -166,6 +182,15 @@ class ListService extends CrudService {
      */
     private function arrangeFeatures(string $prefix): array {
         return $this->permitted(['update'], $prefix) === [] ? ['arrange'] : ['arrange', 'schedule'];
+    }
+
+    /**
+     * @return list<Operation>
+     */
+    private function offered(Model $context): array {
+        $hidden = array_keys(array_filter(['sort' => $this->sortable === false, 'arrange' => $this->arrangeable === false]));
+
+        return array_values(array_filter($this->passing($this->pageActions, $context), fn (Operation $operation): bool => !in_array($operation->type, $hidden, true)));
     }
 
     /**

@@ -258,7 +258,9 @@ abstract class CrudController extends BaseController {
             ->columns($this->listing())
             ->optionals($this->optionals())
             ->sorting($this->sorting())
-            ->selects($this->selects);
+            ->selects($this->selects)
+            ->sortable($this->sortable())
+            ->arrangeable($this->arrangeable());
     }
 
     protected function onNew(NewService $service): NewService {

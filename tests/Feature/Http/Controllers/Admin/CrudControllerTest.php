@@ -16,6 +16,7 @@ use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
+use Tests\Stubs\FixedOrderWidgetController;
 use Tests\Stubs\Gadget;
 use Tests\Stubs\GadgetController;
 use Tests\Stubs\Gizmo;
@@ -96,8 +97,8 @@ class CrudControllerTest extends FeatureTestCase {
 
         $response = $this->admin('admin/widget');
 
-        $this->assertSame(['new', 'delete', 'arrange', 'sort', 'export', 'import'], array_column($response->json('data.actions.page'), 'type'));
-        $response->assertJsonPath('data.actions.page.5.url', 'widget/import');
+        $this->assertSame(['new', 'delete', 'sort', 'export', 'import'], array_column($response->json('data.actions.page'), 'type'));
+        $response->assertJsonPath('data.actions.page.4.url', 'widget/import');
         $this->assertSame(['edit', 'copy', 'delete', 'log'], array_column($response->json('data.actions.row'), 'type'));
     }
 
@@ -793,6 +794,30 @@ class CrudControllerTest extends FeatureTestCase {
         $this->widget('Beta');
 
         $this->admin('admin/widget/arrange/save', ['enabled' => [$alpha->id]])->assertJsonPath('success', true);
+    }
+
+    public function test_the_list_leaves_out_the_sort_and_arrange_actions_the_controller_turns_off(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget', enable: 'enable_time', disable: 'disable_time')));
+
+        Route::middleware(['envelope-api', 'user-api'])->prefix('admin/widget')->group(fn () => ActionRoutes::scan(FixedOrderWidgetController::class));
+
+        $response = $this->admin('admin/widget');
+        $types = array_column($response->json('data.actions.page'), 'type');
+
+        $this->assertNotContains('sort', $types);
+        $this->assertNotContains('arrange', $types);
+        $this->assertSame([], $response->json('data.features'));
+    }
+
+    public function test_the_list_offers_sort_and_arrange_when_the_controller_allows_them(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget', enable: 'enable_time', disable: 'disable_time')));
+
+        $response = $this->admin('admin/widget');
+        $types = array_column($response->json('data.actions.page'), 'type');
+
+        $this->assertContains('sort', $types);
+        $this->assertContains('arrange', $types);
+        $this->assertContains('arrange', $response->json('data.features'));
     }
 
     public function test_both_arrange_endpoints_are_hidden_when_the_resource_is_not_arrangeable(): void {
