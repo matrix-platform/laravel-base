@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use MatrixPlatform\Attributes\Declared;
 use MatrixPlatform\Columns\Declarations\Definition;
+use MatrixPlatform\Models\Member;
+use MatrixPlatform\Models\User;
+use MatrixPlatform\Models\Vendor;
 use MatrixPlatform\Support\MetadataRegistry;
 use ReflectionClass;
 use Tests\FeatureTestCase;
@@ -113,6 +116,20 @@ class DeclarationTest extends FeatureTestCase {
             $this->assertFalse(Validator::make(['password' => 'short'], ['password' => $resolved])->passes(), $model);
             $this->assertFalse(Validator::make([], ['password' => array_merge(['present'], $resolved)])->passes(), $model);
             $this->assertTrue(Validator::make(['password' => null], ['password' => $resolved])->passes(), $model);
+        }
+    }
+
+    public function test_every_login_username_is_required_and_unique(): void {
+        foreach ([User::class, Member::class, Vendor::class] as $model) {
+            $definitions = app(MetadataRegistry::class)->definitions($model);
+
+            $this->assertNotNull($definitions, $model);
+
+            $definition = array_get_value($definitions, 'username');
+
+            $this->assertInstanceOf(Definition::class, $definition, $model);
+            $this->assertTrue($definition->required, $model);
+            $this->assertTrue($definition->unique, $model);
         }
     }
 

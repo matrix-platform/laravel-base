@@ -17,7 +17,7 @@ class MemberDeclaration implements Declares {
         return array_merge(
             Definitions::primaryKey(),
             [
-                'username' => Definition::text(),
+                'username' => Definition::text(required: true, unique: true),
                 'password' => Definition::text(Presentation::Password, fn (): array => ['exclude_if:password,null', 'password_format:member']),
                 'name' => Definition::text(),
                 'mobile' => Definition::text(),

@@ -17,7 +17,7 @@ class VendorDeclaration implements Declares {
         return array_merge(
             Definitions::primaryKey(),
             [
-                'username' => Definition::text(),
+                'username' => Definition::text(required: true, unique: true),
                 'password' => Definition::text(Presentation::Password, fn (): array => ['exclude_if:password,null', 'password_format:vendor']),
                 'title' => Definition::text(),
                 'tax_id' => Definition::text(),
