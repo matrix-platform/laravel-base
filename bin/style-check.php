@@ -64,6 +64,7 @@ function check_event_bypass(array $tokens): array {
     $quiet = ['deleteQuietly', 'flushEventListeners', 'forceDeleteQuietly', 'pushQuietly', 'replicateQuietly', 'restoreQuietly', 'saveQuietly', 'touchQuietly', 'unsetEventDispatcher', 'updateQuietly', 'withoutEvents'];
     $writes = ['decrement', 'increment', 'insert', 'insertGetId', 'insertOrIgnore', 'insertUsing', 'truncate', 'update', 'updateOrInsert', 'upsert'];
     $sequence = significant_tokens($tokens);
+    $aliases = database_aliases($tokens, $sequence);
     $violations = [];
     $total = count($sequence);
 
@@ -71,6 +72,12 @@ function check_event_bypass(array $tokens): array {
         $token = $tokens[$index];
 
         if (!is_array($token) || $token[0] !== T_STRING) {
+            continue;
+        }
+
+        if (in_array($token[1], ['delete', 'insert', 'update'], true) && database_facade($tokens, $sequence, $slot, $aliases)) {
+            $violations[] = [$token[2], "DB::{$token[1]}() must not write, go through the model, see CLAUDE.md 7.9"];
+
             continue;
         }
 
@@ -88,7 +95,7 @@ function check_event_bypass(array $tokens): array {
             continue;
         }
 
-        if ($token[1] !== 'table' || !database_facade($tokens, $sequence, $slot)) {
+        if ($token[1] !== 'table' || !database_facade($tokens, $sequence, $slot, $aliases)) {
             continue;
         }
 
@@ -400,11 +407,39 @@ function collect_members(array $tokens): array {
 /**
  * @param list<array{int, string, int}|string> $tokens
  * @param list<int> $sequence
+ * @return list<string>
  */
-function database_facade(array $tokens, array $sequence, int $slot): bool {
+function database_aliases(array $tokens, array $sequence): array {
+    $aliases = [];
+    $total = count($sequence);
+
+    foreach ($sequence as $slot => $index) {
+        $token = $tokens[$index];
+
+        if (!is_array($token) || $token[0] !== T_USE || $slot + 3 >= $total) {
+            continue;
+        }
+
+        [$name, $as, $alias] = [$tokens[$sequence[$slot + 1]], $tokens[$sequence[$slot + 2]], $tokens[$sequence[$slot + 3]]];
+
+        if (is_array($name) && in_array($name[0], [T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED], true) && ltrim($name[1], '\\') === 'Illuminate\\Support\\Facades\\DB'
+            && is_array($as) && $as[0] === T_AS && is_array($alias) && $alias[0] === T_STRING) {
+            $aliases[] = $alias[1];
+        }
+    }
+
+    return $aliases;
+}
+
+/**
+ * @param list<array{int, string, int}|string> $tokens
+ * @param list<int> $sequence
+ * @param list<string> $aliases
+ */
+function database_facade(array $tokens, array $sequence, int $slot, array $aliases): bool {
     $facade = receiver_before($tokens, $sequence, $slot, [T_DOUBLE_COLON]);
 
-    return is_array($facade) && ($facade[1] === 'DB' || str_ends_with($facade[1], '\\DB'));
+    return is_array($facade) && ($facade[1] === 'DB' || str_ends_with($facade[1], '\\DB') || in_array($facade[1], $aliases, true));
 }
 
 /**
