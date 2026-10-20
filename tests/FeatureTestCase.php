@@ -18,6 +18,7 @@ use MatrixPlatform\Support\Menus;
 use MatrixPlatform\Support\PackageRegistry;
 use MatrixPlatform\Support\ResourceGroup;
 use MatrixPlatform\Support\Resources;
+use MatrixPlatform\Support\Variants;
 use Tests\Factories\UserFactory;
 use Tests\Stubs\TestBannerFields;
 use Tests\Stubs\TestEditorFields;
@@ -255,6 +256,8 @@ class FeatureTestCase extends TestCase {
      */
     protected function useVariants(array $variants): void {
         config()->set('matrix.variants', array_merge(config()->array('matrix.variants'), $variants));
+
+        app()->forgetInstance(Variants::class);
     }
 
     private function usePackageFixtures(string $package, string $directory): void {
