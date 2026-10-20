@@ -2,9 +2,14 @@
 
 namespace Tests\Feature\Http\Controllers\Admin;
 
+use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
+use MatrixPlatform\Http\Controllers\Admin\MenuResourceController;
+use MatrixPlatform\Http\Controllers\Admin\ModelResourceController;
+use MatrixPlatform\Http\Controllers\Admin\OptionsResourceController;
+use MatrixPlatform\Http\Controllers\Admin\TemplateResourceController;
 use MatrixPlatform\Models\ResourceOverride;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Routing\ActionRoutes;
@@ -72,6 +77,19 @@ class ResourceControllerTest extends FeatureTestCase {
         $this->assertContains('greeting', $this->ids($this->admin, 'i18n/template'));
         $this->assertContains('base', $this->ids($this->root, 'i18n/menu'));
         $this->assertContains('base_user', $this->ids($this->root, 'i18n/model'));
+    }
+
+    public function test_each_nested_i18n_group_is_matched_by_its_own_controller_rather_than_the_id_route(): void {
+        foreach ([
+            'menu' => MenuResourceController::class,
+            'model' => ModelResourceController::class,
+            'options' => OptionsResourceController::class,
+            'template' => TemplateResourceController::class
+        ] as $group => $controller) {
+            $route = Route::getRoutes()->match(Request::create("admin/resource/i18n/{$group}", 'POST'));
+
+            $this->assertSame("{$controller}@list", $route->getActionName(), "admin/resource/i18n/{$group}");
+        }
     }
 
     public function test_each_group_carries_its_own_menu_node(): void {
