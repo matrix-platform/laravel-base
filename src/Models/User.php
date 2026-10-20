@@ -3,6 +3,7 @@
 namespace MatrixPlatform\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use MatrixPlatform\Attributes\Declared;
 use MatrixPlatform\Models\Builders\UserBuilder;
@@ -74,6 +75,20 @@ class User extends BaseModel {
 
     public function hasMfaEnabled(): bool {
         return $this->confirmed_time !== null;
+    }
+
+    /**
+     * @return HasMany<UserLog, $this>
+     */
+    public function logins(): HasMany {
+        return $this->logs()->where('type', UserLogType::Login);
+    }
+
+    /**
+     * @return HasMany<UserLog, $this>
+     */
+    public function logs(): HasMany {
+        return $this->hasMany(UserLog::class);
     }
 
     public function newEloquentBuilder($query): UserBuilder {

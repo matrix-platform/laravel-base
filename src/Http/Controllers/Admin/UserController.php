@@ -86,7 +86,9 @@ class UserController extends CrudController {
     }
 
     protected function onDelete(DeleteService $service): DeleteService {
-        return $this->visible(parent::onDelete($service))->guard($this->guardNotSelf(...));
+        return $this->visible(parent::onDelete($service))
+            ->guard($this->guardNotSelf(...))
+            ->cascade(['logs']);
     }
 
     protected function onExport(ExportService $service): ExportService {

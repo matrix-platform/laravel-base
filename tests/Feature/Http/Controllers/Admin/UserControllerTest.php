@@ -163,13 +163,37 @@ class UserControllerTest extends FeatureTestCase {
         $created->assertJsonPath('success', true);
 
         $this->send($token, "admin/user/{$id}")->assertJsonPath('data.data.username', 'newbie');
-        $this->send($token, "admin/user/{$id}/update", $this->form(['username' => 'renamed', 'password' => null]))->assertJsonPath('success', true);
+        $this->send($token, "admin/user/{$id}/update", $this->form(['username' => 'renamed', 'password' => 'secret-Passw0rd']))->assertJsonPath('success', true);
 
         $this->assertSame('renamed', User::query()->findOrFail($id)->username);
 
         $this->send($token, 'admin/user/delete', ['id' => $id])->assertJsonPath('success', true);
 
         $this->assertNull(User::query()->find($id));
+    }
+
+    public function test_an_account_that_has_logged_in_cannot_be_deleted(): void {
+        $user = UserFactory::new()->createOne(['id' => 6000, 'username' => 'managed-user']);
+        $user->writeLog(UserLogType::Login);
+        $user->writeLog(UserLogType::Logout);
+
+        $response = $this->send($this->signIn(self::ADMIN), 'admin/user/delete', ['id' => 6000]);
+
+        $response->assertJsonPath('error', 'data-in-use');
+        $response->assertJsonPath('count', 1);
+        $this->assertNotNull(User::query()->find(6000));
+        $this->assertSame(2, UserLog::query()->where('user_id', 6000)->count());
+    }
+
+    public function test_an_account_that_never_logged_in_is_deleted_with_its_logs(): void {
+        $user = UserFactory::new()->createOne(['id' => 6000, 'username' => 'managed-user']);
+        $user->writeLog(UserLogType::LoginFailed);
+        $user->writeLog(UserLogType::ChangePassword);
+
+        $this->send($this->signIn(self::ADMIN), 'admin/user/delete', ['id' => 6000])->assertJsonPath('success', true);
+
+        $this->assertNull(User::query()->find(6000));
+        $this->assertFalse(UserLog::query()->where('user_id', 6000)->exists());
     }
 
     public function test_the_account_form_shows_the_contact_and_schedule_columns_outside_any_section(): void {
