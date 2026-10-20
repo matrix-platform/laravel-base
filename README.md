@@ -1157,14 +1157,14 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | `captcha-recaptcha.endpoint` | `'https://www.google.com/recaptcha/api/siteverify'` | 驗證端點 |
 | `captcha-recaptcha.hostnames` | `''` | 允許的 token 來源網域清單(空白/逗號/分號分隔),對應 siteverify 回應的 `hostname`。**空字串 = 不檢查**,見[已知限制與取捨](#安全) |
 | `captcha-recaptcha.secret` | `''` | 後端密鑰,**出貨是空的,自己填**。空字串不會放行——驗證一律失敗,登入擋下 |
-| `captcha-recaptcha.threshold` | `0.5` | 分數門檻,低於就擋。回應沒有 `score` 時當成 `0.0`(擋下) |
+| `captcha-recaptcha.threshold` | `0.5` | 分數門檻,低於就擋。回應沒有 `score` 時當成 `0.0`(擋下)。後台只接受 0～1 |
 | `captcha-turnstile.driver` | `TurnstileDriver::class` | Cloudflare Turnstile |
 | `captcha-turnstile.action` | `'login'` | 同 `captcha-recaptcha.action` |
 | `captcha-turnstile.endpoint` | `'https://challenges.cloudflare.com/turnstile/v0/siteverify'` | 驗證端點 |
 | `captcha-turnstile.hostnames` | `''` | 同 `captcha-recaptcha.hostnames` |
 | `captcha-turnstile.secret` | `''` | 同 `captcha-recaptcha.secret` |
-| `encryption.grace-period` | `86400` | 輪替後舊金鑰還能解密多久(秒);`matrix:rotate-encryption-key --grace` 可以單次覆蓋 |
-| `encryption.window` | `300` | 加密信封的 `ts` 容許誤差(秒),同時是同一個 `epk` 的去重保留時間(2 倍) |
+| `encryption.grace-period` | `86400` | 輪替後舊金鑰還能解密多久(秒);`matrix:rotate-encryption-key --grace` 可以單次覆蓋。後台只接受 ≥ 0 的整數 |
+| `encryption.window` | `300` | 加密信封的 `ts` 容許誤差(秒),同時是同一個 `epk` 的去重保留時間(2 倍)。後台只接受 ≥ 1 的整數 |
 | `member.login-throttle-max` | `5` | 同上,前台會員 |
 | `member.login-throttle-window` | `1` | 同上,前台會員 |
 | `member.password-pattern` | `'/^(?=.*\d)(?=.*[a-zA-Z]).{8,}$/'` | 同上,前台會員 |
@@ -1208,8 +1208,8 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | `telegram.sandbox-recipient` | `''` | 同 `gmail.sandbox-recipient` |
 | `file.max-size` | `0` | 上傳大小上限,**0 = 不限制** |
 | `file.mime-patterns` | `''` | 型別白名單(正則,空白 = 不檢查) |
-| `drive.deduplicate` | `true` | 開啟後,雲端硬碟上傳內容雜湊相同的檔案會共用同一份實體檔案,不重複寫入 |
-| `drive.trash-default-days` | `30` | `drive/trashed` 預設只列出這幾天內的垃圾桶項目,可用 `days`/`all` 參數放寬,不影響 `restore` |
+| `drive.deduplicate` | `true` | 開啟後,雲端硬碟上傳內容雜湊相同的檔案會共用同一份實體檔案,不重複寫入。後台以開關呈現 |
+| `drive.trash-default-days` | `30` | `drive/trashed` 預設只列出這幾天內的垃圾桶項目,可用 `days`/`all` 參數放寬,不影響 `restore`。後台只接受 ≥ 1 的整數 |
 
 `gmail`、`mitake`、`webpush` 與 `telegram` 是出貨的供應商 bundle。加一個供應商就是加一份 `resources/cfg/{名稱}.php`,鍵的形狀照上面四組。
 

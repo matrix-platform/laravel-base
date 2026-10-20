@@ -86,6 +86,38 @@ class ResourceServiceTest extends FeatureTestCase {
         $this->assertSame(['integer', 'min:1'], $columns['captcha-ttl']['rule']);
     }
 
+    public function test_the_drive_switch_is_stored_as_a_boolean(): void {
+        $columns = array_column($this->service()->get(ResourceGroup::Cfg, 'drive')['columns'], null, 'name');
+
+        $this->assertSame('boolean', $columns['deduplicate']['type']);
+        $this->assertSame('integer', $columns['trash-default-days']['type']);
+
+        $this->service()->update(ResourceGroup::Cfg, 'drive', ['deduplicate' => false]);
+
+        $this->assertSame(['deduplicate' => false], $this->override('cfg/drive'));
+        $this->assertFalse(cfg('drive.deduplicate'));
+    }
+
+    public function test_out_of_range_numeric_cfg_values_are_rejected(): void {
+        foreach ([['drive', ['trash-default-days' => 0]], ['encryption', ['window' => -5]], ['encryption', ['grace-period' => -1]], ['captcha-recaptcha', ['threshold' => 1.5]]] as [$bundle, $input]) {
+            try {
+                $this->service()->update(ResourceGroup::Cfg, $bundle, $input);
+
+                $this->fail("{$bundle} accepted " . json_encode($input));
+            } catch (ValidationException) {
+                $this->assertNull($this->override("cfg/{$bundle}"));
+            }
+        }
+    }
+
+    public function test_numeric_cfg_values_are_accepted_as_json_numbers(): void {
+        $this->service()->update(ResourceGroup::Cfg, 'encryption', ['window' => 600, 'grace-period' => 0]);
+        $this->service()->update(ResourceGroup::Cfg, 'captcha-recaptcha', ['threshold' => 0.7]);
+
+        $this->assertSame(['window' => 600, 'grace-period' => 0], $this->override('cfg/encryption'));
+        $this->assertSame(0.7, cfg('captcha-recaptcha.threshold'));
+    }
+
     public function test_a_column_without_a_declared_presentation_falls_back_to_plain(): void {
         $columns = array_column($this->service()->get(ResourceGroup::Cfg, 'admin')['columns'], null, 'name');
 
