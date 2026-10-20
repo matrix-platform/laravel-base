@@ -80,6 +80,19 @@ class CityAreaControllerTest extends FeatureTestCase {
         $response->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
     }
 
+    public function test_an_impossible_id_is_not_found_instead_of_failing(): void {
+        $city = CityFactory::new()->createOne();
+        $area = CityAreaFactory::new()->createOne(['city_id' => $city->id]);
+
+        foreach (['99999999999', 'abc', '-1'] as $id) {
+            foreach (["admin/city/{$id}", "admin/city/{$id}/update", "admin/city/{$id}/area", "admin/city/{$id}/area/{$area->id}"] as $uri) {
+                $this->send($uri)->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
+            }
+
+            $this->send('admin/city/delete', ['id' => [$id]])->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
+        }
+    }
+
     public function test_the_listings_subtitle_carries_the_city_title(): void {
         $taipei = CityFactory::new()->createOne(['title__tw' => 'Taipei', 'title__en' => 'Taipei']);
 

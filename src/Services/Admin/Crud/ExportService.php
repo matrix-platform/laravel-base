@@ -83,7 +83,7 @@ class ExportService extends CrudService {
         $this->filter($query, $filters);
 
         if ($items !== []) {
-            $query->whereIn($this->model->getQualifiedKeyName(), $items);
+            $query->whereKey($items);
         }
 
         (new Sorting($this->sorting))->apply($query, $this->plan(), $sorts);

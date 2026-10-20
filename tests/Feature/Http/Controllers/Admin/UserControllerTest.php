@@ -172,6 +172,16 @@ class UserControllerTest extends FeatureTestCase {
         $this->assertNull(User::query()->find($id));
     }
 
+    public function test_an_impossible_account_id_is_not_found_instead_of_failing(): void {
+        $token = $this->signIn(self::ADMIN);
+
+        foreach (['99999999999', 'abc'] as $id) {
+            foreach (["admin/user/{$id}", "admin/user/{$id}/disable-mfa", "admin/user/{$id}/revoke-passkeys"] as $uri) {
+                $this->send($token, $uri)->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
+            }
+        }
+    }
+
     public function test_an_account_that_has_logged_in_cannot_be_deleted(): void {
         $user = UserFactory::new()->createOne(['id' => 6000, 'username' => 'managed-user']);
         $user->writeLog(UserLogType::Login);

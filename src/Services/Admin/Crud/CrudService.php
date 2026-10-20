@@ -1142,10 +1142,9 @@ abstract class CrudService {
                 error('data-not-found', 404);
             }
 
-            $parent = $relation->getRelated()
-                ->newQuery()
-                ->where($relation->getQualifiedOwnerKeyName(), $value)
-                ->first();
+            $related = $relation->getRelated();
+            $query = $related->newQuery();
+            $parent = ($relation->getOwnerKeyName() === $related->getKeyName() ? $query->whereKey($value) : $query->where($relation->getQualifiedOwnerKeyName(), $value))->first();
 
             if ($parent === null) {
                 error('data-not-found', 404);

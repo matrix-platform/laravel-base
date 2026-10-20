@@ -91,4 +91,26 @@ class BaseBuilderTest extends FeatureTestCase {
         $this->assertSame(['wanted'], $this->titles($query));
     }
 
+    public function test_a_valid_key_is_found_as_a_string_or_an_integer(): void {
+        $widget = Widget::forceCreate(['title' => 'alpha']);
+
+        $this->assertNotNull(Widget::query()->find($widget->id));
+        $this->assertNotNull(Widget::query()->find(strval($widget->id)));
+    }
+
+    public function test_a_key_that_cannot_exist_matches_nothing_without_reaching_the_database(): void {
+        Widget::forceCreate(['title' => 'alpha']);
+
+        foreach (['abc', '', '1.5', '-1', -1, '99999999999', 2147483648] as $key) {
+            $this->assertNull(Widget::query()->find($key), var_export($key, true));
+        }
+    }
+
+    public function test_invalid_keys_are_dropped_from_a_list(): void {
+        $widget = Widget::forceCreate(['title' => 'alpha']);
+
+        $this->assertSame(['alpha'], $this->titles(Widget::query()->whereKey(['abc', $widget->id, '99999999999'])));
+        $this->assertSame([], $this->titles(Widget::query()->whereKey(['abc', '-1'])));
+    }
+
 }
