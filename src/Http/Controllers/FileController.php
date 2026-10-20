@@ -27,7 +27,11 @@ class FileController extends BaseController {
         }
 
         if (str_starts_with($file->path, File::DRIVE_PREFIX)) {
-            $node = DriveNode::withTrashed()->where('path', substr($file->path, strlen(File::DRIVE_PREFIX)))->first();
+            $node = DriveNode::withTrashed()
+                ->where('path', substr($file->path, strlen(File::DRIVE_PREFIX)))
+                ->orderByRaw('deleted_at is not null')
+                ->orderBy('id')
+                ->first();
 
             if ($node === null) {
                 error('data-not-found', 404);

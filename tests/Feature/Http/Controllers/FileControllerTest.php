@@ -99,6 +99,18 @@ class FileControllerTest extends FeatureTestCase {
         $this->assertSame('drive-bytes', $response->streamedContent());
     }
 
+    public function test_a_shared_drive_file_downloads_under_the_earliest_live_node_name(): void {
+        [$file, $alpha] = $this->driveLinked(UploadedFile::fake()->createWithContent('alpha.pdf', 'same-bytes'));
+        $beta = app(DriveService::class)->upload(DriveNode::query()->findOrFail(DriveNode::ROOT), UploadedFile::fake()->createWithContent('beta.pdf', 'same-bytes'), $this->user());
+        $gamma = app(DriveService::class)->upload(DriveNode::query()->findOrFail(DriveNode::ROOT), UploadedFile::fake()->createWithContent('gamma.pdf', 'same-bytes'), $this->user());
+
+        app(DriveService::class)->trash($alpha, $this->user());
+        $gamma->touch();
+        $beta->touch();
+
+        $this->assertStringContainsString('beta.pdf', strval($this->get("api/files/{$file->path}")->headers->get('Content-Disposition')));
+    }
+
     public function test_a_drive_linked_image_with_a_size_parameter_streams_a_webp_thumbnail(): void {
         [$file] = $this->driveLinked(UploadedFile::fake()->image('cover.png', 200, 100));
 
