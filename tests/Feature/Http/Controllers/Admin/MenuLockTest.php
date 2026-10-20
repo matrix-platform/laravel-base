@@ -314,4 +314,34 @@ class MenuLockTest extends FeatureTestCase {
         $this->assertNull($counts[$synced->id]);
     }
 
+    public function test_the_root_listing_offers_no_delete_button_on_a_locked_root(): void {
+        $plain = $this->node(null, 'plain', 100);
+        $locked = $this->node(null, 'locked', 200, ['kind' => 'locked']);
+
+        $actions = array_column($this->send('admin/menu')->json('data.rows'), 'actions', 'id');
+
+        $this->assertContains('delete', $actions[$plain->id]);
+        $this->assertNotContains('delete', $actions[$locked->id]);
+    }
+
+    public function test_deleting_a_locked_root_with_children_reports_the_lock_rather_than_the_references(): void {
+        $locked = $this->node(null, 'locked', 100, ['kind' => 'locked']);
+
+        $this->node($locked->id, 'child', 100);
+
+        $this->send('admin/menu/delete', ['id' => [$locked->id]])
+            ->assertJson(['success' => false, 'error' => 'menu-locked']);
+
+        $this->assertNotNull(Menu::query()->find($locked->id));
+    }
+
+    public function test_the_edit_form_of_a_synced_root_is_read_only(): void {
+        $synced = $this->node(null, 'synced', 100, ['kind' => 'synced', 'source' => 7]);
+
+        $response = $this->send("admin/menu/{$synced->id}")->assertJsonPath('success', true);
+
+        $this->assertNotContains(false, array_column($response->json('data.columns'), 'readonly', 'name'));
+        $this->assertNotContains('update', array_column($response->json('data.actions'), 'type'));
+    }
+
 }

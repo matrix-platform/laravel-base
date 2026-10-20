@@ -4,16 +4,11 @@ namespace MatrixPlatform\Http\Controllers\Admin;
 
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
-use MatrixPlatform\Models\Menu;
 use MatrixPlatform\Services\Admin\Crud\ArrangeService;
 use MatrixPlatform\Services\Admin\Crud\ListService;
 use MatrixPlatform\Support\Subject;
 
-class MenuController extends CrudController {
-
-    protected array $counts = ['children'];
-
-    protected string $model = Menu::class;
+class MenuController extends MenuChildrenController {
 
     protected bool $standalone = true;
 
