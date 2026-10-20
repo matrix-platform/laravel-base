@@ -55,6 +55,25 @@ class ScaffoldPlanTest extends FeatureTestCase {
         $this->assertStringNotContainsString('Definitions::title()', $segments);
     }
 
+    public function test_not_null_columns_are_required(): void {
+        $plan = $this->build('scaffold_required');
+        $segments = $plan->declarationTokens()['segments'];
+
+        $this->assertStringContainsString("'label' => Definition::text(required: true)", $segments);
+        $this->assertStringContainsString("'active' => Definition::boolean(Presentation::Switch, required: true)", $segments);
+        $this->assertStringContainsString("'qty' => Definition::integer()", $segments);
+        $this->assertStringContainsString("'tags' => Definition::json(required: true)", $segments);
+        $this->assertStringContainsString("'tags' is a NOT NULL JSON column", implode("\n", $plan->pendingNotes));
+    }
+
+    public function test_the_parent_foreign_key_is_never_required(): void {
+        $this->declareParent();
+
+        $segments = $this->build('scaffold_widget', parent: 'parent', alias: 'items')->declarationTokens()['segments'];
+
+        $this->assertStringNotContainsString("'parent_id' => Definition::integer(required: true)", $segments);
+    }
+
     public function test_the_model_gets_a_casts_method_for_schedules_but_no_relation(): void {
         $plan = $this->build('scaffold_simple');
         $members = $plan->modelTokens()['members'];

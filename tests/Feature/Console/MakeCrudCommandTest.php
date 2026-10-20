@@ -110,7 +110,7 @@ class MakeCrudCommandTest extends FeatureTestCase {
 
         $declaration = $this->read("{$this->root}/app/Models/Declarations/WidgetDeclaration.php");
 
-        $this->assertStringContainsString("'code' => Definition::text(unique: true)", $declaration);
+        $this->assertStringContainsString("'code' => Definition::text(required: true, unique: true)", $declaration);
     }
 
     public function test_heuristics_hit_and_miss_as_expected(): void {

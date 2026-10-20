@@ -130,6 +130,10 @@ class ScaffoldPlan {
         foreach ($customFields as $name) {
             $result = $presentations[$name];
 
+            if ($columns[$name]->type === ColumnType::Json && !$columns[$name]->nullable) {
+                $notes[] = "'{$name}' is a NOT NULL JSON column and was declared required: true, which rejects an empty array; remove it if an empty value is valid.";
+            }
+
             if ($result['sensitive']) {
                 $notes[] = "HIGH RISK: '{$name}' looks like a sensitive field by name and was defaulted to Presentation::Hidden; verify manually if it should actually be shown.";
 
@@ -442,6 +446,10 @@ class ScaffoldPlan {
 
         if ($column->translatable) {
             $args[] = 'translatable: true';
+        }
+
+        if (!$column->nullable && ($this->parent === null || $this->parent['column'] !== $name)) {
+            $args[] = 'required: true';
         }
 
         if ($column->unique) {
