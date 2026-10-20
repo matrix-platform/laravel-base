@@ -21,6 +21,12 @@ class ManipulationLogService {
      */
     public function query(string $prefix, int $id, int $page, int $size): array {
         $class = $this->resolver->permit($prefix, 'query');
+        $record = $class::query()->withoutGlobalScopes()->find($id);
+
+        if ($record !== null) {
+            $this->resolver->belong($prefix, $record);
+        }
+
         $controller = ActionRoutes::controller($prefix);
 
         if ($controller !== null && is_a($controller, CrudController::class, true) && !app($controller)->historyVisible($id)) {

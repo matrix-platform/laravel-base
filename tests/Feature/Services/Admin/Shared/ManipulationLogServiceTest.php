@@ -9,9 +9,11 @@ use MatrixPlatform\Columns\Declarations\Definitions;
 use MatrixPlatform\Columns\Options\Option;
 use MatrixPlatform\Models\Group;
 use MatrixPlatform\Models\ManipulationLog;
+use MatrixPlatform\Models\Menu;
 use MatrixPlatform\Models\Operator;
 use MatrixPlatform\Routing\ActionRoutes;
 use MatrixPlatform\Services\Admin\Shared\ManipulationLogService;
+use MatrixPlatform\Support\MenuLocks;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
 use Tests\Factories\GroupFactory;
@@ -75,6 +77,18 @@ class ManipulationLogServiceTest extends FeatureTestCase {
 
         $this->assertSame('A', $updated['before']['title__tw']);
         $this->assertSame('B', $updated['after']['title__tw']);
+    }
+
+    public function test_a_child_menu_history_is_read_through_the_children_prefix_only(): void {
+        $root = MenuLocks::release(fn (): Menu => Menu::forceCreate(['title__tw' => 'x', 'title__en' => 'x', 'ranking' => 1]));
+        $child = MenuLocks::release(fn (): Menu => Menu::forceCreate(['parent_id' => $root->id, 'title__tw' => 'x', 'title__en' => 'x', 'ranking' => 1]));
+
+        app()->forgetScopedInstances();
+        actor()->setUser(UserFactory::new()->createOne(['id' => 1001, 'permissions' => ['menu' => ['query' => true], 'menu/{parent_id}/children' => ['query' => true]]]));
+
+        $this->assertSame(1, $this->service()->query('menu/{parent_id}/children', $child->id, 1, 10)['pagination']['total']);
+        $this->refuses('data-not-found', fn () => $this->service()->query('menu', $child->id, 1, 10));
+        $this->refuses('data-not-found', fn () => $this->service()->query('menu/{parent_id}/children', $root->id, 1, 10));
     }
 
     public function test_a_hard_deleted_record_still_reports_its_full_history(): void {

@@ -147,7 +147,7 @@ class MenuLockTest extends FeatureTestCase {
         $root = $this->node(null, 'root', 100);
         $synced = $this->synced($root);
 
-        $this->send('admin/schedule/toggle', ['prefix' => 'menu', 'id' => $synced->id, 'enabled' => false])
+        $this->send('admin/schedule/toggle', ['prefix' => 'menu/{parent_id}/children', 'id' => $synced->id, 'enabled' => false])
             ->assertJson(['success' => false, 'error' => 'menu-locked']);
 
         $this->assertNull($synced->refresh()->disable_time);

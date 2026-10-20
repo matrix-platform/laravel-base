@@ -3,14 +3,31 @@
 namespace MatrixPlatform\Services\Admin\Shared;
 
 use Illuminate\Database\Eloquent\Model;
+use MatrixPlatform\Routing\ActionRoutes;
 use MatrixPlatform\Support\AdminPermission;
 use MatrixPlatform\Support\Menus;
 use MatrixPlatform\Support\SharedModels;
 use MatrixPlatform\Support\Subject;
+use ReflectionClass;
 
 class SharedModelResolver {
 
     public function __construct(private SharedModels $models, private Menus $menus) {}
+
+    public function belong(string $prefix, Model $model): void {
+        $subject = app(Subject::class);
+
+        if (!$subject->recursive($model)) {
+            return;
+        }
+
+        $foreign = $subject->foreign($model);
+        $root = $foreign === null || $model->getAttribute($foreign) === null;
+
+        if ($root !== $this->standalone($prefix)) {
+            error('data-not-found', 404);
+        }
+    }
 
     /**
      * @return class-string<Model>
@@ -22,9 +39,7 @@ class SharedModelResolver {
             invalid('prefix', 'unsupported-model');
         }
 
-        $path = app(Subject::class)->prefix(new $class());
-
-        if (!$this->registered($path, $tag) || !app(AdminPermission::class)->permits($path, $tag)) {
+        if (!$this->registered($prefix, $tag) || !app(AdminPermission::class)->permits($prefix, $tag)) {
             error('permission-denied', 403);
         }
 
@@ -39,6 +54,8 @@ class SharedModelResolver {
             error('data-not-found', 404);
         }
 
+        $this->belong($prefix, $model);
+
         return $model;
     }
 
@@ -50,6 +67,16 @@ class SharedModelResolver {
         }
 
         return false;
+    }
+
+    private function standalone(string $prefix): bool {
+        $controller = ActionRoutes::controller($prefix);
+
+        if ($controller === null || !class_exists($controller)) {
+            return false;
+        }
+
+        return array_get_value((new ReflectionClass($controller))->getDefaultProperties(), 'standalone') === true;
     }
 
 }
