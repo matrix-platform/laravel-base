@@ -50,6 +50,13 @@ class NewService extends CrudService {
      */
     private function defaults(mixed $input): array {
         $values = is_array($input) ? $input : [];
+        $presets = [];
+
+        foreach ($this->presets as $name => $defaults) {
+            $presets = [...$presets, ...Arr::prependKeysWith($defaults, "{$name}__")];
+        }
+
+        $values = [...$presets, ...$values];
         $writable = array_values(array_filter($this->local(), $this->writable(...)));
 
         return Arr::only($values, $this->names($writable));

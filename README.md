@@ -463,7 +463,7 @@ translatable 的子欄位就是一個 `translatable: true` 的普通 column,前�
 **區塊與子項目的後台另外有這些規則:**
 
 - **型別只收 `options/block-module` 清單裡的值**,`page-content`(`Block::PAGE_CONTENT`)除外 —— 它標記頁面固定內容在區塊序列中的位置,只能由 seeder 預建;已有的 `page-content` 可以編輯、排序、上下架,但複製、刪除回 `page-content-locked`。
-- **新增表單的預設值**:`block-data` 的 `Variant` 同時實作 `Presets`(`defaults(): array`,子欄位名 => 值)時,`new` 會把它們以 `data__{子欄位}` 補進沒帶的輸入,只影響表單、不影響驗證。
+- **新增表單的預設值**:任何 composite 欄位(`block-data`、`page-data`、`menu-data`……)的 `Variant` 同時實作 `Presets`(`defaults(): array`,子欄位名 => 值)時,`new` 會把它們以 `{欄位}__{子欄位}` 補進沒帶的輸入(由 `NewService` 處理),只影響表單、不影響驗證。
 - **`data` 在驗證規則之外還會檢查**(`BlockDataGuard`,新增與修改都會):`BundleOptions` 選單的值必須在選項內(空白交給 `required`),`DriveImage` 限 JPG / PNG / GIF / WebP / SVG(不限大小)(`validation.image-invalid`)。
 - **區塊複製連同子項目**,複本排在最後、預設隱藏,連帶複製的子項目沿用來源子項目的上下架狀態。區塊與子項目的 `copy` 節點(`page/{page_id}/block/{id}/copy`、`page/{page_id}/block/{block_id}/item/{id}/copy`)由套件選單直接登記,和其他資源預設不開 `copy` 不同;宿主不要複製時在選單設為 `null`。
 - **只有父區塊型別有註冊 `block-item-data` 的區塊有子項目**,其餘整組子項目端點回 404 `data-not-found`。子項目表單不顯示上下架,新增與複製後預設隱藏,由清單上架。

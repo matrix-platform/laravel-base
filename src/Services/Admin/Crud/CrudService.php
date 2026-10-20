@@ -16,6 +16,7 @@ use MatrixPlatform\Columns\ColumnResolver;
 use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Declarations\Definitions;
+use MatrixPlatform\Columns\Declarations\Presets;
 use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Columns\Query\Filtering;
 use MatrixPlatform\Columns\Query\QueryPlan;
@@ -64,6 +65,11 @@ abstract class CrudService {
      * @var array<string, mixed>
      */
     protected array $params = [];
+
+    /**
+     * @var array<string, array<string, mixed>>
+     */
+    protected array $presets = [];
 
     /**
      * @var array<string, string>
@@ -391,6 +397,7 @@ abstract class CrudService {
         $expanded = [];
 
         $this->composites = [];
+        $this->presets = [];
         $this->subnames = [];
 
         foreach ($this->columns as $column) {
@@ -405,6 +412,10 @@ abstract class CrudService {
 
             if ($variant === null) {
                 continue;
+            }
+
+            if ($variant instanceof Presets) {
+                $this->presets[$column->name] = $variant->defaults();
             }
 
             foreach ($this->subfields($column, $column->variantGroup, $type, $variant->definitions()) as $field => $subfield) {

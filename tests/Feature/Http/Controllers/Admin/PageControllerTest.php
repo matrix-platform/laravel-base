@@ -11,6 +11,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Factories\PageFactory;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
+use Tests\Stubs\TestPageTypeResolver;
+use Tests\Stubs\TestPresetPageFields;
 
 class PageControllerTest extends FeatureTestCase {
 
@@ -209,6 +211,13 @@ class PageControllerTest extends FeatureTestCase {
         $this->assertArrayHasKey('data__layout', $blank);
         $this->assertArrayHasKey('data__lead__tw', $blank);
         $this->assertArrayHasKey('data__lead__en', $blank);
+    }
+
+    public function test_the_new_form_opens_with_the_presets_of_the_page_variant(): void {
+        $this->useVariants(['page-data' => ['driver' => TestPageTypeResolver::class, 'page' => TestPresetPageFields::class]]);
+
+        $this->assertSame('full', $this->send('admin/page/new')->json('data.data.data__layout'));
+        $this->assertSame('half', $this->send('admin/page/new', ['data__layout' => 'half'])->json('data.data.data__layout'));
     }
 
     public function test_the_new_form_reflects_the_values_it_was_opened_with(): void {

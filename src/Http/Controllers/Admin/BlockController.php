@@ -3,9 +3,6 @@
 namespace MatrixPlatform\Http\Controllers\Admin;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
-use MatrixPlatform\Columns\Declarations\Presets;
 use MatrixPlatform\Columns\Options\BundleOptions;
 use MatrixPlatform\Columns\Options\Option;
 use MatrixPlatform\Columns\Options\StaticOptions;
@@ -37,18 +34,6 @@ class BlockController extends CrudController {
      * @var list<string|array<string, mixed>>
      */
     protected array $updates = ['!type:text:block-module', '*title', 'data', 'enable_time', 'disable_time'];
-
-    /**
-     * @return array<string, mixed>
-     */
-    public function new(Request $request): array {
-        $variant = app(Variants::class)->variant('block-data', null, $request->all());
-        $defaults = $variant instanceof Presets ? $variant->defaults() : [];
-
-        $request->mergeIfMissing(Arr::prependKeysWith($defaults, 'data__'));
-
-        return parent::new($request);
-    }
 
     protected function onCopy(CopyService $service): CopyService {
         return parent::onCopy($service)->cascade(['items'])->guard($this->lock(...));
