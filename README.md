@@ -255,7 +255,7 @@ worker 會睡掉供應商的 `interval` 來節流,所以 `--timeout` 與 connect
 |---|---|
 | `encrypted-api` | 解開/封回加密信封,只作用在 `admin` 前綴。**必須掛在 `envelope-api` 之前**,否則錯誤信封不會被加密 |
 | `envelope-api` | 把例外收斂成信封。**必須掛在 `encrypted-api` 以外的最外層** |
-| `locale-api` | 讀 `Matrix-Locale` header 決定語系 |
+| `locale-api` | 讀 `Matrix-Locale` header 決定語系。**放在最外層**(`encrypted-api` 之前),信封解不開時的錯誤訊息才會跟著語系走 |
 | `user-api` | 後台身分,解析 token,失敗回 401 `invalid-token` |
 | `permission-api` | 授權,**必須掛在 `user-api` 之後** |
 | `member-api` / `vendor-api` | 前台身分 |
@@ -705,7 +705,7 @@ class AreaController extends CrudController implements WritesStagedRows {
 ### 5. 路由 —— 必須掛在 `admin` 前綴之下
 
 ```php
-Route::middleware(['encrypted-api', 'envelope-api', 'locale-api'])->group(function () {
+Route::middleware(['locale-api', 'encrypted-api', 'envelope-api'])->group(function () {
     Route::prefix(config('matrix.admin-api-prefix'))->group(function () {
         Route::middleware(['user-api', 'permission-api'])->group(function () {
             ActionRoutes::mount('widget', WidgetController::class);

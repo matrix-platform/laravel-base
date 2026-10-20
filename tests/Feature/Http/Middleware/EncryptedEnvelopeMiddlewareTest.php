@@ -133,6 +133,14 @@ class EncryptedEnvelopeMiddlewareTest extends FeatureTestCase {
         $this->assertSame(['name' => ['required'], 'age' => ['integer']], $opened['fields']);
     }
 
+    public function test_a_rejected_envelope_on_the_package_routes_follows_the_locale_header(): void {
+        EncryptionKey::issue();
+
+        $response = $this->postJson('admin/auth/login', ['username' => 'root'], ['Matrix-Locale' => 'tw']);
+
+        $response->assertJson(['success' => false, 'error' => 'invalid-envelope', 'message' => i18n('errors.invalid-envelope', 'tw')]);
+    }
+
     public function test_an_unknown_kid_is_rejected_in_plain_text(): void {
         EncryptionKey::issue();
 

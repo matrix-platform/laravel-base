@@ -38,7 +38,7 @@ use MatrixPlatform\Http\Controllers\PreferenceController;
 use MatrixPlatform\Http\Controllers\TelegramWebhookController;
 use MatrixPlatform\Routing\ActionRoutes;
 
-Route::middleware(['encrypted-api', 'envelope-api', 'locale-api'])->group(function () {
+Route::middleware(['locale-api', 'encrypted-api', 'envelope-api'])->group(function () {
     Route::prefix(config('matrix.admin-api-prefix'))->group(function () {
         ActionRoutes::mount('i18n', I18nController::class);
 
