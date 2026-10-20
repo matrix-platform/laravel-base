@@ -133,4 +133,44 @@ class DeclarationTest extends FeatureTestCase {
         }
     }
 
+    public function test_every_account_status_is_required(): void {
+        foreach ([Member::class, Vendor::class] as $model) {
+            $definitions = app(MetadataRegistry::class)->definitions($model);
+
+            $this->assertNotNull($definitions, $model);
+
+            $definition = array_get_value($definitions, 'status');
+
+            $this->assertInstanceOf(Definition::class, $definition, $model);
+            $this->assertTrue($definition->required, $model);
+        }
+    }
+
+    public function test_every_unique_column_is_declared_unique(): void {
+        foreach ($this->declared() as $model) {
+            $definitions = app(MetadataRegistry::class)->definitions($model);
+
+            $this->assertNotNull($definitions, $model);
+
+            $fields = [];
+
+            foreach ($definitions as $field => $definition) {
+                foreach ($this->columnsFor($field, $definition) as $column) {
+                    $fields[$column] = $definition;
+                }
+            }
+
+            foreach (Schema::getIndexes((new $model())->getTable()) as $index) {
+                if (!$index['unique'] || $index['primary'] || count($index['columns']) !== 1) {
+                    continue;
+                }
+
+                $column = $index['columns'][0];
+
+                $this->assertArrayHasKey($column, $fields, "{$model}::{$column}");
+                $this->assertTrue($fields[$column]->unique, "{$model}::{$column} is unique in the database but not declared unique");
+            }
+        }
+    }
+
 }

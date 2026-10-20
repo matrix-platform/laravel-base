@@ -23,7 +23,7 @@ class MemberDeclaration implements Declares {
                 'mobile' => Definition::text(),
                 'mail' => Definition::text(),
                 'avatar' => Definition::text(),
-                'status' => Definition::integer()
+                'status' => Definition::integer(required: true)
             ],
             Definitions::auditings()
         );

@@ -24,7 +24,7 @@ class VendorDeclaration implements Declares {
                 'contact' => Definition::text(),
                 'mobile' => Definition::text(),
                 'mail' => Definition::text(),
-                'status' => Definition::integer()
+                'status' => Definition::integer(required: true)
             ],
             Definitions::auditings()
         );

@@ -17,7 +17,7 @@ class FileDeclaration implements Declares {
             Definitions::primaryKey(),
             [
                 'name' => Definition::text(),
-                'path' => Definition::text(),
+                'path' => Definition::text(unique: true),
                 'size' => Definition::integer(),
                 'hash' => Definition::text(),
                 'description' => Definition::text(),

@@ -17,7 +17,7 @@ class AuthTokenDeclaration implements Declares {
         return array_merge(
             Definitions::primaryKey(),
             [
-                'token' => Definition::text(Presentation::Hidden),
+                'token' => Definition::text(Presentation::Hidden, unique: true),
                 'type' => Definition::text(),
                 'target_id' => Definition::integer(),
                 'ip' => Definition::text(),
