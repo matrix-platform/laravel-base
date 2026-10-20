@@ -12,6 +12,7 @@ use MatrixPlatform\Models\MessageLog;
 use MatrixPlatform\Models\SmsLog;
 use MatrixPlatform\Services\Messaging\MailService;
 use MatrixPlatform\Services\Messaging\SmsService;
+use MatrixPlatform\Services\Messaging\TelegramService;
 use Mockery;
 use Tests\FeatureTestCase;
 
@@ -67,6 +68,12 @@ class MessageServiceTest extends FeatureTestCase {
 
     public function test_a_variable_in_an_sms_is_not_escaped(): void {
         $log = $this->sms()->schedule(now(), '0912345678', 'otp', ['code' => '<1&2>']);
+
+        $this->assertSame('Your code is <1&2>', $log->content);
+    }
+
+    public function test_a_variable_in_a_telegram_message_is_not_escaped(): void {
+        $log = app(TelegramService::class)->schedule(now(), '123456', 'otp', ['code' => '<1&2>']);
 
         $this->assertSame('Your code is <1&2>', $log->content);
     }
