@@ -199,7 +199,7 @@ class DriveController extends BaseController {
         $file = $request->file('file');
 
         if (!$file instanceof UploadedFile) {
-            error('validation-failed', 422);
+            invalid('file', 'file');
         }
 
         return $this->present($this->service->upload($this->node($request), $file, actor()->requireUser()));

@@ -42,7 +42,7 @@ class FileController extends BaseController {
         $file = $request->file('file');
 
         if (!$file instanceof UploadedFile) {
-            error('validation-failed', 422);
+            invalid('file', 'file');
         }
 
         $record = $this->service->upload($file, $request->integer('privilege'), null, null, $this->optionalString($request, 'usage'));
