@@ -71,7 +71,11 @@ class UserController extends CrudController {
         $result = parent::update($request);
 
         if ($request->filled('password')) {
-            app(PasswordService::class)->revoke(User::query()->whereKey($result['id'])->firstOrFail());
+            $user = User::query()->whereKey($result['id'])->firstOrFail();
+
+            app(PasswordService::class)->revoke($user);
+
+            $user->writeLog(UserLogType::ChangePassword);
         }
 
         return $result;

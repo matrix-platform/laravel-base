@@ -5,6 +5,7 @@ namespace MatrixPlatform\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Models\User;
+use MatrixPlatform\Models\UserLogType;
 use MatrixPlatform\Services\Admin\PasswordService;
 
 class ResetUserPasswordCommand extends Command {
@@ -43,7 +44,11 @@ class ResetUserPasswordCommand extends Command {
             return self::FAILURE;
         }
 
-        DB::transaction(fn () => app(PasswordService::class)->replace($user, $password));
+        DB::transaction(function () use ($user, $password) {
+            app(PasswordService::class)->replace($user, $password);
+
+            $user->writeLog(UserLogType::ChangePassword);
+        });
 
         $this->info('Password updated successfully');
 

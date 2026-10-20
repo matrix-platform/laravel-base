@@ -10,6 +10,8 @@ use Illuminate\Testing\TestResponse;
 use MatrixPlatform\Http\Controllers\Admin\UserController;
 use MatrixPlatform\Models\PasskeyCredential;
 use MatrixPlatform\Models\User;
+use MatrixPlatform\Models\UserLog;
+use MatrixPlatform\Models\UserLogType;
 use MatrixPlatform\Routing\ActionRoutes;
 use MatrixPlatform\Services\Admin\MfaService;
 use PragmaRX\Google2FA\Google2FA;
@@ -161,7 +163,7 @@ class UserControllerTest extends FeatureTestCase {
         $created->assertJsonPath('success', true);
 
         $this->send($token, "admin/user/{$id}")->assertJsonPath('data.data.username', 'newbie');
-        $this->send($token, "admin/user/{$id}/update", $this->form(['username' => 'renamed', 'password' => 'secret-Passw0rd']))->assertJsonPath('success', true);
+        $this->send($token, "admin/user/{$id}/update", $this->form(['username' => 'renamed', 'password' => null]))->assertJsonPath('success', true);
 
         $this->assertSame('renamed', User::query()->findOrFail($id)->username);
 
@@ -271,6 +273,22 @@ class UserControllerTest extends FeatureTestCase {
             ->assertJson(['success' => false, 'error' => 'invalid-token']);
     }
 
+    public function test_an_admin_replacing_a_password_writes_a_change_password_log(): void {
+        $user = UserFactory::new()->createOne(['id' => 6000, 'username' => 'managed-user']);
+        $token = $this->signIn(self::ADMIN);
+
+        $this->send($token, 'admin/user/6000/update', $this->form([
+            'username' => 'managed-user',
+            'password' => 'another-Passw0rd',
+            'enable_time' => $user->enable_time?->format('Y-m-d H:i:s')
+        ]))->assertJsonPath('success', true);
+
+        $log = UserLog::query()->where('type', UserLogType::ChangePassword)->sole();
+
+        $this->assertSame(6000, $log->user_id);
+        $this->assertSame(self::ADMIN, $log->creator_id);
+    }
+
     public function test_an_admin_leaving_a_password_blank_preserves_the_password_and_sessions(): void {
         $user = UserFactory::new()->createOne(['id' => 6000, 'username' => 'managed-user']);
         $session = $user->createToken();
@@ -288,6 +306,8 @@ class UserControllerTest extends FeatureTestCase {
                 ->assertJsonPath('data.profile.username', 'managed-user');
             $this->login('managed-user', 'secret-Passw0rd')->assertJsonPath('success', true);
         }
+
+        $this->assertFalse(UserLog::query()->where('type', UserLogType::ChangePassword)->exists());
     }
 
     public function test_confirmed_time_reports_when_the_account_enrolled_in_mfa(): void {

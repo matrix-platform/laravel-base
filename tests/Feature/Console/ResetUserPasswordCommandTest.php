@@ -7,6 +7,8 @@ use Illuminate\Testing\PendingCommand;
 use Illuminate\Testing\TestResponse;
 use MatrixPlatform\Database\Seeders\UserSeeder;
 use MatrixPlatform\Models\User;
+use MatrixPlatform\Models\UserLog;
+use MatrixPlatform\Models\UserLogType;
 use Symfony\Component\Console\Exception\RuntimeException;
 use Tests\FeatureTestCase;
 
@@ -51,6 +53,18 @@ class ResetUserPasswordCommandTest extends FeatureTestCase {
             ->assertExitCode(0);
 
         $this->login('root@matrix', self::PASSWORD)->assertJson(['success' => true]);
+    }
+
+    public function test_a_console_reset_writes_a_change_password_log(): void {
+        $this->command('admin')
+            ->expectsQuestion('New password', self::PASSWORD)
+            ->expectsQuestion('Retype new password', self::PASSWORD)
+            ->assertExitCode(0);
+
+        $log = UserLog::query()->where('type', UserLogType::ChangePassword)->sole();
+
+        $this->assertSame(2, $log->user_id);
+        $this->assertNull($log->creator_id);
     }
 
     public function test_an_unknown_account_fails_without_touching_any_password(): void {
