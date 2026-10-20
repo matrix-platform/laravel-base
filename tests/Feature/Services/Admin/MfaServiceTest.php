@@ -120,6 +120,30 @@ class MfaServiceTest extends FeatureTestCase {
         $this->assertFalse(app(MfaService::class)->verify($this->reload($user), $stale));
     }
 
+    public function test_verify_rejects_a_code_that_was_already_used(): void {
+        $user = UserFactory::new()->createOne();
+
+        app(MfaService::class)->setup($user);
+
+        $code = (new Google2FA())->getCurrentOtp($this->secretOf($user));
+
+        $this->assertTrue(app(MfaService::class)->verify($this->reload($user), $code));
+        $this->assertFalse(app(MfaService::class)->verify($this->reload($user), $code));
+    }
+
+    public function test_verify_accepts_the_next_time_step_after_a_used_code(): void {
+        $user = UserFactory::new()->createOne();
+
+        app(MfaService::class)->setup($user);
+
+        $google2fa = new Google2FA();
+        $secret = $this->secretOf($user);
+        $timestamp = $google2fa->getTimestamp();
+
+        $this->assertTrue(app(MfaService::class)->verify($this->reload($user), $google2fa->oathTotp($secret, $timestamp - 1)));
+        $this->assertTrue(app(MfaService::class)->verify($this->reload($user), $google2fa->oathTotp($secret, $timestamp)));
+    }
+
     public function test_trusted_accepts_a_token_that_issue_trust_produced_for_the_same_user(): void {
         [$user, $token] = $this->trustedUser();
 

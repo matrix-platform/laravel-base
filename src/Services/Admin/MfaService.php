@@ -3,6 +3,7 @@
 namespace MatrixPlatform\Services\Admin;
 
 use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use MatrixPlatform\Models\User;
 use PragmaRX\Google2FA\Google2FA;
@@ -24,6 +25,8 @@ class MfaService {
         $user->secret = null;
         $user->confirmed_time = null;
         $user->save();
+
+        Cache::forget("mfa-timestamp:{$user->id}");
     }
 
     public function issueTrust(User $user): string {
@@ -77,7 +80,21 @@ class MfaService {
     public function verify(User $user, string $code): bool {
         $secret = $user->secret;
 
-        return $secret !== null && (bool) $this->google2fa->verifyKey($secret, $code, (int) cfg('admin.mfa-window'));
+        if ($secret === null) {
+            return false;
+        }
+
+        $key = "mfa-timestamp:{$user->id}";
+        $window = (int) cfg('admin.mfa-window');
+        $timestamp = $this->google2fa->verifyKeyNewer($secret, $code, intval(Cache::get($key, 0)), $window);
+
+        if (!is_int($timestamp)) {
+            return false;
+        }
+
+        Cache::put($key, $timestamp, ($window * 2 + 2) * 30);
+
+        return true;
     }
 
     private function fingerprint(User $user): string {

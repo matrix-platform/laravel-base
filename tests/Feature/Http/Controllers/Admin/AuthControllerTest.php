@@ -103,7 +103,9 @@ class AuthControllerTest extends FeatureTestCase {
 
     private function enableMfa(User $user): string {
         $setup = app(MfaService::class)->setup($user);
-        app(MfaService::class)->confirm($user, (new Google2FA())->getCurrentOtp($setup['secret']));
+        $google2fa = new Google2FA();
+
+        app(MfaService::class)->confirm($user, $google2fa->oathTotp($setup['secret'], $google2fa->getTimestamp() - 1));
 
         return $setup['secret'];
     }
