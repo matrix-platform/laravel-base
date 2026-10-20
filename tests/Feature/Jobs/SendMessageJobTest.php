@@ -193,44 +193,61 @@ class SendMessageJobTest extends FeatureTestCase {
             && array_get_value($context, 'code') === 'smtp exploded')]);
     }
 
-    public function test_a_provider_with_no_driver_fails_the_job_and_leaves_its_messages_waiting(): void {
+    public function test_a_provider_with_no_driver_is_skipped_and_leaves_its_messages_waiting(): void {
         $log = $this->stored(MessageStatus::Scheduled, 'bare');
+        $spy = Log::spy();
 
-        $this->refuses('message-provider-has-no-driver', fn () => $this->execute());
+        $this->execute();
 
         $this->assertSame(MessageStatus::Scheduled, $log->refresh()->status);
+
+        $spy->shouldHaveReceived('error')
+            ->with('messaging.mail.misconfigured', ['channel' => 'mail', 'provider' => 'bare', 'code' => 'message-provider-has-no-driver'])
+            ->once();
 
         Queue::assertNothingPushed();
     }
 
-    public function test_a_provider_naming_a_class_that_is_not_a_driver_fails_the_job_and_leaves_its_messages_waiting(): void {
+    public function test_a_provider_naming_a_class_that_is_not_a_driver_is_skipped_and_leaves_its_messages_waiting(): void {
         $log = $this->stored(MessageStatus::Scheduled, 'broken');
+        $spy = Log::spy();
 
-        $this->refuses('invalid-message-driver', fn () => $this->execute());
+        $this->execute();
 
         $this->assertSame(MessageStatus::Scheduled, $log->refresh()->status);
+
+        $spy->shouldHaveReceived('error')
+            ->with('messaging.mail.misconfigured', ['channel' => 'mail', 'provider' => 'broken', 'code' => 'invalid-message-driver'])
+            ->once();
 
         Queue::assertNothingPushed();
     }
 
-    public function test_a_provider_whose_configuration_vanished_fails_the_job_and_leaves_its_messages_waiting(): void {
+    public function test_a_provider_whose_configuration_vanished_is_skipped_and_leaves_its_messages_waiting(): void {
         $log = $this->stored(MessageStatus::Scheduled, 'evaporated');
+        $spy = Log::spy();
 
-        $this->refuses('invalid-message-provider', fn () => $this->execute());
+        $this->execute();
 
         $this->assertSame(MessageStatus::Scheduled, $log->refresh()->status);
+
+        $spy->shouldHaveReceived('error')
+            ->with('messaging.mail.misconfigured', ['channel' => 'mail', 'provider' => 'evaporated', 'code' => 'invalid-message-provider'])
+            ->once();
 
         Queue::assertNothingPushed();
     }
 
-    public function test_a_message_at_the_head_that_cannot_be_delivered_blocks_the_ones_behind_it(): void {
+    public function test_a_misconfigured_provider_does_not_block_the_other_providers(): void {
         $bare = $this->stored(MessageStatus::Scheduled, 'bare');
         $stub = $this->stored();
 
-        $this->refuses('message-provider-has-no-driver', fn () => $this->execute());
+        $this->execute();
 
         $this->assertSame(MessageStatus::Scheduled, $bare->refresh()->status);
-        $this->assertSame(MessageStatus::Scheduled, $stub->refresh()->status);
+        $this->assertSame(MessageStatus::Success, $stub->refresh()->status);
+
+        Queue::assertPushed(SendMessageJob::class);
     }
 
     public function test_the_configured_interval_is_slept_off_before_handing_over(): void {

@@ -798,8 +798,8 @@ app(MailService::class)->cancel($id);
 | **每條 queue 最多一個 worker** | 節流靠的是 worker 的序列性,所以多開一個 worker 就是速率翻倍。內建的四個 channel 各有自己的 queue(`messaging-mail`／`messaging-sms`／`messaging-push`／`messaging-telegram`),要開四個 worker;**漏開一條就是那條 channel 全部停在 `Scheduled`**,而 `messages:dispatch` 每分鐘照樣回成功。套件不偵測 worker 存活 —— 那歸行程監管（systemd／supervisor／Horizon）,你為了跑 `queue:work` 本來就需要它們 |
 | **`interval` < `--timeout` < `retry_after`** | 套件無法幫你算這三個數字:工作在派送時只知道 channel,還不知道會送到哪個供應商。`--timeout`（預設 60）要大於「最大的 `interval` + 單筆送出耗時」,connection 的 `retry_after` 要再大於它 |
 | **同一個 channel 嚴格 FIFO** | 送出順序就是 `schedule_time` 的順序,不分供應商。所以一個供應商的 `interval` 也會延後排在它後面的其他供應商的訊息 |
-| **隊頭送不出去會卡住整個 channel** | 排程時 `schedule()` 就會擋掉沒有 driver 的供應商,所以這只發生在「排程之後設定才壞掉」:`driver` 被拿掉、改成不是 driver 的類別、或 cfg bundle 消失。工作會失敗（進 `failed_jobs`）、不動任何記錄,而那一筆還在隊頭 —— 後面的訊息（包含其他供應商的）都送不出去。排程每分鐘再派一次,所以壞多久就累積多少筆 `failed_jobs`。要隔離就給那個供應商自己的 channel（也就是自己的 queue 與 worker） |
-| **設定壞掉的失敗只在 `failed_jobs` 看得到** | 那種失敗是 `error()` 丟出的 `ServiceException`,而 `ServiceException::report()` 一律回 `true`(視為已處理),所以不寫 Laravel 的錯誤 log,Sentry 那類也收不到 |
+| **設定壞掉的供應商會被略過,不會擋住同一個 channel 的其他供應商** | 排程時 `schedule()` 就會擋掉沒有 driver 的供應商,所以這只發生在「排程之後設定才壞掉」:`driver` 被拿掉、改成不是 driver 的類別、或 cfg bundle 消失。工作會略過那個供應商、改送下一個供應商的訊息,壞掉的那些維持 `Scheduled`,不動任何記錄;設定修好後,下一次 `messages:dispatch` 就會送出。同一個供應商的訊息仍彼此排隊 |
+| **設定壞掉只會寫 `Log::error`** | 每次略過都寫一筆 `messaging.{channel}.misconfigured`(context 帶 channel、provider、錯誤代碼);工作本身不失敗,`failed_jobs` 看不到,監控請看這個 log |
 | **送出失敗會寫一筆 `Log::error`** | 這裡說的是 driver 真的被呼叫之後才失敗:記錄標成 `Failed`,鏈條照樣往下走。事件名 `messaging.{channel}.failed`,context 帶 channel、provider、訊息 id 與寫進 `error` 欄位的內容。`error` 可能含供應商回應（`response` 欄位本來就存完整回應）,log 的保存政策要照這個前提設 |
 | **worker 硬掉在送出中間會重送** | 送出成功但寫回失敗、或行程被 SIGKILL／OOM 砍在 driver 呼叫途中時,那一列還是 `Scheduled`,下一個工作會再送一次。優雅重啟（SIGTERM）不受影響,Laravel 會讓當前工作跑完。套件選的是「寧可重送也不漏送」,而且**沒有重試次數上限** |
 | queue connection 設成 `sync` | 送出會變成同步執行,`interval` 照樣生效（在同一個行程裡睡）,但鏈條會變成遞迴呼叫 |

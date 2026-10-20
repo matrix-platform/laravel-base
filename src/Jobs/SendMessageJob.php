@@ -29,28 +29,57 @@ class SendMessageJob implements ShouldQueue {
 
     public function handle(): void {
         $channel = app(Channels::class)->get($this->channel);
-        $log = $this->next($channel);
+        $skipped = [];
 
-        if ($log === null) {
+        while (($log = $this->next($channel, $skipped)) !== null) {
+            $driver = $this->driver($channel, $log);
+
+            if ($driver === null) {
+                $skipped[] = $log->provider;
+
+                continue;
+            }
+
+            $this->send($log, $driver);
+            $this->pace($log->provider);
+
+            self::dispatchFor($channel);
+
             return;
         }
-
-        $driver = $channel->provider($log->provider)->driver();
-
-        if ($driver === null) {
-            error('message-provider-has-no-driver');
-        }
-
-        $this->send($log, $driver);
-        $this->pace($log->provider);
-
-        self::dispatchFor($channel);
     }
 
-    private function next(Channel $channel): ?MessageLog {
+    /**
+     * @return Driver<MessageLog>|null
+     */
+    private function driver(Channel $channel, MessageLog $log): ?Driver {
+        try {
+            $driver = $channel->provider($log->provider)->driver();
+
+            if ($driver === null) {
+                error('message-provider-has-no-driver');
+            }
+
+            return $driver;
+        } catch (ServiceException $exception) {
+            Log::error("messaging.{$this->channel}.misconfigured", [
+                'channel' => $this->channel,
+                'provider' => $log->provider,
+                'code' => $exception->getError()
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * @param list<string> $skipped
+     */
+    private function next(Channel $channel, array $skipped): ?MessageLog {
         return $channel->model::query()
             ->where('status', MessageStatus::Scheduled)
             ->where('schedule_time', '<=', now())
+            ->when($skipped !== [], fn ($query) => $query->whereNotIn('provider', $skipped))
             ->orderBy('schedule_time')
             ->orderBy('id')
             ->first();
