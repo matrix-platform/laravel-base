@@ -150,6 +150,25 @@ class AuthControllerTest extends FeatureTestCase {
         $this->assertStringStartsWith("\x89PNG", strval(base64_decode(substr($image, strlen($prefix)), true)));
     }
 
+    public function test_the_captcha_endpoint_is_throttled_per_ip(): void {
+        config(['matrix.admin-captcha-provider' => 'captcha-none']);
+
+        $this->useCfg('admin', ['anonymous-throttle-max' => 2]);
+
+        $this->postJson('admin/auth/captcha')->assertJsonPath('success', true);
+        $this->postJson('admin/auth/captcha')->assertJsonPath('success', true);
+        $this->postJson('admin/auth/captcha')->assertJson(['code' => 429, 'error' => 'too-many-requests']);
+        $this->postJson('admin/auth/passkey/options')->assertJsonPath('success', true);
+    }
+
+    public function test_the_passkey_options_endpoint_is_throttled_per_ip(): void {
+        $this->useCfg('admin', ['anonymous-throttle-max' => 2]);
+
+        $this->postJson('admin/auth/passkey/options')->assertJsonPath('success', true);
+        $this->postJson('admin/auth/passkey/options')->assertJsonPath('success', true);
+        $this->postJson('admin/auth/passkey/options')->assertJson(['code' => 429, 'error' => 'too-many-requests']);
+    }
+
     public function test_the_captcha_endpoint_returns_null_when_the_captcha_provider_is_disabled(): void {
         config(['matrix.admin-captcha-provider' => 'captcha-none']);
 

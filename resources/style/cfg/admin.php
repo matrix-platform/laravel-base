@@ -2,6 +2,10 @@
 
 return [
 
+    'anonymous-throttle-max' => ['type' => 'integer', 'rule' => ['integer', 'min:1']],
+
+    'anonymous-throttle-window' => ['type' => 'integer', 'rule' => ['integer', 'min:1']],
+
     'captcha-ttl' => ['type' => 'integer', 'rule' => ['integer', 'min:1']],
 
     'login-throttle-max' => ['type' => 'integer', 'rule' => ['integer', 'min:1']],

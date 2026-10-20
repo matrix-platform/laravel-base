@@ -24,7 +24,7 @@ class AuthController extends BaseController {
     /**
      * @return array<string, mixed>|null
      */
-    #[Action(scope: 'anonymous')]
+    #[Action(scope: 'anonymous', middleware: 'anonymous-throttle-api:admin')]
     public function captcha(): ?array {
         return $this->service->captcha();
     }
@@ -126,7 +126,7 @@ class AuthController extends BaseController {
     /**
      * @return array{options: array<string, mixed>, challenge: string}
      */
-    #[Action('passkey/options', scope: 'anonymous')]
+    #[Action('passkey/options', scope: 'anonymous', middleware: 'anonymous-throttle-api:admin')]
     public function passkeyLoginOptions(): array {
         return $this->passkeys->authenticationOptions();
     }

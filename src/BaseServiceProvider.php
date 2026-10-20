@@ -18,6 +18,7 @@ use MatrixPlatform\Console\Commands\SetTelegramWebhookCommand;
 use MatrixPlatform\Console\Commands\SyncTranslatableCommand;
 use MatrixPlatform\Console\Commands\UpdateGeolocationDatabaseCommand;
 use MatrixPlatform\Database\Schema\BaseBlueprint;
+use MatrixPlatform\Http\Middleware\AnonymousThrottleMiddleware;
 use MatrixPlatform\Http\Middleware\EncryptedEnvelopeMiddleware;
 use MatrixPlatform\Http\Middleware\EnvelopeMiddleware;
 use MatrixPlatform\Http\Middleware\LocaleMiddleware;
@@ -77,6 +78,7 @@ class BaseServiceProvider extends ServiceProvider {
         $packages->register('app', base_path());
         $packages->register('base', dirname(__DIR__));
 
+        Route::aliasMiddleware('anonymous-throttle-api', AnonymousThrottleMiddleware::class);
         Route::aliasMiddleware('encrypted-api', EncryptedEnvelopeMiddleware::class);
         Route::aliasMiddleware('envelope-api', EnvelopeMiddleware::class);
         Route::aliasMiddleware('locale-api', LocaleMiddleware::class);

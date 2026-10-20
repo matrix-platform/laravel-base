@@ -85,6 +85,8 @@ return [
     'cfg/action-update.url' => 'APIパス',
 
     'cfg/admin' => '管理者',
+    'cfg/admin.anonymous-throttle-max' => '匿名エンドポイントのリクエスト上限（キャプチャ、パスキーオプション）',
+    'cfg/admin.anonymous-throttle-window' => '匿名エンドポイントの制限時間(分)',
     'cfg/admin.captcha-ttl' => 'キャプチャ有効秒数',
     'cfg/admin.login-throttle-max' => 'ログイン試行回数の上限',
     'cfg/admin.login-throttle-window' => 'ログイン制限時間(分)',

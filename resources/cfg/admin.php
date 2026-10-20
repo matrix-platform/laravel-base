@@ -2,6 +2,10 @@
 
 return [
 
+    'anonymous-throttle-max' => 30,
+
+    'anonymous-throttle-window' => 1,
+
     'captcha-ttl' => 300,
 
     'login-throttle-max' => 5,

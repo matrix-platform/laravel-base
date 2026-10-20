@@ -261,6 +261,7 @@ worker 會睡掉供應商的 `interval` 來節流,所以 `--timeout` 與 connect
 | `member-api` / `vendor-api` | 前台身分 |
 | `member-aware-api` | 有 token 就解析,沒有也放行 |
 | `login-throttle-api:{bundle}` | 登入節流,鍵是 `IP + 帳號` |
+| `anonymous-throttle-api:{bundle}` | 匿名端點節流,鍵是 `路徑 + IP`,讀 `{bundle}.anonymous-throttle-*` |
 
 **順序是約束,不是機制保證。** 把 `permission-api` 掛在 `user-api` 前面不會有人阻止你,但授權會先跑,拿到的是 401 而不是 403。
 
@@ -1138,6 +1139,8 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 
 | 鍵 | 出貨值 | 說明 |
 |---|---|---|
+| `admin.anonymous-throttle-max` | `30` | `anonymous-throttle-api:admin`(`admin/auth/captcha`、`admin/auth/passkey/options`)每個 IP 在窗口內的請求上限，各端點分開計算，超過回 `too-many-requests` |
+| `admin.anonymous-throttle-window` | `1` | 上一列的節流窗口(分鐘) |
 | `admin.captcha-ttl` | `300` | 驗證碼有效秒數 |
 | `admin.login-throttle-max` | `5` | 每個窗口容許的登入失敗次數 |
 | `admin.login-throttle-window` | `1` | 節流窗口(分鐘) |

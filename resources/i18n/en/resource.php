@@ -85,6 +85,8 @@ return [
     'cfg/action-update.url' => 'API path',
 
     'cfg/admin' => 'User',
+    'cfg/admin.anonymous-throttle-max' => 'Anonymous endpoint request limit (captcha, passkey options)',
+    'cfg/admin.anonymous-throttle-window' => 'Anonymous endpoint throttle window (minutes)',
     'cfg/admin.captcha-ttl' => 'Captcha lifetime (seconds)',
     'cfg/admin.login-throttle-max' => 'Login attempt limit',
     'cfg/admin.login-throttle-window' => 'Login throttle window (minutes)',

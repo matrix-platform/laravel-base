@@ -85,6 +85,8 @@ return [
     'cfg/action-update.url' => 'API 路径',
 
     'cfg/admin' => '账号',
+    'cfg/admin.anonymous-throttle-max' => '匿名端点请求次数上限（验证码、Passkey 选项）',
+    'cfg/admin.anonymous-throttle-window' => '匿名端点限制时间(分钟)',
     'cfg/admin.captcha-ttl' => '验证码有效秒数',
     'cfg/admin.login-throttle-max' => '登录尝试次数上限',
     'cfg/admin.login-throttle-window' => '登录限制时间(分钟)',
