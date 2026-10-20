@@ -109,4 +109,14 @@ class CityAreaControllerTest extends FeatureTestCase {
         $this->assertContains('Taipei', array_column($response->json('data.breadcrumbs'), 'label'));
     }
 
+    public function test_a_null_post_code_is_rejected_as_a_validation_error(): void {
+        $taipei = CityFactory::new()->createOne();
+
+        $response = $this->send("admin/city/{$taipei->id}/area/insert", ['title__tw' => 'Xinyi', 'title__en' => 'Xinyi', 'post_code' => null]);
+
+        $response->assertJson(['code' => 422, 'error' => 'validation-failed']);
+        $response->assertJsonPath('fields.post_code', ['required']);
+        $this->assertSame(0, CityArea::query()->count());
+    }
+
 }

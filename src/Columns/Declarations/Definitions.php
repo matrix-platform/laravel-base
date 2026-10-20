@@ -29,7 +29,7 @@ class Definitions {
      * @return array<string, Definition>
      */
     public static function disabled(): array {
-        return ['disabled' => Definition::boolean()];
+        return ['disabled' => Definition::boolean(required: true)];
     }
 
     /**

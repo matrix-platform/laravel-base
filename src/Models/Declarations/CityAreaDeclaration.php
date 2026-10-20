@@ -17,7 +17,7 @@ class CityAreaDeclaration implements Declares {
             Definitions::primaryKey(),
             ['city_id' => Definition::integer()],
             Definitions::title(),
-            ['post_code' => Definition::text()],
+            ['post_code' => Definition::text(required: true)],
             Definitions::ranking(),
             Definitions::auditings()
         );

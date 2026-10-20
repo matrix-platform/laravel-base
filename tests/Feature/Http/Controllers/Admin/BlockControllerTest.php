@@ -528,4 +528,16 @@ class BlockControllerTest extends FeatureTestCase {
         $this->assertSame(2, $source->items()->count());
     }
 
+    public function test_a_null_type_is_rejected_as_a_validation_error(): void {
+        $this->useBlockDataFixtures();
+
+        $page = PageFactory::new()->createOne();
+
+        $this->send("admin/page/{$page->id}/block/insert", $this->banner(['type' => null]))
+            ->assertJson(['code' => 422, 'error' => 'validation-failed'])
+            ->assertJsonPath('fields.type', ['required']);
+
+        $this->assertSame(0, Block::query()->count());
+    }
+
 }

@@ -627,4 +627,12 @@ class UserControllerTest extends FeatureTestCase {
         $response->assertJsonPath('error', 'permission-denied');
     }
 
+    public function test_a_null_disabled_flag_is_rejected_as_a_validation_error(): void {
+        $response = $this->send($this->signIn(self::ADMIN), 'admin/user/insert', $this->form(['disabled' => null]));
+
+        $response->assertJson(['code' => 422, 'error' => 'validation-failed']);
+        $response->assertJsonPath('fields.disabled', ['required']);
+        $this->assertNull(User::query()->where('username', 'newbie')->first());
+    }
+
 }

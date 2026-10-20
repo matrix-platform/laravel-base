@@ -18,7 +18,7 @@ class BlockDeclaration implements Declares {
             Definitions::primaryKey(),
             [
                 'page_id' => Definition::integer(Presentation::Hidden),
-                'type' => Definition::text(Presentation::Select),
+                'type' => Definition::text(Presentation::Select, required: true),
                 'title' => Definition::text(required: true),
                 'data' => Definition::composite('block-data')
             ],

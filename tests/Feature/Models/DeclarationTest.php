@@ -8,9 +8,19 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use MatrixPlatform\Attributes\Declared;
 use MatrixPlatform\Columns\Declarations\Definition;
+use MatrixPlatform\Models\AuthToken;
+use MatrixPlatform\Models\File;
+use MatrixPlatform\Models\MailLog;
+use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\Member;
+use MatrixPlatform\Models\MemberLog;
+use MatrixPlatform\Models\PushLog;
+use MatrixPlatform\Models\SmsLog;
+use MatrixPlatform\Models\TelegramLog;
 use MatrixPlatform\Models\User;
+use MatrixPlatform\Models\UserLog;
 use MatrixPlatform\Models\Vendor;
+use MatrixPlatform\Models\VendorLog;
 use MatrixPlatform\Support\MetadataRegistry;
 use ReflectionClass;
 use Tests\FeatureTestCase;
@@ -143,6 +153,36 @@ class DeclarationTest extends FeatureTestCase {
 
             $this->assertInstanceOf(Definition::class, $definition, $model);
             $this->assertTrue($definition->required, $model);
+        }
+    }
+
+    public function test_every_not_null_column_without_a_default_is_declared_required(): void {
+        $written = [AuthToken::class, File::class, MailLog::class, ManipulationLog::class, MemberLog::class, PushLog::class, SmsLog::class, TelegramLog::class, UserLog::class, VendorLog::class];
+
+        foreach (array_diff($this->declared(), $written) as $model) {
+            $definitions = app(MetadataRegistry::class)->definitions($model);
+
+            $this->assertNotNull($definitions, $model);
+
+            $fields = [];
+
+            foreach ($definitions as $field => $definition) {
+                foreach ($this->columnsFor($field, $definition) as $column) {
+                    $fields[$column] = $definition;
+                }
+            }
+
+            $table = (new $model())->getTable();
+            $foreign = array_merge(...array_map(fn (array $key): array => $key['columns'], Schema::getForeignKeys($table)));
+
+            foreach (Schema::getColumns($table) as $column) {
+                if ($column['nullable'] || $column['default'] !== null || $column['name'] === 'create_time' || in_array($column['name'], $foreign, true)) {
+                    continue;
+                }
+
+                $this->assertArrayHasKey($column['name'], $fields, "{$model}::{$column['name']}");
+                $this->assertTrue($fields[$column['name']]->required, "{$model}::{$column['name']} is NOT NULL without a default but not declared required");
+            }
         }
     }
 
