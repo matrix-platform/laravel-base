@@ -371,15 +371,19 @@ class ScaffoldPlan {
     /**
      * @return array<string, string>
      */
-    private function castsMap(): array {
+    private function castsMap(bool $translatable): array {
         $casts = [];
 
-        if ($this->arrangeable) {
+        if ($this->arrangeable && !$translatable) {
             $casts['enable_time'] = 'datetime';
             $casts['disable_time'] = 'datetime';
         }
 
         foreach ($this->customFields as $name) {
+            if ($this->columns[$name]->translatable !== $translatable) {
+                continue;
+            }
+
             $cast = match ($this->columns[$name]->type) {
                 ColumnType::Date => 'date',
                 ColumnType::DateTime => 'datetime',
@@ -398,9 +402,10 @@ class ScaffoldPlan {
     }
 
     private function castsMember(): ?string {
-        $casts = $this->castsMap();
+        $casts = $this->castsMap(false);
+        $translated = $this->castsMap(true);
 
-        if ($casts === []) {
+        if ($casts === [] && $translated === []) {
             return null;
         }
 
@@ -410,7 +415,21 @@ class ScaffoldPlan {
             $lines[] = "            '{$field}' => '{$cast}'";
         }
 
-        return "    /**\n     * @return array<string, string>\n     */\n    protected function casts(): array {\n        return [\n" . implode(",\n", $lines) . "\n        ];\n    }";
+        $doc = "    /**\n     * @return array<string, string>\n     */\n    protected function casts(): array {\n";
+
+        if ($translated === []) {
+            return $doc . "        return [\n" . implode(",\n", $lines) . "\n        ];\n    }";
+        }
+
+        $loop = [];
+
+        foreach ($translated as $field => $cast) {
+            $loop[] = "            \$casts[\"{$field}__{\$locale}\"] = '{$cast}';";
+        }
+
+        $initial = $lines === [] ? '        $casts = [];' : "        \$casts = [\n" . implode(",\n", $lines) . "\n        ];";
+
+        return $doc . $initial . "\n\n        foreach (locales() as \$locale) {\n" . implode("\n", $loop) . "\n        }\n\n        return \$casts;\n    }";
     }
 
     /**
@@ -497,7 +516,7 @@ class ScaffoldPlan {
         foreach ($this->columns as $name => $column) {
             if ($column->translatable) {
                 foreach (array_diff(locales(), $column->missingLocales) as $locale) {
-                    $lines[] = " * @property ?string \${$name}__{$locale}";
+                    $lines[] = " * @property ?{$this->propertyType($column)} \${$name}__{$locale}";
                 }
 
                 continue;

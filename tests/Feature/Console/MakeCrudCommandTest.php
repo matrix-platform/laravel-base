@@ -105,6 +105,20 @@ class MakeCrudCommandTest extends FeatureTestCase {
             ->assertExitCode(1);
     }
 
+    public function test_a_translatable_json_field_is_cast_per_locale(): void {
+        $this->artisanCommand('matrix:make-crud scaffold_required --path=' . $this->root)->assertExitCode(0);
+
+        $path = "{$this->root}/app/Models/Required.php";
+        $model = $this->read($path);
+
+        $this->assertValidPhpFile($path);
+        $this->assertStringContainsString("'tags' => 'array'", $model);
+        $this->assertStringContainsString("foreach (locales() as \$locale) {\n            \$casts[\"gallery__{\$locale}\"] = 'array';\n        }", $model);
+        $this->assertStringNotContainsString("'gallery' => 'array'", $model);
+        $this->assertStringContainsString(' * @property ?array<int, array<string, mixed>> $gallery__tw', $model);
+        $this->assertStringContainsString(' * @property ?array<int, array<string, mixed>> $gallery__en', $model);
+    }
+
     public function test_a_custom_namespace_without_a_path_warns_that_files_still_go_under_app(): void {
         $this->artisanCommand('matrix:make-crud scaffold_simple --namespace=Foo --dry-run')
             ->expectsOutputToContain('--namespace only changes the PHP namespace')

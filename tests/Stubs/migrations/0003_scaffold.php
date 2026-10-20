@@ -34,6 +34,7 @@ return new class extends Migration {
             $table->boolean('active')->default(false);
             $table->integer('qty')->nullable();
             $table->jsonb('tags')->default('[]');
+            $table->translatable('gallery', 'jsonb');
             $table->auditings();
         });
 
