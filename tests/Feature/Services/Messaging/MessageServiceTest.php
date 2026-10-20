@@ -52,6 +52,25 @@ class MessageServiceTest extends FeatureTestCase {
         Queue::assertPushed(SendMessageJob::class, fn (SendMessageJob $job) => $job->channel === 'mail');
     }
 
+    public function test_a_variable_in_the_mail_content_is_html_escaped_but_not_in_the_subject(): void {
+        $mail = $this->reload($this->mail()->schedule(now(), 'alice@example.com', 'welcome', ['name' => '<b>Alice</b>']));
+
+        $this->assertSame('Welcome <b>Alice</b>', $mail->subject);
+        $this->assertSame('Dear &lt;b&gt;Alice&lt;/b&gt;, welcome aboard.', $mail->content);
+    }
+
+    public function test_a_mail_variable_listed_as_raw_is_left_alone(): void {
+        $mail = $this->reload($this->mail()->schedule(now(), 'alice@example.com', 'welcome', ['name' => '<b>Alice</b>'], ['raw' => ['name']]));
+
+        $this->assertSame('Dear <b>Alice</b>, welcome aboard.', $mail->content);
+    }
+
+    public function test_a_variable_in_an_sms_is_not_escaped(): void {
+        $log = $this->sms()->schedule(now(), '0912345678', 'otp', ['code' => '<1&2>']);
+
+        $this->assertSame('Your code is <1&2>', $log->content);
+    }
+
     public function test_scheduling_for_the_future_stores_the_message_without_queueing_it(): void {
         $log = $this->mail()->schedule(now()->addDay(), 'alice@example.com', 'welcome', ['name' => 'Alice']);
 

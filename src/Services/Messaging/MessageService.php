@@ -16,6 +16,11 @@ abstract class MessageService {
 
     protected string $channel;
 
+    /**
+     * @var list<string>
+     */
+    protected array $htmlFields = [];
+
     public function __construct(private Channels $channels) {}
 
     public function cancel(int|string $reference): MessageLog {
@@ -104,7 +109,8 @@ abstract class MessageService {
      * @return array<string, mixed>
      */
     private function compose(?string $template, array $vars, array $options, string $locale): array {
-        $fields = $template === null ? [] : Template::render($template, $vars, $locale);
+        $raw = array_get_value($options, 'raw');
+        $fields = $template === null ? [] : Template::render($template, $vars, $locale, $this->htmlFields, is_array($raw) ? array_map(strval(...), array_values($raw)) : []);
 
         foreach (['subject', 'title', 'content', 'provider', 'data', 'cc', 'bcc'] as $key) {
             if (isset($options[$key])) {

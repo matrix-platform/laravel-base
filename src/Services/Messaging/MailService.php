@@ -12,6 +12,8 @@ class MailService extends MessageService {
 
     protected string $channel = 'mail';
 
+    protected array $htmlFields = ['content'];
+
     /**
      * @param array<string, mixed> $rendered
      * @return array<string, mixed>
