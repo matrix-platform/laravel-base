@@ -3,6 +3,7 @@
 namespace Tests\Feature\Http\Middleware;
 
 use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\Log;
 use MatrixPlatform\Routing\ActionRoutes;
 use Tests\FeatureTestCase;
 use Tests\Stubs\StubController;
@@ -14,6 +15,7 @@ class EnvelopeMiddlewareTest extends FeatureTestCase {
      */
     protected function defineRoutes($router): void {
         $router->middleware('envelope-api')->group(fn () => ActionRoutes::scan(StubController::class));
+        $router->middleware('envelope-api')->post('service-failure', fn () => error('encryption-unavailable'));
     }
 
     public function test_a_service_exception_keeps_its_own_code_and_slug(): void {
@@ -59,6 +61,22 @@ class EnvelopeMiddlewareTest extends FeatureTestCase {
 
         $response->assertStatus(200);
         $response->assertJson(['success' => false, 'code' => 500, 'error' => 'server-error']);
+    }
+
+    public function test_a_service_exception_is_answered_but_never_logged(): void {
+        $spy = Log::spy();
+
+        $this->postJson('service-failure')->assertJson(['success' => false, 'code' => 500, 'error' => 'encryption-unavailable']);
+
+        $spy->shouldNotHaveReceived('error');
+    }
+
+    public function test_an_unexpected_exception_is_still_logged(): void {
+        $spy = Log::spy();
+
+        $this->postJson('unexpected');
+
+        $spy->shouldHaveReceived('error')->once();
     }
 
     public function test_an_unexpected_exception_does_not_leak_its_message(): void {
