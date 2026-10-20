@@ -36,7 +36,7 @@ class UserMiddlewareTest extends FeatureTestCase {
     public function test_an_expired_token_is_refused(): void {
         $token = $this->token();
 
-        AuthToken::query()->where('token', $token)->update(['expire_time' => now()->subMinute()]);
+        AuthToken::query()->where('token', AuthToken::digest($token))->update(['expire_time' => now()->subMinute()]);
 
         $this->withToken($token)
             ->postJson('admin/auth/logout')
@@ -72,14 +72,14 @@ class UserMiddlewareTest extends FeatureTestCase {
     }
 
     public function test_a_new_token_carries_no_absolute_expiry(): void {
-        $auth = AuthToken::query()->where('token', $this->token())->firstOrFail();
+        $auth = AuthToken::query()->where('token', AuthToken::digest($this->token()))->firstOrFail();
 
         $this->assertNull($auth->expire_time);
     }
 
     public function test_each_access_pushes_the_idle_window_forward(): void {
         $token = $this->token();
-        $before = AuthToken::query()->where('token', $token)->firstOrFail()->update_time;
+        $before = AuthToken::query()->where('token', AuthToken::digest($token))->firstOrFail()->update_time;
 
         $this->travel(2)->minutes();
 
@@ -87,7 +87,7 @@ class UserMiddlewareTest extends FeatureTestCase {
             ->postJson('admin/auth/profile')
             ->assertJsonPath('success', true);
 
-        $after = AuthToken::query()->where('token', $token)->firstOrFail()->update_time;
+        $after = AuthToken::query()->where('token', AuthToken::digest($token))->firstOrFail()->update_time;
 
         $this->assertNotNull($before);
         $this->assertNotNull($after);

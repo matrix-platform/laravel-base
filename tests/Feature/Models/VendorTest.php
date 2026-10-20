@@ -52,7 +52,7 @@ class VendorTest extends FeatureTestCase {
 
     public function test_creating_a_token_issues_a_vendor_token_that_is_usable_at_once(): void {
         $token = VendorFactory::new()->createOne()->createToken();
-        $auth = AuthToken::query()->where('token', $token)->firstOrFail();
+        $auth = AuthToken::query()->where('token', AuthToken::digest($token))->firstOrFail();
 
         $this->assertSame(IdentityType::Vendor, $auth->type);
         $this->assertNotNull($auth->update_time);

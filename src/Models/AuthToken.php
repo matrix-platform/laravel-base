@@ -27,13 +27,17 @@ class AuthToken extends BaseModel {
 
     const TRACEABLE = false;
 
+    public static function digest(string $token): string {
+        return hash('sha256', $token);
+    }
+
     public static function findByToken(?string $token, IdentityType $type): ?self {
         if ($token === null || $token === '') {
             return null;
         }
 
         return self::query()
-            ->where('token', $token)
+            ->where('token', self::digest($token))
             ->where('type', $type)
             ->whereNotExpired()
             ->where('update_time', '>=', self::idleSince($type))
@@ -46,15 +50,16 @@ class AuthToken extends BaseModel {
 
     public static function issue(IdentityType $type, int $id): string {
         $auth = new self();
+        $token = (string) Str::uuid();
 
-        $auth->token = (string) Str::uuid();
+        $auth->token = self::digest($token);
         $auth->type = $type;
         $auth->target_id = $id;
 
         $auth->save();
         $auth->keepAlive();
 
-        return $auth->token;
+        return $token;
     }
 
     protected array $generators = [

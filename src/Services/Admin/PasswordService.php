@@ -25,7 +25,7 @@ class PasswordService {
             ->where('target_id', $user->id);
 
         if ($preservedToken !== null) {
-            $query->where('token', '!=', $preservedToken);
+            $query->where('token', '!=', AuthToken::digest($preservedToken));
         }
 
         foreach ($query->get(['id']) as $auth) {

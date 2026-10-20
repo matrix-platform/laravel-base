@@ -315,13 +315,13 @@ class IdentityMiddlewareTest extends FeatureTestCase {
 
     public function test_every_access_pushes_the_idle_window_forward(): void {
         $token = $this->token(IdentityType::Member);
-        $before = AuthToken::query()->where('token', $token)->firstOrFail()->update_time;
+        $before = AuthToken::query()->where('token', AuthToken::digest($token))->firstOrFail()->update_time;
 
         $this->travel(2)->minutes();
 
         $this->reach(IdentityType::Member, $token)->assertJsonPath('member', self::SHARED);
 
-        $after = AuthToken::query()->where('token', $token)->firstOrFail()->update_time;
+        $after = AuthToken::query()->where('token', AuthToken::digest($token))->firstOrFail()->update_time;
 
         $this->assertNotNull($before);
         $this->assertNotNull($after);
