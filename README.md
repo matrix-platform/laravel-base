@@ -1682,7 +1682,7 @@ php artisan matrix:clear-resource-cache
 | `contains` / `endsWith` 走 `ILIKE`,本來就用不到 B-tree;**`startsWith` 也走 `ILIKE`,同樣用不到** | 要就自己加 `lower(col)` 運算式索引或 `pg_trgm` GIN |
 | **`api/common/city`、`menu` 與 `page` 沒有快取,而且是 POST** | CDN / proxy 快取不適用,要快取只能做在應用層 |
 | **三個 disk 設定只能用 local driver** | 縮圖產生與 IP 資料庫讀取走的是原生檔案函式(`is_file`、`mkdir`、`file_put_contents`、`rename`),它們吃的是 `Storage::disk()->path()` 的回傳值——那個值對非 local driver 是**相對路徑**,會相對於行程當下的工作目錄解析,而 queue worker、artisan 指令與 php-fpm 的工作目錄各不相同,同一份縮圖可能寫在三個地方、讀的時候都找不到,而且全程沒有錯誤。套件本身也沒有安裝任何遠端 flysystem adapter。設成別的 driver 會在取用 disk 時直接回 `unsupported-disk-driver` |
-| **`Resources` 是 singleton** | Octane 這類長生命週期行程改了設定要重啟才看得到。**訊息 worker 例外**——`SendMessageJob` 每次執行前會先丟掉已快取的 bundle,所以在資源後台改了 cfg(SMTP 主機/帳密、`interval` 等)下一封信就生效,不必重啟 worker |
+| **`Resources` 是 scoped** | queue worker 每個 Job、Octane 每個請求都會拿到新的實例,所以在資源後台改了 cfg(SMTP 主機/帳密、`interval` 等)或 i18n,下一個 Job／請求就生效,不必重啟。同一個 Job／請求之內讀到的則一直是開始時的值 |
 | 級聯刪除會逐筆取出實例再刪（為了稽核） | 成本隨子資料列數成長 |
 | **刪除前的參照檢查,最上層是每個關聯一次分組計數,關聯條件不能依賴 model 屬性** | 要刪的那幾筆共用同一個關聯查詢(以第一筆建立、`whereIn` 全部的鍵),所以 `hasMany(X::class)->where('type', $this->type)` 這種依各筆屬性加條件的關聯會算錯數量——可能讓仍被引用的資料被刪掉。常數條件與 global scope(含軟刪除)不受影響。查詢帶 limit / offset / group / having / union / join(例如 `latestOfMany()`)的關聯,以及級聯刪除底下的子層,仍逐筆 `count()` |
 | **級聯刪除的路徑可以在任何一層分岔** | `cascade(['children.a', 'children.b'])` 依共同前綴合併:每個 `children` 只走訪一次,`a`、`b` 兩種孫資料都先刪掉、都不擋刪除;沒列進去的關聯有資料仍回 `data-in-use` |

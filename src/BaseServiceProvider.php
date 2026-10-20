@@ -87,13 +87,13 @@ class BaseServiceProvider extends ServiceProvider {
         $this->app->scoped(Actor::class);
         $this->app->scoped(AdminPermission::class, fn () => new AdminPermission(actor()->requireUser(), app(Menus::class)));
         $this->app->scoped(PermissionTree::class);
+        $this->app->scoped(Resources::class);
         $this->app->scoped(RollbackCallbacks::class);
         $this->app->scoped(StagedContext::class);
         $this->app->singleton(Channels::class);
         $this->app->singleton(Menus::class);
         $this->app->singleton(MetadataRegistry::class);
         $this->app->singleton(PackageRegistry::class);
-        $this->app->singleton(Resources::class);
         $this->app->singleton(SharedModels::class);
     }
 

@@ -47,6 +47,7 @@ class SendMessageJobTest extends FeatureTestCase {
 
         $this->assertSame('stub@example.com', cfg('stub.from-address'), 'the running process has not seen it yet');
 
+        app()->forgetScopedInstances();
         $this->execute();
 
         $this->assertSame('changed@example.com', cfg('stub.from-address'), 'the job must drop the cached bundles so an admin edit needs no worker restart');

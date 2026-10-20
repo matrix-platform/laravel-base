@@ -345,6 +345,18 @@ class ResourcesTest extends FeatureTestCase {
         $this->assertSame('later', $this->fixtures()->config('demo.shared'));
     }
 
+    public function test_a_new_scope_reads_an_override_written_outside_the_process(): void {
+        $this->assertSame(30, cfg('admin.token-idle-minutes'));
+
+        $this->overriding('cfg/admin', ['token-idle-minutes' => 5]);
+
+        $this->assertSame(30, cfg('admin.token-idle-minutes'), 'the running scope has not seen it yet');
+
+        app()->forgetScopedInstances();
+
+        $this->assertSame(5, cfg('admin.token-idle-minutes'));
+    }
+
     public function test_bundle_names_list_the_files_of_one_directory_only(): void {
         $this->useResourceFixtures();
 
