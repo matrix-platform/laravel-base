@@ -2,6 +2,7 @@
 
 namespace MatrixPlatform\Translation;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Log;
 use MatrixPlatform\Exceptions\ServiceException;
 
@@ -31,6 +32,10 @@ class TranslationService {
             $this->record('failed', [...$context, 'error' => $exception->getError()]);
 
             throw $exception;
+        } catch (ConnectionException) {
+            $this->record('failed', [...$context, 'error' => 'connection-failed']);
+
+            error('translation-request-failed');
         }
 
         if ($translated === null) {

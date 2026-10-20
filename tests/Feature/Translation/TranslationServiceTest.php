@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Translation;
 
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use MatrixPlatform\Translation\TranslationService;
 use Mockery;
@@ -130,6 +132,20 @@ class TranslationServiceTest extends FeatureTestCase {
 
         $spy->shouldHaveReceived('info', ['translation.failed', Mockery::on(fn (array $context) => array_get_value($context, 'action') === 'failed'
             && array_get_value($context, 'error') === 'translation-request-failed')]);
+    }
+
+    public function test_a_provider_that_cannot_be_reached_is_refused_as_a_failed_request_and_recorded(): void {
+        $this->useCfg('google-translate', ['api-key' => 'test-key']);
+
+        config()->set('matrix.translation-provider', 'google-translate');
+
+        Http::fake(fn () => throw new ConnectionException('unreachable'));
+
+        $spy = Log::spy();
+
+        $this->refuses('translation-request-failed', fn () => $this->service()->translate('Hello', 'en', 'tw'));
+
+        $spy->shouldHaveReceived('info', ['translation.failed', Mockery::on(fn (array $context) => array_get_value($context, 'error') === 'connection-failed')]);
     }
 
     public function test_validation_failures_are_not_recorded(): void {

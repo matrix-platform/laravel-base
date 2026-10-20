@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Http\Controllers\Admin;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Testing\TestResponse;
@@ -56,6 +57,16 @@ class TranslationControllerTest extends FeatureTestCase {
         $response->assertJsonPath('data.available', false);
 
         Http::assertNothingSent();
+    }
+
+    public function test_a_provider_that_cannot_be_reached_answers_translation_request_failed(): void {
+        $this->useCfg('google-translate', ['api-key' => 'test-key']);
+
+        config()->set('matrix.translation-provider', 'google-translate');
+
+        Http::fake(fn () => throw new ConnectionException('unreachable'));
+
+        $this->translate(['content' => 'Hello', 'source' => 'en', 'target' => 'tw'])->assertJson(['success' => false, 'error' => 'translation-request-failed']);
     }
 
     public function test_a_source_locale_outside_the_configured_list_is_refused_as_a_validation_error(): void {
