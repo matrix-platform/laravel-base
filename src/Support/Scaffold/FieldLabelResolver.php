@@ -2,12 +2,7 @@
 
 namespace MatrixPlatform\Support\Scaffold;
 
-use MatrixPlatform\Exceptions\ServiceException;
-use MatrixPlatform\Translation\TranslationService;
-
 class FieldLabelResolver {
-
-    public function __construct(private TranslationService $translator) {}
 
     /**
      * @return array{labels: array<string, string>, notes: list<string>}
@@ -30,19 +25,7 @@ class FieldLabelResolver {
                 continue;
             }
 
-            try {
-                $translated = $this->translator->translate($comment, $defaultLocale, $locale);
-            } catch (ServiceException) {
-                $translated = null;
-            }
-
-            if ($translated === null) {
-                $notes[] = "Could not auto-translate the comment for '{$name}' into locale '{$locale}'; used a TODO placeholder instead.";
-
-                continue;
-            }
-
-            $labels[$name] = $translated;
+            $notes[] = "Translate the label of '{$name}' into locale '{$locale}' (source: \"{$comment}\"); used a TODO placeholder instead.";
         }
 
         return ['labels' => $labels, 'notes' => $notes];

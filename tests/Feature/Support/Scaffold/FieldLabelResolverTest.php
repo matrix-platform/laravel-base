@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Support\Scaffold;
 
+use Illuminate\Support\Facades\Http;
 use MatrixPlatform\Support\MetadataRegistry;
 use MatrixPlatform\Support\PackageRegistry;
 use MatrixPlatform\Support\Scaffold\FieldLabelResolver;
@@ -33,26 +34,22 @@ class FieldLabelResolverTest extends FeatureTestCase {
         $this->assertArrayNotHasKey('api_token', $resolved['labels']);
     }
 
-    public function test_the_comment_is_translated_into_other_locales_when_a_driver_is_configured(): void {
+    public function test_other_locales_get_a_note_carrying_the_source_text_instead_of_a_translation(): void {
+        Http::fake();
+
         $this->useTranslationFixtures();
 
         config()->set('matrix.translation-provider', 'stub');
 
-        $resolved = app(FieldLabelResolver::class)->resolve($this->build('scaffold_widget'), 'tw');
-
-        $this->assertSame('translated: Weight in kilograms', $resolved['labels']['weight']);
-        $this->assertSame('en', OkTranslationDriver::$requestedSourceLocale);
-        $this->assertSame('tw', OkTranslationDriver::$requestedTargetLocale);
-        $this->assertSame([], $resolved['notes']);
-    }
-
-    public function test_translation_falls_back_to_a_note_when_no_driver_is_configured(): void {
-        config()->set('matrix.translation-provider', 'does-not-exist');
+        OkTranslationDriver::$requestedTargetLocale = null;
 
         $resolved = app(FieldLabelResolver::class)->resolve($this->build('scaffold_widget'), 'tw');
 
         $this->assertArrayNotHasKey('weight', $resolved['labels']);
-        $this->assertSame(["Could not auto-translate the comment for 'weight' into locale 'tw'; used a TODO placeholder instead."], $resolved['notes']);
+        $this->assertSame(["Translate the label of 'weight' into locale 'tw' (source: \"Weight in kilograms\"); used a TODO placeholder instead."], $resolved['notes']);
+        $this->assertNull(OkTranslationDriver::$requestedTargetLocale);
+
+        Http::assertNothingSent();
     }
 
     private function build(string $table): ScaffoldPlan {

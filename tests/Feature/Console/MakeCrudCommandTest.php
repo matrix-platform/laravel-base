@@ -191,10 +191,8 @@ class MakeCrudCommandTest extends FeatureTestCase {
     }
 
     public function test_a_column_comment_becomes_the_label_for_the_apps_default_locale_and_is_flagged_elsewhere(): void {
-        config()->set('matrix.translation-provider', 'does-not-exist');
-
         $this->artisanCommand('matrix:make-crud scaffold_widget --path=' . $this->root)
-            ->expectsOutputToContain("Could not auto-translate the comment for 'weight' into locale 'tw'; used a TODO placeholder instead.")
+            ->expectsOutputToContain("Translate the label of 'weight' into locale 'tw' (source: \"Weight in kilograms\")")
             ->assertExitCode(0);
 
         $this->assertStringContainsString("'weight' => 'Weight in kilograms',", $this->read("{$this->root}/resources/i18n/en/model/scaffold_widget.php"));
