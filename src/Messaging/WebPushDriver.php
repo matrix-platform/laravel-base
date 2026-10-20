@@ -16,7 +16,8 @@ class WebPushDriver implements Driver {
 
     public function send(MessageLog $log): string {
         $bundle = $log->provider;
-        $subscriptions = PushSubscription::query()->where('member_id', $log->member_id)->get();
+        $sandbox = Sandbox::recipient($bundle);
+        $subscriptions = PushSubscription::query()->where('member_id', $sandbox === null ? $log->member_id : intval($sandbox))->get();
 
         if ($subscriptions->isEmpty()) {
             error('push-subscription-not-found');
@@ -40,7 +41,7 @@ class WebPushDriver implements Driver {
 
             $subscription = $subscriptions->firstWhere('endpoint', $report->getEndpoint());
 
-            if ($report->isSubscriptionExpired() && $subscription !== null) {
+            if ($sandbox === null && $report->isSubscriptionExpired() && $subscription !== null) {
                 $subscription->delete();
             }
         }
@@ -49,7 +50,7 @@ class WebPushDriver implements Driver {
             error('push-delivery-failed');
         }
 
-        return implode(',', $endpoints);
+        return Sandbox::response($sandbox, implode(',', $endpoints));
     }
 
     private function client(string $bundle): WebPush {

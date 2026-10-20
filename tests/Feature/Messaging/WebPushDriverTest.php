@@ -29,10 +29,10 @@ class WebPushDriverTest extends FeatureTestCase {
         ]);
     }
 
-    private function log(): PushLog {
+    private function log(string $provider = 'webpush'): PushLog {
         $log = new PushLog();
 
-        $log->provider = 'webpush';
+        $log->provider = $provider;
         $log->member_id = 1;
         $log->title = 'Notice';
         $log->content = 'Body';
@@ -50,6 +50,16 @@ class WebPushDriverTest extends FeatureTestCase {
      */
     private function mockClient(array $responses): void {
         app()->instance(ClientInterface::class, new Client(['handler' => HandlerStack::create(new MockHandler($responses))]));
+    }
+
+    /**
+     * @param array<string, mixed> $overrides
+     */
+    private function useSandbox(array $overrides = []): void {
+        $keys = VAPID::createVapidKeys();
+
+        $this->useMessagingFixtures();
+        $this->useCfg('webpush-sandboxed', array_merge(['public-key' => $keys['publicKey'], 'private-key' => $keys['privateKey']], $overrides));
     }
 
     private function subscription(int $memberId = 1): PushSubscription {
@@ -93,6 +103,38 @@ class WebPushDriverTest extends FeatureTestCase {
 
     public function test_a_receiver_with_no_subscriptions_is_refused(): void {
         $this->refuses('push-subscription-not-found', fn () => (new WebPushDriver())->send($this->log()));
+    }
+
+    public function test_a_sandboxed_provider_sends_to_the_sink_member_instead(): void {
+        $real = $this->subscription();
+        $sink = $this->subscription(2);
+
+        $this->useSandbox();
+        $this->mockClient([new Response(201)]);
+
+        $response = (new WebPushDriver())->send($this->log('webpush-sandboxed'));
+
+        $this->assertSame("sandbox: 2 {$sink->endpoint}", $response);
+        $this->assertStringNotContainsString($real->endpoint, $response);
+    }
+
+    public function test_a_sandboxed_expiry_does_not_delete_the_sink_subscription(): void {
+        $sink = $this->subscription(2);
+
+        $this->useSandbox();
+        $this->mockClient([new Response(410)]);
+
+        $this->refuses('push-delivery-failed', fn () => (new WebPushDriver())->send($this->log('webpush-sandboxed')));
+
+        $this->assertNotNull($sink->fresh());
+    }
+
+    public function test_a_sandbox_without_a_recipient_is_refused(): void {
+        $this->subscription();
+
+        $this->useSandbox(['sandbox-recipient' => '']);
+
+        $this->refuses('invalid-message-receiver', fn () => (new WebPushDriver())->send($this->log('webpush-sandboxed')));
     }
 
     public function test_a_failure_that_is_not_an_expiry_does_not_delete_the_subscription(): void {

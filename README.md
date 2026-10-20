@@ -1197,6 +1197,8 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | `webpush.public-key` | `''` | VAPID 公鑰 |
 | `webpush.private-key` | `''` | VAPID 私鑰 |
 | `webpush.interval` | `1` | 同 `gmail.interval` |
+| `webpush.sandbox` | `false` | 同 `gmail.sandbox`,開啟後推播一律送到 `sandbox-recipient` 那個會員的所有訂閱;沙箱模式下訂閱過期也不刪除 |
+| `webpush.sandbox-recipient` | `''` | 同 `gmail.sandbox-recipient`,填會員 id。那個會員要先在該環境訂閱過推播 |
 | `telegram.driver` | `TelegramDriver::class` | 同 `gmail.driver` |
 | `telegram.bot-token` | `''` | Bot API token,呼叫 `sendMessage`/`setWebhook` 都用它 |
 | `telegram.bot-username` | `''` | 組 `link()` 回傳的 deep-link(`https://t.me/{bot-username}?start=...`)用,不含 `@` |

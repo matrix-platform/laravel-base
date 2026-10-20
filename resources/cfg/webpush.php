@@ -14,4 +14,8 @@ return [
 
     'interval' => 1,
 
+    'sandbox' => false,
+
+    'sandbox-recipient' => '',
+
 ];
