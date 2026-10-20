@@ -33,6 +33,10 @@ class TranslationService {
             throw $exception;
         }
 
+        if ($translated === null) {
+            return null;
+        }
+
         $restored = [];
         $translation = $this->restore($translated, $placeholders, $restored);
 

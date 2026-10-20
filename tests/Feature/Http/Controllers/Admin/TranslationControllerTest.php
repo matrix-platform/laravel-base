@@ -3,6 +3,7 @@
 namespace Tests\Feature\Http\Controllers\Admin;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Testing\TestResponse;
 use MatrixPlatform\Models\User;
 use Tests\Factories\UserFactory;
@@ -43,6 +44,18 @@ class TranslationControllerTest extends FeatureTestCase {
         $response = $this->translate(['content' => 'Hello', 'source' => 'en', 'target' => 'tw']);
 
         $response->assertJsonPath('data.available', false);
+    }
+
+    public function test_a_provider_without_an_api_key_reports_unavailable_without_any_request(): void {
+        Http::fake();
+
+        config()->set('matrix.translation-provider', 'google-translate');
+
+        $response = $this->translate(['content' => 'Hello', 'source' => 'en', 'target' => 'tw']);
+
+        $response->assertJsonPath('data.available', false);
+
+        Http::assertNothingSent();
     }
 
     public function test_a_source_locale_outside_the_configured_list_is_refused_as_a_validation_error(): void {

@@ -4,6 +4,9 @@ namespace MatrixPlatform\Translation;
 
 interface Driver {
 
-    public function translate(string $text, string $sourceLocale, string $targetLocale): string;
+    /**
+     * @return string|null
+     */
+    public function translate(string $text, string $sourceLocale, string $targetLocale): ?string;
 
 }

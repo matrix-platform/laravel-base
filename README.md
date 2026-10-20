@@ -1124,7 +1124,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | `matrix.resource-locales` | `[]` | 資源後台各群組固定編輯的語系,`{群組} => {語系}`,例如 `['i18n/template' => 'tw']` 讓訊息樣板不論後台介面語系都編輯繁中那份(寄信只用單一語系樣板時用)。沒列的群組跟著當次請求的語系 |
 | `matrix.thumbnail-quality` | `80` | 縮圖 webp 編碼品質(0-100) |
 | `matrix.thumbnail-sizes` | `['icon' => 64, 'thumb' => 256]` | 可用的縮圖 `size` 參數與對應寬度(px),`?size=` 帶不在此清單內的值一律回原始檔案 |
-| `matrix.translation-provider` | `'google-translate'` | 內容翻譯要用哪個 driver,對應 `resources/cfg/{值}.php`。出貨兩個:`google-translate`(Google Cloud Translation,帶 `format=html`)、`gemini-translate`(Gemini `generateContent`,靠 prompt 要求保留標籤,見[已知限制與取捨](#安全)) |
+| `matrix.translation-provider` | `'google-translate'` | 內容翻譯要用哪個 driver,對應 `resources/cfg/{值}.php`。出貨兩個:`google-translate`(Google Cloud Translation,帶 `format=html`)、`gemini-translate`(Gemini `generateContent`,靠 prompt 要求保留標籤,見[已知限制與取捨](#安全))。該 bundle 的 `api-key` 空白時視為未設定:不送出請求,`admin/translation` 回 `available: false` |
 | `matrix.variants` | `[]` | `Definition::composite()` 的接線:`{group} => ['driver' => TypeResolver 類別, {type} => Variant 類別, …]`。**刻意放 config 不放 cfg** —— 它指的是要實例化的類別,而 cfg bundle 一旦進了 `matrix.resource-cfg` 白名單就能從資源後台改 |
 | `matrix.vendor-api-encryption` | `true` | `vendor` 前綴要不要傳輸加密 |
 | `matrix.vendor-api-prefix` | `'vendor'` | 廠商路由前綴 |

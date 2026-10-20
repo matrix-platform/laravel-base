@@ -6,9 +6,13 @@ use Illuminate\Support\Facades\Http;
 
 class GoogleTranslateDriver implements Driver {
 
-    public function translate(string $text, string $sourceLocale, string $targetLocale): string {
+    public function translate(string $text, string $sourceLocale, string $targetLocale): ?string {
         $endpoint = strval(cfg('google-translate.endpoint'));
         $key = strval(cfg('google-translate.api-key'));
+
+        if ($key === '') {
+            return null;
+        }
 
         $response = Http::withQueryParameters(['key' => $key])->post($endpoint, [
             'q' => $text,

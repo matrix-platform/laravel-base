@@ -14,9 +14,13 @@ class GeminiTranslateDriver implements Driver {
 
     private const TIMEOUT = 60;
 
-    public function translate(string $text, string $sourceLocale, string $targetLocale): string {
+    public function translate(string $text, string $sourceLocale, string $targetLocale): ?string {
         $endpoint = rtrim(strval(cfg('gemini-translate.endpoint')), '/') . self::PATH . strval(cfg('gemini-translate.model')) . ':generateContent';
         $key = strval(cfg('gemini-translate.api-key'));
+
+        if ($key === '') {
+            return null;
+        }
 
         $response = Http::withHeaders(['x-goog-api-key' => $key])
             ->connectTimeout(self::CONNECT_TIMEOUT)
