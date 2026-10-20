@@ -12,7 +12,6 @@ use MatrixPlatform\Columns\Options\BundleOptions;
 use MatrixPlatform\Columns\Query\Sort;
 use MatrixPlatform\Columns\Query\Sorting;
 use MatrixPlatform\Columns\Syntax\ColumnParser;
-use MatrixPlatform\Services\PreferenceService;
 use MatrixPlatform\Support\MetadataRegistry;
 use MatrixPlatform\Support\Schedule;
 use MatrixPlatform\Support\ScheduleFilter;
@@ -86,7 +85,7 @@ class ListService extends CrudService {
         $this->pool($this->optionals);
 
         $values = is_array($input) ? $input : [];
-        $preference = app(PreferenceService::class)->get(actor()->requireCurrent());
+        $preference = $this->preference();
         $parents = $this->subject->parents($context, $this->params);
         $prefix = $this->prefix();
         $metadata = app(MetadataRegistry::class)->of($context::class);
