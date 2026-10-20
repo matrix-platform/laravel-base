@@ -3,10 +3,17 @@
 namespace MatrixPlatform\Support;
 
 use Illuminate\Database\Eloquent\Model;
+use MatrixPlatform\Columns\Declarations\BlockItemTypeResolver;
+use MatrixPlatform\Columns\Declarations\BlockTypeResolver;
 use MatrixPlatform\Columns\Declarations\TypeResolver;
 use MatrixPlatform\Columns\Declarations\Variant;
 
 class Variants {
+
+    private const DEFAULT_RESOLVERS = [
+        'block-data' => BlockTypeResolver::class,
+        'block-item-data' => BlockItemTypeResolver::class
+    ];
 
     /**
      * @var array<string, ?TypeResolver>
@@ -48,6 +55,10 @@ class Variants {
         }
 
         $driver = config("matrix.variants.{$group}.driver");
+
+        if ($driver === null && array_key_exists($group, self::DEFAULT_RESOLVERS)) {
+            $driver = self::DEFAULT_RESOLVERS[$group];
+        }
 
         if ($driver !== null && (!is_string($driver) || !is_a($driver, TypeResolver::class, true))) {
             error('invalid-type-resolver');

@@ -448,14 +448,14 @@ translatable 的子欄位就是一個 `translatable: true` 的普通 column,前�
 
 要讓 `new` 開在某個 type 上(例如讓使用者先選型別再進表單),把它當 body 送給 `new` 即可:`POST admin/block/new` 帶 `{"type": "banner"}`。引擎會依它展開子欄位,並把**已宣告且可寫**的輸入值反映回回應的 `data`,表單一開就是填好的。呼叫端亂塞的鍵不會被回吐。
 
-**套件自己宣告了四個 group,而且全部預設不接線。** 沒有在 `config('matrix.variants')` 接上以前,那個 `data` 欄位在後台一個 column 都不會出現,`api/common/*` 則把儲存值原樣吐出來(沒存過是 `{}`)。
+**套件自己宣告了四個 group,而且都沒有出貨任何 `Variant`。** 沒有在 `config('matrix.variants')` 接上以前,那個 `data` 欄位在後台一個 column 都不會出現,`api/common/*` 則把儲存值原樣吐出來(沒存過是 `{}`)。`block-data` 與 `block-item-data` 的 type 本來就存在資料上,所以套件內建了 `driver`(`BlockTypeResolver`、`BlockItemTypeResolver`),只要註冊 `{type} => Variant 類別`;`page-data` 與 `menu-data` 則必須自己寫 `driver`。
 
 | group | 欄位 | `resolve()` 能依據什麼 |
 |---|---|---|
 | `page-data` | `base_page.data` | 頁面**沒有** `type` 欄位。通常回傳固定字串(全站共用一組欄位),或依 `path` 分流 |
 | `menu-data` | `base_menu.data` | 選單**沒有** `type` 欄位。依資料判斷,例如 `parent_id` 是否為 null(頂層與子層用不同欄位) |
-| `block-data` | `base_block.data` | 直接讀 `type` 欄位;`new` 時讀 body 的 `type` |
-| `block-item-data` | `base_block_item.data` | 查父區塊的 `type`,但對到**另一組** `Variant`,不是父區塊那一組 |
+| `block-data` | `base_block.data` | 內建 `BlockTypeResolver`:直接讀 `type` 欄位;`new` 時讀 body 的 `type` |
+| `block-item-data` | `base_block_item.data` | 內建 `BlockItemTypeResolver`:查父區塊的 `type`,但對到**另一組** `Variant`,不是父區塊那一組。要自訂 `driver` 時,回傳值必須等於(父)區塊的 `type`——驗證、列表與 `api/common/*` 一律直接用 `type` 取 `Variant`,回傳別的值會讓後台表單和它們對不上 |
 
 **`resolve()` 的第二個參數只有 `new` / `insert` / `update` 拿得到值。** `get`(編輯頁)、`api/common/page`、`api/common/menu` 一律傳 `null`。所以 page 與 menu 的 driver 必須只靠 model 或常數就能決定 —— 只看 `$input` 的寫法會在編輯頁與前台端點失效。巢狀路由的 `new` 與 `insert` 在呼叫 `resolve()` 之前就已經把路由上的父層外鍵填進 model(例如 `menu/{parent_id}/children/insert` 的 `parent_id`),body 不必另外帶。
 

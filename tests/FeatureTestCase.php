@@ -20,8 +20,6 @@ use MatrixPlatform\Support\ResourceGroup;
 use MatrixPlatform\Support\Resources;
 use Tests\Factories\UserFactory;
 use Tests\Stubs\TestBannerFields;
-use Tests\Stubs\TestBlockItemTypeResolver;
-use Tests\Stubs\TestBlockTypeResolver;
 use Tests\Stubs\TestEditorFields;
 use Tests\Stubs\TestGalleryBlockFields;
 use Tests\Stubs\TestGalleryItemFields;
@@ -215,13 +213,11 @@ class FeatureTestCase extends TestCase {
         $this->usePackageFixtures('block-data-fixture', 'package-block-data');
         $this->useVariants([
             'block-data' => [
-                'driver' => TestBlockTypeResolver::class,
                 'banner' => TestBannerFields::class,
                 'editor' => TestEditorFields::class,
                 'gallery' => TestGalleryBlockFields::class
             ],
             'block-item-data' => [
-                'driver' => TestBlockItemTypeResolver::class,
                 'gallery' => TestGalleryItemFields::class
             ]
         ]);

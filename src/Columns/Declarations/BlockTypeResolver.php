@@ -1,11 +1,10 @@
 <?php //>
 
-namespace Tests\Stubs;
+namespace MatrixPlatform\Columns\Declarations;
 
 use Illuminate\Database\Eloquent\Model;
-use MatrixPlatform\Columns\Declarations\TypeResolver;
 
-class TestBlockTypeResolver implements TypeResolver {
+class BlockTypeResolver implements TypeResolver {
 
     public function resolve(?Model $model, mixed $input): ?string {
         $stored = $model?->getAttribute('type');
