@@ -7,6 +7,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\ServiceProvider;
+use InvalidArgumentException;
 use MatrixPlatform\Console\Commands\ClearResourceCacheCommand;
 use MatrixPlatform\Console\Commands\DispatchMessagesCommand;
 use MatrixPlatform\Console\Commands\MakeCrudCommand;
@@ -57,7 +58,19 @@ class BaseServiceProvider extends ServiceProvider {
             ]);
         }
 
-        Validator::extend('password_format', fn (string $attribute, mixed $value, array $parameters): bool => is_string($value) && preg_match(strval(cfg("{$parameters[0]}.password-pattern")), $value) === 1);
+        Validator::extend('password_format', function (string $attribute, mixed $value, array $parameters): bool {
+            if (!array_key_exists(0, $parameters)) {
+                throw new InvalidArgumentException('password_format requires a cfg bundle, e.g. password_format:admin');
+            }
+
+            $pattern = cfg("{$parameters[0]}.password-pattern");
+
+            if (!is_string($pattern) || $pattern === '') {
+                throw new InvalidArgumentException("cfg {$parameters[0]}.password-pattern is not defined");
+            }
+
+            return is_string($value) && preg_match($pattern, $value) === 1;
+        });
 
         $packages = app(PackageRegistry::class);
         $packages->register('app', base_path());
