@@ -352,6 +352,7 @@ return [
     'validation.passkey-already-registered' => '此 Passkey 已註冊過',
     'validation.password-format' => '密碼需至少 8 碼, 並包含英文字母與數字',
     'validation.present' => '缺少此欄位',
+    'validation.query-failed' => '此列寫入資料庫失敗, 請檢查資料是否重複或關聯不存在',
     'validation.regex' => '格式有誤',
     'validation.required' => '此欄位為必填',
     'validation.required-if' => '此欄位為必填',

@@ -110,7 +110,7 @@ return [
 
     'nested-composite-not-supported' => '复合字段不支持嵌套',
 
-    'page-content-locked' => '默认内容区块只能由系统建立，不可复制或删除',
+    'page-content-locked' => '默认内容区块不可复制或删除',
 
     'permission-denied' => '权限不足',
 

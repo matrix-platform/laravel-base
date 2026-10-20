@@ -1284,7 +1284,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | `mfa-already-enabled` | 雙因子驗證已經啟用 |
 | `name-already-exists` | 這個名稱在此位置已經存在 |
 | `nested-composite-not-supported` | 複合欄位不支援巢狀 |
-| `page-content-locked` | 預設內容區塊只能由系統建立，不可複製或刪除 |
+| `page-content-locked` | 預設內容區塊不可複製或刪除 |
 | `permission-denied` | 權限不足 |
 | `push-delivery-failed` | 推播通知無法送達任何訂閱 |
 | `push-subscription-not-found` | 這個收件者沒有可用的推播訂閱 |

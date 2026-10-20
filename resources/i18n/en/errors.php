@@ -110,7 +110,7 @@ return [
 
     'nested-composite-not-supported' => 'Nested composite fields are not supported',
 
-    'page-content-locked' => 'The built-in content block is created by the system only and cannot be copied or deleted',
+    'page-content-locked' => 'The built-in content block cannot be copied or deleted',
 
     'permission-denied' => 'Permission denied',
 

@@ -352,6 +352,7 @@ return [
     'validation.passkey-already-registered' => 'このパスキーは既に登録されています',
     'validation.password-format' => 'パスワードは8文字以上で、英字と数字を含めてください',
     'validation.present' => 'この項目がありません',
+    'validation.query-failed' => 'この行をデータベースに書き込めませんでした。重複や存在しない関連がないか確認してください',
     'validation.regex' => '形式が正しくありません',
     'validation.required' => 'この項目は必須です',
     'validation.required-if' => 'この項目は必須です',

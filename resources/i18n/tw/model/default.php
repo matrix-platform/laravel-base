@@ -14,6 +14,8 @@ return [
 
     'schedule' => '上下架',
 
+    'title' => '標題',
+
     'update_time' => '更新時間',
 
     'updater' => '更新者',

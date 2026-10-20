@@ -110,7 +110,7 @@ return [
 
     'nested-composite-not-supported' => '複合フィールドの入れ子はサポートされていません',
 
-    'page-content-locked' => '既定コンテンツブロックはシステムのみが作成でき、複製・削除はできません',
+    'page-content-locked' => '既定コンテンツブロックは複製・削除できません',
 
     'permission-denied' => '権限がありません',
 

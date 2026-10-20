@@ -14,6 +14,8 @@ return [
 
     'schedule' => 'Schedule',
 
+    'title' => 'Title',
+
     'update_time' => 'Update Time',
 
     'updater' => 'Updater',

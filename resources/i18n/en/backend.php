@@ -352,6 +352,7 @@ return [
     'validation.passkey-already-registered' => 'This passkey is already registered',
     'validation.password-format' => 'Password must be at least 8 characters and include letters and numbers',
     'validation.present' => 'This field is missing',
+    'validation.query-failed' => 'This row could not be written to the database, check for duplicates or missing references',
     'validation.regex' => 'Invalid format',
     'validation.required' => 'This field is required',
     'validation.required-if' => 'This field is required',

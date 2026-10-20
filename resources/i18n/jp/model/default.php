@@ -14,6 +14,8 @@ return [
 
     'schedule' => '公開状態',
 
+    'title' => 'タイトル',
+
     'update_time' => '更新日時',
 
     'updater' => '更新者',

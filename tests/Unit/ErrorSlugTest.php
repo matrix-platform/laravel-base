@@ -10,12 +10,14 @@ use SplFileInfo;
 
 class ErrorSlugTest extends TestCase {
 
+    private const EXTRA_VALIDATION_SLUGS = ['query-failed'];
+
     public function test_every_error_slug_used_in_src_is_declared_in_every_locale(): void {
         $declared = $this->declared();
 
         $this->assertNotEmpty($declared);
 
-        foreach ($this->used() as $file => $slugs) {
+        foreach ($this->used('error') as $file => $slugs) {
             foreach ($slugs as $slug) {
                 foreach ($declared as $locale => $messages) {
                     $this->assertArrayHasKey($slug, $messages, "undeclared error slug '{$slug}' in {$file} for locale '{$locale}'");
@@ -24,8 +26,23 @@ class ErrorSlugTest extends TestCase {
         }
     }
 
+    public function test_every_validation_slug_used_in_src_is_declared_in_every_locale(): void {
+        $declared = $this->validations();
+
+        $this->assertNotEmpty($declared);
+
+        foreach ([...$this->used('validation'), 'extra' => self::EXTRA_VALIDATION_SLUGS] as $file => $slugs) {
+            foreach ($slugs as $slug) {
+                foreach ($declared as $locale => $messages) {
+                    $this->assertArrayHasKey("validation.{$slug}", $messages, "undeclared validation slug '{$slug}' in {$file} for locale '{$locale}'");
+                }
+            }
+        }
+    }
+
     public function test_the_scanner_actually_finds_slugs(): void {
-        $this->assertContains('invalid-resource-token', array_merge(...array_values($this->used())));
+        $this->assertContains('invalid-resource-token', array_merge(...array_values($this->used('error'))));
+        $this->assertContains('schedule-not-supported', array_merge(...array_values($this->used('validation'))));
     }
 
     /**
@@ -110,7 +127,7 @@ class ErrorSlugTest extends TestCase {
     /**
      * @return array<string, list<string>>
      */
-    private function used(): array {
+    private function used(string $kind): array {
         $found = [];
         $root = realpath(__DIR__ . '/../../src');
 
@@ -133,9 +150,9 @@ class ErrorSlugTest extends TestCase {
                     continue;
                 }
 
-                $slug = match ($token[1]) {
-                    'error' => $this->literalArgument($tokens, $index),
-                    'resolve_driver' => $this->lastLiteralArgument($tokens, $index),
+                $slug = match ([$kind, $token[1]]) {
+                    ['error', 'error'] => $this->literalArgument($tokens, $index),
+                    ['error', 'resolve_driver'], ['validation', 'invalid'] => $this->lastLiteralArgument($tokens, $index),
                     default => null,
                 };
 
@@ -146,6 +163,23 @@ class ErrorSlugTest extends TestCase {
         }
 
         return $found;
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    private function validations(): array {
+        $declared = [];
+
+        foreach (glob(__DIR__ . '/../../resources/i18n/*/backend.php') ?: [] as $file) {
+            $messages = require $file;
+
+            $this->assertIsArray($messages, "{$file} must return an array");
+
+            $declared[basename(dirname($file))] = $messages;
+        }
+
+        return $declared;
     }
 
 }
