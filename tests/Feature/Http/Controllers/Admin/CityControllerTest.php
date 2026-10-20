@@ -4,6 +4,7 @@ namespace Tests\Feature\Http\Controllers\Admin;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Testing\TestResponse;
+use MatrixPlatform\Http\Controllers\Admin\CityController;
 use MatrixPlatform\Models\City;
 use MatrixPlatform\Models\User;
 use Tests\Factories\CityAreaFactory;
@@ -39,6 +40,42 @@ class CityControllerTest extends FeatureTestCase {
 
         $response->assertJsonPath('data.rows.0.title', 'Taipei');
         $response->assertJsonPath('data.rows.0.areas_count', 2);
+    }
+
+    public function test_the_count_column_is_kept_when_the_listing_columns_are_written_by_hand(): void {
+        $city = CityFactory::new()->createOne(['title__tw' => 'Taipei', 'title__en' => 'Taipei']);
+
+        CityAreaFactory::new()->createOne(['city_id' => $city->id]);
+
+        app()->bind(CityController::class, fn () => new class extends CityController {
+
+            protected ?array $lists = ['title'];
+
+        });
+
+        $this->send('admin/city')->assertJsonPath('data.rows.0.areas_count', 1);
+
+        app()->bind(CityController::class, fn () => new class extends CityController {
+
+            protected array $updates = ['title'];
+
+        });
+
+        $this->send('admin/city')->assertJsonPath('data.rows.0.areas_count', 1);
+    }
+
+    public function test_a_count_already_listed_by_hand_is_not_repeated(): void {
+        CityFactory::new()->createOne(['title__tw' => 'Taipei', 'title__en' => 'Taipei']);
+
+        app()->bind(CityController::class, fn () => new class extends CityController {
+
+            protected ?array $lists = ['title', 'count(areas)'];
+
+        });
+
+        $names = array_column($this->send('admin/city')->json('data.columns'), 'name');
+
+        $this->assertSame(1, count(array_keys($names, 'areas_count', true)));
     }
 
     public function test_a_city_without_areas_reports_a_zero_count_rather_than_null(): void {

@@ -448,11 +448,11 @@ abstract class CrudController extends BaseController {
      */
     private function listing(): array {
         if ($this->lists !== null) {
-            return $this->lists;
+            return $this->withCounts($this->lists);
         }
 
         if ($this->updates !== []) {
-            return $this->updates;
+            return $this->withCounts($this->updates);
         }
 
         $found = app(MetadataRegistry::class)->definitions($this->model);
@@ -500,6 +500,14 @@ abstract class CrudController extends BaseController {
         $ranking = $this->ranking();
 
         return $ranking === null ? [$this->instance()->getKeyName()] : [$ranking];
+    }
+
+    /**
+     * @param list<string|array<string, mixed>> $columns
+     * @return list<string|array<string, mixed>>
+     */
+    private function withCounts(array $columns): array {
+        return [...$columns, ...array_values(array_filter($this->counted(), fn (string $count): bool => !in_array($count, $columns, true)))];
     }
 
 }
