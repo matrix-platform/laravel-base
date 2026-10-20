@@ -52,6 +52,23 @@ class I18nControllerTest extends FeatureTestCase {
         $this->assertNull($store->get(Resources::defaultsCacheKey('i18n/' . app()->getLocale() . '/does-not-exist', $generation)));
     }
 
+    public function test_a_name_with_glob_characters_or_an_equivalent_path_is_rejected_without_a_cache_entry(): void {
+        config()->set('matrix.resource-cache-enabled', true);
+        config()->set('matrix.resource-cache-store', 'array');
+
+        $store = Cache::store('array');
+
+        foreach (['[w]idget', 'w*', 'menu/*', './widget', 'menu//resource'] as $name) {
+            $this->postJson('admin/i18n/get', ['name' => $name])
+                ->assertOk()
+                ->assertJson(['success' => false, 'error' => 'invalid-resource-token']);
+
+            $generation = strval($store->get(Resources::generationCacheKey(), ''));
+
+            $this->assertNull($store->get(Resources::defaultsCacheKey('i18n/' . app()->getLocale() . "/{$name}", $generation)), $name);
+        }
+    }
+
     public function test_a_missing_name_is_rejected(): void {
         $this->postJson('admin/i18n/get')
             ->assertOk()

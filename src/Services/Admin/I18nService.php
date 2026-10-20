@@ -12,6 +12,10 @@ class I18nService {
      * @return array<string, mixed>|null
      */
     public function get(string $name): ?array {
+        if (preg_match('/^[\w-]+(\/[\w-]+)*$/D', $name) !== 1) {
+            error('invalid-resource-token');
+        }
+
         $path = 'i18n/' . app()->getLocale() . "/{$name}";
 
         if (!in_array(basename($path), $this->resources->bundleNames(dirname($path)), true)) {
