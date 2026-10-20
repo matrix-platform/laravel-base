@@ -16,6 +16,7 @@ class EnvelopeMiddlewareTest extends FeatureTestCase {
     protected function defineRoutes($router): void {
         $router->middleware('envelope-api')->group(fn () => ActionRoutes::scan(StubController::class));
         $router->middleware('envelope-api')->post('service-failure', fn () => error('encryption-unavailable'));
+        $router->middleware('envelope-api')->post('overriding-extra', fn () => error('data-conflicted', 409, ['success' => true, 'code' => 200, 'error' => 'x', 'message' => 'x', 'extra' => 1]));
     }
 
     public function test_a_service_exception_keeps_its_own_code_and_slug(): void {
@@ -35,6 +36,12 @@ class EnvelopeMiddlewareTest extends FeatureTestCase {
             'error' => 'invalid-password',
             'fields' => ['current' => ['invalid-password']]
         ]);
+    }
+
+    public function test_extra_fields_cannot_override_the_envelope(): void {
+        $response = $this->postJson('overriding-extra');
+
+        $response->assertJson(['success' => false, 'code' => 409, 'error' => 'data-conflicted', 'message' => i18n('errors.data-conflicted'), 'extra' => 1]);
     }
 
     public function test_a_missing_model_becomes_a_404_envelope(): void {

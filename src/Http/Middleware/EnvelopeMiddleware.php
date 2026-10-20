@@ -18,7 +18,7 @@ class EnvelopeMiddleware {
      * @param array<string, mixed> $extra
      */
     public static function json(int $code, string $error, array $extra = []): JsonResponse {
-        return response()->json(array_merge(['success' => false, 'code' => $code, 'error' => $error, 'message' => i18n("errors.{$error}")], $extra));
+        return response()->json(['success' => false, 'code' => $code, 'error' => $error, 'message' => i18n("errors.{$error}")] + $extra);
     }
 
     public function handle(Request $request, Closure $next): mixed {
