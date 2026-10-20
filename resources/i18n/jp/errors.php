@@ -124,6 +124,8 @@ return [
 
     'staged-key-conflict' => '一時保存のキーは親フィールドと同じ名前にできません',
 
+    'telegram-not-subscribed' => 'このユーザーは Telegram を連携していません',
+
     'too-many-requests' => 'リクエストが多すぎます。しばらくしてから再度お試しください',
 
     'translation-request-failed' => '翻訳リクエストに失敗しました',

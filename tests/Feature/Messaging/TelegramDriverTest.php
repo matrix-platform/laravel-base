@@ -43,7 +43,7 @@ class TelegramDriverTest extends FeatureTestCase {
 
         Http::fake(['*' => Http::response(['ok' => true, 'result' => ['message_id' => 1]])]);
 
-        (new TelegramDriver())->send($this->log('42'));
+        (new TelegramDriver())->send($this->log('user:42'));
 
         Http::assertSent(fn (Request $request) => $request['chat_id'] === '555666' && $request['text'] === 'Hello');
     }
@@ -54,6 +54,41 @@ class TelegramDriverTest extends FeatureTestCase {
         (new TelegramDriver())->send($this->log('-1001234567890'));
 
         Http::assertSent(fn (Request $request) => $request['chat_id'] === '-1001234567890');
+    }
+
+    public function test_a_plain_number_is_sent_literally_even_when_it_matches_a_user_id(): void {
+        $this->subscription(42, '555666');
+
+        Http::fake(['*' => Http::response(['ok' => true, 'result' => ['message_id' => 1]])]);
+
+        (new TelegramDriver())->send($this->log('42'));
+
+        Http::assertSent(fn (Request $request) => $request['chat_id'] === '42');
+    }
+
+    public function test_a_chat_id_beyond_the_user_id_range_is_sent_literally(): void {
+        Http::fake(['*' => Http::response(['ok' => true, 'result' => ['message_id' => 1]])]);
+
+        (new TelegramDriver())->send($this->log('5123456789'));
+
+        Http::assertSent(fn (Request $request) => $request['chat_id'] === '5123456789');
+    }
+
+    public function test_a_channel_username_is_sent_literally(): void {
+        Http::fake(['*' => Http::response(['ok' => true, 'result' => ['message_id' => 1]])]);
+
+        (new TelegramDriver())->send($this->log('@mychannel'));
+
+        Http::assertSent(fn (Request $request) => $request['chat_id'] === '@mychannel');
+    }
+
+    public function test_a_user_without_a_subscription_is_refused_without_calling_telegram(): void {
+        Http::fake();
+
+        $this->refuses('telegram-not-subscribed', fn () => (new TelegramDriver())->send($this->log('user:42')));
+        $this->refuses('telegram-not-subscribed', fn () => (new TelegramDriver())->send($this->log('user:abc')));
+
+        Http::assertNothingSent();
     }
 
     public function test_extra_data_options_are_merged_into_the_request(): void {
@@ -111,7 +146,7 @@ class TelegramDriverTest extends FeatureTestCase {
 
         Http::fake(['*' => Http::response(['ok' => false, 'error_code' => 403, 'description' => 'Forbidden: bot was blocked by the user'], 403)]);
 
-        $this->refuses('message-refused-by-provider', fn () => (new TelegramDriver())->send($this->log('42')));
+        $this->refuses('message-refused-by-provider', fn () => (new TelegramDriver())->send($this->log('user:42')));
 
         $this->assertNull($subscription->fresh());
     }
@@ -121,7 +156,7 @@ class TelegramDriverTest extends FeatureTestCase {
 
         Http::fake(['*' => Http::response(['ok' => false, 'error_code' => 400, 'description' => 'Bad Request: chat not found'], 400)]);
 
-        $this->refuses('message-refused-by-provider', fn () => (new TelegramDriver())->send($this->log('42')));
+        $this->refuses('message-refused-by-provider', fn () => (new TelegramDriver())->send($this->log('user:42')));
 
         $this->assertNull($subscription->fresh());
     }
@@ -155,7 +190,7 @@ class TelegramDriverTest extends FeatureTestCase {
 
         Http::fake(['*' => Http::response(['ok' => true, 'result' => ['message_id' => 1]])]);
 
-        $response = (new TelegramDriver())->send($this->log('42', 'telegram-sandboxed'));
+        $response = (new TelegramDriver())->send($this->log('user:42', 'telegram-sandboxed'));
 
         $this->assertStringStartsWith('sandbox:', $response);
 
@@ -167,7 +202,7 @@ class TelegramDriverTest extends FeatureTestCase {
 
         Http::fake(['*' => Http::response(['ok' => false, 'error_code' => 403, 'description' => 'Forbidden'], 403)]);
 
-        $this->refuses('message-refused-by-provider', fn () => (new TelegramDriver())->send($this->log('42', 'telegram-sandboxed')));
+        $this->refuses('message-refused-by-provider', fn () => (new TelegramDriver())->send($this->log('user:42', 'telegram-sandboxed')));
 
         $this->assertNotNull($subscription->fresh());
     }

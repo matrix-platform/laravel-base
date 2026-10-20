@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Http;
 use MatrixPlatform\Models\MessageLog;
 use MatrixPlatform\Models\TelegramLog;
 use MatrixPlatform\Models\TelegramSubscription;
+use MatrixPlatform\Services\Messaging\TelegramService;
 
 /**
  * @implements Driver<TelegramLog>
@@ -59,13 +60,17 @@ class TelegramDriver implements Driver {
      * @return array{0: string, 1: bool}
      */
     private function resolve(string $identifier): array {
-        if (intval($identifier) < 0) {
+        if (!str_starts_with($identifier, TelegramService::USER_PREFIX)) {
             return [$identifier, false];
         }
 
-        $subscription = TelegramSubscription::query()->where('user_id', $identifier)->first();
+        $subscription = TelegramSubscription::query()->where('user_id', intval(substr($identifier, strlen(TelegramService::USER_PREFIX))))->first();
 
-        return $subscription === null ? [$identifier, false] : [$subscription->chat_id, true];
+        if ($subscription === null) {
+            error('telegram-not-subscribed');
+        }
+
+        return [$subscription->chat_id, true];
     }
 
 }

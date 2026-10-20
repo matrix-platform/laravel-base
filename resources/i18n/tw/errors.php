@@ -124,6 +124,8 @@ return [
 
     'staged-key-conflict' => '暫存子資源的 key 不可與父欄位同名',
 
+    'telegram-not-subscribed' => '該使用者尚未綁定 Telegram',
+
     'too-many-requests' => '請求過於頻繁，請稍後再試',
 
     'translation-request-failed' => '翻譯請求失敗',

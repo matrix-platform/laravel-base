@@ -124,6 +124,8 @@ return [
 
     'staged-key-conflict' => '暂存子资源的 key 不可与父字段同名',
 
+    'telegram-not-subscribed' => '该用户尚未绑定 Telegram',
+
     'too-many-requests' => '请求过于频繁，请稍后再试',
 
     'translation-request-failed' => '翻译请求失败',

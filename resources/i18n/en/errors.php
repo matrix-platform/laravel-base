@@ -124,6 +124,8 @@ return [
 
     'staged-key-conflict' => 'Staged key must not match a parent field',
 
+    'telegram-not-subscribed' => 'The user has not subscribed to Telegram',
+
     'too-many-requests' => 'Too many requests, please try again later',
 
     'translation-request-failed' => 'Translation request failed',

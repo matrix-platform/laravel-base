@@ -771,7 +771,7 @@ return [
 app(MailService::class)->schedule(now()->addHour(), 'alice@example.com', 'welcome', ['name' => 'Alice']);
 app(SmsService::class)->send('0912345678', 'otp', ['code' => '123456']);
 app(PushService::class)->send('42', null, [], ['provider' => 'webpush', 'title' => '通知', 'content' => '你有一筆新訂單']);
-app(TelegramService::class)->send('42', null, [], ['provider' => 'telegram', 'content' => '你有一筆新訂單']);
+app(TelegramService::class)->sendToUser($user, null, [], ['provider' => 'telegram', 'content' => '你有一筆新訂單']);
 
 app(MailService::class)->resend($id);
 app(MailService::class)->cancel($id);
@@ -821,7 +821,7 @@ Service worker 註冊、`Notification.requestPermission()`、呼叫這兩支 API
 
 ### Telegram 綁定與 Webhook
 
-Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`)**——這個通道設計給營運/維運告警之類「後台人員自己訂閱通知」的情境。`base_telegram_log.chat_id` 是**雙語意欄位**,不額外加欄位區分,靠「查不查得到訂閱紀錄」解析:`TelegramDriver` 先判斷這個值是不是負數——Telegram 的規則是群組/頻道 chat_id 恆為負數、個人(這裡是 `User`)恆為正數,天然不會撞號,所以負數直接當成目標 chat_id 送(**固定群組/頻道**模式,`send($chatId, ...)` 時 `$to` 直接傳 chat_id 字串),連查都不用查;非負數才去查 `base_telegram_subscription.user_id`,查到就送去對應的訂閱 `chat_id`(**User 訂閱**模式),查不到就跟負數的情況一樣、把值本身當字面 chat_id 送。
+Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`)**——這個通道設計給營運/維運告警之類「後台人員自己訂閱通知」的情境。收件者(`base_telegram_log.chat_id`)有兩種寫法,以前綴區分:`user:{id}` 表示後台使用者(**User 訂閱**模式),`TelegramDriver` 會去查 `base_telegram_subscription.user_id`,送到對應的訂閱 `chat_id`;查不到訂閱(或 id 不是合法的使用者編號)時回 `telegram-not-subscribed`,不呼叫 Telegram。其他任何值都原樣當成 chat_id 送(**固定 chat** 模式):群組/頻道的負數 id、個人 chat_id、`@channelusername` 都可以,純數字**不會**被當成使用者編號。寄給後台使用者時用 `sendToUser(User|int $user, ...)`,它會自動組出 `user:{id}`;`send('user:5', ...)` 也等效。
 
 跟 Push 用 JS 直接呼叫 subscribe API 不同,User 訂閱需要使用者主動在 Telegram 裡點一個連結、跟 bot 對話。綁定端點掛在 `admin` 前綴、`user-api` middleware 底下(跟 `admin/user/preference` 同層,不需要額外權限,登入即可管理自己的綁定):
 
@@ -1289,6 +1289,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | `request-failed` | 請求無法處理 |
 | `server-error` | 系統發生錯誤 |
 | `staged-key-conflict` | 暫存子資源的 key 不可與父欄位同名 |
+| `telegram-not-subscribed` | 該使用者尚未綁定 Telegram |
 | `too-many-requests` | 請求過於頻繁，請稍後再試 |
 | `translation-request-failed` | 翻譯請求失敗 |
 | `undeclared-action` | Action 未宣告 |

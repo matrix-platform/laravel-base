@@ -8,6 +8,7 @@ use MatrixPlatform\Messaging\MessageStatus;
 use MatrixPlatform\Models\MessageLog;
 use MatrixPlatform\Models\TelegramLog;
 use MatrixPlatform\Services\Messaging\TelegramService;
+use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
 
 class TelegramServiceTest extends FeatureTestCase {
@@ -50,6 +51,16 @@ class TelegramServiceTest extends FeatureTestCase {
         $log = $this->telegram()->schedule(now(), '-1001234567890', null, [], ['provider' => 'telegram', 'content' => 'Hello']);
 
         $this->assertSame('-1001234567890', $this->reload($log)->chat_id);
+    }
+
+    public function test_send_to_user_addresses_the_backend_user(): void {
+        $user = UserFactory::new()->createOne(['id' => 6000]);
+
+        $byModel = $this->telegram()->sendToUser($user, null, [], ['provider' => 'telegram', 'content' => 'Hello']);
+        $byId = $this->telegram()->sendToUser(6000, null, [], ['provider' => 'telegram', 'content' => 'Hello']);
+
+        $this->assertSame('user:6000', $this->reload($byModel)->chat_id);
+        $this->assertSame('user:6000', $this->reload($byId)->chat_id);
     }
 
 }
