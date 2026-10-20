@@ -1222,7 +1222,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | `matrix:passwd` | 設定後台帳號密碼,建立管理員的唯一官方入口 |
 | `matrix:prune-tokens` | 刪掉已經不能用來認證的 token,`--limit` 控制每批筆數（預設 1000） |
 | `matrix:rotate-encryption-key` | 產生新的 API 加密金鑰並把舊的標記為 `expire_time = now + grace`(`--grace` 秒數,預設 `encryption.grace-period`);同時刪除已經過完寬限期的舊金鑰。**任何一組前綴的加密開關是開的,上線之前就必須先跑過一次**——金鑰圈是空的時候,bootstrap 端點只會回 `encryption-unavailable` |
-| `matrix:sync-translatable` | 掃描所有套件、所有 Model 的 translatable 欄位,幫缺少目前設定語言的欄位補上實體欄位（皆為 nullable,不回填） |
+| `matrix:sync-translatable` | 掃描所有套件、所有 Model 的 translatable 欄位,幫缺少目前設定語言的欄位補上實體欄位（皆為 nullable,不回填）。型別照既有語系欄位;既有語系欄位有單欄 `unique` 時,新欄位也會加上(`{表}_{欄位}_unique`),其他約束不複製 |
 | `messages:dispatch` | 為每個有待送訊息的 channel 派送一個發送工作;任一 channel 設定壞掉就回非零 exit code |
 | `messages:telegram-webhook` | 呼叫 Telegram `setWebhook` API,把 `{APP_URL}/{api-prefix}/telegram/webhook` 連同 `telegram.webhook-secret` 註冊上去;一次性維運操作,環境變了(換網域、換 ngrok 網址)要重跑 |
 

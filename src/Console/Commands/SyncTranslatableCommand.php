@@ -79,6 +79,8 @@ class SyncTranslatableCommand extends Command {
         }
 
         $type = $columns["{$field}__{$source}"];
+        $unique = $this->unique($table, "{$field}__{$source}");
+        $grammar = DB::getQueryGrammar();
 
         foreach (locales() as $locale) {
             $column = "{$field}__{$locale}";
@@ -87,12 +89,30 @@ class SyncTranslatableCommand extends Command {
                 continue;
             }
 
-            DB::statement("ALTER TABLE {$table} ADD COLUMN {$column} {$type}");
+            DB::statement('ALTER TABLE ' . $grammar->wrapTable($table) . ' ADD COLUMN ' . $grammar->wrap($column) . " {$type}");
 
             $this->columns[$table][$column] = $type;
 
             $this->info("Added {$table}.{$column} ({$type})");
+
+            if ($unique) {
+                DB::statement('ALTER TABLE ' . $grammar->wrapTable($table) . ' ADD CONSTRAINT ' . $grammar->wrap("{$table}_{$column}_unique") . ' UNIQUE (' . $grammar->wrap($column) . ')');
+
+                $this->info("Added unique constraint on {$table}.{$column}");
+            }
         }
+    }
+
+    private function unique(string $table, string $column): bool {
+        return DB::table('pg_index as i')
+            ->join('pg_attribute as a', fn ($join) => $join->on('a.attrelid', '=', 'i.indrelid')->whereRaw('a.attnum = i.indkey[0]'))
+            ->whereRaw('i.indrelid = to_regclass(quote_ident(?))', [$table])
+            ->where('i.indisunique', true)
+            ->where('i.indisprimary', false)
+            ->where('i.indnatts', 1)
+            ->whereNull('i.indpred')
+            ->where('a.attname', $column)
+            ->exists();
     }
 
 }

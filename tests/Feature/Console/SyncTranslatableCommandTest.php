@@ -87,6 +87,27 @@ class SyncTranslatableCommandTest extends FeatureTestCase {
         $this->assertSame(40, $length);
     }
 
+    public function test_the_new_column_copies_a_single_column_unique_constraint(): void {
+        DB::statement('ALTER TABLE stub_widget ADD CONSTRAINT stub_widget_translated__tw_unique UNIQUE (translated__tw)');
+
+        config(['matrix.locales' => 'tw en fr']);
+
+        $this->artisanCommand('matrix:sync-translatable')->assertExitCode(0);
+
+        $this->assertTrue(DB::table('pg_indexes')->where('tablename', 'stub_widget')->where('indexname', 'stub_widget_translated__fr_unique')->exists());
+        $this->assertFalse(DB::table('pg_indexes')->where('tablename', 'stub_gadget')->where('indexname', 'like', '%translated__fr_unique')->exists());
+    }
+
+    public function test_identifiers_are_quoted(): void {
+        DB::statement('ALTER TABLE stub_widget ADD COLUMN "Caption__tw" text');
+
+        $this->declare('App\\Models\\Probe', 'Caption');
+
+        $this->artisanCommand('matrix:sync-translatable')->assertExitCode(0);
+
+        $this->assertTrue(DB::table('information_schema.columns')->where('table_name', 'stub_widget')->where('column_name', 'Caption__en')->exists());
+    }
+
     public function test_a_same_named_table_in_another_schema_is_ignored(): void {
         DB::statement('CREATE SCHEMA shadow');
         DB::statement('CREATE TABLE shadow.stub_widget (translated__fr text)');
