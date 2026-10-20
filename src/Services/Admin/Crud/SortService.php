@@ -9,6 +9,8 @@ use MatrixPlatform\Support\MetadataRegistry;
 
 class SortService extends CrudService {
 
+    private bool $descending = false;
+
     private string $ranking;
 
     public function __construct(string $model) {
@@ -17,6 +19,12 @@ class SortService extends CrudService {
         $metadata = app(MetadataRegistry::class)->of($model);
 
         $this->ranking = $metadata?->ranking === null ? 'ranking' : $metadata->ranking;
+    }
+
+    public function descending(bool $descending): static {
+        $this->descending = $descending;
+
+        return $this;
     }
 
     /**
@@ -54,9 +62,10 @@ class SortService extends CrudService {
             error('invalid-sort-order');
         }
 
-        $rankings = $this->reassignRankings($models, $this->ranking, $order);
+        $ascending = $this->descending ? array_reverse($order) : $order;
+        $rankings = $this->reassignRankings($models, $this->ranking, $ascending);
 
-        foreach ($order as $index => $id) {
+        foreach ($ascending as $index => $id) {
             $model = $models[$id];
 
             $model->setAttribute($this->ranking, $rankings[$index]);
@@ -74,7 +83,7 @@ class SortService extends CrudService {
      */
     private function ordered(): Collection {
         return $this->plain()
-            ->orderBy($this->ranking)
+            ->orderBy($this->ranking, $this->descending ? 'desc' : 'asc')
             ->orderBy($this->model->getKeyName())
             ->get();
     }

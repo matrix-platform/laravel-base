@@ -78,6 +78,23 @@ class CityControllerTest extends FeatureTestCase {
         $this->assertSame(1, count(array_keys($names, 'areas_count', true)));
     }
 
+    public function test_a_descending_ranking_keeps_sorting_available(): void {
+        $first = CityFactory::new()->createOne(['title__tw' => 'Taipei', 'title__en' => 'Taipei', 'ranking' => 100]);
+        $second = CityFactory::new()->createOne(['title__tw' => 'Keelung', 'title__en' => 'Keelung', 'ranking' => 200]);
+
+        app()->bind(CityController::class, fn () => new class extends CityController {
+
+            protected array $sorting = ['-ranking'];
+
+        });
+
+        $this->assertSame([$second->id, $first->id], array_column($this->send('admin/city/sort')->json('data.rows'), 'id'));
+
+        $this->send('admin/city/sort/save', ['order' => [$first->id, $second->id]])->assertJsonPath('success', true);
+
+        $this->assertGreaterThan($second->refresh()->ranking, $first->refresh()->ranking);
+    }
+
     public function test_a_city_without_areas_reports_a_zero_count_rather_than_null(): void {
         CityFactory::new()->createOne(['title__tw' => 'Keelung', 'title__en' => 'Keelung']);
 

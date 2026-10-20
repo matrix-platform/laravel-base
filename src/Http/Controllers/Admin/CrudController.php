@@ -221,7 +221,7 @@ abstract class CrudController extends BaseController {
     }
 
     protected function onArrange(ArrangeService $service): ArrangeService {
-        return $service->rankable($this->sortable());
+        return $service->rankable($this->sortable())->descending($this->descending());
     }
 
     protected function onCopy(CopyService $service): CopyService {
@@ -266,7 +266,7 @@ abstract class CrudController extends BaseController {
     }
 
     protected function onSort(SortService $service): SortService {
-        return $service;
+        return $service->descending($this->descending());
     }
 
     protected function onUpdate(UpdateService $service): UpdateService {
@@ -313,7 +313,7 @@ abstract class CrudController extends BaseController {
 
         $ranking = $this->ranking();
 
-        return $ranking !== null && ($this->sorting === [] || $this->sorting === [$ranking]);
+        return $ranking !== null && ($this->sorting === [] || $this->sorting === [$ranking] || $this->sorting === ["-{$ranking}"]);
     }
 
     protected function standalone(): bool {
@@ -410,6 +410,12 @@ abstract class CrudController extends BaseController {
         $names = array_diff(array_keys($definitions), $excluded);
 
         return array_values(array_filter($names, fn (string $name): bool => $this->shown($definitions[$name])));
+    }
+
+    private function descending(): bool {
+        $ranking = $this->ranking();
+
+        return $ranking !== null && $this->sorting === ["-{$ranking}"];
     }
 
     /**

@@ -65,6 +65,29 @@ class SortServiceTest extends FeatureTestCase {
         $this->assertSame(['C', 'A', 'B'], $this->order());
     }
 
+    public function test_a_descending_listing_puts_the_highest_ranking_first(): void {
+        $alpha = $this->widget('A', 100);
+        $beta = $this->widget('B', 200);
+        $gamma = $this->widget('C', 300);
+
+        $rows = (new SortService(Widget::class))->standalone(true)->descending(true)->items()['rows'];
+
+        $this->assertSame([$gamma->id, $beta->id, $alpha->id], array_column($rows, 'id'));
+    }
+
+    public function test_a_descending_save_gives_the_first_row_the_highest_ranking(): void {
+        $alpha = $this->widget('A', 100);
+        $beta = $this->widget('B', 200);
+        $gamma = $this->widget('C', 300);
+
+        (new SortService(Widget::class))
+            ->standalone(true)
+            ->descending(true)
+            ->sort(['order' => [$alpha->id, $gamma->id, $beta->id]]);
+
+        $this->assertSame(['B', 'C', 'A'], $this->order());
+    }
+
     public function test_only_the_rows_that_moved_are_recorded_in_the_audit_trail(): void {
         $alpha = $this->widget('A', 100);
         $beta = $this->widget('B', 200);

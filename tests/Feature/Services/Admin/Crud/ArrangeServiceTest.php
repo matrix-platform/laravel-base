@@ -161,6 +161,27 @@ class ArrangeServiceTest extends FeatureTestCase {
         $this->assertLessThan($alpha->refresh()->ranking, $beta->refresh()->ranking);
     }
 
+    public function test_a_descending_rankable_listing_and_save_follow_the_highest_ranking_first(): void {
+        $alpha = $this->widget('Alpha');
+        $alpha->ranking = 100;
+        $alpha->save();
+
+        $beta = $this->widget('Beta');
+        $beta->ranking = 200;
+        $beta->save();
+
+        $service = (new ArrangeService(Widget::class))
+            ->standalone(true)
+            ->rankable(true)
+            ->descending(true);
+
+        $this->assertSame(['Beta', 'Alpha'], array_column($service->items()['rows'], 'title'));
+
+        $service->save(['enabled' => [$alpha->id, $beta->id]]);
+
+        $this->assertGreaterThan($beta->refresh()->ranking, $alpha->refresh()->ranking);
+    }
+
     public function test_a_non_rankable_save_leaves_the_ranking_untouched(): void {
         $alpha = $this->widget('Alpha');
         $alpha->ranking = 100;

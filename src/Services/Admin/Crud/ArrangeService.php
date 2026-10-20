@@ -12,6 +12,8 @@ use MatrixPlatform\Support\Schedule;
 
 class ArrangeService extends CrudService {
 
+    private bool $descending = false;
+
     private string $disable;
 
     private string $enable;
@@ -30,6 +32,12 @@ class ArrangeService extends CrudService {
         $this->disable = $this->field($metadata?->disable, 'disable_time');
         $this->enable = $this->field($metadata?->enable, 'enable_time');
         $this->ranking = $this->field($metadata?->ranking, 'ranking');
+    }
+
+    public function descending(bool $descending): static {
+        $this->descending = $descending;
+
+        return $this;
     }
 
     public function fixed(Closure $fixed): static {
@@ -75,9 +83,10 @@ class ArrangeService extends CrudService {
         }
 
         if ($this->rankable) {
-            $rankings = $this->reassignRankings($models, $this->ranking, $order);
+            $ascending = $this->descending ? array_reverse($order) : $order;
+            $rankings = $this->reassignRankings($models, $this->ranking, $ascending);
 
-            foreach ($order as $index => $id) {
+            foreach ($ascending as $index => $id) {
                 $models[$id]->setAttribute($this->ranking, $rankings[$index]);
             }
         }
@@ -128,7 +137,7 @@ class ArrangeService extends CrudService {
         $query = $this->plain();
 
         if ($this->rankable) {
-            $query->orderBy($this->ranking);
+            $query->orderBy($this->ranking, $this->descending ? 'desc' : 'asc');
         }
 
         return $query->orderBy($this->model->getKeyName())->get();
