@@ -40,6 +40,7 @@ use MatrixPlatform\Support\Resources;
 use MatrixPlatform\Support\RollbackCallbacks;
 use MatrixPlatform\Support\SharedModels;
 use MatrixPlatform\Support\StagedContext;
+use MatrixPlatform\Support\Variants;
 
 class BaseServiceProvider extends ServiceProvider {
 
@@ -103,6 +104,7 @@ class BaseServiceProvider extends ServiceProvider {
         $this->app->scoped(Resources::class);
         $this->app->scoped(RollbackCallbacks::class);
         $this->app->scoped(StagedContext::class);
+        $this->app->scoped(Variants::class);
         $this->app->singleton(Channels::class);
         $this->app->singleton(Menus::class);
         $this->app->singleton(MetadataRegistry::class);

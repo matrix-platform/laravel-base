@@ -44,4 +44,14 @@ class VariantsTest extends FeatureTestCase {
         $this->assertNull($this->variants()->type('page-data', null, ['type' => 'page']));
     }
 
+    public function test_container_binding_is_scoped_to_a_single_instance(): void {
+        $variants = $this->variants();
+
+        $this->assertSame($variants, $this->variants());
+
+        app()->forgetScopedInstances();
+
+        $this->assertNotSame($variants, $this->variants());
+    }
+
 }
