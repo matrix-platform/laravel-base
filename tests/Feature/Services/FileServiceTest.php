@@ -5,6 +5,7 @@ namespace Tests\Feature\Services;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use MatrixPlatform\Exceptions\ServiceException;
@@ -248,6 +249,24 @@ class FileServiceTest extends FeatureTestCase {
 
     public function test_an_unaccepted_mime_type_is_refused_and_leaves_nothing_behind(): void {
         $this->refuses('invalid-mime-type', fn () => $this->service()->upload($this->blob('doc.pdf', 'x'), File::PUBLIC, null, ['#^image/#']));
+
+        $this->assertSame([], Storage::disk('public')->allFiles());
+    }
+
+    public function test_an_invalid_pattern_is_skipped_instead_of_failing_the_upload(): void {
+        $spy = Log::spy();
+
+        $file = $this->service()->upload($this->blob('doc.pdf', 'x'), File::PUBLIC, null, ['/^video\\/[a-z]{1', '#^application/#']);
+
+        $this->assertSame('application/pdf', $file->mime_type);
+
+        $spy->shouldHaveReceived('warning')
+            ->with('file.invalid-mime-pattern', ['pattern' => '/^video\\/[a-z]{1'])
+            ->once();
+    }
+
+    public function test_an_upload_is_refused_when_no_pattern_is_usable(): void {
+        $this->refuses('invalid-mime-type', fn () => $this->service()->upload($this->blob('doc.pdf', 'x'), File::PUBLIC, null, ['/^video\\/[a-z]{1', 'not a regex']));
 
         $this->assertSame([], Storage::disk('public')->allFiles());
     }

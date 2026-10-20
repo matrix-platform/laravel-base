@@ -1624,7 +1624,7 @@ parameters:
 | **私鑰以 `APP_KEY` 加密後存在 `base_encryption_key`** | 資料庫與 `APP_KEY` 同時外洩,等於過去 `encryption.grace-period` 之內錄下來的流量都能解開。輪替頻率照你的合規要求定 |
 | **`base_auth_token.token` 是明文** | 資料庫外洩等於所有人的登入狀態外洩,備份與存取控制要照這個等級處理 |
 | **cookie 的 `secure` 跟隨 `config('session.secure')`** | 生產環境務必設成 true,否則 token 會在明文連線上傳 |
-| **上傳不檢查型別**（`cfg('file.mime-patterns')` 出貨空白 = 全部放行） | 要限制就設 `mime-patterns`（正則,空白分隔,**不能含逗號或分號** —— 那是分隔字元） |
+| **上傳不檢查型別**（`cfg('file.mime-patterns')` 出貨空白 = 全部放行） | 要限制就設 `mime-patterns`（正則,空白分隔,**不能含空白、逗號或分號** —— 那是分隔字元,`{1,8}` 這類寫法請改寫）。寫錯（不是合法正則）的那一條會被略過並寫 `Log::warning`(`file.invalid-mime-pattern`),全部都不合法時一律拒絕上傳 |
 | **上傳不沿用使用者送來的副檔名** | 磁碟上是 `年月/32 碼隨機名`;只有伺服器偵測到的類型在 `FileStorage::EXTENSIONS` 白名單內(JPG / PNG / GIF / WebP / AVIF / SVG)才加上對應的副檔名,讓公開 disk 由 web server 直接提供時帶得出正確的 Content-Type(SVG 沒有 `image/svg+xml` 瀏覽器不會當圖片畫);副檔名看內容不看檔名,所以改名成 `.jpg` 的程式不會拿到可執行的副檔名,名單外的檔案一律不帶副檔名。下載的 Content-Type 取自 `base_file.mime_type`,檔名取自 `base_file.name`（原始檔名,含副檔名）,使用者端無感 |
 | **公開 disk 上的 SVG 由 web server 直接提供** | SVG 可以內嵌程式碼:以 `<img>` 載入不會執行,但直接開啟它的網址會在那個網域上執行。正式環境建議讓 web server 對 `.svg` 加上 `Content-Security-Policy: sandbox`(例如 nginx `location ~* \.svg$ { add_header Content-Security-Policy "sandbox"; }`),或不開放上傳 SVG(`file.mime-patterns`) |
 | **上傳不限制大小**（`cfg('file.max-size')` 出貨 `0`）。真正的上限是 PHP 的 `upload_max_filesize` / `post_max_size` | 兩層都要調。只調 cfg 沒用,只調 ini 的話使用者會拿到 422 而不是 `file-too-large` |

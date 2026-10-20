@@ -3,7 +3,7 @@
 namespace MatrixPlatform\Services;
 
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Encoders\WebpEncoder;
 use Intervention\Image\ImageManager;
@@ -228,7 +228,7 @@ class FileService {
         $limit = $maxSize === null ? $this->limit() : $maxSize;
         $rawSize = $file->getSize();
 
-        if ($allowed !== [] && Arr::first($allowed, fn (string $pattern): bool => preg_match($pattern, strval($mime)) === 1) === null) {
+        if ($allowed !== [] && !$this->accepts($allowed, strval($mime))) {
             error('invalid-mime-type');
         }
 
@@ -272,6 +272,27 @@ class FileService {
         $record->save();
 
         return $record;
+    }
+
+    /**
+     * @param list<string> $patterns
+     */
+    private function accepts(array $patterns, string $mime): bool {
+        foreach ($patterns as $pattern) {
+            $matched = @preg_match($pattern, $mime);
+
+            if ($matched === false) {
+                Log::warning('file.invalid-mime-pattern', ['pattern' => $pattern]);
+
+                continue;
+            }
+
+            if ($matched === 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function decode(string $path): ImageInterface {
