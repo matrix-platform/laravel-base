@@ -103,13 +103,13 @@ class EncryptedEnvelopeMiddleware {
             error('invalid-envelope', 400);
         }
 
-        $this->consume($epk);
-
         $path = ltrim($request->getBaseUrl() . $request->getPathInfo(), '/');
         $aad = "{$request->method()} {$path}|{$timestamp}";
         $secret = ApiEncryption::derive($key->private_key, $epk);
+        $plain = ApiEncryption::open($secret, $this->value($data, 'iv'), $this->value($data, 'ct'), "request|{$aad}");
 
-        $this->rewrite($request, ApiEncryption::open($secret, $this->value($data, 'iv'), $this->value($data, 'ct'), "request|{$aad}"));
+        $this->consume($epk);
+        $this->rewrite($request, $plain);
 
         return [$secret, "response|{$aad}"];
     }

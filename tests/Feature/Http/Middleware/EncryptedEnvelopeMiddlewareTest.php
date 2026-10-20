@@ -5,6 +5,7 @@ namespace Tests\Feature\Http\Middleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Testing\TestResponse;
 use MatrixPlatform\Http\Controllers\Admin\DriveController;
 use MatrixPlatform\Http\Controllers\Admin\FileController;
@@ -205,6 +206,31 @@ class EncryptedEnvelopeMiddlewareTest extends FeatureTestCase {
         $this->postJson('admin/plain', $envelope);
 
         $this->postJson('admin/plain', $envelope)->assertJson(['success' => false, 'code' => 400, 'error' => 'invalid-envelope']);
+    }
+
+    public function test_a_failed_envelope_does_not_use_up_its_ephemeral_key(): void {
+        EncryptionKey::issue();
+
+        $envelope = $this->envelope('admin/plain');
+        $tampered = $envelope;
+        $binary = strval(base64_decode(strval($envelope['ct']), true));
+        $binary[0] = $binary[0] === 'a' ? 'b' : 'a';
+        $tampered['ct'] = base64_encode($binary);
+
+        $this->postJson('admin/plain', $tampered)->assertJson(['success' => false, 'error' => 'invalid-envelope']);
+
+        $this->assertSame(['success' => true, 'data' => 'plain'], $this->opened($this->postJson('admin/plain', $envelope)));
+    }
+
+    public function test_an_undecryptable_envelope_leaves_no_nonce_behind(): void {
+        EncryptionKey::issue();
+
+        $envelope = $this->envelope('admin/plain');
+        $envelope['ct'] = base64_encode('garbage');
+
+        $this->postJson('admin/plain', $envelope)->assertJson(['success' => false, 'error' => 'invalid-envelope']);
+
+        $this->assertFalse(Cache::has('api-nonce:' . hash('sha256', strval($envelope['epk']))));
     }
 
     public function test_a_stale_timestamp_is_rejected(): void {
