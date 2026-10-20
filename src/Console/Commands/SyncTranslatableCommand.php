@@ -20,8 +20,13 @@ class SyncTranslatableCommand extends Command {
 
     public function handle(): int {
         $this->columns = [];
+        $registry = app(MetadataRegistry::class);
 
-        foreach (app(MetadataRegistry::class)->declaredModels(app(PackageRegistry::class)) as $model => $declares) {
+        foreach ($registry->unresolvedModels(app(PackageRegistry::class)) as $name) {
+            $this->warn("Skipping {$name}: class could not be autoloaded (models are discovered only directly under src/Models and app/Models, with their default namespaces)");
+        }
+
+        foreach ($registry->declaredModels(app(PackageRegistry::class)) as $model => $declares) {
             $table = (new $model())->getTable();
 
             foreach ($declares->definitions() as $field => $definition) {

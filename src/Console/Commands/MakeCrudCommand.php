@@ -54,6 +54,11 @@ class MakeCrudCommand extends Command {
 
         $path = $this->optionString('path');
         $root = rtrim($path === null ? base_path() : $path, '/');
+
+        if ($namespace !== null && $namespace !== 'App' && $path === null) {
+            $this->warn("--namespace only changes the PHP namespace; files are still written under {$root}/app, make sure they are autoloadable.");
+        }
+
         $force = (bool) array_get_value($this->options(), 'force');
         $dryRun = (bool) array_get_value($this->options(), 'dry-run');
         $renderer = app(StubRenderer::class);

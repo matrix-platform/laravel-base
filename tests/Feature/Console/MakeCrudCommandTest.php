@@ -95,6 +95,22 @@ class MakeCrudCommandTest extends FeatureTestCase {
         $this->assertDirectoryDoesNotExist("{$this->root}/app");
     }
 
+    public function test_a_missing_parent_lists_the_model_files_that_could_not_be_autoloaded(): void {
+        app(PackageRegistry::class)->register('misplaced-package', __DIR__ . '/../../fixtures/package-translatable-misplaced');
+
+        config(['matrix.packages' => 'app base misplaced-package']);
+
+        $this->artisanCommand('matrix:make-crud scaffold_widget --path=' . $this->root . ' --parent=parent')
+            ->expectsOutputToContain('these model files could not be autoloaded: App\\Models\\Ghost')
+            ->assertExitCode(1);
+    }
+
+    public function test_a_custom_namespace_without_a_path_warns_that_files_still_go_under_app(): void {
+        $this->artisanCommand('matrix:make-crud scaffold_simple --namespace=Foo --dry-run')
+            ->expectsOutputToContain('--namespace only changes the PHP namespace')
+            ->assertExitCode(0);
+    }
+
     public function test_a_translatable_field_missing_a_locale_is_flagged_in_the_pending_list(): void {
         config(['matrix.locales' => 'tw en jp']);
 

@@ -117,6 +117,16 @@ class SyncTranslatableCommandTest extends FeatureTestCase {
         $this->assertSame($before, $after);
     }
 
+    public function test_an_unloadable_model_file_is_reported_instead_of_silently_skipped(): void {
+        app(PackageRegistry::class)->register('misplaced-package', __DIR__ . '/../../fixtures/package-translatable-misplaced');
+
+        config(['matrix.packages' => 'probe-package misplaced-package']);
+
+        $this->artisanCommand('matrix:sync-translatable')
+            ->expectsOutputToContain('Skipping App\\Models\\Ghost')
+            ->assertExitCode(0);
+    }
+
     public function test_a_field_without_any_existing_locale_column_is_skipped_with_a_warning(): void {
         $this->declare('App\\Models\\Probe', 'ghost');
 

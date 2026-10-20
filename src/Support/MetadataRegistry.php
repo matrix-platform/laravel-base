@@ -16,8 +16,6 @@ class MetadataRegistry {
     private array $resolved = [];
 
     /**
-     * Every Eloquent model under the registered packages' model roots that has a declaration (#[Declared] or register()), keyed by class name.
-     *
      * @return array<class-string<Model>, Declares>
      */
     public function declaredModels(PackageRegistry $packages): array {
@@ -51,6 +49,21 @@ class MetadataRegistry {
 
     public function register(string $model, Declares $declares): void {
         $this->resolved[$model] = $declares;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function unresolvedModels(PackageRegistry $packages): array {
+        $names = [];
+
+        foreach ($packages->models() as $name) {
+            if (!class_exists($name) && !interface_exists($name) && !trait_exists($name) && !enum_exists($name)) {
+                $names[] = $name;
+            }
+        }
+
+        return $names;
     }
 
     private function attribute(string $model): ?Declares {

@@ -181,7 +181,9 @@ class ScaffoldPlan {
             }
         }
 
-        throw new RuntimeException("parent-model-not-found: no declared (#[Declared]) model found for table '{$referencedTable}'");
+        $unresolved = $registry->unresolvedModels($packages);
+
+        throw new RuntimeException("parent-model-not-found: no declared (#[Declared]) model found for table '{$referencedTable}'" . ($unresolved === [] ? '' : '; these model files could not be autoloaded: ' . implode(', ', $unresolved)));
     }
 
     /**
