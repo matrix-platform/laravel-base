@@ -16,7 +16,7 @@ class BlockDataGuard {
         if ($definition->presentation === Presentation::Select && $definition->options instanceof BundleOptions) {
             $ids = array_map(fn (Option $option): string => (string) $option->id, $definition->options->options());
 
-            return blank($value) || (is_string($value) && in_array($value, $ids, true)) ? null : 'in';
+            return blank($value) || ((is_string($value) || is_int($value)) && in_array((string) $value, $ids, true)) ? null : 'in';
         }
 
         if ($definition->presentation === Presentation::DriveImage) {
