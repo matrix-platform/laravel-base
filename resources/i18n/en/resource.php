@@ -13,6 +13,13 @@ return [
     'cfg/action-cancel.severity' => 'Style (default / primary / info / error)',
     'cfg/action-cancel.url' => 'API path',
 
+    'cfg/action-cancel-message' => 'Cancel sending button',
+    'cfg/action-cancel-message.confirm' => 'Confirmation message (translation key)',
+    'cfg/action-cancel-message.icon' => 'Icon',
+    'cfg/action-cancel-message.modify' => 'Modifies data',
+    'cfg/action-cancel-message.severity' => 'Style (default / primary / info / error)',
+    'cfg/action-cancel-message.url' => 'API path',
+
     'cfg/action-copy' => 'Copy button',
     'cfg/action-copy.confirm' => 'Confirmation message (translation key)',
     'cfg/action-copy.icon' => 'Icon',
@@ -66,6 +73,13 @@ return [
     'cfg/action-new.navigate' => 'Navigate to a page (no API call)',
     'cfg/action-new.severity' => 'Style (default / primary / info / error)',
     'cfg/action-new.url' => 'API path',
+
+    'cfg/action-resend' => 'Resend button',
+    'cfg/action-resend.confirm' => 'Confirmation message (translation key)',
+    'cfg/action-resend.icon' => 'Icon',
+    'cfg/action-resend.modify' => 'Modifies data',
+    'cfg/action-resend.severity' => 'Style (default / primary / info / error)',
+    'cfg/action-resend.url' => 'API path',
 
     'cfg/action-revoke-passkeys' => 'Revoke passkeys button',
     'cfg/action-revoke-passkeys.confirm' => 'Confirmation message (translation key)',

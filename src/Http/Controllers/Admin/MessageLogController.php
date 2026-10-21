@@ -4,6 +4,10 @@ namespace MatrixPlatform\Http\Controllers\Admin;
 
 use Illuminate\Http\Request;
 use MatrixPlatform\Attributes\Action;
+use MatrixPlatform\Messaging\MessageStatus;
+use MatrixPlatform\Models\MessageLog;
+use MatrixPlatform\Services\Admin\Crud\ListService;
+use MatrixPlatform\Services\Admin\Crud\Operation;
 use MatrixPlatform\Services\Messaging\MessageService;
 use MatrixPlatform\Support\MetadataRegistry;
 
@@ -27,6 +31,14 @@ abstract class MessageLogController extends CrudController {
     #[Action('{id}/resend')]
     public function resend(Request $request): array {
         return ['id' => $this->service->resend($this->identifier($request))->id];
+    }
+
+    protected function onList(ListService $service): ListService {
+        return parent::onList($service)->rowActions([
+            'edit',
+            new Operation('resend', fn (MessageLog $log): bool => $log->status !== MessageStatus::Scheduled),
+            new Operation('cancel-message', fn (MessageLog $log): bool => $log->status === MessageStatus::Scheduled)
+        ]);
     }
 
 }

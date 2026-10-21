@@ -13,6 +13,13 @@ return [
     'cfg/action-cancel.severity' => '样式(default／primary／info／error)',
     'cfg/action-cancel.url' => 'API 路径',
 
+    'cfg/action-cancel-message' => '取消发送按钮',
+    'cfg/action-cancel-message.confirm' => '确认信息(语系键)',
+    'cfg/action-cancel-message.icon' => '图标',
+    'cfg/action-cancel-message.modify' => '会修改数据',
+    'cfg/action-cancel-message.severity' => '样式(default／primary／info／error)',
+    'cfg/action-cancel-message.url' => 'API 路径',
+
     'cfg/action-copy' => '复制按钮',
     'cfg/action-copy.confirm' => '确认信息(语系键)',
     'cfg/action-copy.icon' => '图标',
@@ -66,6 +73,13 @@ return [
     'cfg/action-new.navigate' => '切换页面(不调用 API)',
     'cfg/action-new.severity' => '样式(default／primary／info／error)',
     'cfg/action-new.url' => 'API 路径',
+
+    'cfg/action-resend' => '重发按钮',
+    'cfg/action-resend.confirm' => '确认信息(语系键)',
+    'cfg/action-resend.icon' => '图标',
+    'cfg/action-resend.modify' => '会修改数据',
+    'cfg/action-resend.severity' => '样式(default／primary／info／error)',
+    'cfg/action-resend.url' => 'API 路径',
 
     'cfg/action-revoke-passkeys' => '撤销 Passkey 按钮',
     'cfg/action-revoke-passkeys.confirm' => '确认信息(语系键)',

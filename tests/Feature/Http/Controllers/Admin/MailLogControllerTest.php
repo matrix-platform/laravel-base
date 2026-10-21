@@ -99,6 +99,38 @@ class MailLogControllerTest extends FeatureTestCase {
         $this->assertSame(MessageStatus::Failed, MailLog::query()->whereKey($log->id)->firstOrFail()->status);
     }
 
+    public function test_a_scheduled_log_offers_cancelling_but_not_resending(): void {
+        $this->mail()->schedule(now()->addDay(), 'alice@example.com', 'welcome', ['name' => 'Alice']);
+
+        $actions = $this->send('admin/mail-log')->json('data.rows.0.actions');
+
+        $this->assertContains('cancel-message', $actions);
+        $this->assertNotContains('resend', $actions);
+    }
+
+    public function test_a_sent_log_offers_resending_but_not_cancelling(): void {
+        $log = $this->schedule();
+
+        $log->status = MessageStatus::Success;
+
+        $log->save();
+
+        $actions = $this->send('admin/mail-log')->json('data.rows.0.actions');
+
+        $this->assertContains('resend', $actions);
+        $this->assertNotContains('cancel-message', $actions);
+    }
+
+    public function test_the_row_action_definitions_point_at_the_message_endpoints(): void {
+        $this->schedule();
+
+        $definitions = $this->send('admin/mail-log')->json('data.actions.row');
+        $urls = array_column($definitions, 'url', 'type');
+
+        $this->assertSame('mail-log/{id}/resend', $urls['resend']);
+        $this->assertSame('mail-log/{id}/cancel', $urls['cancel-message']);
+    }
+
     public function test_the_write_actions_are_unreachable_because_they_carry_no_menu_entry(): void {
         $this->send('admin/mail-log/insert')->assertJson(['success' => false, 'code' => 404, 'error' => 'endpoint-not-found']);
     }

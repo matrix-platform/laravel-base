@@ -13,6 +13,13 @@ return [
     'cfg/action-cancel.severity' => '樣式(default／primary／info／error)',
     'cfg/action-cancel.url' => 'API 路徑',
 
+    'cfg/action-cancel-message' => '取消發送按鈕',
+    'cfg/action-cancel-message.confirm' => '確認訊息(語系鍵)',
+    'cfg/action-cancel-message.icon' => '圖示',
+    'cfg/action-cancel-message.modify' => '會修改資料',
+    'cfg/action-cancel-message.severity' => '樣式(default／primary／info／error)',
+    'cfg/action-cancel-message.url' => 'API 路徑',
+
     'cfg/action-copy' => '複製按鈕',
     'cfg/action-copy.confirm' => '確認訊息(語系鍵)',
     'cfg/action-copy.icon' => '圖示',
@@ -66,6 +73,13 @@ return [
     'cfg/action-new.navigate' => '切換頁面(不呼叫 API)',
     'cfg/action-new.severity' => '樣式(default／primary／info／error)',
     'cfg/action-new.url' => 'API 路徑',
+
+    'cfg/action-resend' => '重寄按鈕',
+    'cfg/action-resend.confirm' => '確認訊息(語系鍵)',
+    'cfg/action-resend.icon' => '圖示',
+    'cfg/action-resend.modify' => '會修改資料',
+    'cfg/action-resend.severity' => '樣式(default／primary／info／error)',
+    'cfg/action-resend.url' => 'API 路徑',
 
     'cfg/action-revoke-passkeys' => '撤銷 Passkey 按鈕',
     'cfg/action-revoke-passkeys.confirm' => '確認訊息(語系鍵)',

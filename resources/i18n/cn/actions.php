@@ -6,6 +6,10 @@ return [
 
     'cancel' => '取消',
 
+    'cancel-message' => '取消发送',
+
+    'cancel-message-confirm' => '确定要取消发送这则消息吗？',
+
     'copy' => '复制',
 
     'copy-confirm' => '确定要复制吗？',
@@ -29,6 +33,10 @@ return [
     'log' => '变更记录',
 
     'new' => '新增',
+
+    'resend' => '重发',
+
+    'resend-confirm' => '确定要重新发送这则消息吗？',
 
     'revoke-passkeys' => '撤销 Passkey',
 

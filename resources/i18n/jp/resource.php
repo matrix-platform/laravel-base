@@ -13,6 +13,13 @@ return [
     'cfg/action-cancel.severity' => 'スタイル(default／primary／info／error)',
     'cfg/action-cancel.url' => 'APIパス',
 
+    'cfg/action-cancel-message' => '送信取消ボタン',
+    'cfg/action-cancel-message.confirm' => '確認メッセージ(翻訳キー)',
+    'cfg/action-cancel-message.icon' => 'アイコン',
+    'cfg/action-cancel-message.modify' => 'データを変更する',
+    'cfg/action-cancel-message.severity' => 'スタイル(default／primary／info／error)',
+    'cfg/action-cancel-message.url' => 'APIパス',
+
     'cfg/action-copy' => '複製ボタン',
     'cfg/action-copy.confirm' => '確認メッセージ(翻訳キー)',
     'cfg/action-copy.icon' => 'アイコン',
@@ -66,6 +73,13 @@ return [
     'cfg/action-new.navigate' => 'ページ遷移(APIを呼ばない)',
     'cfg/action-new.severity' => 'スタイル(default／primary／info／error)',
     'cfg/action-new.url' => 'APIパス',
+
+    'cfg/action-resend' => '再送信ボタン',
+    'cfg/action-resend.confirm' => '確認メッセージ(翻訳キー)',
+    'cfg/action-resend.icon' => 'アイコン',
+    'cfg/action-resend.modify' => 'データを変更する',
+    'cfg/action-resend.severity' => 'スタイル(default／primary／info／error)',
+    'cfg/action-resend.url' => 'APIパス',
 
     'cfg/action-revoke-passkeys' => 'パスキー無効化ボタン',
     'cfg/action-revoke-passkeys.confirm' => '確認メッセージ(翻訳キー)',

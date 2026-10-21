@@ -6,6 +6,10 @@ return [
 
     'cancel' => '取消',
 
+    'cancel-message' => '取消發送',
+
+    'cancel-message-confirm' => '確定要取消發送這則訊息嗎？',
+
     'copy' => '複製',
 
     'copy-confirm' => '確定要複製嗎？',
@@ -29,6 +33,10 @@ return [
     'log' => '異動紀錄',
 
     'new' => '新增',
+
+    'resend' => '重寄',
+
+    'resend-confirm' => '確定要重新寄送這則訊息嗎？',
 
     'revoke-passkeys' => '撤銷 Passkey',
 

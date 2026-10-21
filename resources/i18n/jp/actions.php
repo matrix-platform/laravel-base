@@ -6,6 +6,10 @@ return [
 
     'cancel' => 'キャンセル',
 
+    'cancel-message' => '送信を取り消す',
+
+    'cancel-message-confirm' => 'このメッセージの送信を取り消してもよろしいですか？',
+
     'copy' => '複製',
 
     'copy-confirm' => '複製してもよろしいですか？',
@@ -29,6 +33,10 @@ return [
     'log' => '変更履歴',
 
     'new' => '新規作成',
+
+    'resend' => '再送信',
+
+    'resend-confirm' => 'このメッセージを再送信してもよろしいですか？',
 
     'revoke-passkeys' => 'パスキーを無効化',
 

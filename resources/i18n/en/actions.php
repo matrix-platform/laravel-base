@@ -6,6 +6,10 @@ return [
 
     'cancel' => 'Cancel',
 
+    'cancel-message' => 'Cancel Sending',
+
+    'cancel-message-confirm' => 'Are you sure you want to cancel sending this message?',
+
     'copy' => 'Copy',
 
     'copy-confirm' => 'Are you sure you want to copy?',
@@ -29,6 +33,10 @@ return [
     'log' => 'Change History',
 
     'new' => 'Create',
+
+    'resend' => 'Resend',
+
+    'resend-confirm' => 'Are you sure you want to resend this message?',
 
     'revoke-passkeys' => 'Revoke Passkeys',
 
