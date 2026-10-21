@@ -359,6 +359,17 @@ class MenuControllerTest extends FeatureTestCase {
         $this->assertSame(200, $other->refresh()->ranking);
     }
 
+    public function test_the_root_route_cannot_reach_a_child_node(): void {
+        $root = $this->node(null, 'root', 100);
+        $child = $this->node($root->id, 'child', 100);
+
+        $this->send("admin/menu/{$child->id}")->assertJsonPath('error', 'data-not-found');
+        $this->send("admin/menu/{$child->id}/update", ['title' => ['tw' => 'renamed', 'en' => 'renamed']])->assertJsonPath('error', 'data-not-found');
+        $this->send('admin/menu/delete', ['id' => [$child->id]])->assertJsonPath('error', 'data-not-found');
+
+        $this->assertSame('child', Menu::query()->findOrFail($child->id)->title__tw);
+    }
+
     public function test_the_independent_sort_action_is_not_exposed_in_favor_of_arrange(): void {
         $this->node(null, 'root', 100);
 
