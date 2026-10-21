@@ -94,6 +94,8 @@ return [
 
     'invalid-type-resolver' => '複合フィールドのタイプリゾルバー設定が不正です',
 
+    'member-not-deletable' => '会員は削除できません。匿名化してください',
+
     'menu-depth-exceeded' => 'このメニュー項目の下には項目を追加できません',
 
     'menu-locked' => 'このメニュー項目はシステムで管理されているため、削除・変更できません',

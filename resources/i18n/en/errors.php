@@ -94,6 +94,8 @@ return [
 
     'invalid-type-resolver' => 'Invalid composite field type resolver configuration',
 
+    'member-not-deletable' => 'Members cannot be deleted; anonymize them instead',
+
     'menu-depth-exceeded' => 'No items can be added under this menu item',
 
     'menu-locked' => 'This menu item is managed by the system and cannot be deleted or changed',

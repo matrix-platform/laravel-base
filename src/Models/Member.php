@@ -26,6 +26,12 @@ class Member extends BaseModel {
 
     const ENABLED = 1;
 
+    protected static function booted(): void {
+        parent::booted();
+
+        static::deleting(fn () => error('member-not-deletable'));
+    }
+
     protected $attributes = [
         'status' => self::ENABLED
     ];

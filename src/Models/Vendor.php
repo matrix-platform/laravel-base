@@ -2,6 +2,7 @@
 
 namespace MatrixPlatform\Models;
 
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use MatrixPlatform\Attributes\Declared;
 use MatrixPlatform\Models\Builders\VendorBuilder;
@@ -27,6 +28,12 @@ class Vendor extends BaseModel {
 
     const ENABLED = 1;
 
+    protected static function booted(): void {
+        parent::booted();
+
+        static::deleting(fn (Vendor $vendor) => VendorLog::query()->where('vendor_id', $vendor->id)->get()->each->delete());
+    }
+
     protected $attributes = [
         'status' => self::ENABLED
     ];
@@ -41,6 +48,13 @@ class Vendor extends BaseModel {
 
     public function createToken(): string {
         return AuthToken::issue(IdentityType::Vendor, $this->id);
+    }
+
+    /**
+     * @return HasMany<VendorLog, $this>
+     */
+    public function logins(): HasMany {
+        return $this->hasMany(VendorLog::class)->where('type', VendorLogType::Login->value);
     }
 
     public function newEloquentBuilder($query): VendorBuilder {

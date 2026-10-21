@@ -1281,6 +1281,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | `invalid-token` | 登入憑證無效或已過期 |
 | `invalid-translation-driver` | 翻譯服務設定錯誤 |
 | `invalid-type-resolver` | 複合欄位的型別判斷器設定錯誤 |
+| `member-not-deletable` | 會員資料不可刪除，請改用匿名化 |
 | `menu-depth-exceeded` | 此選單項目底下不能再新增項目 |
 | `menu-locked` | 此選單項目由系統管理，不可刪除或修改 |
 | `message-provider-has-no-driver` | 訊息供應商未設定傳送器 |

@@ -3,11 +3,13 @@
 namespace Tests\Feature\Models;
 
 use Illuminate\Support\Facades\Hash;
+use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\AuthToken;
 use MatrixPlatform\Models\IdentityType;
 use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\Member;
 use MatrixPlatform\Models\MemberLog;
+use MatrixPlatform\Services\Admin\Crud\DeleteService;
 use Tests\Factories\MemberFactory;
 use Tests\FeatureTestCase;
 
@@ -70,6 +72,21 @@ class MemberTest extends FeatureTestCase {
         $this->assertSame(['source' => 'web'], $log->content);
         $this->assertNotNull($log->ip);
         $this->assertNotNull($log->user_agent);
+    }
+
+    public function test_a_member_cannot_be_deleted(): void {
+        $member = MemberFactory::new()->createOne();
+
+        try {
+            (new DeleteService(Member::class))->standalone(true)->delete(['id' => $member->id]);
+        } catch (ServiceException $exception) {
+            $this->assertSame('member-not-deletable', $exception->getError());
+            $this->assertNotNull(Member::query()->find($member->id));
+
+            return;
+        }
+
+        $this->fail('the delete was expected to be refused');
     }
 
 }

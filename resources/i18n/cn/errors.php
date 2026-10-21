@@ -94,6 +94,8 @@ return [
 
     'invalid-type-resolver' => '复合字段的类型判断器设置错误',
 
+    'member-not-deletable' => '会员数据不可删除，请改用匿名化',
+
     'menu-depth-exceeded' => '此菜单项目底下不能再新增项目',
 
     'menu-locked' => '此菜单项目由系统管理，不可删除或修改',

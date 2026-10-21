@@ -3,11 +3,14 @@
 namespace Tests\Feature\Models;
 
 use Illuminate\Support\Facades\Hash;
+use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\AuthToken;
 use MatrixPlatform\Models\IdentityType;
 use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\Vendor;
 use MatrixPlatform\Models\VendorLog;
+use MatrixPlatform\Models\VendorLogType;
+use MatrixPlatform\Services\Admin\Crud\DeleteService;
 use Tests\Factories\VendorFactory;
 use Tests\FeatureTestCase;
 
@@ -70,6 +73,34 @@ class VendorTest extends FeatureTestCase {
         $this->assertSame(['source' => 'portal'], $log->content);
         $this->assertNotNull($log->ip);
         $this->assertNotNull($log->user_agent);
+    }
+
+    public function test_a_vendor_that_has_logged_in_cannot_be_deleted(): void {
+        $vendor = VendorFactory::new()->createOne();
+
+        $vendor->writeLog(VendorLogType::Login->value);
+
+        try {
+            (new DeleteService(Vendor::class))->standalone(true)->delete(['id' => $vendor->id]);
+        } catch (ServiceException $exception) {
+            $this->assertSame('data-in-use', $exception->getError());
+            $this->assertNotNull(Vendor::query()->find($vendor->id));
+
+            return;
+        }
+
+        $this->fail('the delete was expected to be refused');
+    }
+
+    public function test_deleting_a_vendor_that_never_logged_in_takes_its_logs_along(): void {
+        $vendor = VendorFactory::new()->createOne();
+
+        $vendor->writeLog('ChangePassword');
+
+        (new DeleteService(Vendor::class))->standalone(true)->delete(['id' => $vendor->id]);
+
+        $this->assertNull(Vendor::query()->find($vendor->id));
+        $this->assertSame(0, VendorLog::query()->where('vendor_id', $vendor->id)->count());
     }
 
 }
