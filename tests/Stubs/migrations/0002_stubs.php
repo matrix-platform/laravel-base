@@ -54,6 +54,7 @@ return new class extends Migration {
             $table->primaryKey();
             $table->text('title')->nullable();
             $table->integer('widget_id')->nullable();
+            $table->integer('gadget_id')->nullable();
             $table->jsonb('attachments')->nullable();
             $table->translatable('translated');
             $table->translatable('gallery', 'jsonb');

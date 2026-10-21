@@ -24,8 +24,22 @@ class OptionProviderTest extends FeatureTestCase {
         $this->useMenuFixtures('authority');
     }
 
-    private function gadget(string $title, ?Carbon $enable, ?Carbon $disable = null): Gadget {
-        return Gadget::forceCreate(['title' => $title, 'enable_time' => $enable, 'disable_time' => $disable]);
+    private function gadget(string $title, ?Carbon $enable, ?Carbon $disable = null, ?int $parent = null): Gadget {
+        return Gadget::forceCreate(['title' => $title, 'enable_time' => $enable, 'disable_time' => $disable, 'gadget_id' => $parent]);
+    }
+
+    /**
+     * @param list<Option> $options
+     * @return array<string, mixed>
+     */
+    private function outline(array $options): array {
+        $outline = [];
+
+        foreach ($options as $option) {
+            $outline[$option->title] = ['selectable' => $option->selectable, 'children' => $this->outline($option->children)];
+        }
+
+        return $outline;
     }
 
     private function relic(string $label, ?int $parent = null): Relic {
@@ -259,6 +273,48 @@ class OptionProviderTest extends FeatureTestCase {
         $options = (new RelationOptions(Gadget::class, column: 'gadget_id'))->options($record);
 
         $this->assertEqualsCanonicalizing(['published', 'draft'], array_map(fn (Option $option): string => $option->title, $options));
+    }
+
+    public function test_a_disabled_parent_model_stays_as_a_heading_over_its_live_children(): void {
+        $registry = app(MetadataRegistry::class);
+
+        $registry->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'gadget')));
+        $registry->register(Gadget::class, new StubDeclaration(new Metadata('gadget', 'title', enable: 'enable_time', disable: 'disable_time')));
+
+        $closed = $this->gadget('closed', now()->subWeek(), now()->subDay());
+        $this->gadget('empty and closed', null);
+        $this->gadget('empty and open', now()->subDay());
+
+        Trinket::forceCreate(['label' => 'child', 'gadget_id' => $closed->id]);
+
+        $this->assertSame([
+            'closed' => ['selectable' => false, 'children' => ['child' => ['selectable' => true, 'children' => []]]],
+            'empty and open' => ['selectable' => false, 'children' => []]
+        ], $this->outline((new RelationOptions(Trinket::class))->options()));
+    }
+
+    public function test_a_disabled_node_of_a_self_referencing_tree_stays_unselectable_over_its_live_children(): void {
+        app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget', 'title', 'gadget', enable: 'enable_time', disable: 'disable_time')));
+
+        $closed = $this->gadget('closed', null);
+        $this->gadget('open child', now()->subDay(), null, $closed->id);
+        $this->gadget('closed child', null, null, $closed->id);
+
+        $this->assertSame([
+            'closed' => ['selectable' => false, 'children' => ['open child' => ['selectable' => true, 'children' => []]]]
+        ], $this->outline((new RelationOptions(Gadget::class))->options()));
+    }
+
+    public function test_the_current_value_is_reachable_even_under_a_disabled_parent(): void {
+        app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget', 'title', 'gadget', enable: 'enable_time', disable: 'disable_time')));
+
+        $closed = $this->gadget('closed', null);
+        $current = $this->gadget('current', null, null, $closed->id);
+        $record = (new Trinket())->forceFill(['gadget_id' => $current->id]);
+
+        $this->assertSame([
+            'closed' => ['selectable' => false, 'children' => ['current' => ['selectable' => true, 'children' => []]]]
+        ], $this->outline((new RelationOptions(Gadget::class, column: 'gadget_id'))->options($record)));
     }
 
     public function test_asking_for_trashed_overrides_the_active_flag(): void {

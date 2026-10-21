@@ -10,6 +10,7 @@ use MatrixPlatform\Models\BaseModel;
  * @property int $id
  * @property ?string $title
  * @property ?int $widget_id
+ * @property ?int $gadget_id
  * @property ?array<string, mixed> $attachments
  * @property ?string $translated__tw
  * @property ?string $translated__en
@@ -25,6 +26,13 @@ class Gadget extends BaseModel {
     const TRACEABLE = false;
 
     protected $table = 'stub_gadget';
+
+    /**
+     * @return BelongsTo<Gadget, $this>
+     */
+    public function gadget(): BelongsTo {
+        return $this->belongsTo(Gadget::class);
+    }
 
     /**
      * @return BelongsTo<Widget, $this>
