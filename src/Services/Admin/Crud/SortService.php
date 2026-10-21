@@ -49,7 +49,13 @@ class SortService extends CrudService {
      */
     public function sort(mixed $input): array {
         $values = is_array($input) ? $input : [];
-        $order = array_values(array_map(strval(...), Arr::wrap(array_get_value($values, 'order'))));
+        $raw = Arr::wrap(array_get_value($values, 'order'));
+
+        if (!$this->scalars($raw)) {
+            error('invalid-sort-order');
+        }
+
+        $order = array_values(array_map(strval(...), $raw));
         $models = $this->keyed($this->ordered());
 
         $given = $order;

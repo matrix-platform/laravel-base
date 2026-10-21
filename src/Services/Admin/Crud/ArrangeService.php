@@ -75,7 +75,13 @@ class ArrangeService extends CrudService {
      */
     public function save(mixed $input): array {
         $values = is_array($input) ? $input : [];
-        $order = array_values(array_map(strval(...), Arr::wrap(array_get_value($values, 'enabled'))));
+        $raw = Arr::wrap(array_get_value($values, 'enabled'));
+
+        if (!$this->scalars($raw)) {
+            error('invalid-arrange-order');
+        }
+
+        $order = array_values(array_map(strval(...), $raw));
         $models = $this->keyed($this->ordered());
 
         if (array_diff($order, array_keys($models)) !== [] || count($order) !== count(array_unique($order))) {

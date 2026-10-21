@@ -37,7 +37,13 @@ class DeleteService extends CrudService {
      */
     public function delete(mixed $input): array {
         $values = is_array($input) ? $input : [];
-        $items = array_values(array_unique(Arr::wrap(array_get_value($values, 'id'))));
+        $raw = Arr::wrap(array_get_value($values, 'id'));
+
+        if (!$this->scalars($raw)) {
+            invalid('id', 'array');
+        }
+
+        $items = array_values(array_unique($raw));
         $models = $this->plain()
             ->whereKey($items)
             ->get();

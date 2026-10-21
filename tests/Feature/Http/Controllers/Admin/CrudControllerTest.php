@@ -514,6 +514,15 @@ class CrudControllerTest extends FeatureTestCase {
         $this->assertSame(1, Widget::query()->count());
     }
 
+    public function test_delete_refuses_a_nested_array_identifier(): void {
+        $widget = $this->widget('Alpha');
+
+        $response = $this->admin('admin/widget/delete', ['id' => [[$widget->id], $widget->id]]);
+
+        $response->assertJson(['success' => false, 'code' => 422, 'error' => 'validation-failed', 'fields' => ['id' => ['array']]]);
+        $this->assertSame(1, Widget::query()->count());
+    }
+
     public function test_delete_accepts_an_empty_selection(): void {
         $response = $this->admin('admin/widget/delete', ['id' => []]);
 

@@ -24,6 +24,15 @@ class ArrangeServiceTest extends FeatureTestCase {
         return Widget::forceCreate(['title' => $title]);
     }
 
+    public function test_a_nested_array_identifier_is_rejected(): void {
+        $alpha = $this->widget('Alpha');
+
+        $this->expectException(ServiceException::class);
+        $this->expectExceptionMessage('invalid-arrange-order');
+
+        (new ArrangeService(Widget::class))->standalone(true)->save(['enabled' => [[$alpha->id]]]);
+    }
+
     public function test_a_row_without_an_enable_time_is_disabled(): void {
         $this->widget('Alpha');
 

@@ -121,6 +121,15 @@ class SortServiceTest extends FeatureTestCase {
         (new SortService(Widget::class))->standalone(true)->sort(['order' => [$alpha->id]]);
     }
 
+    public function test_a_nested_array_identifier_is_rejected(): void {
+        $alpha = $this->widget('A', 100);
+
+        $this->expectException(ServiceException::class);
+        $this->expectExceptionMessage('invalid-sort-order');
+
+        (new SortService(Widget::class))->standalone(true)->sort(['order' => [[$alpha->id]]]);
+    }
+
     public function test_an_unknown_identifier_is_rejected(): void {
         $alpha = $this->widget('A', 100);
 

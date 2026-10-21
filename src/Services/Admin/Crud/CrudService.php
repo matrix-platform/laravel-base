@@ -742,6 +742,13 @@ abstract class CrudService {
     }
 
     /**
+     * @param array<array-key, mixed> $values
+     */
+    protected function scalars(array $values): bool {
+        return array_filter($values, fn (mixed $value): bool => !is_int($value) && !is_string($value)) === [];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     protected function shape(Column $column): array {
