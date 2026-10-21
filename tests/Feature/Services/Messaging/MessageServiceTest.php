@@ -174,19 +174,27 @@ class MessageServiceTest extends FeatureTestCase {
 
         $spy->shouldHaveReceived('info', ['messaging.mail.schedule', Mockery::on(fn (array $context) => array_get_value($context, 'to') === 'alice@example.com'
             && array_get_value($context, 'action') === 'schedule'
-            && array_get_value($context, 'channel') === 'mail')]);
+            && array_get_value($context, 'channel') === 'mail'
+            && array_get_value($context, 'template') === 'welcome'
+            && array_get_value($context, 'vars') === ['name']
+            && !array_key_exists('rendered', $context))]);
     }
 
-    public function test_the_data_option_reaches_the_composed_message(): void {
+    public function test_the_schedule_log_lists_only_the_option_keys(): void {
         $spy = Log::spy();
 
         $this->mail()->schedule(now(), 'alice@example.com', null, [], ['provider' => 'stub', 'content' => 'Body', 'data' => ['order_id' => 42]]);
 
-        $spy->shouldHaveReceived('info', ['messaging.mail.schedule', Mockery::on(function (array $context) {
-            $rendered = array_get_value($context, 'rendered');
+        $spy->shouldHaveReceived('info', ['messaging.mail.schedule', Mockery::on(fn (array $context) => array_get_value($context, 'options') === ['provider', 'content', 'data']
+            && array_get_value($context, 'provider') === 'stub')]);
+    }
 
-            return is_array($rendered) && array_get_value($rendered, 'data') === ['order_id' => 42];
-        })]);
+    public function test_the_schedule_log_does_not_contain_variable_values(): void {
+        $spy = Log::spy();
+
+        $this->sms()->schedule(now(), '0912345678', 'otp', ['code' => '987654']);
+
+        $spy->shouldHaveReceived('info', ['messaging.sms.schedule', Mockery::on(fn (array $context) => !str_contains(strval(json_encode($context)), '987654'))]);
     }
 
     public function test_send_stores_and_queues_a_message_immediately(): void {

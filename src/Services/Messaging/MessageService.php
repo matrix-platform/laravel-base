@@ -69,9 +69,9 @@ abstract class MessageService {
             'at' => $when->format('Y-m-d H:i:s'),
             'to' => $to,
             'template' => $template,
-            'vars' => $vars,
-            'options' => $options,
-            'rendered' => $rendered
+            'provider' => array_get_value($rendered, 'provider'),
+            'vars' => array_keys($vars),
+            'options' => array_keys($options)
         ]);
 
         $attributes = array_get_value($options, 'attributes');
