@@ -37,6 +37,10 @@ use MatrixPlatform\Support\Variants;
 
 abstract class CrudService {
 
+    private const FLOAT_RANGE = '-1.7976931348623157e308,1.7976931348623157e308';
+
+    private const INTEGER_RANGE = '-2147483648,2147483647';
+
     /**
      * @var list<Column>
      */
@@ -206,7 +210,7 @@ abstract class CrudService {
             }
 
             if (array_key_exists($column->name, $values)) {
-                $model->setAttribute($column->name, $this->driveResolved($column, $values[$column->name]));
+                $model->setAttribute($column->name, $this->stored($column, $this->driveResolved($column, $values[$column->name])));
             }
         }
 
@@ -734,6 +738,7 @@ abstract class CrudService {
             }
 
             $rule = $column->rule === [] ? [$column->type->rule()] : $column->rule;
+            $rule = $this->composed($column) ? $rule : [...$rule, ...$this->range($column, $rule)];
             $prefix = $column->required ? ['required'] : ['present', 'nullable'];
             $keys = $column->translatable ? $this->translated($column) : [$column->name];
 
@@ -1037,6 +1042,26 @@ abstract class CrudService {
         return $query;
     }
 
+    /**
+     * @param list<mixed> $rule
+     * @return list<string>
+     */
+    private function range(Column $column, array $rule): array {
+        $range = match ($column->type) {
+            ColumnType::Float => self::FLOAT_RANGE,
+            ColumnType::Integer => self::INTEGER_RANGE,
+            default => null
+        };
+
+        foreach ($rule as $item) {
+            if (is_string($item) && preg_match('/(\A|\|)(max|between):/', $item) === 1) {
+                return [];
+            }
+        }
+
+        return $range === null ? [] : ["between:{$range}"];
+    }
+
     private function render(string $template, ?Model $context): string {
         $replaced = preg_replace_callback('/\{(\w+)\}/u', function (array $matches) use ($context): string {
             $value = $context?->getAttribute($matches[1]);
@@ -1132,6 +1157,10 @@ abstract class CrudService {
         }
 
         $state->apply($query, $enable, $disable, now());
+    }
+
+    private function stored(Column $column, mixed $value): mixed {
+        return $column->type === ColumnType::Float && is_string($value) && is_numeric($value) ? floatval($value) : $value;
     }
 
     private function uniqueRule(string $field, int|string|null $ignoreId): Unique {

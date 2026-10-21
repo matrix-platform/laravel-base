@@ -17,7 +17,8 @@ class ResolvedColumn {
         public readonly bool $unique,
         public readonly ?string $foreignTable,
         public readonly ?string $comment,
-        public readonly array $missingLocales = []
+        public readonly array $missingLocales = [],
+        public readonly ?string $range = null
     ) {}
 
 }

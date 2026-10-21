@@ -15,6 +15,7 @@ use MatrixPlatform\Models\BaseModel;
  * @property ?int $trinket_id
  * @property ?int $gadget_id
  * @property ?int $amount
+ * @property ?float $weight
  * @property ?int $owner_id
  * @property ?string $owner_type
  * @property int $ranking

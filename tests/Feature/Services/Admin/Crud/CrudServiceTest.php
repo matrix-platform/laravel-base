@@ -630,6 +630,47 @@ class CrudServiceTest extends FeatureTestCase {
             ->delete(['id' => $widget->id]);
     }
 
+    /**
+     * @param array<string, Definition> $definitions
+     * @param array<string, mixed> $input
+     * @return array<string, array<string, mixed>>
+     */
+    private function failedRules(array $definitions, array $input): array {
+        app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label'), ['label' => Definition::text(), ...$definitions]));
+
+        try {
+            (new InsertService(Trinket::class))
+                ->standalone(true)
+                ->columns(['label', ...array_keys($definitions)])
+                ->insert(['label' => 'probe', ...$input]);
+        } catch (ValidationException $exception) {
+            return $exception->validator->failed();
+        }
+
+        return [];
+    }
+
+    public function test_an_integer_wider_than_the_column_is_refused_before_it_reaches_postgresql(): void {
+        $failed = $this->failedRules(['amount' => Definition::integer()], ['amount' => '99999999999']);
+
+        $this->assertArrayHasKey('Between', $failed['amount']);
+    }
+
+    public function test_an_integer_rule_that_declares_its_own_ceiling_keeps_it(): void {
+        $failed = $this->failedRules(['amount' => Definition::integer(rule: ['integer', 'max:5'])], ['amount' => '6']);
+
+        $this->assertSame(['Max'], array_keys($failed['amount']));
+    }
+
+    public function test_an_infinite_float_is_refused_and_an_underflowing_one_is_stored_as_zero(): void {
+        $failed = $this->failedRules(['weight' => Definition::float()], ['weight' => '1e400']);
+
+        $this->assertArrayHasKey('Between', $failed['weight']);
+
+        $this->assertSame([], $this->failedRules(['weight' => Definition::float()], ['weight' => '1e-400']));
+        $this->assertSame(0.0, floatval(Trinket::query()->where('label', 'probe')->value('weight')));
+    }
+
     public function test_a_removal_record_excludes_the_joined_columns(): void {
         $this->useRequestFrom('198.51.100.7', 'Probe/1.0');
 

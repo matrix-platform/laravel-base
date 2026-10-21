@@ -30,6 +30,7 @@ return new class extends Migration {
             $table->integer('trinket_id')->nullable();
             $table->integer('gadget_id')->nullable();
             $table->integer('amount')->nullable();
+            $table->double('weight')->nullable();
             $table->integer('owner_id')->nullable();
             $table->text('owner_type')->nullable();
             $table->ranking();

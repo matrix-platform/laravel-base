@@ -119,6 +119,43 @@ class FilteringTest extends FeatureTestCase {
         $this->assertSame(['Beta'], $this->labels($columns, ['amount' => ['op' => 'gt', 'value' => '15']]));
     }
 
+    public function test_an_integer_beyond_the_column_width_is_compared_instead_of_overflowing(): void {
+        $this->declareTypedTrinket();
+        $this->trinkets();
+
+        $this->assertSame([], $this->labels(['label', ['name' => 'amount', 'op' => 'eq']], ['amount' => ['op' => 'eq', 'value' => '99999999999']]));
+        $this->assertSame(['alpha', 'Beta'], $this->labels(['label', ['name' => 'amount', 'op' => 'between']], ['amount' => ['op' => 'between', 'from' => '-99999999999', 'to' => 99999999999]]));
+        $this->assertSame(['alpha'], $this->labels(['label', ['name' => 'amount', 'op' => 'in']], ['amount' => ['op' => 'in', 'value' => ['10', '99999999999']]]));
+    }
+
+    public function test_an_integer_beyond_bigint_is_refused(): void {
+        $this->declareTypedTrinket();
+        $this->trinkets();
+
+        foreach (['9223372036854775808', '-9223372036854775809', '-0'] as $value) {
+            $this->refuses('invalid-filter-value', fn () => $this->labels(['label', ['name' => 'amount', 'op' => 'eq']], ['amount' => ['op' => 'eq', 'value' => $value]]));
+        }
+
+        $this->assertSame([], $this->labels(['label', ['name' => 'amount', 'op' => 'eq']], ['amount' => ['op' => 'eq', 'value' => '9223372036854775807']]));
+        $this->assertSame(['alpha'], $this->labels(['label', ['name' => 'amount', 'op' => 'eq']], ['amount' => ['op' => 'eq', 'value' => '0010']]));
+    }
+
+    public function test_a_float_that_postgresql_cannot_hold_is_refused_or_rounded(): void {
+        app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label'), ['amount' => Definition::float()]));
+
+        $this->trinkets();
+
+        $this->refuses('invalid-filter-value', fn () => $this->labels(['label', ['name' => 'amount', 'op' => 'eq']], ['amount' => ['op' => 'eq', 'value' => '1e400']]));
+
+        $this->assertSame(['alpha', 'Beta'], $this->labels(['label', ['name' => 'amount', 'op' => 'gt']], ['amount' => ['op' => 'gt', 'value' => '1e-400']]));
+    }
+
+    public function test_a_date_before_year_one_is_refused(): void {
+        $this->declareTypedTrinket();
+
+        $this->refusesDate('create_time', '0000-01-01 00:00:00');
+    }
+
     public function test_a_malformed_bound_on_an_integer_between_is_refused(): void {
         $this->declareTypedTrinket();
         $this->trinkets();

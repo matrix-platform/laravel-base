@@ -53,14 +53,14 @@ class SchemaIntrospector {
                 $info = $raw[$column];
                 $missing = array_values(array_diff(locales(), $present));
 
-                $resolved[$field] = new ResolvedColumn($field, $info['type'], $info['nullable'], true, in_array($column, $unique, true), null, $info['comment'], $missing);
+                $resolved[$field] = new ResolvedColumn($field, $info['type'], $info['nullable'], true, in_array($column, $unique, true), null, $info['comment'], $missing, $info['range']);
 
                 continue;
             }
 
             $info = $raw[$name];
 
-            $resolved[$name] = new ResolvedColumn($name, $info['type'], $info['nullable'], false, in_array($name, $unique, true), array_key_exists($name, $foreign) ? $foreign[$name] : null, $info['comment']);
+            $resolved[$name] = new ResolvedColumn($name, $info['type'], $info['nullable'], false, in_array($name, $unique, true), array_key_exists($name, $foreign) ? $foreign[$name] : null, $info['comment'], [], $info['range']);
         }
 
         return $resolved;
@@ -156,15 +156,36 @@ class SchemaIntrospector {
         return $foreign;
     }
 
+    private function range(string $dataType, mixed $precision, mixed $scale): ?string {
+        if ($dataType === 'numeric') {
+            if (!is_numeric($precision)) {
+                return null;
+            }
+
+            $fraction = is_numeric($scale) ? intval($scale) : 0;
+            $whole = intval($precision) - $fraction;
+            $max = ($whole > 0 ? str_repeat('9', $whole) : '0') . ($fraction > 0 ? '.' . str_repeat('9', $fraction) : '');
+
+            return "-{$max},{$max}";
+        }
+
+        return match ($dataType) {
+            'bigint' => '-9223372036854775808,9223372036854775807',
+            'real' => '-3.4028235e38,3.4028235e38',
+            'smallint' => '-32768,32767',
+            default => null
+        };
+    }
+
     /**
-     * @return array<string, array{type: ColumnType, nullable: bool, comment: ?string}>
+     * @return array<string, array{type: ColumnType, nullable: bool, comment: ?string, range: ?string}>
      */
     private function rawColumns(string $table): array {
         $rows = DB::table('information_schema.columns')
             ->where('table_schema', 'public')
             ->where('table_name', $table)
             ->orderBy('ordinal_position')
-            ->selectRaw("column_name, data_type, is_nullable, col_description((table_schema || '.' || table_name)::regclass, ordinal_position) as comment")
+            ->selectRaw("column_name, data_type, numeric_precision, numeric_scale, is_nullable, col_description((table_schema || '.' || table_name)::regclass, ordinal_position) as comment")
             ->get();
 
         $columns = [];
@@ -173,7 +194,8 @@ class SchemaIntrospector {
             $columns[strval($row->column_name)] = [
                 'type' => $this->columnType(strval($row->data_type)),
                 'nullable' => strval($row->is_nullable) === 'YES',
-                'comment' => is_string($row->comment) && $row->comment !== '' ? $row->comment : null
+                'comment' => is_string($row->comment) && $row->comment !== '' ? $row->comment : null,
+                'range' => $this->range(strval($row->data_type), $row->numeric_precision, $row->numeric_scale)
             ];
         }
 
@@ -181,7 +203,7 @@ class SchemaIntrospector {
     }
 
     /**
-     * @param array<string, array{type: ColumnType, nullable: bool, comment: ?string}> $raw
+     * @param array<string, array{type: ColumnType, nullable: bool, comment: ?string, range: ?string}> $raw
      * @return array<string, list<string>>
      */
     private function translatableGroups(array $raw): array {

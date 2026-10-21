@@ -390,6 +390,7 @@ class ScaffoldPlan {
             $cast = match ($this->columns[$name]->type) {
                 ColumnType::Date => 'date',
                 ColumnType::DateTime => 'datetime',
+                ColumnType::Float => 'float',
                 ColumnType::Json => 'array',
                 default => null
             };
@@ -466,6 +467,10 @@ class ScaffoldPlan {
             $args[] = "Presentation::{$presentation->name}";
         } elseif (is_string($presentation)) {
             $args[] = "'{$presentation}'";
+        }
+
+        if ($column->range !== null) {
+            $args[] = "rule: ['" . ($column->type === ColumnType::Integer ? 'integer' : 'numeric') . "', 'between:{$column->range}']";
         }
 
         if ($column->translatable) {

@@ -169,6 +169,32 @@ class MakeCrudCommandTest extends FeatureTestCase {
         $this->assertStringContainsString("'label' => Definition::text()", $declaration);
     }
 
+    public function test_numeric_columns_carry_the_range_their_storage_can_hold(): void {
+        DB::statement('CREATE TABLE scaffold_number (id integer PRIMARY KEY, name text NOT NULL, small smallint, big bigint, count integer, price numeric(8,1), ratio numeric(3,3), score real, plain double precision, free numeric)');
+
+        $this->artisanCommand('matrix:make-crud scaffold_number --path=' . $this->root . ' --title=name')->assertExitCode(0);
+
+        $declaration = $this->read("{$this->root}/app/Models/Declarations/NumberDeclaration.php");
+
+        $this->assertStringContainsString("'small' => Definition::integer(rule: ['integer', 'between:-32768,32767'])", $declaration);
+        $this->assertStringContainsString("'big' => Definition::integer(rule: ['integer', 'between:-9223372036854775808,9223372036854775807'])", $declaration);
+        $this->assertStringContainsString("'count' => Definition::integer()", $declaration);
+        $this->assertStringContainsString("'price' => Definition::float(rule: ['numeric', 'between:-9999999.9,9999999.9'])", $declaration);
+        $this->assertStringContainsString("'ratio' => Definition::float(rule: ['numeric', 'between:-0.999,0.999'])", $declaration);
+        $this->assertStringContainsString("'score' => Definition::float(rule: ['numeric', 'between:-3.4028235e38,3.4028235e38'])", $declaration);
+        $this->assertStringContainsString("'plain' => Definition::float()", $declaration);
+        $this->assertStringContainsString("'free' => Definition::float()", $declaration);
+
+        $model = $this->read("{$this->root}/app/Models/Number.php");
+
+        foreach (['free', 'plain', 'price', 'ratio', 'score'] as $name) {
+            $this->assertStringContainsString("'{$name}' => 'float'", $model);
+        }
+
+        $this->assertValidPhpFile("{$this->root}/app/Models/Declarations/NumberDeclaration.php");
+        $this->assertValidPhpFile("{$this->root}/app/Models/Number.php");
+    }
+
     public function test_heuristics_hit_and_miss_as_expected(): void {
         $this->artisanCommand('matrix:make-crud scaffold_widget --path=' . $this->root . ' --title=code')
             ->expectsOutputToContain("HIGH RISK: 'api_token'")

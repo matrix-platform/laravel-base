@@ -55,14 +55,42 @@ class Filtering {
     /**
      * @param Builder<Model> $query
      */
-    private function between(Builder $query, string $field, mixed $from, mixed $to): void {
+    private function between(Builder $query, string $field, mixed $from, mixed $to, string $placeholder): void {
         if ($from !== null && $to !== null) {
-            $query->whereRaw(new Raw("{$field} BETWEEN ? AND ?"), [$from, $to]);
+            $query->whereRaw(new Raw("{$field} BETWEEN {$placeholder} AND {$placeholder}"), [$from, $to]);
         } elseif ($from !== null) {
-            $query->whereRaw(new Raw("{$field} >= ?"), [$from]);
+            $query->whereRaw(new Raw("{$field} >= {$placeholder}"), [$from]);
         } elseif ($to !== null) {
-            $query->whereRaw(new Raw("{$field} <= ?"), [$to]);
+            $query->whereRaw(new Raw("{$field} <= {$placeholder}"), [$to]);
         }
+    }
+
+    private function bound(mixed $value, ColumnType $type): mixed {
+        if ($value === null) {
+            return null;
+        }
+
+        if (!is_scalar($value)) {
+            error('invalid-filter-value');
+        }
+
+        $valid = match ($type) {
+            ColumnType::Boolean => is_bool($value) || in_array($value, [0, 1, '0', '1'], true),
+            ColumnType::Date, ColumnType::DateTime => self::formatted($value, strval($type->format())) && !str_starts_with(strval($value), '0000'),
+            ColumnType::Float => is_numeric($value) && is_finite(floatval($value)),
+            ColumnType::Integer => is_int($value) || (is_string($value) && $this->integral($value)),
+            default => true
+        };
+
+        if (!$valid) {
+            error('invalid-filter-value');
+        }
+
+        return match ($type) {
+            ColumnType::Float => floatval($value),
+            ColumnType::Integer => intval($value),
+            default => $value
+        };
     }
 
     private function escape(mixed $value): string {
@@ -72,8 +100,8 @@ class Filtering {
     /**
      * @param Builder<Model> $query
      */
-    private function inside(Builder $query, string $field, string $operator, mixed $value): void {
-        $values = array_values(Arr::wrap($value));
+    private function inside(Builder $query, string $field, string $operator, mixed $value, ColumnType $type): void {
+        $values = array_values(array_map(fn (mixed $item): mixed => $this->bound($item, $type), Arr::wrap($value)));
 
         if ($values === []) {
             if ($operator === 'in') {
@@ -85,7 +113,15 @@ class Filtering {
 
         $keyword = $operator === 'in' ? 'IN' : 'NOT IN';
 
-        $query->whereRaw(new Raw("{$field} {$keyword} (" . Conditions::placeholders($values) . ')'), $values);
+        $query->whereRaw(new Raw("{$field} {$keyword} (" . implode(',', array_fill(0, count($values), $this->placeholder($type))) . ')'), $values);
+    }
+
+    private function integral(string $value): bool {
+        if (preg_match('/\A(-?)0*(\d+)\z/', $value, $matches) !== 1) {
+            return false;
+        }
+
+        return strval(intval($value)) === $matches[1] . $matches[2];
     }
 
     /**
@@ -111,26 +147,8 @@ class Filtering {
         };
     }
 
-    private function shaped(mixed $value, ColumnType $type): void {
-        if ($value === null) {
-            return;
-        }
-
-        if (!is_scalar($value)) {
-            error('invalid-filter-value');
-        }
-
-        $valid = match ($type) {
-            ColumnType::Boolean => is_bool($value) || in_array($value, [0, 1, '0', '1'], true),
-            ColumnType::Date, ColumnType::DateTime => self::formatted($value, strval($type->format())),
-            ColumnType::Float => is_numeric($value),
-            ColumnType::Integer => is_int($value) || (is_string($value) && preg_match('/\A-?\d+\z/', $value) === 1),
-            default => true
-        };
-
-        if (!$valid) {
-            error('invalid-filter-value');
-        }
+    private function placeholder(ColumnType $type): string {
+        return $type === ColumnType::Integer ? '?::bigint' : '?';
     }
 
     /**
@@ -139,13 +157,10 @@ class Filtering {
      */
     private function where(Builder $query, string $field, string $operator, array $filter, ColumnType $type): void {
         if ($operator === 'between') {
-            $from = array_get_value($filter, 'from');
-            $to = array_get_value($filter, 'to');
+            $from = $this->bound(array_get_value($filter, 'from'), $type);
+            $to = $this->bound(array_get_value($filter, 'to'), $type);
 
-            $this->shaped($from, $type);
-            $this->shaped($to, $type);
-
-            $this->between($query, $field, $from, $to);
+            $this->between($query, $field, $from, $to, $this->placeholder($type));
 
             return;
         }
@@ -153,27 +168,24 @@ class Filtering {
         $value = array_get_value($filter, 'value');
 
         if ($operator === 'in' || $operator === 'notIn') {
-            foreach (Arr::wrap($value) as $item) {
-                $this->shaped($item, $type);
-            }
-
-            $this->inside($query, $field, $operator, $value);
+            $this->inside($query, $field, $operator, $value, $type);
 
             return;
         }
 
-        $this->shaped($value, $type);
+        $value = $this->bound($value, $type);
+        $placeholder = $this->placeholder($type);
 
         [$clause, $bindings] = match ($operator) {
-            'eq' => ['= ?', [$value]],
-            'neq' => ['!= ?', [$value]],
+            'eq' => ["= {$placeholder}", [$value]],
+            'neq' => ["!= {$placeholder}", [$value]],
             'contains' => ['ILIKE ?', ['%' . $this->escape($value) . '%']],
             'startsWith' => ['ILIKE ?', [$this->escape($value) . '%']],
             'endsWith' => ['ILIKE ?', ['%' . $this->escape($value)]],
-            'gt' => ['> ?', [$value]],
-            'gte' => ['>= ?', [$value]],
-            'lt' => ['< ?', [$value]],
-            'lte' => ['<= ?', [$value]],
+            'gt' => ["> {$placeholder}", [$value]],
+            'gte' => [">= {$placeholder}", [$value]],
+            'lt' => ["< {$placeholder}", [$value]],
+            'lte' => ["<= {$placeholder}", [$value]],
             'null' => ['IS NULL', []],
             'notNull' => ['IS NOT NULL', []],
             default => [null, []]
