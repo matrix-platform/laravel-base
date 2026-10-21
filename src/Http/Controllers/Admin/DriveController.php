@@ -71,7 +71,7 @@ class DriveController extends BaseController {
     #[Action('{id}/folder')]
     public function folder(Request $request): array {
         $request->validate([
-            'name' => ['required', 'string']
+            'name' => ['required', 'string', 'regex:/^[^\/\\\\]+$/']
         ]);
 
         return $this->present($this->service->createFolder($this->node($request), $request->string('name')->value(), actor()->requireUser()));
@@ -148,7 +148,7 @@ class DriveController extends BaseController {
     #[Action('{id}/rename')]
     public function rename(Request $request): array {
         $request->validate([
-            'name' => ['required', 'string'],
+            'name' => ['required', 'string', 'regex:/^[^\/\\\\]+$/'],
             'description' => ['nullable', 'string']
         ]);
 

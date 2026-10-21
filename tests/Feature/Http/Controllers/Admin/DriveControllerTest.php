@@ -34,6 +34,20 @@ class DriveControllerTest extends FeatureTestCase {
         return $this->withToken($this->token)->postJson($uri, $input);
     }
 
+    public function test_a_folder_name_with_a_path_separator_is_refused(): void {
+        $root = $this->send('admin/drive/root')->json('data.id');
+
+        $this->send("admin/drive/{$root}/folder", ['name' => 'a/b'])->assertJson(['success' => false, 'code' => 422, 'fields' => ['name' => ['regex']]]);
+        $this->send("admin/drive/{$root}/folder", ['name' => 'a\\b'])->assertJson(['success' => false, 'code' => 422, 'fields' => ['name' => ['regex']]]);
+    }
+
+    public function test_a_name_with_a_path_separator_is_refused_on_rename(): void {
+        $root = $this->send('admin/drive/root')->json('data.id');
+        $folder = $this->send("admin/drive/{$root}/folder", ['name' => 'folder'])->json('data.id');
+
+        $this->send("admin/drive/{$folder}/rename", ['name' => 'a/b.txt'])->assertJson(['success' => false, 'code' => 422, 'fields' => ['name' => ['regex']]]);
+    }
+
     public function test_without_a_token_is_refused(): void {
         $this->postJson('admin/drive/root')->assertJson(['success' => false, 'code' => 401, 'error' => 'invalid-token']);
     }
