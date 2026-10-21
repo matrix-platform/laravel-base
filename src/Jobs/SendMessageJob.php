@@ -61,11 +61,11 @@ class SendMessageJob implements ShouldQueue {
             }
 
             return $driver;
-        } catch (ServiceException $exception) {
+        } catch (Throwable $exception) {
             Log::error("messaging.{$this->channel}.misconfigured", [
                 'channel' => $this->channel,
                 'provider' => $log->provider,
-                'code' => $exception->getError()
+                'code' => $exception instanceof ServiceException ? $exception->getError() : $exception::class
             ]);
 
             return null;

@@ -2,11 +2,13 @@
 
 namespace Tests\Feature\Jobs;
 
+use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Sleep;
 use MatrixPlatform\Jobs\SendMessageJob;
+use MatrixPlatform\Messaging\Driver;
 use MatrixPlatform\Messaging\MessageStatus;
 use MatrixPlatform\Models\MailLog;
 use MatrixPlatform\Models\ResourceOverride;
@@ -236,6 +238,24 @@ class SendMessageJobTest extends FeatureTestCase {
             ->once();
 
         Queue::assertNothingPushed();
+    }
+
+    public function test_a_provider_whose_driver_cannot_be_built_is_skipped_without_blocking_the_others(): void {
+        $broken = $this->stored(MessageStatus::Scheduled, 'broken');
+        $stub = $this->stored();
+
+        $this->useCfg('broken', ['driver' => Driver::class]);
+
+        $spy = Log::spy();
+
+        $this->execute();
+
+        $this->assertSame(MessageStatus::Scheduled, $broken->refresh()->status);
+        $this->assertSame(MessageStatus::Success, $stub->refresh()->status);
+
+        $spy->shouldHaveReceived('error')
+            ->with('messaging.mail.misconfigured', ['channel' => 'mail', 'provider' => 'broken', 'code' => BindingResolutionException::class])
+            ->once();
     }
 
     public function test_a_misconfigured_provider_does_not_block_the_other_providers(): void {
