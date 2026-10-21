@@ -65,14 +65,16 @@ class VendorTest extends FeatureTestCase {
     public function test_writing_a_log_records_the_address_and_the_user_agent(): void {
         $vendor = VendorFactory::new()->createOne();
 
+        $this->useRequestFrom('198.51.100.7', 'Probe/1.0');
+
         $vendor->writeLog('Login', ['source' => 'portal']);
 
         $log = VendorLog::query()->where('vendor_id', $vendor->id)->firstOrFail();
 
         $this->assertSame('Login', $log->type);
         $this->assertSame(['source' => 'portal'], $log->content);
-        $this->assertNotNull($log->ip);
-        $this->assertNotNull($log->user_agent);
+        $this->assertSame('198.51.100.7', $log->ip);
+        $this->assertSame('Probe/1.0', $log->user_agent);
     }
 
     public function test_a_vendor_that_has_logged_in_cannot_be_deleted(): void {

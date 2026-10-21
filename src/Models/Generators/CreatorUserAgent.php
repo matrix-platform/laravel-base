@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Request;
 class CreatorUserAgent implements Generates {
 
     public function generate(mixed $value, Model $model): mixed {
-        return Request::userAgent();
+        return ConsoleRequest::current() ? null : Request::userAgent();
     }
 
 }

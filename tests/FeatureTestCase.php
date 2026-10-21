@@ -6,10 +6,12 @@ use Illuminate\Encryption\Encrypter;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Request as RequestFacade;
 use Illuminate\Testing\PendingCommand;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\ResourceOverride;
@@ -230,6 +232,10 @@ class FeatureTestCase extends TestCase {
 
     protected function usePreferenceFixtures(): void {
         $this->usePackageFixtures('preference-fixture', 'package-preference');
+    }
+
+    protected function useRequestFrom(string $ip, string $userAgent): void {
+        RequestFacade::swap(Request::create('/', 'POST', server: ['REMOTE_ADDR' => $ip, 'HTTP_USER_AGENT' => $userAgent]));
     }
 
     /**

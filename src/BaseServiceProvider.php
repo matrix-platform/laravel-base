@@ -31,6 +31,7 @@ use MatrixPlatform\Http\Middleware\UserAwareMiddleware;
 use MatrixPlatform\Http\Middleware\UserMiddleware;
 use MatrixPlatform\Http\Middleware\VendorMiddleware;
 use MatrixPlatform\Messaging\Channels;
+use MatrixPlatform\Models\Generators\ConsoleRequest;
 use MatrixPlatform\Support\Actor;
 use MatrixPlatform\Support\AdminPermission;
 use MatrixPlatform\Support\Menus;
@@ -47,6 +48,8 @@ class BaseServiceProvider extends ServiceProvider {
 
     public function boot(): void {
         if ($this->app->runningInConsole()) {
+            ConsoleRequest::mark($this->app->make('request'));
+
             $this->commands([
                 ClearResourceCacheCommand::class,
                 DispatchMessagesCommand::class,

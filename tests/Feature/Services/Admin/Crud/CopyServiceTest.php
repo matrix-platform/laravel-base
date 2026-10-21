@@ -63,10 +63,13 @@ class CopyServiceTest extends FeatureTestCase {
 
     public function test_a_generated_column_is_regenerated_instead_of_copied(): void {
         $source = $this->widgets();
+
+        $this->useRequestFrom('198.51.100.7', 'Probe/1.0');
+
         $copy = $this->copied($source);
 
         $this->assertSame('203.0.113.9', $source->ip);
-        $this->assertSame('127.0.0.1', $copy->ip);
+        $this->assertSame('198.51.100.7', $copy->ip);
     }
 
     public function test_a_copy_clears_the_updater_of_its_source(): void {

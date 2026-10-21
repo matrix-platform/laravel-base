@@ -231,9 +231,11 @@ class BaseModelTest extends FeatureTestCase {
     }
 
     public function test_generators_fill_their_column_on_create(): void {
+        $this->useRequestFrom('198.51.100.7', 'Probe/1.0');
+
         $widget = Widget::forceCreate(['title' => 'alpha']);
 
-        $this->assertSame('127.0.0.1', $widget->ip);
+        $this->assertSame('198.51.100.7', $widget->ip);
     }
 
     public function test_generators_refill_their_column_on_update(): void {

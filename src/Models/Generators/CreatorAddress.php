@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Request;
 class CreatorAddress implements Generates {
 
     public function generate(mixed $value, Model $model): mixed {
-        return Request::ip();
+        return ConsoleRequest::current() ? null : Request::ip();
     }
 
 }

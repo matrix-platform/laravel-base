@@ -631,6 +631,8 @@ class CrudServiceTest extends FeatureTestCase {
     }
 
     public function test_a_removal_record_excludes_the_joined_columns(): void {
+        $this->useRequestFrom('198.51.100.7', 'Probe/1.0');
+
         $trinket = Trinket::forceCreate(['label' => 'pin']);
         $widget = Widget::forceCreate(['title' => 'Alpha', 'trinket_id' => $trinket->id]);
 

@@ -64,14 +64,16 @@ class MemberTest extends FeatureTestCase {
     public function test_writing_a_log_records_the_address_and_the_user_agent(): void {
         $member = MemberFactory::new()->createOne();
 
+        $this->useRequestFrom('198.51.100.7', 'Probe/1.0');
+
         $member->writeLog('Login', ['source' => 'web']);
 
         $log = MemberLog::query()->where('member_id', $member->id)->firstOrFail();
 
         $this->assertSame('Login', $log->type);
         $this->assertSame(['source' => 'web'], $log->content);
-        $this->assertNotNull($log->ip);
-        $this->assertNotNull($log->user_agent);
+        $this->assertSame('198.51.100.7', $log->ip);
+        $this->assertSame('Probe/1.0', $log->user_agent);
     }
 
     public function test_a_member_cannot_be_deleted(): void {
