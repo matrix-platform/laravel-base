@@ -3,6 +3,7 @@
 namespace MatrixPlatform\Console\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use MatrixPlatform\Models\File;
@@ -11,12 +12,16 @@ use ZipArchive;
 
 class UpdateGeolocationDatabaseCommand extends Command {
 
+    private const CONNECT_TIMEOUT = 10;
+
     private const ENDPOINT = 'https://www.ip2location.com/download';
 
     /**
      * The number of leading bytes kept for the archive signature check and the failure message.
      */
     private const HEAD_LENGTH = 200;
+
+    private const TIMEOUT = 600;
 
     /**
      * The local file header signature every non-empty zip archive starts with.
@@ -44,9 +49,11 @@ class UpdateGeolocationDatabaseCommand extends Command {
             return self::FAILURE;
         }
 
-        $updated = $this->download($token, $zipPath) && $this->extract($zipPath);
-
-        unlink($zipPath);
+        try {
+            $updated = $this->download($token, $zipPath) && $this->extract($zipPath);
+        } finally {
+            unlink($zipPath);
+        }
 
         if (!$updated) {
             return self::FAILURE;
@@ -58,7 +65,17 @@ class UpdateGeolocationDatabaseCommand extends Command {
     }
 
     private function download(string $token, string $path): bool {
-        $response = Http::sink($path)->get(self::ENDPOINT, ['token' => $token, 'file' => strval(cfg('ip2location-bin.db-code'))]);
+        try {
+            $response = Http::sink($path)
+                ->connectTimeout(self::CONNECT_TIMEOUT)
+                ->timeout(self::TIMEOUT)
+                ->get(self::ENDPOINT, ['token' => $token, 'file' => strval(cfg('ip2location-bin.db-code'))]);
+        } catch (ConnectionException) {
+            $this->error('Could not reach the IP2Location download server');
+
+            return false;
+        }
+
         $head = strval(file_get_contents($path, false, null, 0, self::HEAD_LENGTH));
 
         if ($response->failed() || !str_starts_with($head, self::ZIP_SIGNATURE)) {

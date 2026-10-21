@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Console;
 
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\PendingCommand;
@@ -36,6 +38,15 @@ class UpdateGeolocationDatabaseCommandTest extends FeatureTestCase {
 
     private function command(): PendingCommand {
         return $this->artisanCommand('geolocation:update-database');
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function leftovers(): array {
+        $files = glob(sys_get_temp_dir() . '/ip2location*');
+
+        return $files === false ? [] : $files;
     }
 
     private function disk(): string {
@@ -146,6 +157,49 @@ class UpdateGeolocationDatabaseCommandTest extends FeatureTestCase {
         $this->command()->assertExitCode(0);
 
         Http::assertSent(fn ($request): bool => $request['token'] === 'a-token' && $request['file'] === 'DB99BIN');
+    }
+
+    public function test_an_unreachable_server_fails_without_leaking_the_token_or_the_download(): void {
+        $this->useCfg('ip2location-bin', ['download-token' => 'a-token']);
+
+        $before = $this->leftovers();
+
+        Http::fake(fn () => throw new ConnectionException('cURL error 28: timed out for https://www.ip2location.com/download?token=a-token'));
+
+        $this->command()
+            ->expectsOutputToContain('Could not reach the IP2Location download server')
+            ->doesntExpectOutputToContain('a-token')
+            ->assertExitCode(1);
+
+        $this->assertSame($before, $this->leftovers());
+    }
+
+    public function test_a_rejected_download_leaves_no_temporary_file(): void {
+        $this->useCfg('ip2location-bin', ['download-token' => 'a-token']);
+
+        $before = $this->leftovers();
+
+        Http::fake(['www.ip2location.com/*' => Http::response('INVALID DOWNLOAD TOKEN')]);
+
+        $this->command()->assertExitCode(1);
+
+        $this->assertSame($before, $this->leftovers());
+    }
+
+    public function test_the_download_is_bounded_by_a_timeout(): void {
+        $this->useCfg('ip2location-bin', ['download-token' => 'a-token']);
+
+        $options = [];
+
+        Http::fake(function (Request $request, array $sent) use (&$options) {
+            $options = $sent;
+
+            return Http::response('INVALID DOWNLOAD TOKEN');
+        });
+
+        $this->command()->assertExitCode(1);
+
+        $this->assertSame([10, 600], [$options['connect_timeout'], $options['timeout']]);
     }
 
 }
