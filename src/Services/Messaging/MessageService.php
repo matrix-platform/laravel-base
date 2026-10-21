@@ -60,7 +60,7 @@ abstract class MessageService {
             error('invalid-message-receiver');
         }
 
-        $when = Carbon::instance($at);
+        $when = Carbon::instance($at)->setTimezone(config()->string('app.timezone'));
         $locale = array_get_value($options, 'locale');
         $locale = $locale === null ? app()->getLocale() : strval($locale);
         $rendered = $this->compose($template, $vars, $options, $locale);

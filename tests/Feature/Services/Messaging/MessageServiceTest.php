@@ -87,6 +87,22 @@ class MessageServiceTest extends FeatureTestCase {
         Queue::assertNothingPushed();
     }
 
+    public function test_a_time_given_in_another_timezone_is_sent_at_that_moment(): void {
+        $log = $this->mail()->schedule(now('Asia/Taipei'), 'alice@example.com', 'welcome', ['name' => 'Alice']);
+
+        $this->assertLessThan(60, abs(now()->diffInSeconds($this->reload($log)->schedule_time)));
+
+        Queue::assertPushed(SendMessageJob::class, fn (SendMessageJob $job) => $job->channel === 'mail');
+    }
+
+    public function test_a_future_time_given_in_another_timezone_is_not_sent_early(): void {
+        $log = $this->mail()->schedule(now('America/Los_Angeles')->addHour(), 'alice@example.com', 'welcome', ['name' => 'Alice']);
+
+        $this->assertTrue($this->reload($log)->schedule_time->isFuture());
+
+        Queue::assertNothingPushed();
+    }
+
     public function test_an_empty_receiver_is_refused(): void {
         $this->refuses('invalid-message-receiver', fn () => $this->mail()->schedule(now(), '', 'welcome', ['name' => 'Alice']));
     }
