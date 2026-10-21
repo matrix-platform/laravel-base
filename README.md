@@ -780,7 +780,7 @@ app(MailService::class)->resend($id);
 app(MailService::class)->cancel($id);
 ```
 
-`schedule($at, $to, $template = null, $vars = [], $options = [])` 回傳寫進 `base_mail_log` / `base_sms_log` / `base_push_log` / `base_telegram_log` 的那一列;`send($to, $template = null, $vars = [], $options = [])` 是 `schedule(now(), ...)` 的薄封裝,等同「立即送」。樣板檔案放 `resources/i18n/{語系}/template/{name}.php`。`resend(int|string $reference)` 複製一筆既有紀錄(清空 `send_time` / `response` / `error`、`schedule_time` 設回 `now()`)重新排入佇列,原始那筆不受影響;`cancel(int|string $reference)` 只對還是 `Scheduled` 的紀錄生效,把它改成 `Failed`(`error` 設為 `'cancelled'`),對已經是終端狀態(`Success` / `Failed`)的紀錄呼叫是冪等的,不會報錯也不會改動它。
+`schedule($at, $to, $template = null, $vars = [], $options = [])` 回傳寫進 `base_mail_log` / `base_sms_log` / `base_push_log` / `base_telegram_log` 的那一列;`send($to, $template = null, $vars = [], $options = [])` 是 `schedule(now(), ...)` 的薄封裝,等同「立即送」。樣板檔案放 `resources/i18n/{語系}/template/{name}.php`。`resend(int|string $reference)` 複製一筆既有紀錄(清空 `send_time` / `response` / `error`、`schedule_time` 設回 `now()`)重新排入佇列,原始那筆不受影響;`cancel(int|string $reference)` 只對還是 `Scheduled` 的紀錄生效,把它改成 `Failed`(`error` 設為 `'cancelled'`),對已經是終端狀態(`Success` / `Failed`)的紀錄呼叫是冪等的,不會報錯也不會改動它。判斷與寫入都在鎖住該列(`lockForUpdate()`)之後進行,發送工作寫回結果時也會在自己的交易裡鎖住同一列:正在送出的那一筆被取消時,以實際送出的結果為準(`Success`,`error` 清空),不會變成「已送出卻標成取消」。`cancel()` 本身不開交易,鎖要靠呼叫端的交易才持有得住 —— 從 action 呼叫時已經在交易裡;在 command 之類 action 以外的地方呼叫,要自己包 `DB::transaction()`。
 
 | 事實 | 說明 |
 |---|---|

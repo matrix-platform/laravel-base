@@ -3,7 +3,9 @@
 namespace Tests\Feature\Jobs;
 
 use Illuminate\Contracts\Container\BindingResolutionException;
+use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Sleep;
@@ -12,6 +14,7 @@ use MatrixPlatform\Messaging\Driver;
 use MatrixPlatform\Messaging\MessageStatus;
 use MatrixPlatform\Models\MailLog;
 use MatrixPlatform\Models\ResourceOverride;
+use MatrixPlatform\Services\Messaging\MailService;
 use Mockery;
 use Tests\FeatureTestCase;
 use Tests\Stubs\FailDriver;
@@ -26,6 +29,7 @@ class SendMessageJobTest extends FeatureTestCase {
 
         Sleep::fake();
 
+        OkDriver::$during = null;
         OkDriver::$level = null;
 
         $this->useMessagingFixtures();
@@ -256,6 +260,36 @@ class SendMessageJobTest extends FeatureTestCase {
         $spy->shouldHaveReceived('error')
             ->with('messaging.mail.misconfigured', ['channel' => 'mail', 'provider' => 'broken', 'code' => BindingResolutionException::class])
             ->once();
+    }
+
+    public function test_a_cancel_landing_while_the_driver_sends_does_not_leave_a_sent_message_marked_cancelled(): void {
+        $log = $this->stored();
+
+        OkDriver::$during = fn () => app(MailService::class)->cancel($log->id);
+
+        $this->execute();
+
+        $log->refresh();
+
+        $this->assertSame(MessageStatus::Success, $log->status);
+        $this->assertNull($log->error);
+    }
+
+    public function test_a_cancel_that_read_the_message_before_it_was_sent_does_not_turn_it_into_a_failure(): void {
+        $log = $this->stored();
+
+        Event::listen(MessageLogged::class, function (MessageLogged $event): void {
+            if ($event->message === 'messaging.mail.cancel') {
+                $this->execute();
+            }
+        });
+
+        app(MailService::class)->cancel($log->id);
+
+        $log->refresh();
+
+        $this->assertSame(MessageStatus::Success, $log->status);
+        $this->assertNull($log->error);
     }
 
     public function test_a_misconfigured_provider_does_not_block_the_other_providers(): void {

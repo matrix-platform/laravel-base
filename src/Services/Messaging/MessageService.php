@@ -28,13 +28,18 @@ abstract class MessageService {
 
         $this->record('cancel', ['reference' => $reference]);
 
-        if ($log->status === MessageStatus::Scheduled) {
-            $log->status = MessageStatus::Failed;
-            $log->error = 'cancelled';
-            $log->save();
+        $current = $log->newQuery()
+            ->whereKey($log->getKey())
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        if ($current->status === MessageStatus::Scheduled) {
+            $current->status = MessageStatus::Failed;
+            $current->error = 'cancelled';
+            $current->save();
         }
 
-        return $log;
+        return $current;
     }
 
     public function resend(int|string $reference): MessageLog {

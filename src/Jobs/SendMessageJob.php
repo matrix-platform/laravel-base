@@ -5,6 +5,7 @@ namespace MatrixPlatform\Jobs;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Sleep;
 use MatrixPlatform\Exceptions\ServiceException;
@@ -116,7 +117,15 @@ class SendMessageJob implements ShouldQueue {
             ]);
         }
 
-        $log->save();
+        DB::transaction(function () use ($log): void {
+            $current = $log->newQuery()
+                ->whereKey($log->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $current->forceFill([...$log->getDirty(), 'error' => $log->error]);
+            $current->save();
+        });
     }
 
 }
