@@ -173,6 +173,27 @@ class ColumnParserTest extends TestCase {
         $this->assertSame('>', $conditions['orders'][0]->operator);
     }
 
+    public function test_each_segment_of_a_repeated_relation_keeps_its_own_condition(): void {
+        $conditions = $this->parse('count(trinkets[label=a].trinkets[label=b])')->expression->conditions;
+
+        $this->assertSame(['trinkets', 'trinkets__trinkets'], array_keys($conditions));
+        $this->assertSame('a', $conditions['trinkets'][0]->value);
+        $this->assertSame('b', $conditions['trinkets__trinkets'][0]->value);
+    }
+
+    public function test_a_condition_on_a_repeated_relation_applies_only_to_its_own_segment(): void {
+        $conditions = $this->parse('count(children[status=1].children)')->expression->conditions;
+
+        $this->assertSame(['children'], array_keys($conditions));
+    }
+
+    public function test_a_field_condition_is_not_taken_by_a_relation_of_the_same_name(): void {
+        $conditions = $this->parse('sum(amount.amount[amount>0])')->expression->conditions;
+
+        $this->assertSame(['amount'], array_keys($conditions));
+        $this->assertCount(1, $conditions['amount']);
+    }
+
     public function test_null_comparisons_become_null_operators(): void {
         $conditions = $this->parse('count(a[x=null][y!=null])')->expression->conditions;
 

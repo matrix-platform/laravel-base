@@ -148,13 +148,16 @@ class ColumnParser {
 
             preg_match_all('/(\w+)((?:\[[^\]]+\])*)/u', $source, $matches, PREG_SET_ORDER);
 
+            $path = '';
+
             foreach ($matches as $match) {
                 $tokens[] = $match[1];
+                $path = $path === '' ? $match[1] : "{$path}__{$match[1]}";
 
                 if ($match[2] !== '') {
                     preg_match_all('/\[([^\]]+)\]/u', $match[2], $brackets);
 
-                    $clauses[$match[1]] = $brackets[1];
+                    $clauses[$path] = $brackets[1];
                 }
             }
         } elseif ($aggregate === null && preg_match('/^\w+(?:\.\w+)*$/u', $source)) {
@@ -182,15 +185,21 @@ class ColumnParser {
         foreach ($tokens as $token) {
             $alias = $alias === '' ? $token : "{$alias}__{$token}";
 
-            if (array_key_exists($token, $clauses)) {
-                $conditions[$alias] = $this->conditions($clauses[$token]);
+            if (array_key_exists($alias, $clauses)) {
+                $conditions[$alias] = $this->conditions($clauses[$alias]);
             }
         }
 
-        if ($field !== null && array_key_exists($field, $clauses)) {
+        if ($field === null) {
+            return $conditions;
+        }
+
+        $path = $alias === '' ? $field : "{$alias}__{$field}";
+
+        if (array_key_exists($path, $clauses)) {
             $previous = array_key_exists($alias, $conditions) ? $conditions[$alias] : [];
 
-            $conditions[$alias] = array_merge($previous, $this->conditions($clauses[$field]));
+            $conditions[$alias] = array_merge($previous, $this->conditions($clauses[$path]));
         }
 
         return $conditions;
