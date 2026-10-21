@@ -31,8 +31,8 @@ class ScaffoldPlan {
         $modelName = $model === null || $model === '' ? self::defaultModelName($table) : $model;
         $titleField = self::resolveTitleField($columns, $title);
         $resolvedAlias = $alias === null || $alias === '' ? Str::kebab($modelName) : $alias;
-        $parentInfo = $parent === null ? null : self::resolveParent($packages, $registry, $columns, $parent);
-        $path = self::resolvePath($subject, $resolvedAlias, $parentInfo);
+        $parentInfo = $parent === null ? null : self::resolveParent($packages, $registry, $subject, $columns, $parent);
+        $path = self::resolvePath($resolvedAlias, $parentInfo);
         $sortable = array_key_exists('ranking', $columns);
         $arrangeable = array_key_exists('enable_time', $columns) && array_key_exists('disable_time', $columns);
         $groups = self::groupColumns($columns, $titleField);
@@ -164,9 +164,9 @@ class ScaffoldPlan {
 
     /**
      * @param array<string, ResolvedColumn> $columns
-     * @return array{relation: string, column: string, modelClass: class-string<Model>, alias: string}
+     * @return array{relation: string, column: string, modelClass: class-string<Model>, prefix: string}
      */
-    private static function resolveParent(PackageRegistry $packages, MetadataRegistry $registry, array $columns, string $parent): array {
+    private static function resolveParent(PackageRegistry $packages, MetadataRegistry $registry, Subject $subject, array $columns, string $parent): array {
         $column = "{$parent}_id";
 
         if (!array_key_exists($column, $columns) || $columns[$column]->foreignTable === null) {
@@ -175,9 +175,11 @@ class ScaffoldPlan {
 
         $referencedTable = $columns[$column]->foreignTable;
 
-        foreach ($registry->declaredModels($packages) as $model => $declares) {
-            if ((new $model())->getTable() === $referencedTable) {
-                return ['relation' => $parent, 'column' => $column, 'modelClass' => $model, 'alias' => $declares->metadata()->alias];
+        foreach (array_keys($registry->declaredModels($packages)) as $model) {
+            $instance = new $model();
+
+            if ($instance->getTable() === $referencedTable) {
+                return ['relation' => $parent, 'column' => $column, 'modelClass' => $model, 'prefix' => $subject->prefix($instance)];
             }
         }
 
@@ -187,17 +189,10 @@ class ScaffoldPlan {
     }
 
     /**
-     * @param array{relation: string, column: string, modelClass: class-string<Model>, alias: string}|null $parent
+     * @param array{relation: string, column: string, modelClass: class-string<Model>, prefix: string}|null $parent
      */
-    private static function resolvePath(Subject $subject, string $alias, ?array $parent): string {
-        if ($parent === null) {
-            return $alias;
-        }
-
-        $class = $parent['modelClass'];
-        $prefix = $subject->prefix(new $class());
-
-        return Subject::joinSegment($prefix, $parent['column'], $alias);
+    private static function resolvePath(string $alias, ?array $parent): string {
+        return $parent === null ? $alias : Subject::joinSegment($parent['prefix'], $parent['column'], $alias);
     }
 
     /**
@@ -343,7 +338,7 @@ class ScaffoldPlan {
     }
 
     /**
-     * @param array{relation: string, column: string, modelClass: class-string<Model>, alias: string}|null $parent
+     * @param array{relation: string, column: string, modelClass: class-string<Model>, prefix: string}|null $parent
      * @param array<string, ResolvedColumn> $columns
      * @param list<array{kind: 'primary'|'title'|'ranking'|'schedules'|'auditings'|'custom', names: non-empty-list<string>}> $groups
      * @param list<string> $customFields

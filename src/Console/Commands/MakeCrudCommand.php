@@ -131,7 +131,7 @@ class MakeCrudCommand extends Command {
         $this->newLine();
         $this->line('Add to resources/menu/*.php (pick the real parent category, icon and ranking):');
 
-        $parentKey = $plan->parent === null ? "'TODO-parent-menu-key'" : "'{$plan->parent['alias']}'";
+        $parentKey = $plan->parent === null ? "'TODO-parent-menu-key'" : "'{$plan->parent['prefix']}'";
         $group = ["'icon' => 'fa-solid fa-TODO'", "'parent' => {$parentKey}"];
 
         if ($plan->parent === null) {

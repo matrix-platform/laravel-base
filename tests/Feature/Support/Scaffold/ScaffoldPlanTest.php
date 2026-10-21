@@ -91,7 +91,7 @@ class ScaffoldPlanTest extends FeatureTestCase {
 
         $this->assertSame('scaffold-parent/{parent_id}/items', $plan->path);
         $this->assertIsArray($plan->parent);
-        $this->assertSame('scaffold-parent', $plan->parent['alias']);
+        $this->assertSame('scaffold-parent', $plan->parent['prefix']);
         $this->assertStringContainsString('public function parent(): BelongsTo', $plan->modelTokens()['members']);
         $this->assertStringContainsString("'parent_id'", $plan->declarationTokens()['segments']);
     }

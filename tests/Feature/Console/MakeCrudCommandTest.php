@@ -3,6 +3,7 @@
 namespace Tests\Feature\Console;
 
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
 use MatrixPlatform\Support\PackageRegistry;
@@ -85,6 +86,15 @@ class MakeCrudCommandTest extends FeatureTestCase {
 
         $this->assertStringContainsString("'parent_id' => Definition::integer()", $declaration);
         $this->assertStringContainsString("new Metadata('items', 'code', 'parent', enable: 'enable_time', disable: 'disable_time', ranking: 'ranking');", $declaration);
+    }
+
+    public function test_a_nested_parent_prints_the_full_parent_menu_path(): void {
+        DB::statement('CREATE TABLE scaffold_note (id integer PRIMARY KEY, name text NOT NULL, block_id integer NOT NULL REFERENCES base_block (id))');
+
+        $this->artisanCommand('matrix:make-crud scaffold_note --parent=block --dry-run')
+            ->expectsOutputToContain("ActionRoutes::mount('page/{page_id}/block/{block_id}/note', NoteController::class);")
+            ->expectsOutputToContain("'page/{page_id}/block/{block_id}/note' => ['icon' => 'fa-solid fa-TODO', 'parent' => 'page/{page_id}/block', 'group' => true, 'tag' => 'query'],")
+            ->assertExitCode(0);
     }
 
     public function test_a_parent_pointing_to_an_undeclared_model_fails_without_writing_any_file(): void {
