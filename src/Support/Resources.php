@@ -15,6 +15,8 @@ class Resources {
 
     private const MISSING = "\0missing\0";
 
+    private const OVERRIDES_TTL = 86400;
+
     /**
      * @param array<string, mixed> $base
      * @param array<string, mixed> $patch
@@ -38,8 +40,12 @@ class Resources {
         return 'matrix:resources:generation';
     }
 
-    public static function overridesCacheKey(): string {
-        return 'matrix:resources:overrides';
+    public static function overridesCacheKey(string $version): string {
+        return "matrix:resources:overrides:{$version}";
+    }
+
+    public static function overridesVersionCacheKey(): string {
+        return 'matrix:resources:overrides-version';
     }
 
     private static function traverses(string $name): bool {
@@ -90,7 +96,7 @@ class Resources {
     public function forget(): void {
         $this->reset();
 
-        $this->cache()->forget(self::overridesCacheKey());
+        $this->cache()->forever(self::overridesVersionCacheKey(), bin2hex(random_bytes(8)));
     }
 
     public function forgetAll(): void {
@@ -280,7 +286,10 @@ class Resources {
      */
     private function overrides(): array {
         if ($this->overrides === null) {
-            $this->overrides = $this->store()->rememberForever(self::overridesCacheKey(), $this->loadOverrides(...));
+            $store = $this->store();
+            $version = strval($store->get(self::overridesVersionCacheKey(), ''));
+
+            $this->overrides = $store->remember(self::overridesCacheKey($version), self::OVERRIDES_TTL, $this->loadOverrides(...));
         }
 
         return $this->overrides;

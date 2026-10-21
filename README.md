@@ -1665,7 +1665,7 @@ VALUES ('cfg/captcha-turnstile', '{"driver":"MatrixPlatform\\Captcha\\NoneDriver
 php artisan matrix:clear-resource-cache
 ```
 
-驗證碼立刻放行,零部署、零改檔。**清快取那一步不能省** —— `overrides()` 是 `rememberForever`。
+驗證碼立刻放行,零部署、零改檔。**清快取那一步不能省** —— `overrides()` 的結果會快取一天。
 
 同一張表也可以只調參數而不整個關掉,例如把 reCAPTCHA 的分數門檻放寬:`{"threshold":0.1}`。
 

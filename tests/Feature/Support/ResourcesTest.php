@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Support;
 
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use MatrixPlatform\Exceptions\ServiceException;
@@ -343,6 +344,30 @@ class ResourcesTest extends FeatureTestCase {
         $first->forget();
 
         $this->assertSame('later', $this->fixtures()->config('demo.shared'));
+    }
+
+    public function test_an_override_read_before_a_concurrent_save_is_not_cached_past_it(): void {
+        $this->overriding('cfg/demo', ['shared' => 'old']);
+
+        $reader = $this->fixtures();
+        $saved = false;
+
+        DB::listen(function (QueryExecuted $query) use (&$saved): void {
+            if ($saved || !str_starts_with(strtolower($query->sql), 'select') || !str_contains($query->sql, 'base_resource_override')) {
+                return;
+            }
+
+            $saved = true;
+            $override = ResourceOverride::query()->where('bundle', 'cfg/demo')->firstOrFail();
+
+            $override->data = ['shared' => 'new'];
+
+            $override->save();
+            $this->fixtures()->forget();
+        });
+
+        $this->assertSame('old', $reader->config('demo.shared'));
+        $this->assertSame('new', $this->fixtures()->config('demo.shared'));
     }
 
     public function test_a_new_scope_reads_an_override_written_outside_the_process(): void {
