@@ -84,6 +84,14 @@ class OptionProviderTest extends FeatureTestCase {
         $this->assertSame(5, $options[0]->ranking);
     }
 
+    public function test_a_parent_that_is_not_a_belongs_to_is_refused(): void {
+        app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'trinkets')));
+
+        $this->trinket('alpha');
+
+        $this->refuses('invalid-parent-relation', fn () => (new RelationOptions(Trinket::class))->options());
+    }
+
     public function test_a_self_referencing_relation_becomes_a_tree(): void {
         app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'trinket')));
 

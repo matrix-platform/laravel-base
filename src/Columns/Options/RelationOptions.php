@@ -42,8 +42,7 @@ class RelationOptions implements OptionProvider {
                 error('undeclared-model');
             }
 
-            $parent = $metadata->parent;
-            $relation = $parent === null ? null : $current->{$parent}();
+            $relation = $subject->parent($current);
             $foreign = $relation?->getForeignKeyName();
             $owner = $relation === null ? null : $relation->getRelated()::class;
 

@@ -96,6 +96,19 @@ class FileControllerTest extends FeatureTestCase {
             ->assertContent('');
     }
 
+    public function test_a_cached_thumbnail_is_not_found_once_its_source_is_gone(): void {
+        [$file, $node] = $this->driveLinked(UploadedFile::fake()->image('cover.png', 200, 100));
+        $service = app(DriveService::class);
+
+        $this->get("api/files/{$file->path}?size=icon")->assertOk();
+
+        Storage::disk($service->disk())->delete($service->location($node));
+
+        $this->get("api/files/{$file->path}?size=icon")
+            ->assertNotFound()
+            ->assertContent('');
+    }
+
     public function test_a_drive_linked_file_streams_its_content(): void {
         [$file] = $this->driveLinked();
 

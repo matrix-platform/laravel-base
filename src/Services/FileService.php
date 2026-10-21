@@ -185,6 +185,10 @@ class FileService {
     }
 
     public function thumbnail(string $sourcePath, string $destinationPath, string $size): void {
+        if (!is_file($sourcePath)) {
+            error('data-not-found', 404);
+        }
+
         if (is_file($destinationPath)) {
             return;
         }
@@ -193,10 +197,6 @@ class FileService {
 
         if ($width === null) {
             return;
-        }
-
-        if (!is_file($sourcePath)) {
-            error('data-not-found', 404);
         }
 
         app(FileStorage::class)->ensureDirectory(dirname($destinationPath));
