@@ -4,6 +4,7 @@ namespace Tests\Feature\Console;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use MatrixPlatform\Support\CfgSchema;
 use Tests\FeatureTestCase;
 
 class SetTelegramWebhookCommandTest extends FeatureTestCase {
@@ -30,6 +31,17 @@ class SetTelegramWebhookCommandTest extends FeatureTestCase {
 
             return true;
         });
+    }
+
+    public function test_an_unreachable_telegram_api_fails_without_echoing_the_token(): void {
+        $this->useCfg('telegram', ['bot-token' => '123456:SECRETTOKEN', 'webhook-secret' => 'shh']);
+
+        Http::fake(['*' => Http::failedConnection()]);
+
+        $this->artisanCommand('messages:telegram-webhook')
+            ->expectsOutputToContain('https://api.telegram.org/bot' . CfgSchema::MASK . '/setWebhook')
+            ->doesntExpectOutputToContain('SECRETTOKEN')
+            ->assertFailed();
     }
 
     public function test_a_rejected_registration_fails(): void {

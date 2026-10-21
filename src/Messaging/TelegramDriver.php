@@ -2,11 +2,13 @@
 
 namespace MatrixPlatform\Messaging;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use MatrixPlatform\Models\MessageLog;
 use MatrixPlatform\Models\TelegramLog;
 use MatrixPlatform\Models\TelegramSubscription;
 use MatrixPlatform\Services\Messaging\TelegramService;
+use MatrixPlatform\Support\CfgSchema;
 
 /**
  * @implements Driver<TelegramLog>
@@ -19,10 +21,16 @@ class TelegramDriver implements Driver {
         $sandbox = Sandbox::recipient($bundle);
         $target = $sandbox === null ? $chatId : $sandbox;
 
-        $response = Http::post('https://api.telegram.org/bot' . strval(cfg("{$bundle}.bot-token")) . '/sendMessage', array_merge($log->data === null ? [] : $log->data, [
-            'chat_id' => $target,
-            'text' => $log->content
-        ]));
+        $url = 'https://api.telegram.org/bot' . strval(cfg("{$bundle}.bot-token")) . '/sendMessage';
+
+        try {
+            $response = Http::post($url, array_merge($log->data === null ? [] : $log->data, [
+                'chat_id' => $target,
+                'text' => $log->content
+            ]));
+        } catch (ConnectionException $exception) {
+            throw new ConnectionException(str_replace($url, 'https://api.telegram.org/bot' . CfgSchema::MASK . '/sendMessage', $exception->getMessage()));
+        }
 
         $body = $response->json();
 

@@ -2,12 +2,14 @@
 
 namespace Tests\Feature\Messaging;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use MatrixPlatform\Messaging\MessageStatus;
 use MatrixPlatform\Messaging\TelegramDriver;
 use MatrixPlatform\Models\TelegramLog;
 use MatrixPlatform\Models\TelegramSubscription;
+use MatrixPlatform\Support\CfgSchema;
 use Tests\Factories\TelegramSubscriptionFactory;
 use Tests\FeatureTestCase;
 
@@ -183,6 +185,25 @@ class TelegramDriverTest extends FeatureTestCase {
         Http::fake(['*' => Http::response('not json', 500)]);
 
         $this->refuses('request-failed', fn () => (new TelegramDriver())->send($this->log('-1001234567890')));
+    }
+
+    public function test_a_connection_failure_masks_the_bot_token_in_its_message(): void {
+        $this->useCfg('telegram', ['bot-token' => '123456:SECRETTOKEN']);
+
+        Http::fake(['*' => Http::failedConnection()]);
+
+        try {
+            (new TelegramDriver())->send($this->log('-1001234567890'));
+        } catch (ConnectionException $exception) {
+            $this->assertStringNotContainsString('SECRETTOKEN', $exception->getMessage());
+            $this->assertStringContainsString('https://api.telegram.org/bot' . CfgSchema::MASK . '/sendMessage', $exception->getMessage());
+            $this->assertStringContainsString('Could not resolve host', $exception->getMessage());
+            $this->assertNull($exception->getPrevious());
+
+            return;
+        }
+
+        $this->fail('the connection failure was expected to surface');
     }
 
     public function test_a_sandboxed_provider_sends_to_the_sink_instead(): void {
