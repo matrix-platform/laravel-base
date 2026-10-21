@@ -2,6 +2,7 @@
 
 namespace MatrixPlatform\Captcha;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
@@ -21,10 +22,14 @@ trait SiteVerification {
         $endpoint = strval(cfg("{$bundle}.endpoint"));
         $secret = strval(cfg("{$bundle}.secret"));
 
-        $response = Http::asForm()
-            ->connectTimeout(self::CONNECT_TIMEOUT)
-            ->timeout(self::TIMEOUT)
-            ->post($endpoint, ['secret' => $secret, 'response' => $token]);
+        try {
+            $response = Http::asForm()
+                ->connectTimeout(self::CONNECT_TIMEOUT)
+                ->timeout(self::TIMEOUT)
+                ->post($endpoint, ['secret' => $secret, 'response' => $token]);
+        } catch (ConnectionException) {
+            error('captcha-request-failed');
+        }
 
         if ($response->failed()) {
             error('captcha-request-failed');

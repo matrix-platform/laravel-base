@@ -173,4 +173,18 @@ class MitakeSmsDriverTest extends FeatureTestCase {
         Http::assertSent(fn (Request $request) => $request['dstaddr'] === '0900000000');
     }
 
+    public function test_the_request_is_bounded_by_a_timeout(): void {
+        $options = [];
+
+        Http::fake(function (Request $request, array $sent) use (&$options) {
+            $options = $sent;
+
+            return Http::response(self::ACCEPTED);
+        });
+
+        (new MitakeSmsDriver())->send($this->log());
+
+        $this->assertSame([5, 20], [$options['connect_timeout'], $options['timeout']]);
+    }
+
 }

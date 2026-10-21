@@ -11,9 +11,13 @@ use MatrixPlatform\Models\SmsLog;
  */
 class MitakeSmsDriver implements Driver {
 
+    private const CONNECT_TIMEOUT = 5;
+
     private const NEWLINE = "\x06";
 
     private const PATH = '/api/mtk/SmSend?CharsetURL=UTF-8';
+
+    private const TIMEOUT = 20;
 
     public function send(MessageLog $log): string {
         $bundle = $log->provider;
@@ -25,13 +29,16 @@ class MitakeSmsDriver implements Driver {
 
         $sandbox = Sandbox::recipient($bundle);
 
-        $response = Http::asForm()->post(rtrim($endpoint, '/') . self::PATH, [
-            'username' => strval(cfg("{$bundle}.username")),
-            'password' => strval(cfg("{$bundle}.password")),
-            'dstaddr' => $sandbox === null ? $log->receiver : $sandbox,
-            'smbody' => str_replace(["\r\n", "\n", "\r"], self::NEWLINE, $log->content),
-            'clientid' => strval($log->id)
-        ]);
+        $response = Http::asForm()
+            ->connectTimeout(self::CONNECT_TIMEOUT)
+            ->timeout(self::TIMEOUT)
+            ->post(rtrim($endpoint, '/') . self::PATH, [
+                'username' => strval(cfg("{$bundle}.username")),
+                'password' => strval(cfg("{$bundle}.password")),
+                'dstaddr' => $sandbox === null ? $log->receiver : $sandbox,
+                'smbody' => str_replace(["\r\n", "\n", "\r"], self::NEWLINE, $log->content),
+                'clientid' => strval($log->id)
+            ]);
 
         if (!$response->successful()) {
             error('request-failed');

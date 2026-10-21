@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Geolocation;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use MatrixPlatform\Geolocation\Ip2LocationWebServiceDriver;
@@ -70,6 +71,26 @@ class Ip2LocationWebServiceDriverTest extends FeatureTestCase {
         Http::fake(['*' => Http::response(['response' => 'OK', 'country_code' => '-', 'country_name' => '-'])]);
 
         $this->assertNull((new Ip2LocationWebServiceDriver())->locate('192.168.1.1'));
+    }
+
+    public function test_an_unreachable_provider_is_refused_as_a_failed_request(): void {
+        Http::fake(fn () => throw new ConnectionException('unreachable'));
+
+        $this->refuses('geolocation-request-failed', fn () => (new Ip2LocationWebServiceDriver())->locate('8.8.8.8'));
+    }
+
+    public function test_the_request_is_bounded_by_a_timeout(): void {
+        $options = [];
+
+        Http::fake(function (Request $request, array $sent) use (&$options) {
+            $options = $sent;
+
+            return Http::response(['response' => 'OK', 'country_code' => 'US']);
+        });
+
+        (new Ip2LocationWebServiceDriver())->locate('8.8.8.8');
+
+        $this->assertSame([3, 5], [$options['connect_timeout'], $options['timeout']]);
     }
 
 }

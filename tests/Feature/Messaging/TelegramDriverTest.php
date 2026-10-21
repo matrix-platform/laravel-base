@@ -228,4 +228,18 @@ class TelegramDriverTest extends FeatureTestCase {
         $this->assertNotNull($subscription->fresh());
     }
 
+    public function test_the_request_is_bounded_by_a_timeout(): void {
+        $options = [];
+
+        Http::fake(function (Request $request, array $sent) use (&$options) {
+            $options = $sent;
+
+            return Http::response(['ok' => true, 'result' => ['message_id' => 1]]);
+        });
+
+        (new TelegramDriver())->send($this->log('-1001234567890'));
+
+        $this->assertSame([5, 20], [$options['connect_timeout'], $options['timeout']]);
+    }
+
 }

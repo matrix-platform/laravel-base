@@ -2,16 +2,27 @@
 
 namespace MatrixPlatform\Geolocation;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
 class Ip2LocationWebServiceDriver implements Driver {
 
+    private const CONNECT_TIMEOUT = 3;
+
+    private const TIMEOUT = 5;
+
     public function locate(string $ip): ?Location {
-        $response = Http::get(strval(cfg('ip2location-webservice.endpoint')), [
-            'key' => strval(cfg('ip2location-webservice.api-key')),
-            'ip' => $ip,
-            'package' => strval(cfg('ip2location-webservice.package'))
-        ]);
+        try {
+            $response = Http::connectTimeout(self::CONNECT_TIMEOUT)
+                ->timeout(self::TIMEOUT)
+                ->get(strval(cfg('ip2location-webservice.endpoint')), [
+                    'key' => strval(cfg('ip2location-webservice.api-key')),
+                    'ip' => $ip,
+                    'package' => strval(cfg('ip2location-webservice.package'))
+                ]);
+        } catch (ConnectionException) {
+            error('geolocation-request-failed');
+        }
 
         $body = $response->json();
 

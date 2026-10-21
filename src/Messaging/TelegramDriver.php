@@ -15,6 +15,10 @@ use MatrixPlatform\Support\CfgSchema;
  */
 class TelegramDriver implements Driver {
 
+    private const CONNECT_TIMEOUT = 5;
+
+    private const TIMEOUT = 20;
+
     public function send(MessageLog $log): string {
         $bundle = $log->provider;
         [$chatId, $subscribed] = $this->resolve($log->chat_id);
@@ -24,10 +28,12 @@ class TelegramDriver implements Driver {
         $url = 'https://api.telegram.org/bot' . strval(cfg("{$bundle}.bot-token")) . '/sendMessage';
 
         try {
-            $response = Http::post($url, array_merge($log->data === null ? [] : $log->data, [
-                'chat_id' => $target,
-                'text' => $log->content
-            ]));
+            $response = Http::connectTimeout(self::CONNECT_TIMEOUT)
+                ->timeout(self::TIMEOUT)
+                ->post($url, array_merge($log->data === null ? [] : $log->data, [
+                    'chat_id' => $target,
+                    'text' => $log->content
+                ]));
         } catch (ConnectionException $exception) {
             throw new ConnectionException(str_replace($url, 'https://api.telegram.org/bot' . CfgSchema::MASK . '/sendMessage', $exception->getMessage()));
         }

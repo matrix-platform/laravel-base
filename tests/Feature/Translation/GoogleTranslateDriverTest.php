@@ -87,4 +87,18 @@ class GoogleTranslateDriverTest extends FeatureTestCase {
         return new GoogleTranslateDriver();
     }
 
+    public function test_the_request_is_bounded_by_a_timeout(): void {
+        $options = [];
+
+        Http::fake(function (Request $request, array $sent) use (&$options) {
+            $options = $sent;
+
+            return Http::response(['data' => ['translations' => [['translatedText' => 'ok']]]]);
+        });
+
+        $this->driver()->translate('Hello', 'en', 'tw');
+
+        $this->assertSame([10, 60], [$options['connect_timeout'], $options['timeout']]);
+    }
+
 }

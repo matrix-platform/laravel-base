@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Captcha;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use MatrixPlatform\Services\Admin\AuthService;
@@ -138,6 +139,14 @@ class RecaptchaDriverTest extends FeatureTestCase {
         $this->useRecaptcha();
 
         $this->assertNull(app(AuthService::class)->captcha());
+    }
+
+    public function test_the_login_is_blocked_when_siteverify_is_unreachable(): void {
+        $this->useRecaptcha();
+
+        Http::fake(fn () => throw new ConnectionException('unreachable'));
+
+        $this->refuses('captcha-request-failed', fn () => $this->attempt());
     }
 
 }
