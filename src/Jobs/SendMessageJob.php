@@ -123,7 +123,10 @@ class SendMessageJob implements ShouldQueue {
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $current->forceFill([...$log->getDirty(), 'error' => $log->error]);
+            foreach ([...array_keys($log->getDirty()), 'error'] as $key) {
+                $current->setAttribute($key, $log->getAttribute($key));
+            }
+
             $current->save();
         });
     }

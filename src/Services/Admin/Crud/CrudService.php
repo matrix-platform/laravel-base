@@ -1053,10 +1053,16 @@ abstract class CrudService {
             default => null
         };
 
+        $declared = [];
+
         foreach ($rule as $item) {
-            if (is_string($item) && preg_match('/(\A|\|)(max|between):/', $item) === 1) {
-                return [];
+            if (is_string($item) && preg_match_all('/(?:\A|\|)(min|max|between):/', $item, $matches) > 0) {
+                $declared = [...$declared, ...$matches[1]];
             }
+        }
+
+        if (in_array('between', $declared, true) || (in_array('min', $declared, true) && in_array('max', $declared, true))) {
+            return [];
         }
 
         return $range === null ? [] : ["between:{$range}"];

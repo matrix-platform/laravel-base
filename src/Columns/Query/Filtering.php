@@ -76,7 +76,7 @@ class Filtering {
 
         $valid = match ($type) {
             ColumnType::Boolean => is_bool($value) || in_array($value, [0, 1, '0', '1'], true),
-            ColumnType::Date, ColumnType::DateTime => self::formatted($value, strval($type->format())) && !str_starts_with(strval($value), '0000'),
+            ColumnType::Date, ColumnType::DateTime => self::formatted($value, strval($type->format())) && $this->dated(strval($value), strval($type->format())),
             ColumnType::Float => is_numeric($value) && is_finite(floatval($value)),
             ColumnType::Integer => is_int($value) || (is_string($value) && $this->integral($value)),
             default => true
@@ -91,6 +91,12 @@ class Filtering {
             ColumnType::Integer => intval($value),
             default => $value
         };
+    }
+
+    private function dated(string $value, string $format): bool {
+        $parsed = DateTime::createFromFormat($format, $value);
+
+        return $parsed !== false && intval($parsed->format('Y')) >= 1;
     }
 
     private function escape(mixed $value): string {

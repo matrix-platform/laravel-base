@@ -3,6 +3,7 @@
 namespace Tests\Feature\Services\Admin\Crud;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use MatrixPlatform\Columns\Declarations\Definition;
@@ -660,6 +661,29 @@ class CrudServiceTest extends FeatureTestCase {
         $failed = $this->failedRules(['amount' => Definition::integer(rule: ['integer', 'max:5'])], ['amount' => '6']);
 
         $this->assertSame(['Max'], array_keys($failed['amount']));
+    }
+
+    public function test_a_ceiling_alone_does_not_lift_the_storage_floor(): void {
+        $this->assertArrayHasKey('Between', $this->failedRules(['amount' => Definition::integer(rule: ['integer', 'max:100'])], ['amount' => '-99999999999'])['amount']);
+        $this->assertArrayHasKey('Between', $this->failedRules(['weight' => Definition::float(rule: ['numeric', 'max:100'])], ['weight' => '-1e400'])['weight']);
+    }
+
+    public function test_a_declared_floor_and_ceiling_replace_the_storage_range(): void {
+        DB::beginTransaction();
+
+        try {
+            $this->failedRules(['amount' => Definition::integer(rule: ['integer', 'min:0', 'max:9223372036854775807'])], ['amount' => '99999999999']);
+        } catch (QueryException) {
+            DB::rollBack();
+
+            $this->addToAssertionCount(1);
+
+            return;
+        }
+
+        DB::rollBack();
+
+        $this->fail('a declared bigint range was expected to pass validation and reach the int4 column');
     }
 
     public function test_an_infinite_float_is_refused_and_an_underflowing_one_is_stored_as_zero(): void {

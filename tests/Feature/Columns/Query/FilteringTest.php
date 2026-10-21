@@ -156,6 +156,19 @@ class FilteringTest extends FeatureTestCase {
         $this->refusesDate('create_time', '0000-01-01 00:00:00');
     }
 
+    public function test_a_date_before_year_one_is_refused_whatever_the_configured_format(): void {
+        $this->useDateFormats('d/m/Y', 'd/m/Y H:i');
+
+        app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label'), [
+            'create_time' => Definition::date(),
+            'update_time' => Definition::dateTime(),
+            'label' => Definition::text()
+        ]));
+
+        $this->refusesDate('create_time', '01/01/0000');
+        $this->refusesDate('update_time', '01/01/0000 00:00');
+    }
+
     public function test_a_malformed_bound_on_an_integer_between_is_refused(): void {
         $this->declareTypedTrinket();
         $this->trinkets();

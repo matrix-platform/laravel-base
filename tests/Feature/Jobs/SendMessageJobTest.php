@@ -14,6 +14,7 @@ use MatrixPlatform\Messaging\Driver;
 use MatrixPlatform\Messaging\MessageStatus;
 use MatrixPlatform\Models\MailLog;
 use MatrixPlatform\Models\ResourceOverride;
+use MatrixPlatform\Models\TelegramLog;
 use MatrixPlatform\Services\Messaging\MailService;
 use Mockery;
 use Tests\FeatureTestCase;
@@ -290,6 +291,27 @@ class SendMessageJobTest extends FeatureTestCase {
 
         $this->assertSame(MessageStatus::Success, $log->status);
         $this->assertNull($log->error);
+    }
+
+    public function test_a_cast_column_the_driver_changes_is_written_back_once(): void {
+        $log = new TelegramLog();
+
+        $log->provider = 'stub';
+        $log->chat_id = '-1001234567890';
+        $log->content = 'Hello';
+        $log->schedule_time = now()->subMinute();
+        $log->status = MessageStatus::Scheduled;
+        $log->locale = 'en';
+
+        $log->save();
+
+        OkDriver::$during = function (TelegramLog $sent): void {
+            $sent->data = ['parse_mode' => 'HTML'];
+        };
+
+        (new SendMessageJob('telegram'))->handle();
+
+        $this->assertSame(['parse_mode' => 'HTML'], TelegramLog::query()->whereKey($log->id)->firstOrFail()->data);
     }
 
     public function test_a_misconfigured_provider_does_not_block_the_other_providers(): void {
