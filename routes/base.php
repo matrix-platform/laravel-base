@@ -36,6 +36,7 @@ use MatrixPlatform\Http\Controllers\FileController as PublicFileController;
 use MatrixPlatform\Http\Controllers\MemberPushSubscriptionController;
 use MatrixPlatform\Http\Controllers\PreferenceController;
 use MatrixPlatform\Http\Controllers\TelegramWebhookController;
+use MatrixPlatform\Http\Middleware\EnvelopeMiddleware;
 use MatrixPlatform\Routing\ActionRoutes;
 
 Route::middleware(['locale-api', 'encrypted-api', 'envelope-api'])->group(function () {
@@ -51,7 +52,7 @@ Route::middleware(['locale-api', 'encrypted-api', 'envelope-api'])->group(functi
         });
 
         Route::middleware('user-api')->group(function () {
-            Route::get('drive/{id}/download', [DriveController::class, 'download']);
+            EnvelopeMiddleware::raw(Route::get('drive/{id}/download', [DriveController::class, 'download']));
 
             ActionRoutes::mount('drive', DriveController::class);
             ActionRoutes::mount('file', FileController::class);
@@ -92,7 +93,7 @@ Route::middleware(['locale-api', 'encrypted-api', 'envelope-api'])->group(functi
     Route::prefix(config('matrix.api-prefix'))->group(function () {
         ActionRoutes::mount('common', CommonController::class);
 
-        Route::get('files/{path}', [PublicFileController::class, 'get'])->where('path', '.*');
+        EnvelopeMiddleware::raw(Route::get('files/{path}', [PublicFileController::class, 'get'])->where('path', '.*'));
 
         Route::middleware('member-api')->group(function () {
             ActionRoutes::mount('member/preference', PreferenceController::class);

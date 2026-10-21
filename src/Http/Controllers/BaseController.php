@@ -39,6 +39,10 @@ abstract class BaseController extends Controller {
     }
 
     protected function stream(string $disk, string $location, string $name, ?string $mimeType): StreamedResponse {
+        if (!Storage::disk($disk)->exists($location)) {
+            error('data-not-found', 404);
+        }
+
         $disposition = app(FileService::class)->isInlineSafe($mimeType) ? 'inline' : 'attachment';
 
         return Storage::disk($disk)->response($location, $name, ['Content-Type' => $mimeType === null ? 'application/octet-stream' : $mimeType, 'X-Content-Type-Options' => 'nosniff'], $disposition);

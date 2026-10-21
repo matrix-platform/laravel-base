@@ -76,7 +76,24 @@ class FileControllerTest extends FeatureTestCase {
     public function test_a_private_uploaded_file_is_refused_with_not_found(): void {
         $file = $this->stored(File::PRIVATE);
 
-        $this->get("api/files/{$file->path}")->assertJson(['code' => 404, 'error' => 'data-not-found']);
+        $this->get("api/files/{$file->path}")
+            ->assertNotFound()
+            ->assertContent('');
+    }
+
+    public function test_a_drive_linked_file_missing_from_storage_is_not_found(): void {
+        [$file, $node] = $this->driveLinked(UploadedFile::fake()->image('cover.png', 200, 100));
+        $service = app(DriveService::class);
+
+        Storage::disk($service->disk())->delete($service->location($node));
+
+        $this->get("api/files/{$file->path}")
+            ->assertNotFound()
+            ->assertContent('');
+
+        $this->get("api/files/{$file->path}?size=icon")
+            ->assertNotFound()
+            ->assertContent('');
     }
 
     public function test_a_drive_linked_file_streams_its_content(): void {
@@ -141,7 +158,9 @@ class FileControllerTest extends FeatureTestCase {
     }
 
     public function test_an_unknown_path_is_not_found(): void {
-        $this->get('api/files/nowhere/missing.bin')->assertJson(['code' => 404, 'error' => 'data-not-found']);
+        $this->get('api/files/nowhere/missing.bin')
+            ->assertNotFound()
+            ->assertContent('');
     }
 
 }

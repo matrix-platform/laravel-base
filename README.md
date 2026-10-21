@@ -239,15 +239,15 @@ worker 會睡掉供應商的 `interval` 來節流,所以 `--timeout` 與 connect
 { "success": false, "code": 422, "error": "validation-failed", "message": "...", "fields": { "username": ["required"] } }
 ```
 
-這不是風格偏好:客戶端的防火牆會擋掉非 200 的回應。`error` 欄位就是 i18n key,`message` 是後端已經翻好的字串 —— 前端可以直接顯示 `message`,也可以拿 `error` 自己對照。**唯一的例外是 `GET api/files/{path}`**——它要直接當 `<img src>` 或瀏覽器重定向目標用,回真正的 302/404,不走信封(見「端點」表)。
+這不是風格偏好:客戶端的防火牆會擋掉非 200 的回應。`error` 欄位就是 i18n key,`message` 是後端已經翻好的字串 —— 前端可以直接顯示 `message`,也可以拿 `error` 自己對照。**例外是兩個檔案串流的 GET 端點:`GET api/files/{path}` 與 `GET admin/drive/{id}/download`**——它們要直接當 `<img src>`、下載連結或瀏覽器重定向目標用,錯誤時回真正的 HTTP 狀態碼(狀態碼就是 `error()` 的數字代碼,body 為空),不走信封(見「端點」表)。
 
-**信封的範圍是套件的兩個路由前綴。** `admin/` 與 `api/` 底下打不到的路徑、用錯方法的請求,都會回信封格式的 404,**`GET api/files/{path}` 除外**——它是刻意不信封化的公開檔案讀取端點。**這兩個前綴之外的請求不受影響** —— 你自己的網頁 404 還是 Laravel 原本的樣子。
+**信封的範圍是套件的兩個路由前綴。** `admin/` 與 `api/` 底下打不到的路徑、用錯方法的請求,都會回信封格式的 404,**`GET api/files/{path}` 與 `GET admin/drive/{id}/download` 除外**——它們是刻意不信封化的檔案串流端點。**這兩個前綴之外的請求不受影響** —— 你自己的網頁 404 還是 Laravel 原本的樣子。
 
 代價要知道:因為兜底路由吃下所有方法,**「方法用錯」不再回 405,而是回 404 信封**。前端分不出「網址拼錯」與「方法用錯」。
 
 ### 2. 全部端點都是 POST
 
-除了 `GET api/files/{path}`(公開檔案讀取,詳見「端點」表)之外,其餘沒有一個 GET。讀取(清單、詳情)也是 POST。用 GET 打其他端點會拿到 404 信封。
+除了 `GET api/files/{path}`(公開檔案讀取)與 `GET admin/drive/{id}/download`(雲端硬碟下載,另有同名的 POST)之外,其餘沒有一個 GET(詳見「端點」表)。讀取(清單、詳情)也是 POST。用 GET 打其他端點會拿到 404 信封。
 
 ### 3. 身分、middleware,以及順序
 
@@ -908,11 +908,11 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 
 ### 端點
 
-除了 `GET api/files/{path}`(公開檔案讀取,見下方說明)之外,其餘全部是 `POST`。路徑省略前綴（`admin`、`api` 與 `vendor` 分別來自 `matrix.admin-api-prefix`、`matrix.api-prefix` 與 `matrix.vendor-api-prefix`）。
+除了 `GET api/files/{path}`(公開檔案讀取,見下方說明)與 `GET admin/drive/{id}/download` 之外,其餘全部是 `POST`。路徑省略前綴（`admin`、`api` 與 `vendor` 分別來自 `matrix.admin-api-prefix`、`matrix.api-prefix` 與 `matrix.vendor-api-prefix`）。
 
 `POST encryption-key` 是唯一**不在任何前綴底下**的端點:三組 API 共用同一個金鑰圈,而它是拿公鑰的地方,所以它不能落在任何一組的加密範圍裡——沒有公鑰就沒有信封,拿公鑰的請求自己不可能是信封。它同時也宣告了 `#[Action(encrypted: false)]`,所以「它是明文」是寫下來的事實,不是靠它剛好落在所有前綴之外推論出來的。
 
-`GET api/files/{path}` 是唯一的例外:不需要身分、不走信封,直接回 302(公開上傳檔案)、200(串流,drive-linked 檔案)或 404(私有/不存在)。路由用 `Route::get()` 註冊,Laravel 會自動一併掛上 `HEAD`(任何 `Route` 只要方法含 `GET` 就一定含 `HEAD`,框架內建行為,無法關閉),所以「端點」表裡這一列的方法欄是 `GET\|HEAD`。
+`GET api/files/{path}` 不需要身分、不走信封,直接回 302(公開上傳檔案)、200(串流,drive-linked 檔案)或 404(私有/不存在/實體檔遺失)。`GET admin/drive/{id}/download` 同樣不走信封,錯誤時回 401/403/404 等標準狀態碼;同名的 POST 仍回信封。路由用 `Route::get()` 註冊,Laravel 會自動一併掛上 `HEAD`(任何 `Route` 只要方法含 `GET` 就一定含 `HEAD`,框架內建行為,無法關閉),所以「端點」表裡這一列的方法欄是 `GET\|HEAD`。
 
 | 方法 | 路徑 | 需要 |
 |---|---|---|

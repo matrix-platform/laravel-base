@@ -6,7 +6,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
+use MatrixPlatform\Models\DriveNode;
 use MatrixPlatform\Models\User;
+use MatrixPlatform\Services\Admin\DriveService;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
 
@@ -160,7 +162,41 @@ class DriveControllerTest extends FeatureTestCase {
 
         $this->withToken($stranger)
             ->get("admin/drive/{$node['id']}/download")
-            ->assertJson(['success' => false, 'code' => 403, 'error' => 'permission-denied']);
+            ->assertForbidden()
+            ->assertContent('');
+    }
+
+    public function test_downloading_via_get_without_a_token_answers_a_plain_401(): void {
+        $this->get('admin/drive/1/download')
+            ->assertUnauthorized()
+            ->assertContent('');
+    }
+
+    public function test_a_file_missing_from_storage_is_not_found_on_every_download_route(): void {
+        $root = $this->send('admin/drive/root')->json('data.id');
+
+        $node = $this->withToken($this->token)
+            ->post("admin/drive/{$root}/upload", ['file' => UploadedFile::fake()->image('photo.png', 200, 100)])
+            ->json('data');
+
+        $this->assertIsArray($node);
+
+        $service = app(DriveService::class);
+        $stored = DriveNode::query()->whereKey(intval($node['id']))->firstOrFail();
+
+        Storage::disk($service->disk())->delete($service->location($stored));
+
+        $this->send("admin/drive/{$stored->id}/download")->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
+
+        $this->withToken($this->token)
+            ->get("admin/drive/{$stored->id}/download")
+            ->assertNotFound()
+            ->assertContent('');
+
+        $this->withToken($this->token)
+            ->get("admin/drive/{$stored->id}/download?size=icon")
+            ->assertNotFound()
+            ->assertContent('');
     }
 
     public function test_a_user_cannot_read_another_users_node_metadata(): void {

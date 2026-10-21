@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Routing\Route;
 use Illuminate\Validation\ValidationException;
 use MatrixPlatform\Exceptions\ServiceException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
@@ -21,6 +22,10 @@ class EnvelopeMiddleware {
         return response()->json(['success' => false, 'code' => $code, 'error' => $error, 'message' => i18n("errors.{$error}")] + $extra);
     }
 
+    public static function raw(Route $route): Route {
+        return $route->setAction([...$route->getAction(), 'raw' => true]);
+    }
+
     public function handle(Request $request, Closure $next): mixed {
         $response = $next($request);
 
@@ -28,7 +33,14 @@ class EnvelopeMiddleware {
             return $response;
         }
 
-        return $response->exception instanceof Throwable ? $this->envelope($response->exception) : $response;
+        if (!$response->exception instanceof Throwable) {
+            return $response;
+        }
+
+        $envelope = $this->envelope($response->exception);
+        $route = $request->route();
+
+        return $route instanceof Route && $route->getAction('raw') === true ? response('', intval($envelope->getData(true)['code'])) : $envelope;
     }
 
     private function envelope(Throwable $exception): JsonResponse {

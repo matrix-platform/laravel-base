@@ -195,6 +195,10 @@ class FileService {
             return;
         }
 
+        if (!is_file($sourcePath)) {
+            error('data-not-found', 404);
+        }
+
         app(FileStorage::class)->ensureDirectory(dirname($destinationPath));
 
         $encoded = (string) $this->decode($sourcePath)
