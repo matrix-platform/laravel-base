@@ -9,6 +9,7 @@ use MatrixPlatform\Models\BlockItem;
 use MatrixPlatform\Models\DriveNode;
 use MatrixPlatform\Models\DriveNodeType;
 use MatrixPlatform\Models\User;
+use MatrixPlatform\Services\Admin\Crud\UpdateService;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Factories\BlockFactory;
 use Tests\Factories\BlockItemFactory;
@@ -218,6 +219,23 @@ class BlockControllerTest extends FeatureTestCase {
 
         $this->assertSame('editor', $block->type);
         $this->assertSame('kept', array_get_value(array_get_value($block->data, 'content'), 'tw'));
+    }
+
+    public function test_a_readonly_composite_keeps_its_stored_data_on_update(): void {
+        $this->useBlockDataFixtures();
+
+        $page = PageFactory::new()->createOne();
+        $block = BlockFactory::new()->createOne(['page_id' => $page->id, 'type' => 'editor', 'data' => ['content' => ['tw' => 'kept', 'en' => 'kept']]]);
+
+        (new UpdateService(Block::class))
+            ->standalone(true)
+            ->columns(['*title', '!data'])
+            ->update($block->id, ['title' => 'b']);
+
+        $block->refresh();
+
+        $this->assertSame('b', $block->title);
+        $this->assertEquals(['content' => ['tw' => 'kept', 'en' => 'kept']], $block->data);
     }
 
     public function test_a_module_without_items_reports_no_count(): void {

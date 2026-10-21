@@ -218,6 +218,10 @@ abstract class CrudService {
      */
     protected function assignComposites(Model $model, array $values): void {
         foreach ($this->composites as $group => $columns) {
+            if (array_filter($columns, fn (Column $column): bool => $column->readonly) !== []) {
+                continue;
+            }
+
             $data = [];
 
             foreach ($columns as $field => $column) {
