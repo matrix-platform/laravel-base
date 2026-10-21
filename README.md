@@ -336,7 +336,7 @@ bundle 一律**扁平**:只有一層 key,key 本身可以含點,取值時當字�
 
 這一層跟 `matrix.resource-cfg` 的 bundle 白名單是兩件事:白名單決定「這個 bundle 能不能編輯」,`secret` 決定「bundle 裡哪些 key 的值看得到」。有了後者,含憑證的混合型 bundle 才能安全地進白名單。
 
-合併是**逐 key 遞迴**的（排前的覆蓋排後的、key 對 key）,所以覆蓋一個選單節點時,低優先層那個節點多出來的 key（`icon`、`tag` 之類）會滲進合併結果,沒辦法個別移除。要**整個移除**一個節點,把該 key 的值設成 `null` —— 節點消失、端點對所有人 403、群組離開權限樹。但移除節點只擋端點與**新**授權:**已經授出的權限仍然有效**,因為授權檢查讀的是 `base_user.permissions` / `base_group.permissions` 存的 JSON,不是選單樹。
+合併是**逐 key 遞迴**的（排前的覆蓋排後的、key 對 key）,所以覆蓋一個選單節點時,低優先層那個節點多出來的 key（`icon`、`tag` 之類）會滲進合併結果,沒辦法個別移除。要**整個移除**一個節點,把該 key 的值設成 `null` —— 節點消失、端點不註冊(對所有人回 404 `endpoint-not-found`)、群組離開權限樹。但移除節點只擋端點與**新**授權:**已經授出的權限仍然有效**,因為授權檢查讀的是 `base_user.permissions` / `base_group.permissions` 存的 JSON,不是選單樹。
 
 ---
 
