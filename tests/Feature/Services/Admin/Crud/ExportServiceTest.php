@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Options\Option;
+use MatrixPlatform\Columns\Options\RelationOptions;
 use MatrixPlatform\Columns\Options\StaticOptions;
 use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Exceptions\ServiceException;
@@ -15,6 +16,7 @@ use MatrixPlatform\Support\MetadataRegistry;
 use Tests\FeatureTestCase;
 use Tests\Stubs\CountingOptions;
 use Tests\Stubs\DriveGadget;
+use Tests\Stubs\Gadget;
 use Tests\Stubs\StubDeclaration;
 use Tests\Stubs\Trinket;
 use Tests\Stubs\Widget;
@@ -286,6 +288,21 @@ class ExportServiceTest extends FeatureTestCase {
         $rows = $this->exported([['name' => 'title', 'type' => 'multi-select', 'options' => $options]])['rows'];
 
         $this->assertSame([['title' => 'First, Second']], $rows);
+    }
+
+    public function test_an_export_shows_the_label_of_a_disabled_relation(): void {
+        app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget', 'title', enable: 'enable_time', disable: 'disable_time')));
+
+        $draft = Gadget::forceCreate(['title' => 'Draft gadget', 'enable_time' => null, 'disable_time' => null]);
+
+        Trinket::forceCreate(['label' => 'uses draft', 'gadget_id' => $draft->id]);
+
+        $rows = (new ExportService(Trinket::class))
+            ->standalone(true)
+            ->columns([['name' => 'gadget_id', 'options' => new RelationOptions(Gadget::class)]])
+            ->export([])['rows'];
+
+        $this->assertSame([['gadget_id' => 'Draft gadget']], $rows);
     }
 
     public function test_a_nested_option_is_part_of_the_lookup(): void {

@@ -204,7 +204,7 @@ class ColumnResolver {
             error('undeclared-model');
         }
 
-        return new RelationOptions($model);
+        return new RelationOptions($model, column: $column->expression->path === [] && $column->expression->aggregate === null ? $field : null);
     }
 
     private function path(ParsedColumn $column, Model $terminal): ?string {

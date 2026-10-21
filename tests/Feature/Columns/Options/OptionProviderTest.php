@@ -248,6 +248,19 @@ class OptionProviderTest extends FeatureTestCase {
         $this->assertCount(2, (new RelationOptions(Gadget::class))->options());
     }
 
+    public function test_the_current_value_of_the_edited_record_is_offered_even_when_disabled(): void {
+        app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget', 'title', enable: 'enable_time', disable: 'disable_time')));
+
+        $this->gadget('published', now()->subDay());
+        $this->gadget('expired', now()->subWeek(), now()->subDay());
+
+        $draft = $this->gadget('draft', null);
+        $record = (new Trinket())->forceFill(['gadget_id' => $draft->id]);
+        $options = (new RelationOptions(Gadget::class, column: 'gadget_id'))->options($record);
+
+        $this->assertEqualsCanonicalizing(['published', 'draft'], array_map(fn (Option $option): string => $option->title, $options));
+    }
+
     public function test_asking_for_trashed_overrides_the_active_flag(): void {
         app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget', 'title', enable: 'enable_time', disable: 'disable_time')));
 

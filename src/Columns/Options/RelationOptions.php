@@ -13,19 +13,21 @@ class RelationOptions implements OptionProvider {
     /**
      * @param class-string<Model> $related
      */
-    public function __construct(private string $related, private bool $active = true) {}
+    public function __construct(private string $related, private bool $active = true, private ?string $column = null) {}
 
     /**
      * @return list<Option>
      */
     public function options(?Model $model = null, bool $trashed = false): array {
-        return $this->tree($this->collect($trashed), '');
+        $selected = $model === null || $this->column === null ? null : $model->getAttribute($this->column);
+
+        return $this->tree($this->collect($trashed, $selected), '');
     }
 
     /**
      * @return array<string, list<array{class-string<Model>, Option}>>
      */
-    private function collect(bool $trashed): array {
+    private function collect(bool $trashed, mixed $selected): array {
         $current = new $this->related();
         $mapping = [];
         $registry = app(MetadataRegistry::class);
@@ -48,7 +50,14 @@ class RelationOptions implements OptionProvider {
             if ($trashed) {
                 $query->withoutGlobalScope(SoftDeletingScope::class);
             } elseif ($this->active && $query instanceof BaseBuilder && $metadata->enable !== null && $metadata->disable !== null) {
-                $query->whereActive($metadata->enable, $metadata->disable);
+                $enable = $metadata->enable;
+                $disable = $metadata->disable;
+
+                if ($selected === null || $current::class !== $this->related) {
+                    $query->whereActive($enable, $disable);
+                } else {
+                    $query->where(fn (BaseBuilder $inner) => $inner->whereActive($enable, $disable)->orWhereKey($selected));
+                }
             }
 
             $selectable = $current::class === $this->related;

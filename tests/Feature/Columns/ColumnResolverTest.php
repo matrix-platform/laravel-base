@@ -244,6 +244,18 @@ class ColumnResolverTest extends FeatureTestCase {
         $this->assertInstanceOf(RelationOptions::class, $this->resolve('widget_id', new Trinket())->options);
     }
 
+    public function test_an_id_column_offers_the_disabled_relation_the_record_currently_points_at(): void {
+        app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget', 'title', enable: 'enable_time', disable: 'disable_time')));
+
+        $draft = Gadget::forceCreate(['title' => 'draft', 'enable_time' => null, 'disable_time' => null]);
+        $record = (new Trinket())->forceFill(['gadget_id' => $draft->id]);
+        $options = $this->resolve('gadget_id', new Trinket())->options;
+
+        $this->assertNotNull($options);
+        $this->assertSame([], $options->options());
+        $this->assertSame(['draft'], array_map(fn (Option $option): string => $option->title, $options->options($record)));
+    }
+
     public function test_an_id_column_pointing_at_an_undeclared_model_is_refused(): void {
         $this->expectExceptionMessage('undeclared-model');
 

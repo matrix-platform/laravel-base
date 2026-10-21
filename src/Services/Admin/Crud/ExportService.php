@@ -241,7 +241,7 @@ class ExportService extends CrudService {
     private function rows(Builder $query, array $fields): array {
         foreach (array_column(array_column($fields, 'column'), null, 'name') as $name => $column) {
             if ($column->options !== null) {
-                $this->options[$name] = $this->flatten($column->options->options($this->model));
+                $this->options[$name] = $this->flatten($column->options->options($this->model, true));
             }
         }
 
