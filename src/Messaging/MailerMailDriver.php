@@ -28,11 +28,13 @@ class MailerMailDriver implements Driver {
             Mail::purge($mailer);
         }
 
+        $log->sender = strval(cfg("{$bundle}.from-address"));
+
         $sent = Mail::mailer($mailer)
             ->to($to)
             ->cc($sandbox === null ? tokenize($log->cc) : [])
             ->bcc($sandbox === null ? tokenize($log->bcc) : [])
-            ->send(new MessageMail($subject, $log->content, strval(cfg("{$bundle}.from-address")), strval(cfg("{$bundle}.from-name"))));
+            ->send(new MessageMail($subject, $log->content, $log->sender, strval(cfg("{$bundle}.from-name"))));
 
         $id = $sent === null ? '' : strval($sent->getMessageId());
 

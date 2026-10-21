@@ -47,6 +47,20 @@ class MailerMailDriverTest extends FeatureTestCase {
         Mail::assertSent(MessageMail::class, fn (MessageMail $mail) => $mail->hasTo('alice@example.com') && $mail->subjectLine === 'Hello');
     }
 
+    public function test_the_record_keeps_the_sender_the_message_actually_went_out_with(): void {
+        $this->useCfg('gmail', ['from-address' => 'changed@example.com']);
+
+        $log = $this->log();
+
+        $log->sender = 'scheduled@example.com';
+
+        (new MailerMailDriver())->send($log);
+
+        Mail::assertSent(MessageMail::class, fn (MessageMail $mail) => $mail->fromAddress === 'changed@example.com');
+
+        $this->assertSame('changed@example.com', $log->sender);
+    }
+
     public function test_the_recorded_cc_and_bcc_are_delivered(): void {
         $log = $this->log();
 

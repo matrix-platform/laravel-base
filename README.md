@@ -790,7 +790,7 @@ app(MailService::class)->cancel($id);
 | `$options` 覆蓋樣板的渲染結果 | 只認 `provider`、`subject`、`title`、`content`、`data`、`cc`、`bcc` 七個 key。值是 `null` **不算**覆蓋。`title` 只有 push 用;`data` 給 push(額外 payload)與 telegram(`parse_mode` 等 Bot API 選項)用;mail / sms 不讀這兩個 key。telegram 的 `data` **蓋不掉 `chat_id` 與 `text`**——收件目標由訂閱解析與 sandbox 決定,內容一律是記錄下來的 `content`,否則 `base_telegram_log` 會對不上實際送出的東西,sandbox 也會被繞過。`cc`／`bcc` 只有 mail 用,可以是陣列或以逗號／分號／空白分隔的字串(樣板裡的 `cc`／`bcc` 欄位同樣有效,`$options` 給了就整個取代),去重後以 `, ` 串接寫進 `base_mail_log.cc`／`bcc`,沒有就是 `null`;`resend()` 會一起複製 |
 | **`$options['locale']` 指定取哪個語系的樣板** | 沒給就用當下的 `app()->getLocale()`。樣板只放在某一個語系(例如只維護繁中一份)時,前台其他語系的請求觸發寄送會 `message-template-not-found`,這時要帶 `locale`。紀錄的 `locale` 欄位寫的是實際取樣板的語系 |
 | `$options['attributes']` 寫入額外欄位 | 給消費端在紀錄表自己加的欄位用(例如關聯的訂單 id),`[欄位 => 值]` 原樣寫進新的那一列。套件自己寫的欄位(`provider`、`receiver`、`content`、`template`、`schedule_time`、`locale`、`sender`、`cc`、`bcc`、`subject` 等)一律以套件為準,蓋不掉。`resend()` 複製整列,所以這些欄位也會帶到新的那一筆 |
-| mail 的寄件者是當下快照 | `sender` 寫入時從 `cfg('{provider}.from-address')` 取,之後改設定不影響已排程的訊息 |
+| mail 的寄件者以寄出時為準 | `sender` 排程時先記下當時的 `cfg('{provider}.from-address')`;`MailerMailDriver` 寄出時改用當下的設定寄,並把實際用的位址寫回 `sender`,所以紀錄上的寄件者就是實際的 From |
 | `resend()` 的 `ip` 是重發當下的 IP | 複製出來的新紀錄一樣會經過 `creating` 的 `ip` generator,存的是操作 `resend` 的人的 IP,不是原始訊息建立時的 IP |
 
 ### 派送與 worker
@@ -1184,7 +1184,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | `gmail.encryption` | `'tls'` | `ssl` 走 `smtps`,其餘走 `smtp` |
 | `gmail.username` | `''` | SMTP 帳號 |
 | `gmail.password` | `''` | SMTP 密碼 |
-| `gmail.from-address` | `''` | 寄件者位址,寫入 `base_mail_log.sender` 時快照 |
+| `gmail.from-address` | `''` | 寄件者位址,寄出時讀取並寫回 `base_mail_log.sender` |
 | `gmail.from-name` | `''` | 寄件者顯示名稱 |
 | `gmail.interval` | `1` | 同一個供應商兩次送出之間的最短秒數,worker 用 sleep 實現 |
 | `gmail.sandbox` | `false` | 開啟後所有訊息改寄到 `sandbox-recipient`,主旨後面附上原收件者,副本與密件副本不寄 |
