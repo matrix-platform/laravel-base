@@ -207,25 +207,37 @@ function check_opening_tag(array $lines): array {
 }
 
 /**
- * @param list<string> $lines
+ * @param list<array{int, string, int}|string> $tokens
  * @return list<array{int, string}>
  */
-function check_trailing_commas(array $lines, bool $comma): array {
+function check_trailing_commas(array $tokens, bool $comma): array {
+    $line = 1;
+    $starts = [];
+    $ends = [];
+
+    foreach ($tokens as $index => $token) {
+        $text = is_array($token) ? $token[1] : $token;
+        $starts[$index] = $line;
+        $line += substr_count($text, "\n");
+        $ends[$index] = $line;
+    }
+
+    $sequence = significant_tokens($tokens);
     $violations = [];
 
-    foreach ($lines as $index => $line) {
-        if (!str_starts_with(trim($line), ']')) {
+    foreach ($sequence as $slot => $index) {
+        if ($tokens[$index] !== ']' || $slot === 0) {
             continue;
         }
 
-        $previous = previous_content($lines, $index);
+        $previous = $sequence[$slot - 1];
 
-        if ($previous === null || str_ends_with($previous, '[') || str_ends_with($previous, '(')) {
+        if ($ends[$previous] === $starts[$index] || in_array($tokens[$previous], ['[', '('], true)) {
             continue;
         }
 
-        if (str_ends_with($previous, ',') !== $comma) {
-            $violations[] = [$index + 1, $comma ? 'multiline array must end with a trailing comma, see manual 02.5 rule 5' : 'multiline array must not end with a trailing comma, see manual 02.5 rule 5'];
+        if (($tokens[$previous] === ',') !== $comma) {
+            $violations[] = [$starts[$index], $comma ? 'multiline array must end with a trailing comma, see manual 02.5 rule 5' : 'multiline array must not end with a trailing comma, see manual 02.5 rule 5'];
         }
     }
 
@@ -455,21 +467,6 @@ function invoked_on_a_call(array $tokens, array $sequence, int $slot): bool {
 }
 
 /**
- * @param list<string> $lines
- */
-function previous_content(array $lines, int $index): ?string {
-    for ($cursor = $index - 1; $cursor >= 0; $cursor--) {
-        $line = trim($lines[$cursor]);
-
-        if ($line !== '') {
-            return $line;
-        }
-    }
-
-    return null;
-}
-
-/**
  * @param list<array{int, string, int}|string> $tokens
  * @param list<int> $sequence
  * @param list<int> $operators
@@ -591,7 +588,7 @@ foreach ($targets as $target) {
             check_class_blank_lines($lines),
             check_arrow_functions($tokens),
             check_null_coalescing($tokens),
-            check_trailing_commas($lines, $comma),
+            check_trailing_commas($tokens, $comma),
             str_starts_with($name, 'bin/') || str_starts_with($name, 'config/') || str_starts_with($name, 'resources/') ? [] : check_event_bypass($tokens),
             str_starts_with($name, 'app/') || str_starts_with($name, 'src/') || str_starts_with($name, 'tests/') ? check_method_chains($tokens) : [],
             str_starts_with($name, 'tests/') ? [] : check_member_order($tokens)
