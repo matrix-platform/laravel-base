@@ -4,10 +4,12 @@ namespace MatrixPlatform\Support;
 
 use Illuminate\Support\Facades\Validator;
 use MatrixPlatform\Columns\ColumnType;
+use MatrixPlatform\Columns\Options\BundleOptions;
+use MatrixPlatform\Columns\Options\Option;
 use MatrixPlatform\Services\FileService;
 
 /**
- * @phpstan-type Column array{name: string, title: string, type: string, presentation: string, readonly: bool, secret: bool, rule: list<string>, default: mixed, placeholder: string}
+ * @phpstan-type Column array{name: string, title: string, type: string, presentation: string, options: list<Option>|null, readonly: bool, secret: bool, rule: list<string>, default: mixed, placeholder: string}
  */
 class CfgSchema {
 
@@ -65,6 +67,7 @@ class CfgSchema {
 
             $rule = array_get_value($meta, 'rule');
             $presentation = array_get_value($meta, 'presentation');
+            $options = array_get_value($meta, 'options');
 
             $secret = array_get_value($meta, 'secret') === true;
 
@@ -73,6 +76,7 @@ class CfgSchema {
                 'title' => $this->title("{$id}.{$key}", $this->title("{$group->value}.{$key}", strval($key))),
                 'type' => $type->value,
                 'presentation' => is_string($presentation) ? $presentation : 'plain',
+                'options' => is_string($options) ? (new BundleOptions($options))->options() : null,
                 'readonly' => array_get_value($meta, 'readonly') === true,
                 'secret' => $secret,
                 'rule' => is_array($rule) ? array_map(strval(...), array_values($rule)) : [$type->rule()],

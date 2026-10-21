@@ -10,6 +10,6 @@ return [
 
     'interval' => ['type' => 'integer', 'rule' => ['integer', 'min:0']],
 
-    'sandbox' => ['type' => 'boolean'],
+    'sandbox' => ['type' => 'boolean', 'presentation' => 'switch'],
 
 ];

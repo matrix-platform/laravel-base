@@ -330,6 +330,8 @@ bundle 一律**扁平**:只有一層 key,key 本身可以含點,取值時當字�
 
 **值是陣列的 key 預設不出現在資源後台**,型別表把它宣告成 `json` 才會列出;再加上 `'presentation' => 'drive-image'`(或 `drive-file`)就是圖片／檔案欄位,存檔時從雲端硬碟選的檔案轉成檔案路徑(與 CRUD 表單相同,見 `FileService::entry()`),送空清單就回到檔案預設值。例如 `'logo' => ['type' => 'json', 'presentation' => 'drive-image']`,bundle 檔案裡的預設值寫 `[]`。
 
+要用下拉選單時,宣告 `'presentation' => 'select'` 並以 `'options'` 指定 i18n 選項 bundle 名稱(讀 `resources/i18n/{語系}/options/{name}.php`,與 `BundleOptions` 相同),欄位會帶上 `options`;選項不會自動變成驗證規則,要自己寫 `'rule' => ['in:…']`。例如 `action-*` 的 `'severity' => ['type' => 'text', 'presentation' => 'select', 'options' => 'severity', 'rule' => ['in:default,error,info,primary,success,warning']]`。
+
 機密欄位的實際值**永遠不離開伺服器**——`data` 回傳的是遮罩 `••••••••`(沒設定過則是空字串),`default` 與 `placeholder` 一律空白。寫回時遮罩值代表「不變更」,送新值才覆寫,送空字串才清除。出貨已標的是 `gmail.password`、`telegram.bot-token`、`telegram.webhook-secret`、`webpush.private-key`、`mitake.password`、`google-translate.api-key`、`gemini-translate.api-key`、`ip2location-bin.download-token`、`ip2location-webservice.api-key`、`captcha-recaptcha.secret`、`captcha-turnstile.secret`;自訂 bundle 裡的憑證要自己標,**漏標的症狀是那把密鑰以明文出現在後台 API 回應裡**。
 
 這一層跟 `matrix.resource-cfg` 的 bundle 白名單是兩件事:白名單決定「這個 bundle 能不能編輯」,`secret` 決定「bundle 裡哪些 key 的值看得到」。有了後者,含憑證的混合型 bundle 才能安全地進白名單。

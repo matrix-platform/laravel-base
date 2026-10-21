@@ -98,6 +98,58 @@ class ResourceServiceTest extends FeatureTestCase {
         $this->assertFalse(cfg('drive.deduplicate'));
     }
 
+    public function test_every_action_bundle_types_its_switches_and_locks_its_wiring(): void {
+        $bundles = array_filter(app(Resources::class)->bundleNames('cfg'), fn (string $name): bool => str_starts_with($name, 'action-'));
+
+        $this->assertNotEmpty($bundles);
+
+        foreach ($bundles as $bundle) {
+            $columns = array_column($this->service()->get(ResourceGroup::Cfg, $bundle)['columns'], null, 'name');
+
+            foreach ($columns as $name => $column) {
+                $expected = match ($name) {
+                    'modify', 'navigate' => ['boolean', 'switch', true],
+                    'secondary' => ['boolean', 'switch', false],
+                    'severity' => ['text', 'select', false],
+                    'icon' => ['text', 'plain', false],
+                    default => ['text', 'plain', true]
+                };
+
+                $this->assertSame($expected, [$column['type'], $column['presentation'], $column['readonly']], "{$bundle}.{$name}");
+            }
+        }
+    }
+
+    public function test_an_action_bundle_saved_as_shown_keeps_its_wiring(): void {
+        $this->service()->update(ResourceGroup::Cfg, 'action-delete', ['modify' => false, 'url' => 'elsewhere', 'confirm' => 'actions.copy-confirm', 'severity' => 'error']);
+
+        $this->assertNull($this->override('cfg/action-delete'));
+
+        $this->service()->update(ResourceGroup::Cfg, 'action-log', ['secondary' => false, 'icon' => 'fa-solid fa-list']);
+
+        $this->assertSame(['icon' => 'fa-solid fa-list', 'secondary' => false], $this->override('cfg/action-log'));
+    }
+
+    public function test_every_shipped_boolean_cfg_is_shown_as_a_switch(): void {
+        foreach (['admin', 'drive', 'gmail', 'mitake', 'telegram', 'webpush'] as $bundle) {
+            foreach ($this->service()->get(ResourceGroup::Cfg, $bundle)['columns'] as $column) {
+                if ($column['type'] === 'boolean') {
+                    $this->assertSame('switch', $column['presentation'], "{$bundle}.{$column['name']}");
+                }
+            }
+        }
+    }
+
+    public function test_an_action_severity_is_picked_from_the_shared_options(): void {
+        $columns = array_column($this->service()->get(ResourceGroup::Cfg, 'action-delete')['columns'], null, 'name');
+
+        $this->assertSame(['default', 'error', 'info', 'primary', 'success', 'warning'], array_column($columns['severity']['options'], 'id'));
+
+        $this->expectException(ValidationException::class);
+
+        $this->service()->update(ResourceGroup::Cfg, 'action-delete', ['severity' => 'loud']);
+    }
+
     public function test_out_of_range_numeric_cfg_values_are_rejected(): void {
         foreach ([['drive', ['trash-default-days' => 0]], ['encryption', ['window' => -5]], ['encryption', ['grace-period' => -1]], ['captcha-recaptcha', ['threshold' => 1.5]]] as [$bundle, $input]) {
             try {

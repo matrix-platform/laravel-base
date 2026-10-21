@@ -18,7 +18,7 @@ return [
 
     'mfa-window' => ['type' => 'integer', 'rule' => ['integer', 'min:0']],
 
-    'passkey-allow-subdomains' => ['type' => 'boolean'],
+    'passkey-allow-subdomains' => ['type' => 'boolean', 'presentation' => 'switch'],
 
     'passkey-challenge-ttl' => ['type' => 'integer', 'rule' => ['integer', 'min:1']],
 
