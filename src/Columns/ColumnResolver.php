@@ -306,7 +306,7 @@ class ColumnResolver {
 
         $aggregated = match ($column->expression->aggregate) {
             'avg' => ColumnType::Float,
-            'count', 'sum' => ColumnType::Integer,
+            'count' => ColumnType::Integer,
             default => null
         };
 
@@ -320,7 +320,11 @@ class ColumnResolver {
 
         $derived = $cast === null ? null : ColumnType::fromCast($cast);
 
-        return $derived === null ? ColumnType::Text : $derived;
+        if ($derived !== null) {
+            return $derived;
+        }
+
+        return $column->expression->aggregate === 'sum' ? ColumnType::Integer : ColumnType::Text;
     }
 
     private function unresolved(ParsedColumn $column): string {

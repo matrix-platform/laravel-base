@@ -181,6 +181,12 @@ class ColumnResolverTest extends FeatureTestCase {
         $this->assertSame(ColumnType::Integer, $this->resolve('sum(trinkets.ranking)')->type);
     }
 
+    public function test_a_sum_takes_the_type_of_the_summed_field(): void {
+        app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label'), ['ranking' => Definition::float()]));
+
+        $this->assertSame(ColumnType::Float, $this->resolve('sum(trinkets.ranking)')->type);
+    }
+
     public function test_a_count_aggregate_is_an_integer_shown_as_a_count(): void {
         $column = $this->resolve('count(trinkets)');
 
