@@ -48,6 +48,13 @@ class MenuGatedRoutesTest extends FeatureTestCase {
         Route::prefix('api')->middleware('permission-api')->group(fn () => ActionRoutes::mount('widget', WidgetController::class));
     }
 
+    public function test_a_mount_wrapped_in_an_extra_prefix_under_the_admin_prefix_is_refused_at_registration(): void {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('mount() under the admin api prefix must be given the full path');
+
+        Route::prefix('admin')->group(fn () => Route::prefix('shop')->group(fn () => ActionRoutes::mount('widget', WidgetController::class)));
+    }
+
     public function test_a_mount_outside_the_permission_guard_keeps_every_action(): void {
         $uris = $this->uris();
 

@@ -80,6 +80,13 @@ class ActionRoutes {
      * @param class-string $controller
      */
     public static function mount(string $prefix, string $controller, ?string $scope = null): void {
+        $outer = trim(Route::getLastGroupPrefix(), '/');
+        $admin = strval(config('matrix.admin-api-prefix'));
+
+        if ($outer !== $admin && str_starts_with("{$outer}/", "{$admin}/")) {
+            throw new LogicException('mount() under the admin api prefix must be given the full path');
+        }
+
         Route::prefix($prefix)->group(fn () => self::scan($controller, $scope, $prefix));
     }
 
