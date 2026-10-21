@@ -155,6 +155,14 @@ class ScaffoldPlan {
             $notes[] = "Composite unique constraint '{$constraint}' was detected but not applied automatically; please verify manually.";
         }
 
+        foreach ($introspector->partialUniqueIndexes($table) as $index) {
+            $notes[] = "Partial or expression unique index '{$index}' was detected but not applied automatically; please verify manually.";
+        }
+
+        foreach ($introspector->softDeleteUniqueColumns($table) as $column => $index) {
+            $notes[] = "'{$column}' is unique only among rows that are not soft-deleted (index '{$index}'); add SoftDeletes to the model so the unique rule ignores trashed rows.";
+        }
+
         return $notes;
     }
 

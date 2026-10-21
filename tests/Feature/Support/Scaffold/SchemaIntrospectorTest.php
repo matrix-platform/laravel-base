@@ -54,6 +54,25 @@ class SchemaIntrospectorTest extends FeatureTestCase {
         $this->assertSame('introspect_parent', $introspector->columns('introspect_child')['parent_id']->foreignTable);
     }
 
+    public function test_unique_indexes_are_detected_and_the_ambiguous_ones_are_set_aside(): void {
+        DB::statement('create table introspect_indexed (id integer primary key, code text, slug text, label text, sku text, deleted_at timestamp)');
+        DB::statement('create unique index introspect_code on introspect_indexed (code)');
+        DB::statement('create unique index introspect_slug on introspect_indexed (slug) where deleted_at is null');
+        DB::statement('create unique index introspect_label on introspect_indexed (label) where sku is null');
+        DB::statement('create unique index introspect_sku on introspect_indexed (lower(sku))');
+
+        $introspector = new SchemaIntrospector();
+        $columns = $introspector->columns('introspect_indexed');
+
+        $this->assertTrue($columns['code']->unique);
+        $this->assertTrue($columns['slug']->unique);
+        $this->assertFalse($columns['label']->unique);
+        $this->assertFalse($columns['sku']->unique);
+        $this->assertSame(['slug' => 'introspect_slug'], $introspector->softDeleteUniqueColumns('introspect_indexed'));
+        $this->assertSame(['introspect_label', 'introspect_sku'], $introspector->partialUniqueIndexes('introspect_indexed'));
+        $this->assertSame([], $introspector->compositeUniqueConstraints('introspect_indexed'));
+    }
+
     public function test_a_single_column_foreign_key_and_its_referenced_table_are_detected(): void {
         $columns = (new SchemaIntrospector())->columns('scaffold_widget');
 

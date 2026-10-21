@@ -2,7 +2,6 @@
 
 namespace MatrixPlatform\Support\Scaffold;
 
-use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Columns\ColumnType;
@@ -10,9 +9,9 @@ use MatrixPlatform\Columns\ColumnType;
 class SchemaIntrospector {
 
     /**
-     * @var array<string, array<string, list<string>>>
+     * @var array<string, list<array{name: string, columns: list<string>, partial: bool, softDelete: bool, expression: bool}>>
      */
-    private array $constraintColumnsCache = [];
+    private array $uniqueIndexesCache = [];
 
     /**
      * @return array<string, ResolvedColumn>
@@ -20,7 +19,14 @@ class SchemaIntrospector {
     public function columns(string $table): array {
         $raw = $this->rawColumns($table);
         $groups = $this->translatableGroups($raw);
-        $unique = $this->singleColumnConstraints($table, 'UNIQUE');
+        $unique = [];
+
+        foreach ($this->uniqueIndexes($table) as $index) {
+            if (count($index['columns']) === 1 && !$index['expression'] && (!$index['partial'] || $index['softDelete'])) {
+                $unique[] = $index['columns'][0];
+            }
+        }
+
         $foreign = $this->foreignKeys($table);
         $fields = [];
 
@@ -66,13 +72,43 @@ class SchemaIntrospector {
     public function compositeUniqueConstraints(string $table): array {
         $names = [];
 
-        foreach ($this->constraintColumns($table, 'UNIQUE') as $name => $columns) {
-            if (count($columns) > 1) {
-                $names[] = $name;
+        foreach ($this->uniqueIndexes($table) as $index) {
+            if (count($index['columns']) > 1 && !$index['expression'] && (!$index['partial'] || $index['softDelete'])) {
+                $names[] = $index['name'];
             }
         }
 
         return $names;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function partialUniqueIndexes(string $table): array {
+        $names = [];
+
+        foreach ($this->uniqueIndexes($table) as $index) {
+            if ($index['expression'] || ($index['partial'] && !$index['softDelete'])) {
+                $names[] = $index['name'];
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function softDeleteUniqueColumns(string $table): array {
+        $columns = [];
+
+        foreach ($this->uniqueIndexes($table) as $index) {
+            if (count($index['columns']) === 1 && !$index['expression'] && $index['softDelete']) {
+                $columns[$index['columns'][0]] = $index['name'];
+            }
+        }
+
+        return $columns;
     }
 
     public function tableExists(string $table): bool {
@@ -92,41 +128,6 @@ class SchemaIntrospector {
             in_array($dataType, ['json', 'jsonb'], true) => ColumnType::Json,
             default => ColumnType::Text
         };
-    }
-
-    /**
-     * @return array<string, list<string>>
-     */
-    private function constraintColumns(string $table, string $type): array {
-        $key = "{$table}:{$type}";
-
-        if (array_key_exists($key, $this->constraintColumnsCache)) {
-            return $this->constraintColumnsCache[$key];
-        }
-
-        $rows = $this->constraintQuery($table, $type)
-            ->get(['tc.constraint_name', 'kcu.column_name']);
-
-        $groups = [];
-
-        foreach ($rows as $row) {
-            $groups[strval($row->constraint_name)][] = strval($row->column_name);
-        }
-
-        return $this->constraintColumnsCache[$key] = $groups;
-    }
-
-    private function constraintQuery(string $table, string $type): Builder {
-        return DB::table('information_schema.table_constraints as tc')
-            ->join('information_schema.key_column_usage as kcu', function (JoinClause $join): void {
-                $join->on('tc.constraint_name', '=', 'kcu.constraint_name')
-                    ->on('tc.constraint_schema', '=', 'kcu.constraint_schema')
-                    ->on('tc.table_schema', '=', 'kcu.table_schema')
-                    ->on('tc.table_name', '=', 'kcu.table_name');
-            })
-            ->where('tc.table_schema', 'public')
-            ->where('tc.table_name', $table)
-            ->where('tc.constraint_type', $type);
     }
 
     /**
@@ -180,21 +181,6 @@ class SchemaIntrospector {
     }
 
     /**
-     * @return list<string>
-     */
-    private function singleColumnConstraints(string $table, string $type): array {
-        $columns = [];
-
-        foreach ($this->constraintColumns($table, $type) as $group) {
-            if (count($group) === 1) {
-                $columns[] = $group[0];
-            }
-        }
-
-        return $columns;
-    }
-
-    /**
      * @param array<string, array{type: ColumnType, nullable: bool, comment: ?string}> $raw
      * @return array<string, list<string>>
      */
@@ -218,6 +204,44 @@ class SchemaIntrospector {
         }
 
         return $groups;
+    }
+
+    /**
+     * @return list<array{name: string, columns: list<string>, partial: bool, softDelete: bool, expression: bool}>
+     */
+    private function uniqueIndexes(string $table): array {
+        if (array_key_exists($table, $this->uniqueIndexesCache)) {
+            return $this->uniqueIndexesCache[$table];
+        }
+
+        $rows = DB::table('pg_index as i')
+            ->join('pg_class as c', 'c.oid', '=', 'i.indexrelid')
+            ->join('pg_class as t', 't.oid', '=', 'i.indrelid')
+            ->join('pg_namespace as n', 'n.oid', '=', 't.relnamespace')
+            ->where('n.nspname', 'public')
+            ->where('t.relname', $table)
+            ->where('i.indisunique', true)
+            ->where('i.indisprimary', false)
+            ->orderBy('c.relname')
+            ->selectRaw("c.relname as name, pg_get_expr(i.indpred, i.indrelid) as predicate, i.indexprs is not null as expression, array_to_string(array(select a.attname from unnest(i.indkey) with ordinality as k(attnum, position) join pg_attribute as a on a.attrelid = i.indrelid and a.attnum = k.attnum order by k.position), ',') as columns")
+            ->get();
+
+        $indexes = [];
+
+        foreach ($rows as $row) {
+            $predicate = is_string($row->predicate) ? $row->predicate : null;
+            $columns = strval($row->columns);
+
+            $indexes[] = [
+                'name' => strval($row->name),
+                'columns' => $columns === '' ? [] : explode(',', $columns),
+                'partial' => $predicate !== null,
+                'softDelete' => $predicate !== null && strtolower(strval(preg_replace('/[\s()]/', '', $predicate))) === 'deleted_atisnull',
+                'expression' => (bool) $row->expression
+            ];
+        }
+
+        return $this->uniqueIndexesCache[$table] = $indexes;
     }
 
 }

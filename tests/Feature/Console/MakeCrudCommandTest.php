@@ -153,6 +153,22 @@ class MakeCrudCommandTest extends FeatureTestCase {
         $this->assertStringContainsString("'code' => Definition::text(required: true, unique: true)", $declaration);
     }
 
+    public function test_unique_indexes_are_reflected_and_the_ambiguous_ones_are_flagged(): void {
+        DB::statement('CREATE TABLE scaffold_indexed (id integer PRIMARY KEY, name text NOT NULL, slug text NOT NULL, label text, deleted_at timestamp)');
+        DB::statement('CREATE UNIQUE INDEX scaffold_indexed_slug ON scaffold_indexed (slug) WHERE deleted_at IS NULL');
+        DB::statement('CREATE UNIQUE INDEX scaffold_indexed_label ON scaffold_indexed (label) WHERE name IS NULL');
+
+        $this->artisanCommand('matrix:make-crud scaffold_indexed --path=' . $this->root . ' --title=name')
+            ->expectsOutputToContain("'slug' is unique only among rows that are not soft-deleted (index 'scaffold_indexed_slug')")
+            ->expectsOutputToContain("Partial or expression unique index 'scaffold_indexed_label' was detected but not applied automatically; please verify manually.")
+            ->assertExitCode(0);
+
+        $declaration = $this->read("{$this->root}/app/Models/Declarations/IndexedDeclaration.php");
+
+        $this->assertStringContainsString("'slug' => Definition::text(required: true, unique: true)", $declaration);
+        $this->assertStringContainsString("'label' => Definition::text()", $declaration);
+    }
+
     public function test_heuristics_hit_and_miss_as_expected(): void {
         $this->artisanCommand('matrix:make-crud scaffold_widget --path=' . $this->root . ' --title=code')
             ->expectsOutputToContain("HIGH RISK: 'api_token'")
