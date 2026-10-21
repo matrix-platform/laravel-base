@@ -5,6 +5,7 @@ namespace MatrixPlatform\Services;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Intervention\Image\Encoders\WebpEncoder;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Interfaces\ImageInterface;
@@ -18,6 +19,10 @@ use Throwable;
 class FileService {
 
     private const FOLDER = 'files/';
+
+    private const INLINE_PREFIXES = ['audio/', 'video/'];
+
+    private const INLINE_TYPES = ['application/pdf', 'image/avif', 'image/gif', 'image/jpeg', 'image/png', 'image/webp'];
 
     public function bytes(string $value): int {
         $trimmed = trim($value);
@@ -71,6 +76,10 @@ class FileService {
                 unlink($copy);
             }
         }
+    }
+
+    public function isInlineSafe(?string $mimeType): bool {
+        return in_array($mimeType, self::INLINE_TYPES, true) || Str::startsWith((string) $mimeType, self::INLINE_PREFIXES);
     }
 
     public function isRasterImage(?string $mimeType): bool {

@@ -471,6 +471,18 @@ class FileServiceTest extends FeatureTestCase {
         $this->assertNull($file->seconds);
     }
 
+    public function test_is_inline_safe_accepts_passive_media_but_rejects_executable_and_unknown_types(): void {
+        $service = $this->service();
+
+        $this->assertTrue($service->isInlineSafe('image/png'));
+        $this->assertTrue($service->isInlineSafe('application/pdf'));
+        $this->assertTrue($service->isInlineSafe('video/mp4'));
+        $this->assertTrue($service->isInlineSafe('audio/mpeg'));
+        $this->assertFalse($service->isInlineSafe('image/svg+xml'));
+        $this->assertFalse($service->isInlineSafe('text/html'));
+        $this->assertFalse($service->isInlineSafe(null));
+    }
+
     public function test_is_raster_image_accepts_photographs_but_rejects_svg_and_non_images(): void {
         $service = $this->service();
 

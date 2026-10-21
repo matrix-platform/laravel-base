@@ -121,6 +121,25 @@ class FileControllerTest extends FeatureTestCase {
         $this->assertSame('RIFF', substr($response->streamedContent(), 0, 4));
     }
 
+    public function test_a_drive_linked_image_streams_inline_without_sniffing(): void {
+        [$file] = $this->driveLinked(UploadedFile::fake()->image('cover.png', 20, 10));
+
+        $response = $this->get("api/files/{$file->path}");
+
+        $response->assertHeader('X-Content-Type-Options', 'nosniff');
+        $this->assertStringStartsWith('inline', strval($response->headers->get('Content-Disposition')));
+    }
+
+    public function test_a_drive_linked_svg_downloads_as_an_attachment_without_sniffing(): void {
+        [$file] = $this->driveLinked(UploadedFile::fake()->createWithContent('icon.svg', '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'));
+
+        $response = $this->get("api/files/{$file->path}");
+
+        $response->assertHeader('Content-Type', 'image/svg+xml');
+        $response->assertHeader('X-Content-Type-Options', 'nosniff');
+        $this->assertStringStartsWith('attachment', strval($response->headers->get('Content-Disposition')));
+    }
+
     public function test_an_unknown_path_is_not_found(): void {
         $this->get('api/files/nowhere/missing.bin')->assertJson(['code' => 404, 'error' => 'data-not-found']);
     }

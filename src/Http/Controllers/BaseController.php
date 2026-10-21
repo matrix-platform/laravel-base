@@ -7,6 +7,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use MatrixPlatform\Routing\ActionRoutes;
+use MatrixPlatform\Services\FileService;
 use ReflectionMethod;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -38,7 +39,9 @@ abstract class BaseController extends Controller {
     }
 
     protected function stream(string $disk, string $location, string $name, ?string $mimeType): StreamedResponse {
-        return Storage::disk($disk)->response($location, $name, ['Content-Type' => $mimeType === null ? 'application/octet-stream' : $mimeType]);
+        $disposition = app(FileService::class)->isInlineSafe($mimeType) ? 'inline' : 'attachment';
+
+        return Storage::disk($disk)->response($location, $name, ['Content-Type' => $mimeType === null ? 'application/octet-stream' : $mimeType, 'X-Content-Type-Options' => 'nosniff'], $disposition);
     }
 
 }
