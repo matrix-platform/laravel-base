@@ -65,6 +65,8 @@ abstract class CrudController extends BaseController {
 
     protected ?string $mount = null;
 
+    protected bool $movable = false;
+
     /**
      * @var list<string>
      */
@@ -193,7 +195,7 @@ abstract class CrudController extends BaseController {
      */
     #[Action('{id}/update')]
     public function update(Request $request): array {
-        $service = $this->onUpdate($this->prepare(new UpdateService($this->model), $request));
+        $service = $this->onUpdate($this->prepare(new UpdateService($this->model), $request)->movable($this->movable));
 
         return $this->persist($request, fn (): array => $service->update($this->identifier($request), $request->all()));
     }

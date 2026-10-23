@@ -103,6 +103,36 @@ class NestedParentTest extends FeatureTestCase {
         $this->assertSame($theirs->id, $trinket->refresh()->widget_id);
     }
 
+    public function test_a_movable_update_moves_a_row_to_another_parent(): void {
+        [$relic, $mine, $trinket] = $this->tree('mine');
+        [, $theirs] = $this->tree('theirs');
+
+        (new UpdateService(Trinket::class))
+            ->movable(true)
+            ->columns(['label', 'widget_id'])
+            ->params(['relic_id' => $relic->id, 'widget_id' => $mine->id])
+            ->update($trinket->id, ['label' => 'moved', 'widget_id' => (string) $theirs->id]);
+
+        $this->assertSame($theirs->id, $trinket->refresh()->widget_id);
+    }
+
+    public function test_a_movable_update_still_cannot_reach_a_row_under_another_parent(): void {
+        [$relic, $mine] = $this->tree('mine');
+        [, , $theirs] = $this->tree('theirs');
+
+        try {
+            (new UpdateService(Trinket::class))
+                ->movable(true)
+                ->columns(['label', 'widget_id'])
+                ->params(['relic_id' => $relic->id, 'widget_id' => $mine->id])
+                ->update($theirs->id, ['label' => 'hijacked', 'widget_id' => (string) $mine->id]);
+
+            $this->fail('the update reached another parent');
+        } catch (ModelNotFoundException) {
+            $this->assertSame('theirs', $theirs->refresh()->label);
+        }
+    }
+
     public function test_a_batch_delete_is_refused_when_any_id_belongs_to_another_parent(): void {
         [$relic, $mine, $own] = $this->tree('mine');
         [, , $theirs] = $this->tree('theirs');

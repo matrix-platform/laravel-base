@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\DB;
 
 class UpdateService extends CrudService {
 
+    protected bool $movable = false;
+
     public function check(int|string $id, mixed $input): void {
         DB::beginTransaction();
 
@@ -20,7 +22,7 @@ class UpdateService extends CrudService {
             $before = $model->toArray();
 
             $this->assign($model, $values);
-            $this->attach($model);
+            $this->reattach($model, $values);
             $this->inspect($model, $before);
         } finally {
             DB::rollBack();
@@ -40,6 +42,12 @@ class UpdateService extends CrudService {
         $this->expandComposites($input, $model);
 
         return $this->payload($this->columns, $model);
+    }
+
+    public function movable(bool $movable): static {
+        $this->movable = $movable;
+
+        return $this;
     }
 
     /**
@@ -90,12 +98,23 @@ class UpdateService extends CrudService {
         $before = $model->toArray();
 
         $this->assign($model, $values);
-        $this->attach($model);
+        $this->reattach($model, $values);
         $this->inspect($model, $before);
 
         $model->save();
 
         return ['id' => $model->getKey()];
+    }
+
+    /**
+     * @param array<string, mixed> $values
+     */
+    private function reattach(Model $model, array $values): void {
+        $foreign = $this->foreign();
+
+        if (!$this->movable || $foreign === null || !array_key_exists($foreign, $values)) {
+            $this->attach($model);
+        }
     }
 
 }
