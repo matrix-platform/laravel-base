@@ -2,11 +2,13 @@
 
 namespace Tests\Feature\Services\Admin\Shared;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Declarations\Definitions;
 use MatrixPlatform\Columns\Options\Option;
+use MatrixPlatform\Columns\Options\OptionProvider;
 use MatrixPlatform\Models\Group;
 use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\Menu;
@@ -208,6 +210,26 @@ class ManipulationLogServiceTest extends FeatureTestCase {
         $widget = Widget::forceCreate(['title' => 'Alpha']);
 
         $this->assertSame([], $this->service()->query('widget', $widget->id, 1, 20)['options']);
+    }
+
+    public function test_the_options_ask_for_the_names_as_recorded_without_the_current_state(): void {
+        $provider = new class implements OptionProvider {
+
+            /**
+             * @return list<Option>
+             */
+            public function options(?Model $model = null, bool $trashed = false, bool $historic = false): array {
+                return [new Option([], 1, 0, $trashed && $historic ? 'as recorded' : 'annotated')];
+            }
+
+        };
+
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget'), ['relic_id' => Definition::integer(options: $provider)]));
+
+        $widget = Widget::forceCreate(['title' => 'Alpha']);
+        $options = $this->service()->query('widget', $widget->id, 1, 20)['options']['relic_id'];
+
+        $this->assertSame(['as recorded'], array_map(fn (Option $option): string => $option->title, $options));
     }
 
     public function test_the_options_leave_out_the_auditings(): void {

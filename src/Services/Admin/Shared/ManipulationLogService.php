@@ -81,7 +81,7 @@ class ManipulationLogService {
             $provider = $this->columns->resolve($parser->parse($name), $model)->options;
 
             if ($provider !== null) {
-                $options[$name] = $provider->options(null, true);
+                $options[$name] = $provider->options(null, true, true);
             }
         }
 

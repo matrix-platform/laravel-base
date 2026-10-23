@@ -19,7 +19,7 @@ class RelationOptions implements OptionProvider {
     /**
      * @return list<Option>
      */
-    public function options(?Model $model = null, bool $trashed = false): array {
+    public function options(?Model $model = null, bool $trashed = false, bool $historic = false): array {
         $value = $model === null || $this->column === null ? null : $model->getAttribute($this->column);
         $selected = is_int($value) || is_string($value) ? strval($value) : null;
 
