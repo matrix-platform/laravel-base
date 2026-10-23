@@ -571,7 +571,7 @@ function statement_opener(array|string $token): bool {
     return in_array($token, ['=', ';', '{', '}'], true);
 }
 
-$root = rtrim(array_key_exists(1, $argv) ? $argv[1] : (string) getcwd(), '/');
+$root = rtrim(isset($argv[1]) ? $argv[1] : (string) getcwd(), '/');
 $targets = ['app', 'bin', 'config', 'database', 'resources', 'routes', 'src', 'tests'];
 $violations = [];
 

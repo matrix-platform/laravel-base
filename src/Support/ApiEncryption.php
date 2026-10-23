@@ -16,8 +16,6 @@ class ApiEncryption {
 
     private const KEY_LENGTH = 32;
 
-    private const SHARED_LENGTH = 32;
-
     private const TAG_LENGTH = 16;
 
     public static function derive(string $private, string $epk): string {
@@ -28,7 +26,7 @@ class ApiEncryption {
             error('invalid-envelope', 400);
         }
 
-        $shared = openssl_pkey_derive($peer, $own, self::SHARED_LENGTH);
+        $shared = openssl_pkey_derive($peer, $own);
 
         if ($shared === false) {
             error('invalid-envelope', 400);

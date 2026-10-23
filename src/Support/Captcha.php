@@ -39,8 +39,6 @@ class Captcha {
 
         $data = base64_encode((string) ob_get_clean());
 
-        imagedestroy($image);
-
         return "data:image/png;base64,{$data}";
     }
 

@@ -60,7 +60,7 @@ class WidgetController extends CrudController {
 | 需求 | 為什麼 | 不滿足會怎樣 |
 |---|---|---|
 | **PostgreSQL** | 主鍵與排序值來自兩個共用 sequence（`CREATE SEQUENCE` / `NEXTVAL`）、權限與稽核用 `jsonb`、`base_operator` 是 `CREATE OR REPLACE VIEW` | `php artisan migrate` 第一個 migration 的第一行就 SQL 語法錯誤 |
-| PHP 8.3+ | —— | composer 會擋 |
+| PHP 8.5+ | —— | composer 會擋 |
 | Laravel 13.23+ | `composer.json` 宣告 `^13.23`,那也是 `--prefer-lowest` 實際跑過完整測試的版本;低於它的 13.x 沒有驗證過 | composer 會擋 |
 | `ext-pdo_pgsql` | 上面那條的驅動,由 `composer.json` 強制檢查 | composer 會擋 |
 | `ext-gd`，**且編譯時帶 FreeType**（**只有**把 `matrix.admin-captcha-provider` 設成 `captcha-image` 才要,預設不要） | 圖形驗證碼用 `imagettftext()` 畫字 | `admin/auth/captcha` 回 500,而驗證碼開著的時候登入一定要 code —— 完全登不進去。裝不了 GD 就改用 `captcha-turnstile` / `captcha-recaptcha`,或維持預設的 `captcha-none` |
