@@ -1623,6 +1623,7 @@ parameters:
 | **`captcha-recaptcha` 是 Enterprise 分數式的,低於 `captcha-recaptcha.threshold` 的真人沒有任何自證管道** —— 它不跳挑戰,分數不夠就是進不去(傳統的 v2 隱形式已無法申請新金鑰) | 用這顆就要求管理員都註冊 passkey(passkey 登入完全不經過驗證碼),否則唯一的出路是下方的 cfg override。要「可疑時才要求互動、互動完就過」請改用 `captcha-turnstile` |
 | **第三方驗證碼 driver(`captcha-turnstile` / `captcha-recaptcha`)是 fail-closed 的** —— 對方服務打不通時回 `captcha-request-failed`,登入一律擋下。而且每一次被擋都吃掉一格登入節流(`afterCallback` 只計失敗),五次之後同一組 IP+帳號連 `too-many-requests` 都會拿到 | 接受它,但事先知道逃生門怎麼走:見下方〈驗證碼服務掛掉時怎麼進後台〉。**不要改成「打不通就放行」**,那等於給攻擊者一個把驗證碼關掉的開關 |
 | **`api/common/city`、`menu`、`page` 匿名且沒有節流**,`base_menu.data` 與 `base_page.data` 的內容會原樣出現在回應裡 | 不要在這些 `data` 欄位放非公開資料。`api/common/page` 另外會把區塊引用的雲端硬碟檔案路徑吐出來,而 `api/files/{path}` 對 drive 檔案匿名可取、不看 `privilege` —— 區塊放什麼圖就等於公開發佈什麼圖 |
+| **被雲端硬碟欄位引用過的檔案,憑 URL 永遠可以匿名下載**。不只區塊,任何 model 的 `DriveImage` / `DriveFile` 欄位(含只有後台看得到的資料表)選過的檔案都會建一筆 `base_file`,`api/files/@…` 對它不看 `privilege`、不需要登入。拿掉引用不會刪那一列;節點丟進垃圾桶也照樣串流 | 刻意的:已發佈的頁面不會因為有人清理雲端硬碟而破圖。路徑是隨機檔名猜不到,風險在 URL 已經流出去的時候。要下架只能直接刪 `base_file` 那一列或磁碟上的實體檔;機密文件不要放進雲端硬碟欄位 |
 | **`api/common/cfg`、`api/common/i18n` 匿名且沒有節流**,`matrix.public-cfg`、`matrix.public-i18n` 列出的 bundle 會原樣出現在回應裡(cfg 的 `secret` 欄位也不例外) | 不要把含非公開內容或憑證的 bundle 列進這兩份白名單 |
 | **登入節流的鍵是「IP + 帳號」** —— 同一個 IP 換帳號就換一份配額,擋不住拿一組密碼掃一堆帳號 | 要擋就在應用層之外做（WAF / 反向代理） |
 | **Passkey 登入端點沒有帳號欄位,節流退化成近似純 IP** | 比密碼登入更粗放的取捨,若濫用明顯可考慮改用 `IP + credential_id 前綴` 當節流鍵 |
