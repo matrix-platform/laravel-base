@@ -69,8 +69,6 @@ class MenuGatedRoutesTest extends FeatureTestCase {
             ->assertJson(['success' => false, 'code' => 404, 'error' => 'endpoint-not-found']);
     }
 
-    // The shipped menu lists `sms-log/{id}` but not `sms-log/insert`; without the literal route registered ahead of it,
-    // `{id}` would swallow the request as id = "insert".
     public function test_an_unlisted_literal_action_is_not_captured_by_the_id_route(): void {
         $this->postJson('admin/sms-log/insert')
             ->assertOk()

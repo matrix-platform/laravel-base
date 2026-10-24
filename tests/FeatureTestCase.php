@@ -36,6 +36,10 @@ class FeatureTestCase extends TestCase {
 
     use RefreshDatabase;
 
+    private const EXIF_ORIENTATION_TAG = 0x0112;
+
+    private const ORIENTATION_ROTATE_90 = 6;
+
     protected function actAsRoot(): void {
         actor()->setUser(UserFactory::new()->createOne(['id' => User::ROOT]));
     }
@@ -129,16 +133,13 @@ class FeatureTestCase extends TestCase {
         $this->fail("expected the call to be refused with {$field}:{$slug}");
     }
 
-    /**
-     * A 20x10 JPEG carrying an EXIF `Orientation=6` tag (needs a 90° rotation to be upright).
-     */
     protected function rotatedImagePath(): string {
         $plain = tempnam(sys_get_temp_dir(), 'gd') . '.jpg';
 
         imagejpeg(imagecreatetruecolor(20, 10), $plain, 90);
 
         $tiff = 'II' . pack('v', 42) . pack('V', 8);
-        $ifd0 = pack('v', 1) . pack('vvV', 0x0112, 3, 1) . pack('v', 6) . pack('v', 0) . pack('V', 0);
+        $ifd0 = pack('v', 1) . pack('vvV', self::EXIF_ORIENTATION_TAG, 3, 1) . pack('v', self::ORIENTATION_ROTATE_90) . pack('v', 0) . pack('V', 0);
         $exif = "Exif\x00\x00" . $tiff . $ifd0;
         $app1 = "\xFF\xE1" . pack('n', strlen($exif) + 2) . $exif;
 

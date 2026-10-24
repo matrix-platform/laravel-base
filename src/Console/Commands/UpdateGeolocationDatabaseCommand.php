@@ -16,16 +16,10 @@ class UpdateGeolocationDatabaseCommand extends Command {
 
     private const ENDPOINT = 'https://www.ip2location.com/download';
 
-    /**
-     * The number of leading bytes kept for the archive signature check and the failure message.
-     */
     private const HEAD_LENGTH = 200;
 
     private const TIMEOUT = 600;
 
-    /**
-     * The local file header signature every non-empty zip archive starts with.
-     */
     private const ZIP_SIGNATURE = "PK\x03\x04";
 
     protected $description = 'Download the latest IP2Location .BIN database file';

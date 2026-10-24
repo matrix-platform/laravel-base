@@ -6,11 +6,11 @@ class Template {
 
     /**
      * @param array<string, string> $vars
-     * @param list<string> $escaped fields whose variable values are HTML-escaped
-     * @param list<string> $raw variables that are never escaped
+     * @param list<string> $escapedFields
+     * @param list<string> $rawVars
      * @return array<string, mixed>
      */
-    public static function render(string $name, array $vars = [], ?string $locale = null, array $escaped = [], array $raw = []): array {
+    public static function render(string $name, array $vars = [], ?string $locale = null, array $escapedFields = [], array $rawVars = []): array {
         $template = self::resolve($name, $locale);
 
         if ($template === null) {
@@ -20,7 +20,7 @@ class Template {
         $fields = [];
 
         foreach ($template as $field => $value) {
-            $fields[$field] = is_string($value) ? self::substitute($value, $vars, in_array($field, $escaped, true) ? $raw : null) : $value;
+            $fields[$field] = is_string($value) ? self::substitute($value, $vars, in_array($field, $escapedFields, true), $rawVars) : $value;
         }
 
         return $fields;
@@ -35,17 +35,17 @@ class Template {
 
     /**
      * @param array<string, string> $vars
-     * @param list<string>|null $raw null leaves every variable unescaped
+     * @param list<string> $rawVars
      */
-    private static function substitute(string $text, array $vars, ?array $raw): string {
-        return strval(preg_replace_callback('/\{(\w+)\}/', function (array $matches) use ($vars, $raw): string {
+    private static function substitute(string $text, array $vars, bool $escape, array $rawVars): string {
+        return strval(preg_replace_callback('/\{(\w+)\}/', function (array $matches) use ($vars, $escape, $rawVars): string {
             if (!array_key_exists($matches[1], $vars)) {
                 return $matches[0];
             }
 
             $value = $vars[$matches[1]];
 
-            return $raw === null || in_array($matches[1], $raw, true) ? $value : e($value);
+            return !$escape || in_array($matches[1], $rawVars, true) ? $value : e($value);
         }, $text));
     }
 

@@ -35,14 +35,14 @@ class TemplateTest extends FeatureTestCase {
     }
 
     public function test_variables_are_escaped_only_in_the_fields_named_for_escaping(): void {
-        $fields = Template::render('welcome', ['name' => '<b>Alice</b>'], escaped: ['content']);
+        $fields = Template::render('welcome', ['name' => '<b>Alice</b>'], escapedFields: ['content']);
 
         $this->assertSame('Welcome <b>Alice</b>', array_get_value($fields, 'subject'));
         $this->assertSame('Dear &lt;b&gt;Alice&lt;/b&gt;, welcome aboard.', array_get_value($fields, 'content'));
     }
 
     public function test_a_raw_variable_is_never_escaped(): void {
-        $fields = Template::render('welcome', ['name' => '<b>Alice</b>'], escaped: ['content'], raw: ['name']);
+        $fields = Template::render('welcome', ['name' => '<b>Alice</b>'], escapedFields: ['content'], rawVars: ['name']);
 
         $this->assertSame('Dear <b>Alice</b>, welcome aboard.', array_get_value($fields, 'content'));
     }

@@ -351,7 +351,6 @@ class CrudControllerTest extends FeatureTestCase {
         $this->admin("admin/widget/{$alpha->id}/trinket/new")->assertJsonPath('data.preference', ['amount', 'label']);
     }
 
-    // Only what $updates names can be ordered: the audit columns the get page appends are left where they are.
     public function test_the_get_and_new_responses_offer_the_update_columns_to_order(): void {
         $alpha = $this->widget('Alpha');
         $trinket = Trinket::forceCreate(['label' => 'mine', 'widget_id' => $alpha->id]);

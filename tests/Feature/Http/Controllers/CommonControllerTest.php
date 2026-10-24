@@ -54,6 +54,10 @@ class CommonControllerTest extends FeatureTestCase {
         }
     }
 
+    private function warmCfgBundle(string $path): void {
+        $this->postJson('api/common/page', ['path' => $path])->assertOk();
+    }
+
     public function test_the_city_endpoint_answers_without_any_identity(): void {
         $taipei = new City();
 
@@ -277,8 +281,7 @@ class CommonControllerTest extends FeatureTestCase {
         $this->blocks($small, 1);
         $this->blocks($large, 8);
 
-        // The first call of the process also loads the cfg bundle, which reads the override table once.
-        $this->postJson('api/common/page', ['path' => 'small'])->assertOk();
+        $this->warmCfgBundle('small');
 
         $lean = $this->queryCount('select', fn () => $this->postJson('api/common/page', ['path' => 'small'])->assertOk());
         $heavy = $this->queryCount('select', fn () => $this->postJson('api/common/page', ['path' => 'large'])->assertOk());

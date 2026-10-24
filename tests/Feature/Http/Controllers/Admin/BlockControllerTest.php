@@ -141,7 +141,6 @@ class BlockControllerTest extends FeatureTestCase {
         $this->assertContains('title', $names);
     }
 
-    // The type picker reads the choices off the listing column, so it has to be locked here too, not only in `$inserts`.
     public function test_the_listing_shows_the_type_locked_with_its_options_and_never_the_data_column(): void {
         $this->useBlockDataFixtures();
 
@@ -154,7 +153,6 @@ class BlockControllerTest extends FeatureTestCase {
         $this->assertTrue($this->columnByName($columns, 'type')['locked']);
     }
 
-    // The picker greys page-content out instead of letting it fail on save; the other types stay selectable.
     public function test_the_listing_offers_page_content_as_an_unselectable_type(): void {
         $this->useBlockDataFixtures();
 
@@ -283,7 +281,6 @@ class BlockControllerTest extends FeatureTestCase {
         $this->assertSame(0, BlockItem::query()->count());
     }
 
-    // Two levels of nesting derive two `{id}` placeholders, so the path is written out by hand.
     public function test_the_block_listing_counts_its_items_over_a_hand_written_path(): void {
         $this->useBlockDataFixtures();
 
@@ -326,8 +323,6 @@ class BlockControllerTest extends FeatureTestCase {
         $this->assertSame(0, BlockItem::query()->count());
     }
 
-    // The edit form keeps the type readonly, but it still needs the options: a select with no choices renders blank
-    // even though the stored value is in `data`.
     public function test_the_edit_form_keeps_the_type_readonly_but_still_carries_its_options(): void {
         $this->useBlockDataFixtures();
 

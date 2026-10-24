@@ -119,7 +119,6 @@ class BlockItemControllerTest extends FeatureTestCase {
         $this->assertSame(0, BlockItem::query()->count());
     }
 
-    // `insert` validates before attach() puts the foreign key on the blank model.
     public function test_inserting_resolves_the_variant_from_the_route(): void {
         $page = PageFactory::new()->createOne();
         $block = BlockFactory::new()->createOne(['page_id' => $page->id, 'type' => 'gallery']);

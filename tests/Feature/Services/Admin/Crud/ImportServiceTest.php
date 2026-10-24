@@ -84,10 +84,7 @@ class ImportServiceTest extends FeatureTestCase {
         return new Option($children, $id, 0, $title);
     }
 
-    /**
-     * Finds the record by the raw `key` cell, rejecting the row when the narrowed query has no such record.
-     */
-    private function located(ImportService $service): ImportService {
+    private function locatedByKeyCell(ImportService $service): ImportService {
         return $service->locate(function (Builder $query, array $values): Model {
             $found = $query->find(intval(array_get_value($values, 'key')));
 
@@ -387,7 +384,7 @@ class ImportServiceTest extends FeatureTestCase {
         $first = Widget::forceCreate(['title' => 'Alpha', 'enable_time' => '2026-01-02 03:04:05']);
         $second = Widget::forceCreate(['title' => 'Beta']);
 
-        $result = $this->located($this->importer(['title', 'enable_time']))->import($this->input([
+        $result = $this->locatedByKeyCell($this->importer(['title', 'enable_time']))->import($this->input([
             ['key' => strval($first->id), 'title' => 'Gamma', 'enable_time' => ''],
             ['key' => strval($second->id), 'title' => '', 'enable_time' => '2026-03-04 05:06:07']
         ]));
@@ -414,7 +411,7 @@ class ImportServiceTest extends FeatureTestCase {
 
     public function test_a_row_the_locator_rejects_fails_without_stopping_the_later_rows(): void {
         $widget = Widget::forceCreate(['title' => 'Alpha']);
-        $service = $this->located($this->importer(['title']));
+        $service = $this->locatedByKeyCell($this->importer(['title']));
 
         $this->assertFailed([$this->failure(2, ['key' => ['exists']])], $service, $this->input([
             ['key' => '999', 'title' => 'Lost'],
@@ -428,7 +425,7 @@ class ImportServiceTest extends FeatureTestCase {
         $other = Widget::forceCreate(['title' => 'Other']);
         $trinket = Trinket::forceCreate(['label' => 'Alpha', 'widget_id' => $other->id]);
 
-        $this->assertFailed([$this->failure(2, ['key' => ['exists']])], $this->located($this->trinkets($owner)), $this->input([
+        $this->assertFailed([$this->failure(2, ['key' => ['exists']])], $this->locatedByKeyCell($this->trinkets($owner)), $this->input([
             ['key' => strval($trinket->id), 'label' => 'Moved']
         ]));
         $this->assertSame('Alpha', $trinket->refresh()->label);
@@ -438,7 +435,7 @@ class ImportServiceTest extends FeatureTestCase {
         $widget = Widget::forceCreate(['title' => 'Owner']);
         $trinket = Trinket::forceCreate(['label' => 'Alpha', 'widget_id' => $widget->id, 'amount' => 5]);
 
-        $this->located($this->trinkets($widget))->import($this->input([['key' => strval($trinket->id), 'label' => 'Beta', 'amount' => '5']]));
+        $this->locatedByKeyCell($this->trinkets($widget))->import($this->input([['key' => strval($trinket->id), 'label' => 'Beta', 'amount' => '5']]));
 
         $this->assertSame(['Beta', 5], [$trinket->refresh()->label, $trinket->amount]);
     }

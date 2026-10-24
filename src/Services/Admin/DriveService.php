@@ -340,7 +340,7 @@ class DriveService {
                 return true;
             }
 
-            $current = $this->permission->parent($current);
+            $current = $this->permission->parentWithTrashed($current);
         }
 
         return false;

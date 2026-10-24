@@ -21,7 +21,6 @@ class EncryptionControllerTest extends FeatureTestCase {
         $this->postJson('encryption-key')->assertJson(['success' => false, 'error' => 'encryption-unavailable']);
     }
 
-    // It sits outside every prefix on purpose: it is what hands out the key, so no switch may ever seal it.
     public function test_the_endpoint_stays_readable_while_every_switch_is_on(): void {
         config([
             'matrix.admin-api-encryption' => true,

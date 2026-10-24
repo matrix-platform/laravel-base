@@ -104,11 +104,6 @@ class ReadmeTest extends FeatureTestCase {
         return $paths;
     }
 
-    /**
-     * A route guarded by `permission-api` but absent from every permission menu (e.g. `export`, which
-     * `CrudController` registers unconditionally on every resource but no resource ever grants) can never
-     * actually be reached by anyone, so it is excluded rather than documented as a dead route.
-     */
     private function unreachable(RouteInstance $route, Menus $menus, string $prefix): bool {
         if (!in_array('permission-api', $route->gatherMiddleware(), true)) {
             return false;

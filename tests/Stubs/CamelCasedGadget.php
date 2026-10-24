@@ -6,8 +6,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use MatrixPlatform\Models\BaseModel;
 
 /**
- * Kept separate from Gadget so CrudController/DeleteService's reflection scans never see this relation.
- *
  * @property int $id
  * @property ?string $title
  */

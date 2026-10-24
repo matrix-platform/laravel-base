@@ -65,9 +65,6 @@ class ActionRoutesTest extends TestCase {
         $this->assertSame($sorted, $paths);
     }
 
-    // This is what the sort is for. Laravel matches in registration order, so a `{id}` route registered before the
-    // literal ones swallows `admin/group/delete` as id = "delete". ASCII ordering gives that for free because '{' is
-    // 0x7B, past every lowercase letter — which is also why the ordering is easy to break by accident.
     public function test_every_parameter_path_registers_after_every_literal_path(): void {
         $paths = array_column(ActionRoutes::resolve(GroupController::class, null), 'path');
         $literals = array_values(array_filter($paths, fn (string $path): bool => !str_starts_with($path, '{')));

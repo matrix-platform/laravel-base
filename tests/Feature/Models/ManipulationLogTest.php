@@ -9,10 +9,6 @@ use MatrixPlatform\Models\ManipulationLog;
 use Tests\FeatureTestCase;
 use Tests\Stubs\Widget;
 
-/**
- * Manipulation logs are append-only at the model level: saving an existing row or deleting one throws LogicException.
- * Bulk queries and raw SQL bypass model events and are not restricted.
- */
 class ManipulationLogTest extends FeatureTestCase {
 
     private ManipulationLog $log;

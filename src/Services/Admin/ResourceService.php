@@ -31,8 +31,9 @@ class ResourceService {
         $id = $this->identify($group, $name);
         $relative = $this->relative($group, $name);
         $defaults = $this->defaults($relative);
+        $override = $this->resources->getOverrides($relative);
 
-        return $this->payload($id, $name, $relative, $defaults, $this->schema->columns($group, $id, $defaults));
+        return $this->payload($id, $name, $defaults, $this->schema->columns($group, $id, $defaults), $override === null ? [] : $override);
     }
 
     /**
@@ -86,7 +87,7 @@ class ResourceService {
 
         $this->save($relative, $record, $override);
 
-        return $this->payload($id, $name, $relative, $defaults, $columns, $override);
+        return $this->payload($id, $name, $defaults, $columns, $override);
     }
 
     public function whitelisted(ResourceGroup $group, string $name): bool {
@@ -159,12 +160,10 @@ class ResourceService {
     /**
      * @param array<string, mixed> $defaults
      * @param list<Column> $columns
-     * @param array<string, mixed>|null $override the values just written, so a write inside a transaction never reads them back through the cache
+     * @param array<string, mixed> $override
      * @return array<string, mixed>
      */
-    private function payload(string $id, string $name, string $relative, array $defaults, array $columns, ?array $override = null): array {
-        $override = $override === null ? $this->resources->getOverrides($relative) : $override;
-        $override = $override === null ? [] : $override;
+    private function payload(string $id, string $name, array $defaults, array $columns, array $override): array {
         $data = ['id' => $name];
 
         foreach ($columns as $column) {

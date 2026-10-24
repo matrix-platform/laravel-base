@@ -18,11 +18,6 @@ use Tests\Stubs\StubDeclaration;
 use Tests\Stubs\Trinket;
 use Tests\Stubs\Widget;
 
-/**
- * Nested (non-standalone) services: a child is only reachable through its own parent, the parent
- * must be visible through its own model (global scopes, soft deletes), and every ancestor named
- * in the route must match the chain the parent actually belongs to.
- */
 class NestedParentTest extends FeatureTestCase {
 
     protected function setUp(): void {

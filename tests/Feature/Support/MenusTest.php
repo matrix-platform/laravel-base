@@ -45,7 +45,6 @@ class MenusTest extends FeatureTestCase {
         $this->assertFalse($this->menus()->has('widget/{id}/trinket'));
     }
 
-    // Nothing ever writes a `menu/*` override row, so the menu tree comes from the files alone.
     public function test_reading_the_menus_never_touches_the_database(): void {
         $this->assertSame(0, $this->queryCount('', fn () => $this->menus()->nodes()));
     }

@@ -21,10 +21,7 @@ class DrivePermissionService {
         return $this->matches($walked['anchor'], $user) ? array_reverse($walked['chain']) : null;
     }
 
-    /**
-     * The trashed-inclusive parent of $node.
-     */
-    public function parent(DriveNode $node): ?DriveNode {
+    public function parentWithTrashed(DriveNode $node): ?DriveNode {
         return $node->parent_id === null ? null : DriveNode::withTrashed()->find($node->parent_id);
     }
 
@@ -61,7 +58,7 @@ class DrivePermissionService {
                 return ['anchor' => null, 'chain' => $chain];
             }
 
-            $parent = $includeTrashed ? $this->parent($node) : DriveNode::query()->find($node->parent_id);
+            $parent = $includeTrashed ? $this->parentWithTrashed($node) : DriveNode::query()->find($node->parent_id);
 
             if ($parent === null) {
                 return ['anchor' => null, 'chain' => $chain];

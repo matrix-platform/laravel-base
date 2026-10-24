@@ -11,11 +11,13 @@ use RuntimeException;
 use Symfony\Component\Uid\Uuid;
 use Webauthn\U2FPublicKey;
 
-/**
- * A minimal software WebAuthn authenticator used to produce cryptographically
- * valid registration/assertion responses in tests, without a real browser.
- */
 final class PasskeyAuthenticator {
+
+    private const FLAG_ATTESTED_CREDENTIAL_DATA = 0x40;
+
+    private const FLAG_USER_PRESENT = 0x01;
+
+    private const FLAG_USER_VERIFIED = 0x04;
 
     public readonly string $aaguid;
     public readonly string $cosePublicKey;
@@ -98,7 +100,7 @@ final class PasskeyAuthenticator {
     }
 
     private function authData(string $rpId, bool $includeAttestedCredentialData, ?int $counterOverride = null): string {
-        $flags = 0x01 | 0x04 | ($includeAttestedCredentialData ? 0x40 : 0x00); // UP | UV [| AT]
+        $flags = self::FLAG_USER_PRESENT | self::FLAG_USER_VERIFIED | ($includeAttestedCredentialData ? self::FLAG_ATTESTED_CREDENTIAL_DATA : 0);
         $counter = match (true) {
             $counterOverride !== null => $counterOverride,
             $this->alwaysZeroCounter => 0,

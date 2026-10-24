@@ -272,7 +272,6 @@ class EncryptedEnvelopeMiddlewareTest extends FeatureTestCase {
         );
     }
 
-    // Deliberate decisions, not defaults anyone should flip without noticing.
     public function test_the_shipped_defaults_seal_admin_and_vendor_but_leave_the_public_api_plain(): void {
         $shipped = require app(PackageRegistry::class)->path('base') . '/config/matrix.php';
 
@@ -286,8 +285,6 @@ class EncryptedEnvelopeMiddlewareTest extends FeatureTestCase {
         );
     }
 
-    // Callers that can never seal an envelope: Telegram's server, and the two multipart uploads the browser sends as FormData.
-    // Losing any of these marks turns a working endpoint into invalid-envelope the moment its group's switch is on.
     public function test_the_callers_that_cannot_seal_an_envelope_are_declared_plain(): void {
         $actions = [
             'telegram' => [TelegramWebhookController::class, 'webhook'],

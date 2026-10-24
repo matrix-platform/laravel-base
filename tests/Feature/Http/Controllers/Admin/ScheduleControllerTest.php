@@ -65,9 +65,6 @@ class ScheduleControllerTest extends FeatureTestCase {
         $this->send($this->token, ['prefix' => 'widget', 'id' => $widget->id])->assertJsonPath('fields.enabled', ['required']);
     }
 
-    /**
-     * The shared toggle requires the module to register an update node, even for the root account.
-     */
     public function test_a_module_without_an_update_node_is_denied_even_for_root(): void {
         $widget = $this->widget();
 

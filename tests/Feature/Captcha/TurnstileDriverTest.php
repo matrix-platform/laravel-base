@@ -39,8 +39,6 @@ class TurnstileDriverTest extends FeatureTestCase {
         $this->useCfg('captcha-turnstile', ['secret' => 'test-secret', 'hostnames' => $hostnames]);
     }
 
-    // The site key is public, so an attacker can mint valid, well-scored tokens from a page they control. The hostname is the only
-    // field that tells those apart from tokens minted on our own login page.
     public function test_a_token_minted_on_a_host_outside_the_allow_list_is_rejected(): void {
         $this->useHostnames('admin.example.com');
         $this->siteverify(['success' => true, 'action' => 'login', 'hostname' => 'attacker.example.net']);
@@ -55,7 +53,6 @@ class TurnstileDriverTest extends FeatureTestCase {
         $this->assertArrayHasKey('token', $this->attempt());
     }
 
-    // Shipping default: an empty list means the check is off, so upgrading does not lock anybody out.
     public function test_an_empty_allow_list_accepts_any_host(): void {
         $this->useTurnstile();
         $this->siteverify(['success' => true, 'action' => 'login', 'hostname' => 'anything.example.net']);
@@ -77,7 +74,6 @@ class TurnstileDriverTest extends FeatureTestCase {
         $this->refusesField('code', 'invalid-captcha', fn () => $this->attempt());
     }
 
-    // A token minted on another page of the same site verifies successfully; only the action tells the two apart.
     public function test_a_token_issued_for_another_action_is_rejected(): void {
         $this->useTurnstile();
         $this->siteverify(['success' => true, 'action' => 'subscribe']);
@@ -85,8 +81,6 @@ class TurnstileDriverTest extends FeatureTestCase {
         $this->refusesField('code', 'invalid-captcha', fn () => $this->attempt());
     }
 
-    // Cloudflare omits the action entirely when the widget that minted the token never declared one — this is also the shape the
-    // documented testing keys return. Absent must be rejected just like wrong: accepting it would let any actionless token in.
     public function test_a_response_without_an_action_is_rejected(): void {
         $this->useTurnstile();
         $this->siteverify(['success' => true]);
@@ -94,7 +88,6 @@ class TurnstileDriverTest extends FeatureTestCase {
         $this->refusesField('code', 'invalid-captcha', fn () => $this->attempt());
     }
 
-    // Fail-closed: a Cloudflare outage must not become an open door, and it must not be reported as a wrong answer either.
     public function test_the_login_is_blocked_when_the_siteverify_request_fails(): void {
         $this->useTurnstile();
         $this->siteverify([], 500);
@@ -102,7 +95,6 @@ class TurnstileDriverTest extends FeatureTestCase {
         $this->refuses('captcha-request-failed', fn () => $this->attempt());
     }
 
-    // The only assertion that pins what Cloudflare actually receives: a renamed key or a stray endpoint passes every other test.
     public function test_the_request_posts_the_configured_secret_and_the_token_to_cloudflare(): void {
         $this->useTurnstile();
         $this->siteverify(['success' => true, 'action' => 'login']);
@@ -119,9 +111,6 @@ class TurnstileDriverTest extends FeatureTestCase {
         });
     }
 
-    // The way back into the admin panel when Cloudflare is down, as written up in the README under
-    // "驗證碼服務掛掉時怎麼進後台". It swaps the driver through base_resource_override, so nothing is deployed and
-    // config/matrix.php is never touched. If this stops working the discovery happens at three in the morning.
     public function test_the_documented_override_lets_a_login_through_without_a_token(): void {
         config(['matrix.admin-captcha-provider' => 'captcha-turnstile']);
 

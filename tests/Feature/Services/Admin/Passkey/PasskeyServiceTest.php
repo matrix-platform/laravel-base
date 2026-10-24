@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Services\Admin\Passkey;
 
+use Closure;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Exceptions\ServiceException;
@@ -45,6 +46,13 @@ class PasskeyServiceTest extends FeatureTestCase {
         }
 
         return null;
+    }
+
+    /**
+     * @param Closure(): User $callback
+     */
+    private function insideControllerTransaction(Closure $callback): User {
+        return DB::transaction($callback);
     }
 
     private function login(PasskeyAuthenticator $authenticator, ?string $userHandle = null, ?int $counterOverride = null): User {
@@ -251,12 +259,7 @@ class PasskeyServiceTest extends FeatureTestCase {
         [$challengeKey, $response] = $this->assertionRequest($authenticator, self::RP_ID, self::ORIGIN, (string) $user->id);
         $response['response']['signature'] = base64_encode('tampered');
 
-        // Simulates the transaction wrapper that BaseController::callAction() provides
-        // in production, so the log is proven to survive the rollback.
-        try {
-            DB::transaction(fn () => $this->service()->authenticate($challengeKey, $response));
-        } catch (ServiceException) {
-        }
+        $this->captureException(fn () => $this->insideControllerTransaction(fn () => $this->service()->authenticate($challengeKey, $response)));
 
         $this->assertSame(['PasskeyRegistered', 'PasskeyLoginFailed'], $this->logType($user));
     }

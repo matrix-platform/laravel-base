@@ -150,7 +150,6 @@ class CrudServiceTest extends FeatureTestCase {
         $this->assertSame(strval($widget->id), strval($rows[0]['key']));
     }
 
-    // Locked is the third state between writable and readonly: validated and stored, but not editable.
     public function test_a_locked_column_is_stored_but_never_offered_for_editing(): void {
         $columns = (new ListService(Widget::class))
             ->standalone(true)
@@ -170,7 +169,6 @@ class CrudServiceTest extends FeatureTestCase {
         $this->assertSame('Locked', Widget::query()->sole()->title);
     }
 
-    // The type picker reads `locked`, so a readonly column must not pass for one even though it is not writable either.
     public function test_a_readonly_column_is_not_writable_but_not_locked_either(): void {
         $columns = (new ListService(Widget::class))->standalone(true)->columns(['!title'])->list([])['columns'];
 

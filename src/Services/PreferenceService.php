@@ -131,8 +131,7 @@ class PreferenceService {
     private function columns(Model $identity): array {
         $columns = $this->schema->columns(ResourceGroup::Cfg, 'cfg/' . $this->bundle($identity), $this->defaults($identity));
 
-        // Drive files are picked under a backend user's drive permissions, which members and vendors do not have.
-        if (!$identity instanceof User) {
+        if (!$this->hasDrivePermissions($identity)) {
             foreach ($columns as $column) {
                 if (in_array($column['presentation'], CfgSchema::DRIVES, true)) {
                     error('invalid-preference-column');
@@ -157,6 +156,10 @@ class PreferenceService {
             ->where('identity_type', $this->type($identity))
             ->where('identity_id', $identity->getKey())
             ->first();
+    }
+
+    private function hasDrivePermissions(Model $identity): bool {
+        return $identity instanceof User;
     }
 
     private function type(Model $identity): IdentityType {
