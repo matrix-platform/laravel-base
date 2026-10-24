@@ -253,6 +253,22 @@ class EncryptedEnvelopeMiddlewareTest extends FeatureTestCase {
         $this->postJson('admin/unsealed')->assertJson(['success' => true, 'data' => 'unsealed']);
     }
 
+    public function test_a_response_that_cannot_be_sealed_is_refused_instead_of_leaking(): void {
+        EncryptionKey::issue();
+
+        $envelope = $this->envelope('admin/streamed');
+        $response = $this->postJson('admin/streamed', $envelope);
+
+        $this->assertStringNotContainsString('streamed-bytes', strval($response->getContent()));
+        $this->assertSame(['success' => false, 'code' => 500, 'error' => 'server-error'], array_intersect_key($this->opened($response), array_flip(['success', 'code', 'error'])));
+    }
+
+    public function test_a_stream_declared_plain_is_left_alone(): void {
+        EncryptionKey::issue();
+
+        $this->assertSame('streamed-bytes', $this->post('admin/streamed-plain')->streamedContent());
+    }
+
     public function test_the_public_api_prefix_stays_plain_while_its_own_switch_is_off(): void {
         EncryptionKey::issue();
 

@@ -7,6 +7,7 @@ use MatrixPlatform\Attributes\Action;
 use MatrixPlatform\Http\Controllers\BaseController;
 use MatrixPlatform\Support\RollbackCallbacks;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class StubController extends BaseController {
 
@@ -60,6 +61,16 @@ class StubController extends BaseController {
     #[Action]
     public function raw(): mixed {
         return response()->json(['raw' => true]);
+    }
+
+    #[Action]
+    public function streamed(): StreamedResponse {
+        return response()->stream(fn () => print 'streamed-bytes');
+    }
+
+    #[Action(path: 'streamed-plain', encrypted: false)]
+    public function streamedPlain(): StreamedResponse {
+        return response()->stream(fn () => print 'streamed-bytes');
     }
 
     #[Action]

@@ -247,7 +247,7 @@ worker 會睡掉供應商的 `interval` 來節流,所以 `--timeout` 與 connect
 
 ### 2. 全部端點都是 POST
 
-除了 `GET api/files/{path}`(公開檔案讀取)與 `GET admin/drive/{id}/download`(雲端硬碟下載,另有同名的 POST)之外,其餘沒有一個 GET(詳見「端點」表)。讀取(清單、詳情)也是 POST。用 GET 打其他端點會拿到 404 信封。
+除了 `GET api/files/{path}`(公開檔案讀取)與 `GET admin/drive/{id}/download`(雲端硬碟下載)之外,其餘沒有一個 GET(詳見「端點」表)。讀取(清單、詳情)也是 POST。用 GET 打其他端點會拿到 404 信封。
 
 ### 3. 身分、middleware,以及順序
 
@@ -917,7 +917,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 
 `POST encryption-key` 是唯一**不在任何前綴底下**的端點:三組 API 共用同一個金鑰圈,而它是拿公鑰的地方,所以它不能落在任何一組的加密範圍裡——沒有公鑰就沒有信封,拿公鑰的請求自己不可能是信封。它同時也宣告了 `#[Action(encrypted: false)]`,所以「它是明文」是寫下來的事實,不是靠它剛好落在所有前綴之外推論出來的。
 
-`GET api/files/{path}` 不需要身分、不走信封,直接回 302(公開上傳檔案)、200(串流,drive-linked 檔案)或 404(私有/不存在/實體檔遺失)。`GET admin/drive/{id}/download` 同樣不走信封,錯誤時回 401/403/404 等標準狀態碼;同名的 POST 仍回信封。路由用 `Route::get()` 註冊,Laravel 會自動一併掛上 `HEAD`(任何 `Route` 只要方法含 `GET` 就一定含 `HEAD`,框架內建行為,無法關閉),所以「端點」表裡這一列的方法欄是 `GET\|HEAD`。
+`GET api/files/{path}` 不需要身分、不走信封,直接回 302(公開上傳檔案)、200(串流,drive-linked 檔案)或 404(私有/不存在/實體檔遺失)。`GET admin/drive/{id}/download` 同樣不走信封,錯誤時回 401/403/404 等標準狀態碼。它沒有 POST 版本——串流的 body 封不進加密信封。路由用 `Route::get()` 註冊,Laravel 會自動一併掛上 `HEAD`(任何 `Route` 只要方法含 `GET` 就一定含 `HEAD`,框架內建行為,無法關閉),所以「端點」表裡這一列的方法欄是 `GET\|HEAD`。
 
 | 方法 | 路徑 | 需要 |
 |---|---|---|
@@ -943,7 +943,6 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | POST | `admin/drive/{id}/folder` | 登入 |
 | POST | `admin/drive/{id}/upload` | 登入 |
 | GET\|HEAD | `admin/drive/{id}/download` | 登入 |
-| POST | `admin/drive/{id}/download` | 登入 |
 | POST | `admin/drive/{id}/publish` | 登入 |
 | POST | `admin/drive/{id}/rename` | 登入 |
 | POST | `admin/drive/{id}/move` | 登入 |
@@ -1722,7 +1721,7 @@ php artisan matrix:clear-resource-cache
 | **每一個 action 都跑在一個交易裡** | `BaseController::callAction()` 用 `DB::transaction()` 包住整個動作。要在 rollback 之後仍然執行的副作用（寄信、打第三方、刪檔）請註冊到 `RollbackCallbacks`,不要直接做:`register()` 是撤銷,只在登記當下那一層交易 rollback 時執行(巢狀交易內層 rollback 不會動到外層登記的;交易外登記不會執行);`persist()` 是一定要留下的寫入(例如登入失敗紀錄),交易 commit 或 rollback 後執行一次,交易外則立即執行 |
 | **`#[Action]` 會沿繼承鏈繼承** | 覆寫 action 不需要重新宣告 attribute |
 | **套件的 controller 可以整個換成子類別** | 路由掛的是套件的類別,但 controller 由容器建立,所以 `$app->bind(MailLogController::class, App\...\MailLogController::class)` 就會改用子類別(例如改 `$lists`、加 guard);要加欄位就另外 `app(MetadataRegistry::class)->register(MailLog::class, new 子類別宣告())`,放在 `$app->booted()` 裡 |
-| **`#[Action(encrypted: false)]` 讓那支 action 不受所屬前綴的加密開關約束** | 呼叫方不可能封信封的端點要標記它:出貨已標的是 telegram webhook、兩支 multipart 上傳(`file/upload`、`drive/{id}/upload`)與 `encryption-key`。自己的上傳端點也要自己標,漏標的症狀是開關一開就變 `invalid-envelope` |
+| **`#[Action(encrypted: false)]` 讓那支 action 不受所屬前綴的加密開關約束** | 呼叫方不可能封信封的端點要標記它:出貨已標的是 telegram webhook、兩支 multipart 上傳(`file/upload`、`drive/{id}/upload`)與 `encryption-key`。自己的上傳端點也要自己標,漏標的症狀是開關一開就變 `invalid-envelope`。**回傳檔案或串流(不是 JSON)的 action 也要標**:加密開著時,中介層遇到封不進信封的回應會改回加密過的 `500 server-error`,並寫 `encryption.unsealable-response` 日誌,不會把內容以明文送出 |
 | **篩選值的格式與型別都會驗證** | op 要的是單一值卻送陣列(`eq` / `contains` / `between` 的 from、to 等)、`in` / `notIn` 的清單裡有陣列,一律回 500 `invalid-filter-value`。值也要對得上欄位型別:`integer` 要整數或純數字字串而且在 bigint 範圍內(比較時一律以 `?::bigint` 綁定,所以超過 int4 的值只會比不到,不會溢位;`-0` 不收)、`float` 要 numeric 而且是有限值(綁定時轉成 float,下溢的值當 0)、`boolean` 要 `true`/`false`/`0`/`1`、`date` 要完全符合 `matrix.date-format`、`datetime` 要完全符合 `matrix.datetime-format` 而且解析出的年份 ≥ 1(不論格式把年份放在哪裡)（兩者不互通,也不收 `now`、`tomorrow`、`+1 day` 這類 PostgreSQL 或 PHP 認得的相對值,以及 `2026-02-31` 這種會被 PHP 悄悄進位的日期）,不符同樣回 500。**這一道是必要的**——不擋的話那個值會原樣進 SQL,PostgreSQL 丟 `22P02`,而 action 跑在交易裡,整個交易會進 aborted 狀態(`25P02`),該請求之後每一個查詢都失敗,真正的原因還被蓋掉。型別依的是欄位**宣告**的型別(DSL 標註 → 聚合函式 → `#[Declared]` 的 definition → model cast),都沒有就當 `text` 不檢查。欄位或 op 不被允許則靜默忽略,`in` 清單裡的 null 不擋（合法 SQL,永不匹配） |
 | **巢狀資源(非 standalone)的每個 CRUD 動作都會驗證路由上的父層鏈** | 所有查詢(清單、`get`、`update`、`delete` 含多筆 id、`copy`、排序、快速上下架、匯出)都加上直接父層的外鍵條件,不屬於該父層的 id 回 404 `data-not-found`(多筆刪除只要有一筆不屬於就整批拒絕)。另外在第一次取用父層外鍵時(`CrudService::owner()`),沿 `Subject::parent()` 往上逐層驗證:父層要能經由它自己的 model 查到(套用其 global scope 與軟刪除),且它的外鍵要等於路由上更上一層的參數,否則同樣回 404——所以父層不存在、被軟刪除、被 global scope 排除(例如共用表依類別分的 model),或祖父層參數對不上時,清單、新增頁、新增、匯入也一律 404。路由沒帶的上層參數不驗證;自我參照的樹(`menu/{parent_id}/children`)只驗證直接父層存在。standalone 模式不套用任何父層條件。`admin/schedule/toggle` 不走巢狀路由,只依 prefix 權限與 model 本身的 global scope 取資料 |
 | **子清單的條件不是父層外鍵時,用 `$mount` 指定動作前綴** | model 的 metadata 沒有父層(或父層不是路由上那一層),例如依行程所屬的群組列出資料,只能用 standalone 並在 `onList()` 等處自己加 `scope()`;這時動作 url 與權限節點仍依 metadata 推導(`{alias}/{id}`),會連到另一個資源。在 controller 設 `protected ?string $mount = 'tour/{tour_id}/reviews';`(對應 `CrudService::mount()`)後,所有動作 url 與權限檢查改用這個前綴,欄位偏好的 key 也跟著它。前綴裡的 `{tour_id}` 照常由前端用該列(列動作)或信封的 `context`(頁動作)展開,所以列資料與 `context` 要自己帶上這個值。`admin/schedule/toggle` 的權限仍看 model metadata 推導的前綴 |

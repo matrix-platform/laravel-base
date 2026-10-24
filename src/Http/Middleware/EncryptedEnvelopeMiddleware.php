@@ -7,6 +7,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\EncryptionKey;
 use MatrixPlatform\Support\ApiEncryption;
@@ -67,7 +68,9 @@ class EncryptedEnvelopeMiddleware {
 
     private function sealed(mixed $response, string $secret, string $aad): mixed {
         if (!$response instanceof Response && !$response instanceof JsonResponse) {
-            return $response;
+            Log::error('encryption.unsealable-response', ['type' => get_debug_type($response)]);
+
+            $response = EnvelopeMiddleware::json(500, 'server-error');
         }
 
         $response->setContent(json_encode(ApiEncryption::seal($secret, strval($response->getContent()), $aad)));

@@ -86,7 +86,7 @@ class DriveControllerTest extends FeatureTestCase {
         $this->assertSame('shared', $children[0]['name']);
     }
 
-    public function test_uploading_and_downloading_a_file(): void {
+    public function test_downloading_has_no_post_route(): void {
         $root = $this->send('admin/drive/root')->json('data.id');
 
         $node = $this->withToken($this->token)
@@ -95,10 +95,7 @@ class DriveControllerTest extends FeatureTestCase {
 
         $this->assertIsArray($node);
 
-        $download = $this->send("admin/drive/{$node['id']}/download");
-
-        $download->assertOk();
-        $this->assertSame('hello', $download->streamedContent());
+        $this->send("admin/drive/{$node['id']}/download")->assertJson(['success' => false, 'code' => 404, 'error' => 'endpoint-not-found']);
     }
 
     public function test_downloading_via_get_streams_the_file(): void {
@@ -152,7 +149,7 @@ class DriveControllerTest extends FeatureTestCase {
 
         $this->send("admin/drive/{$node['id']}/delete")->assertJsonPath('success', true);
 
-        $download = $this->send("admin/drive/{$node['id']}/download");
+        $download = $this->withToken($this->token)->get("admin/drive/{$node['id']}/download");
 
         $download->assertOk();
         $this->assertSame('hello', $download->streamedContent());
@@ -169,10 +166,6 @@ class DriveControllerTest extends FeatureTestCase {
             ->json('data');
 
         $stranger = UserFactory::new()->createOne(['id' => self::REGULAR + 1])->createToken();
-
-        $this->withToken($stranger)
-            ->postJson("admin/drive/{$node['id']}/download")
-            ->assertJson(['success' => false, 'code' => 403, 'error' => 'permission-denied']);
 
         $this->withToken($stranger)
             ->get("admin/drive/{$node['id']}/download")
@@ -199,8 +192,6 @@ class DriveControllerTest extends FeatureTestCase {
         $stored = DriveNode::query()->whereKey(intval($node['id']))->firstOrFail();
 
         Storage::disk($service->disk())->delete($service->location($stored));
-
-        $this->send("admin/drive/{$stored->id}/download")->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
 
         $this->withToken($this->token)
             ->get("admin/drive/{$stored->id}/download")
@@ -234,7 +225,10 @@ class DriveControllerTest extends FeatureTestCase {
         $root = $this->send('admin/drive/root')->json('data.id');
         $folder = $this->send("admin/drive/{$root}/folder", ['name' => 'folder'])->json('data.id');
 
-        $this->send("admin/drive/{$folder}/download")->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
+        $this->withToken($this->token)
+            ->get("admin/drive/{$folder}/download")
+            ->assertNotFound()
+            ->assertContent('');
     }
 
     public function test_a_deleted_node_can_be_restored(): void {

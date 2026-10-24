@@ -42,7 +42,7 @@ class DriveController extends BaseController {
         return $this->present($node);
     }
 
-    #[Action('{id}/download', transaction: false)]
+    #[Action(scope: 'raw', transaction: false)]
     public function download(Request $request): StreamedResponse {
         $node = $this->node($request, withTrashed: true);
 
