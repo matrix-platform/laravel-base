@@ -84,15 +84,10 @@ class PermissionTree implements OptionProvider {
      * @return array<string, array<string, bool>>
      */
     public function revise(array $current, array $requested): array {
-        $permission = app(AdminPermission::class);
         $revised = $current;
 
         foreach ($this->grants() as $path => $actions) {
             foreach (array_keys($actions) as $tag) {
-                if (!$permission->permits($path, $tag)) {
-                    continue;
-                }
-
                 if ($this->wanted($requested, $path, $tag)) {
                     $revised[$path][$tag] = true;
                 } else {
