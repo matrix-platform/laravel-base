@@ -301,6 +301,36 @@ class AuthControllerTest extends FeatureTestCase {
         $response->assertJson(['code' => 429, 'error' => 'too-many-requests']);
     }
 
+    public function test_mfa_failures_from_different_addresses_share_one_limit_per_account(): void {
+        [, $challenge, $code] = $this->challenged();
+        $max = intval(cfg('admin.login-throttle-max'));
+
+        for ($attempt = 0; $attempt < $max; $attempt++) {
+            $this->withServerVariables(['REMOTE_ADDR' => "10.0.0.{$attempt}"])
+                ->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => '000000'])
+                ->assertJsonPath('fields.code', ['invalid-code']);
+        }
+
+        $this->withServerVariables(['REMOTE_ADDR' => '10.0.1.1'])
+            ->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => $code])
+            ->assertJson(['code' => 429, 'error' => 'too-many-requests']);
+    }
+
+    public function test_exhausting_the_mfa_limit_discards_the_challenge(): void {
+        [, $challenge, $code] = $this->challenged();
+        $max = intval(cfg('admin.login-throttle-max'));
+
+        for ($attempt = 0; $attempt <= $max; $attempt++) {
+            $this->withServerVariables(['REMOTE_ADDR' => "10.0.0.{$attempt}"])
+                ->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => '000000']);
+        }
+
+        $this->travel(intval(cfg('admin.login-throttle-window')) + 1)->minutes();
+
+        $this->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => $code])
+            ->assertJsonPath('fields.code', ['invalid-challenge']);
+    }
+
     public function test_the_full_self_service_mfa_setup_confirm_and_disable_cycle(): void {
         $this->user();
 

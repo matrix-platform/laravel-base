@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Services\Admin;
 
+use Illuminate\Support\Facades\Cache;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Services\Admin\MfaService;
@@ -128,6 +129,20 @@ class MfaServiceTest extends FeatureTestCase {
         $code = (new Google2FA())->getCurrentOtp($this->secretOf($user));
 
         $this->assertTrue(app(MfaService::class)->verify($this->reload($user), $code));
+        $this->assertFalse(app(MfaService::class)->verify($this->reload($user), $code));
+    }
+
+    public function test_verify_rejects_a_used_code_even_before_its_timestamp_is_recorded(): void {
+        $user = UserFactory::new()->createOne();
+
+        app(MfaService::class)->setup($user);
+
+        $code = (new Google2FA())->getCurrentOtp($this->secretOf($user));
+
+        $this->assertTrue(app(MfaService::class)->verify($this->reload($user), $code));
+
+        Cache::forget("mfa-timestamp:{$user->id}");
+
         $this->assertFalse(app(MfaService::class)->verify($this->reload($user), $code));
     }
 

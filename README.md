@@ -260,7 +260,7 @@ worker 會睡掉供應商的 `interval` 來節流,所以 `--timeout` 與 connect
 | `permission-api` | 授權,**必須掛在 `user-api` 之後**,而且只能用在 `admin` 前綴底下(用在其他前綴時,`ActionRoutes` 註冊路由就會丟 `LogicException`) |
 | `member-api` / `vendor-api` | 前台身分 |
 | `member-aware-api` | 有 token 就解析,沒有也放行 |
-| `login-throttle-api:{bundle}` | 登入節流,鍵是 `IP + 帳號` |
+| `login-throttle-api:{bundle}` | 登入節流,鍵是 `IP + 帳號`。請求進來先計一次(同時送出的請求也各佔一次),回應 `success: true` 時清空這個鍵的計數 |
 | `anonymous-throttle-api:{bundle}` | 匿名端點節流,鍵是 `路徑 + IP`,讀 `{bundle}.anonymous-throttle-*` |
 
 **順序是約束,不是機制保證。** 把 `permission-api` 掛在 `user-api` 前面不會有人阻止你,但授權會先跑,拿到的是 401 而不是 403。
@@ -1145,7 +1145,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | `admin.anonymous-throttle-max` | `30` | `anonymous-throttle-api:admin`(`admin/auth/captcha`、`admin/auth/passkey/options`)每個 IP 在窗口內的請求上限，各端點分開計算，超過回 `too-many-requests` |
 | `admin.anonymous-throttle-window` | `1` | 上一列的節流窗口(分鐘) |
 | `admin.captcha-ttl` | `300` | 驗證碼有效秒數 |
-| `admin.login-throttle-max` | `5` | 每個窗口容許的登入失敗次數 |
+| `admin.login-throttle-max` | `5` | 每個窗口容許的登入失敗次數。同一個數字也是 `admin/auth/mfa` **每個帳號**(不分 IP)的驗證碼失敗上限:超過就回 `too-many-requests` 並作廢當下的 challenge,要重新登入取得新的 |
 | `admin.login-throttle-window` | `1` | 節流窗口(分鐘) |
 | `admin.mfa-challenge-ttl` | `300` | MFA challenge 有效秒數 |
 | `admin.mfa-trust-days` | `30` | 「信任此瀏覽器」cookie 的有效天數 |

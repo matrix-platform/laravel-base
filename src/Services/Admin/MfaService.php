@@ -88,11 +88,13 @@ class MfaService {
         $window = (int) cfg('admin.mfa-window');
         $timestamp = $this->google2fa->verifyKeyNewer($secret, $code, intval(Cache::get($key, 0)), $window);
 
-        if (!is_int($timestamp)) {
+        $ttl = ($window * 2 + 2) * 30;
+
+        if (!is_int($timestamp) || !Cache::add('mfa-used:' . hash('sha256', $secret) . ":{$timestamp}", true, $ttl)) {
             return false;
         }
 
-        Cache::put($key, $timestamp, ($window * 2 + 2) * 30);
+        Cache::put($key, $timestamp, $ttl);
 
         return true;
     }

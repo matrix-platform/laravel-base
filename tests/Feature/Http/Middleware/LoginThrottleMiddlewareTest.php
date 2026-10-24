@@ -22,6 +22,7 @@ class LoginThrottleMiddlewareTest extends FeatureTestCase {
 
         $router->middleware('login-throttle-api:admin')->post('probe/success', fn () => ['success' => true]);
         $router->middleware('login-throttle-api:admin')->post('probe/failure', fn () => response()->json(['success' => false, 'code' => 422, 'error' => 'invalid-captcha']));
+        $router->middleware('login-throttle-api:admin')->post('probe/in-flight', fn (Request $request) => ['attempts' => RateLimiter::attempts("matrix-login-admin|{$request->ip()}|")]);
     }
 
     private function request(): Request {
@@ -75,6 +76,26 @@ class LoginThrottleMiddlewareTest extends FeatureTestCase {
 
     public function test_a_failed_response_is_counted_against_the_limit(): void {
         $max = intval(cfg('admin.login-throttle-max'));
+
+        for ($attempt = 0; $attempt < $max; $attempt++) {
+            $this->postJson('probe/failure')->assertStatus(200);
+        }
+
+        $this->postJson('probe/failure')->assertStatus(429);
+    }
+
+    public function test_a_request_is_counted_before_it_runs(): void {
+        $this->postJson('probe/in-flight')->assertJsonPath('attempts', 1);
+    }
+
+    public function test_a_success_clears_the_failures_before_it(): void {
+        $max = intval(cfg('admin.login-throttle-max'));
+
+        for ($attempt = 0; $attempt < $max - 1; $attempt++) {
+            $this->postJson('probe/failure');
+        }
+
+        $this->postJson('probe/success');
 
         for ($attempt = 0; $attempt < $max; $attempt++) {
             $this->postJson('probe/failure')->assertStatus(200);

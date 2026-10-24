@@ -3,6 +3,7 @@
 namespace MatrixPlatform\Services\Admin;
 
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use MatrixPlatform\Captcha\CaptchaService;
 use MatrixPlatform\Captcha\Driver;
@@ -96,6 +97,14 @@ class AuthService {
             invalid('code', 'invalid-challenge');
         }
 
+        $key = "matrix-mfa|{$user->id}";
+
+        if (RateLimiter::increment($key, (int) cfg('admin.login-throttle-window') * 60) > (int) cfg('admin.login-throttle-max')) {
+            Cache::forget(self::MFA_CHALLENGE_PREFIX . $challenge);
+
+            error('too-many-requests', 429);
+        }
+
         if (!$this->mfa->verify($user, $code)) {
             app(RollbackCallbacks::class)->persist(fn () => $user->writeLog(UserLogType::MfaChallengeFailed));
 
@@ -103,6 +112,9 @@ class AuthService {
         }
 
         Cache::forget(self::MFA_CHALLENGE_PREFIX . $challenge);
+
+        RateLimiter::clear($key);
+
         $user->writeLog(UserLogType::Login);
 
         $data = ['token' => $user->createToken()];

@@ -3,21 +3,41 @@
 namespace MatrixPlatform\Http\Middleware;
 
 use Closure;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
-use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\RateLimiter;
 use MatrixPlatform\Support\LoginRateLimiter;
+use Symfony\Component\HttpFoundation\Response;
 
 class LoginThrottleMiddleware {
-
-    public function __construct(private ThrottleRequests $throttle) {}
 
     public function handle(Request $request, Closure $next, string $bundle): mixed {
         $name = "matrix-login-{$bundle}";
 
-        RateLimiter::for($name, (new LoginRateLimiter($bundle))(...));
+        $limiter = new LoginRateLimiter($bundle);
 
-        return $this->throttle->handle($request, $next, $name);
+        RateLimiter::for($name, $limiter(...));
+
+        $limit = $limiter($request);
+        $key = "{$name}|{$limit->key}";
+
+        if (RateLimiter::increment($key, $limit->decaySeconds) > $limit->maxAttempts) {
+            throw new ThrottleRequestsException('Too Many Attempts.');
+        }
+
+        $response = $next($request);
+
+        if ($response instanceof Response && $this->succeeded($response)) {
+            RateLimiter::clear($key);
+        }
+
+        return $response;
+    }
+
+    private function succeeded(Response $response): bool {
+        $body = json_decode((string) $response->getContent(), true);
+
+        return is_array($body) && array_get_value($body, 'success') === true;
     }
 
 }
