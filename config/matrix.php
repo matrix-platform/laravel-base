@@ -91,4 +91,6 @@ return [
 
     'vendor-model' => Vendor::class,
 
+    'webpush-hosts' => ['fcm.googleapis.com', '*.push.services.mozilla.com', 'web.push.apple.com', '*.notify.windows.com'],
+
 ];

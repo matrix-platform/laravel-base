@@ -360,6 +360,7 @@ return [
     'validation.string' => '必须为文本',
     'validation.unique' => '该值已被使用',
     'validation.unsupported-model' => '此数据类型不支持此操作',
+    'validation.unsupported-push-endpoint' => '不支持此浏览器的推送服务',
     'validation.url' => '网址格式有误',
 
 ];

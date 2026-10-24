@@ -360,6 +360,7 @@ return [
     'validation.string' => 'Must be text',
     'validation.unique' => 'This value has already been taken',
     'validation.unsupported-model' => 'This resource is not available for this action',
+    'validation.unsupported-push-endpoint' => 'This browser\'s push service is not supported',
     'validation.url' => 'Invalid URL format',
 
 ];

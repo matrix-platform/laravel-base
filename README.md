@@ -820,7 +820,7 @@ Push 是唯一需要前端配合的通道:瀏覽器要先用 Web Push API 取得
 
 | 端點 | 說明 |
 |---|---|
-| `api/member/push/subscribe` | 帶 `endpoint`、`keys.p256dh`、`keys.auth`。以 `endpoint` 為準:同一個 `endpoint` 再訂閱一次是更新既有紀錄,不會重複 |
+| `api/member/push/subscribe` | 帶 `endpoint`、`keys.p256dh`、`keys.auth`。`endpoint` 必須是 `https`,主機要符合 `matrix.webpush-hosts`(出貨列了 Chrome / Edge、Firefox、Safari 與舊版 Edge 的推播服務),否則回 `unsupported-push-endpoint`——發送工作會對這個網址發 POST,不設限就能被拿來打內網。以 `endpoint` 為準:同一個 `endpoint` 再訂閱一次是更新既有紀錄,不會重複;由另一個會員訂閱則改歸那個會員(同一台裝置換帳號登入,推播跟著新登入的人走) |
 | `api/member/push/unsubscribe` | 帶 `endpoint`。只刪目前這個會員自己名下、`endpoint` 相符的那一筆,刪不到不報錯 |
 
 Service worker 註冊、`Notification.requestPermission()`、呼叫這兩支 API,都是前端(消費端 repo)的工作,不在這個套件範圍內。
@@ -1135,6 +1135,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | `matrix.vendor-api-encryption` | `true` | `vendor` 前綴要不要傳輸加密 |
 | `matrix.vendor-api-prefix` | `'vendor'` | 廠商路由前綴 |
 | `matrix.vendor-model` | `Vendor::class` | 廠商 model |
+| `matrix.webpush-hosts` | `['fcm.googleapis.com', '*.push.services.mozilla.com', 'web.push.apple.com', '*.notify.windows.com']` | `api/member/push/subscribe` 接受的推播服務主機,`*` 是萬用字元。刻意放 config 不放 cfg:它是防止發送工作打內網的白名單,不該從資源後台改 |
 
 白名單只擋非 ROOT。ROOT 不受它限制。
 
