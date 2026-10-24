@@ -334,6 +334,8 @@ bundle 一律**扁平**:只有一層 key,key 本身可以含點,取值時當字�
 
 機密欄位的實際值**永遠不離開伺服器**——`data` 回傳的是遮罩 `••••••••`(沒設定過則是空字串),`default` 與 `placeholder` 一律空白。寫回時遮罩值代表「不變更」,送新值才覆寫,送空字串才清除。出貨已標的是 `gmail.password`、`telegram.bot-token`、`telegram.webhook-secret`、`webpush.private-key`、`mitake.password`、`google-translate.api-key`、`gemini-translate.api-key`、`ip2location-bin.download-token`、`ip2location-webservice.api-key`、`captcha-recaptcha.secret`、`captcha-turnstile.secret`;自訂 bundle 裡的憑證要自己標,**漏標的症狀是那把密鑰以明文出現在後台 API 回應裡**。
 
+**`driver` 與「機密會被送往的目的地」一律標 `readonly`**(`'readonly' => true`):出貨的 `driver`、`endpoint`、`host` 全部唯讀,驗證碼的 `action` 也是。遮罩擋得住讀,擋不住有人把 `endpoint` 改成自己的伺服器、等下一次呼叫把密鑰送過去;`driver` 改成 `NoneDriver` 等於關掉驗證碼,改壞了則連 Root 都登不進來。自訂 bundle 照同樣的原則標。標成唯讀之前已經從後台寫進 `base_resource_override` 的值仍然生效,只是後台改不動了,要清掉得直接改資料庫。
+
 這一層跟 `matrix.resource-cfg` 的 bundle 白名單是兩件事:白名單決定「這個 bundle 能不能編輯」,`secret` 決定「bundle 裡哪些 key 的值看得到」。有了後者,含憑證的混合型 bundle 才能安全地進白名單。
 
 合併是**逐 key 遞迴**的（排前的覆蓋排後的、key 對 key）,所以覆蓋一個選單節點時,低優先層那個節點多出來的 key（`icon`、`tag` 之類）會滲進合併結果,沒辦法個別移除。要**整個移除**一個節點,把該 key 的值設成 `null` —— 節點消失、端點不註冊(對所有人回 404 `endpoint-not-found`)、群組離開權限樹。但移除節點只擋端點與**新**授權:**已經授出的權限仍然有效**,因為授權檢查讀的是 `base_user.permissions` / `base_group.permissions` 存的 JSON,不是選單樹。

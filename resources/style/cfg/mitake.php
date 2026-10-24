@@ -4,7 +4,7 @@ return [
 
     'driver' => ['type' => 'text', 'readonly' => true],
 
-    'endpoint' => ['type' => 'text', 'rule' => ['url']],
+    'endpoint' => ['type' => 'text', 'readonly' => true],
 
     'password' => ['type' => 'text', 'presentation' => 'password', 'secret' => true],
 

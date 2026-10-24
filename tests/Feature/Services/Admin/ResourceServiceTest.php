@@ -188,7 +188,7 @@ class ResourceServiceTest extends FeatureTestCase {
         $columns = array_column($this->service()->get(ResourceGroup::Cfg, 'gmail')['columns'], null, 'name');
 
         $this->assertSame(['integer', 'min:1', 'max:65535'], $columns['port']['rule']);
-        $this->assertSame(['string'], $columns['host']['rule']);
+        $this->assertSame(['string'], $columns['username']['rule']);
     }
 
     public function test_a_duration_the_framework_would_treat_as_expired_is_rejected(): void {
@@ -210,7 +210,8 @@ class ResourceServiceTest extends FeatureTestCase {
         $columns = array_column($this->service()->get(ResourceGroup::Cfg, 'gmail')['columns'], null, 'name');
 
         $this->assertTrue($columns['driver']['readonly']);
-        $this->assertFalse($columns['host']['readonly']);
+        $this->assertTrue($columns['host']['readonly']);
+        $this->assertFalse($columns['username']['readonly']);
     }
 
     public function test_a_readonly_cfg_field_cannot_be_written_through_the_backend(): void {
