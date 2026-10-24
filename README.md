@@ -405,7 +405,7 @@ class WidgetDeclaration implements Declares {
 }
 ```
 
-`Metadata` 的第一個參數是 **alias,它必須等於選單節點的路徑前綴**;第二個是「這一列叫什麼」的欄位（麵包屑與排序頁會用）。第三個參數可以指定父層關聯,巢狀資源才需要。第四個參數 `ranking` 可指定排序用的欄位名稱,`CrudController` 會用它推導預設的 `$sorting`/`$sortable`;第五、六個參數 `enable`/`disable` 標記上下架時間欄位,接上後解鎖 `POST admin/schedule/toggle`(單筆立即切換)與 `admin/{prefix}/arrange`、`arrange/save`(拖曳式批次上下架)兩支既有 API;`schedule/toggle` 是共用端點,只檢查模組選單有註冊 update 節點(最高權限帳號也一樣)與使用者的 update 權限,不經 controller 的 guard,存檔時才檢查的業務規則要放在 model 事件;也會讓清單自動提供「上下架」篩選(見[給前端](#給前端)),匯出吃同一個篩選。
+`Metadata` 的第一個參數是 **alias,它必須等於選單節點的路徑前綴**;第二個是「這一列叫什麼」的欄位（麵包屑與排序頁會用）。第三個參數可以指定父層關聯,巢狀資源才需要。第四、五個參數 `enable`/`disable` 標記上下架時間欄位,接上後解鎖 `POST admin/schedule/toggle`(單筆立即切換)與 `admin/{prefix}/arrange`、`arrange/save`(拖曳式批次上下架)兩支既有 API;`schedule/toggle` 是共用端點,只檢查模組選單有註冊 update 節點(最高權限帳號也一樣)與使用者的 update 權限,不經 controller 的 guard,存檔時才檢查的業務規則要放在 model 事件;也會讓清單自動提供「上下架」篩選(見[給前端](#給前端)),匯出吃同一個篩選。第六個參數 `ranking` 可指定排序用的欄位名稱,`CrudController` 會用它推導預設的 `$sorting`/`$sortable`。後面幾個參數建議用具名參數傳(`new Metadata('widget', ranking: 'ranking')`)。
 
 沒有 `#[Declared]` 的 model 一進 CRUD 端點就是 `undeclared-model`。
 
@@ -788,6 +788,7 @@ app(MailService::class)->cancel($id);
 | `$at` 到期了才派工 | 未來時間只寫列,等 `messages:dispatch` 那一輪撈到 |
 | **樣板可以是 `null`,provider 不行** | 樣板要嘛自己指名 `provider`,要嘛 `$options` 給。都沒有就 `invalid-message-provider`;供應商沒設 `driver` 就 `message-provider-has-no-driver` |
 | `$options` 覆蓋樣板的渲染結果 | 只認 `provider`、`subject`、`title`、`content`、`data`、`cc`、`bcc` 七個 key。值是 `null` **不算**覆蓋。`title` 只有 push 用;`data` 給 push(額外 payload)與 telegram(`parse_mode` 等 Bot API 選項)用;mail / sms 不讀這兩個 key。telegram 的 `data` **蓋不掉 `chat_id` 與 `text`**——收件目標由訂閱解析與 sandbox 決定,內容一律是記錄下來的 `content`,否則 `base_telegram_log` 會對不上實際送出的東西,sandbox 也會被繞過。`cc`／`bcc` 只有 mail 用,可以是陣列或以逗號／分號／空白分隔的字串(樣板裡的 `cc`／`bcc` 欄位同樣有效,`$options` 給了就整個取代),去重後以 `, ` 串接寫進 `base_mail_log.cc`／`bcc`,沒有就是 `null`;`resend()` 會一起複製 |
+| **`$options['raw']` 列出不逸出的變數** | mail 的 `content` 對樣板變數的值預設做 HTML 逸出;`raw` 是變數名稱的陣列(例如 `['link']`),列在裡面的變數原樣代入,給要放合法 HTML 的值用。其他欄位與其他通道本來就不逸出,`raw` 對它們沒有作用 |
 | **`$options['locale']` 指定取哪個語系的樣板** | 沒給就用當下的 `app()->getLocale()`。樣板只放在某一個語系(例如只維護繁中一份)時,前台其他語系的請求觸發寄送會 `message-template-not-found`,這時要帶 `locale`。紀錄的 `locale` 欄位寫的是實際取樣板的語系 |
 | `$options['attributes']` 寫入額外欄位 | 給消費端在紀錄表自己加的欄位用(例如關聯的訂單 id),`[欄位 => 值]` 原樣寫進新的那一列。套件自己寫的欄位(`provider`、`receiver`、`content`、`template`、`schedule_time`、`locale`、`sender`、`cc`、`bcc`、`subject` 等)一律以套件為準,蓋不掉。`resend()` 複製整列,所以這些欄位也會帶到新的那一筆 |
 | mail 的寄件者以寄出時為準 | `sender` 排程時先記下當時的 `cfg('{provider}.from-address')`;`MailerMailDriver` 寄出時改用當下的設定寄,並把實際用的位址寫回 `sender`,所以紀錄上的寄件者就是實際的 From |
@@ -1630,13 +1631,12 @@ parameters:
 | **防重放的去重表存在 `Cache`**,一台機器記下的 `epk` 只有那台知道 | 多機部署時 `CACHE_STORE` 必須是跨機共享的(Redis),用 `file` / `array` 等單機快取的話,同一份密文換一台機器就能重送一次 |
 | **加密只保護 body,不改變 token 的傳法**(`Authorization` header / `matrix-user` cookie 還是原樣),也不取代 HTTPS | 它防的是「TLS 在反向代理就終止、之後那段是明文」這個威脅,不是 HTTPS 的替代品 |
 | **私鑰以 `APP_KEY` 加密後存在 `base_encryption_key`** | 資料庫與 `APP_KEY` 同時外洩,等於過去 `encryption.grace-period` 之內錄下來的流量都能解開。輪替頻率照你的合規要求定 |
-| **`base_auth_token.token` 是明文** | 資料庫外洩等於所有人的登入狀態外洩,備份與存取控制要照這個等級處理 |
 | **cookie 的 `secure` 跟隨 `config('session.secure')`** | 生產環境務必設成 true,否則 token 會在明文連線上傳 |
 | **上傳不檢查型別**（`cfg('file.mime-patterns')` 出貨空白 = 全部放行） | 要限制就設 `mime-patterns`（正則,空白分隔,**不能含空白、逗號或分號** —— 那是分隔字元,`{1,8}` 這類寫法請改寫）。寫錯（不是合法正則）的那一條會被略過並寫 `Log::warning`(`file.invalid-mime-pattern`),全部都不合法時一律拒絕上傳 |
 | **上傳不沿用使用者送來的副檔名** | 磁碟上是 `年月/32 碼隨機名`;只有伺服器偵測到的類型在 `FileStorage::EXTENSIONS` 白名單內(JPG / PNG / GIF / WebP / AVIF / SVG)才加上對應的副檔名,讓公開 disk 由 web server 直接提供時帶得出正確的 Content-Type(SVG 沒有 `image/svg+xml` 瀏覽器不會當圖片畫);副檔名看內容不看檔名,所以改名成 `.jpg` 的程式不會拿到可執行的副檔名,名單外的檔案一律不帶副檔名。下載的 Content-Type 取自 `base_file.mime_type`,檔名取自 `base_file.name`（原始檔名,含副檔名）,使用者端無感 |
 | **公開 disk 上的 SVG 由 web server 直接提供** | SVG 可以內嵌程式碼:以 `<img>` 載入不會執行,但直接開啟它的網址會在那個網域上執行。正式環境建議讓 web server 對 `.svg` 加上 `Content-Security-Policy: sandbox`(例如 nginx `location ~* \.svg$ { add_header Content-Security-Policy "sandbox"; }`),或不開放上傳 SVG(`file.mime-patterns`) |
 | **上傳不限制大小**（`cfg('file.max-size')` 出貨 `0`）。真正的上限是 PHP 的 `upload_max_filesize` / `post_max_size` | 兩層都要調。只調 cfg 沒用,只調 ini 的話使用者會拿到 422 而不是 `file-too-large` |
-| 檔案的 `privilege` 決定存哪個 disk（`0` 公開 / `1` 私有）。下載一律走 `admin/file/download`,**要登入** | 公開 disk 若做了 `storage:link`,那些檔案就有公開 URL —— 這是 disk 設定的結果,不是套件的存取控制。另外「要登入」**只是登入** —— `admin/file/*` 掛的是 `user-api`,沒有 `permission-api`,所以**選單權限完全為空的管理員**也能下載 / 改名任何 path 的檔案。要更細的檔案授權,自己在該路由前加 middleware |
+| 檔案的 `privilege` 決定存哪個 disk（`0` 公開 / `1` 私有）。**私有檔沒有出貨的下載端點** —— `api/files/{path}` 只提供公開檔與雲端硬碟引用檔,私有檔一律 404 | 要讓人下載私有檔,宿主自己開端點,用 `FileService::disk(File::PRIVATE)` 與 `location()` 讀檔,並自己決定授權。公開 disk 若做了 `storage:link`,那些檔案就有公開 URL —— 這是 disk 設定的結果,不是套件的存取控制。另外 `admin/file/*` 掛的是 `user-api`,沒有 `permission-api`,所以**選單權限完全為空的管理員**也能改名任何 path 的檔案。要更細的檔案授權,自己在該路由前加 middleware |
 | **前台沒有上傳端點** | 前台要上傳就自己呼叫 `FileService::upload()`,並自己決定權限與限制 |
 | **seeder 要預建圖片時用 `FileService::import($path)`** | 把專案內的檔案匯入 `base_file`(預設公開),走 `upload()` 的去重所以重跑 seeder 不會重複建檔;不套用 `file.max-size` / `file.mime-patterns`;以暫存複本上傳,不動來源檔。存進圖片／檔案欄位(`DriveImage` / `DriveFile`)的值用 `FileService::entry($file)` 產生,形狀與從雲端硬碟選檔後存下的相同 |
 | **雲端硬碟(`drive/*`)上傳不檢查型別或大小**,沒有等同 `file.max-size` / `file.mime-patterns` 的設定 | 要限制就自己在 `DriveService::upload()` 前面加檢查 |
@@ -1646,7 +1646,7 @@ parameters:
 | **`drive/{id}/delete` 只軟刪除目標本身,不遞迴子項目**;但被刪節點底下**沒被動到**的子孫會變成整體不可操作——`DrivePermissionService::allowed()` 往上爬錨點時遇到已軟刪除的祖先就直接判定沒有權限,**`User::ROOT` 也不例外** | 這是刻意的設計:不用遞迴刪除/還原,單純靠「祖先鏈斷在已軟刪除的節點」讓整個子樹自然變成不可操作;`restore()` 也只還原目標本身,把祖先救回來,子孫的可操作性就自動恢復。**但「看不看得到」是另一回事**——`drive/trashed` 跟 `drive/{id}/path` 用的是 `visible()`,爬的時候會穿過軟刪除的祖先繼續找,所以子孫依然會出現在垃圾桶列表、路徑依然查得到,只是在祖先還原之前 `restore()` 會報 `permission-denied` |
 | **欄位 DSL 是開發者輸入**,識別字會被插值進 SQL | 絕對不要把使用者輸入拼進 `$lists` / `$updates` |
 | **權限白名單只覆蓋 CRUD 的寫入路徑**。`replicate()`、`setRawAttributes()`、query builder 的 `update()` 都繞得過去 | 白名單防的是請求輸入,不是程式碼 |
-| **訊息樣板的變數會原樣進入 HTML,不逸出** | 把使用者輸入當變數傳進去之前自己逸出。開放樣板編輯 = 把那個人當成信任的 HTML 作者 |
+| **mail 的 `content` 裡的樣板變數會逸出,其他地方不會** | 只有 mail 的 `content` 對 `{name}` 代入的值做 HTML 逸出,傳進去之前不要自己再逸出一次;要放合法 HTML 的變數列在 `$options['raw']`。`subject` 與 sms / push / telegram 的變數原樣代入。樣板本身不逸出,開放樣板編輯 = 把那個人當成信任的 HTML 作者 |
 | **`admin/translation` 送出去翻譯之前會保護佔位符**,但只保護**獨立出現**的 `{name}` / `{{name}}`——HTML 屬性值裡的(`<a href="?token={code}">`)原樣送給翻譯服務,翻回來可能已經被改掉 | 要翻的字串裡別把佔位符寫進屬性值。保護的作法是先換成一個標記元素、翻完再換回來;標記被翻譯服務改寫到認不出來時,整次翻譯回 `available: false`(**不會**回傳夾著標記殘骸的譯文),應用程式日誌記 `translation.failed` / `placeholder-lost`。**`gemini-translate` 這類 LLM driver 踩到這條的機率比 `google-translate` 高**——保留標記元素只能靠 prompt 要求,沒有 `format=html` 那種協定層保證。prompt 本身在 `cfg('gemini-translate.prompt')`,**標了 `readonly`,只能改檔案不能從資源後台編**;自訂時務必留著「原樣保留 HTML 標籤」那條規則與 `:text` 佔位符 —— 漏掉 `:text` 等於原文沒送出去,一律 `invalid-translation-driver` |
 
 #### 驗證碼服務掛掉時怎麼進後台
