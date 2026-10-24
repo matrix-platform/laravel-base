@@ -12,6 +12,7 @@ use Tests\Support\PasskeyAuthenticator;
 class PasskeyControllerTest extends FeatureTestCase {
 
     private const ORIGIN = 'https://example.com';
+    private const PASSWORD = 'secret-Passw0rd';
     private const RP_ID = 'example.com';
 
     protected function setUp(): void {
@@ -28,12 +29,24 @@ class PasskeyControllerTest extends FeatureTestCase {
         $this->postJson('admin/user/passkey/register/options')->assertJson(['success' => false, 'code' => 401, 'error' => 'invalid-token']);
     }
 
+    public function test_registration_options_require_the_current_password(): void {
+        $token = $this->token(5);
+
+        $this->withToken($token)
+            ->postJson('admin/user/passkey/register/options')
+            ->assertJsonPath('fields.password', ['required']);
+
+        $this->withToken($token)
+            ->postJson('admin/user/passkey/register/options', ['password' => 'wrong-Passw0rd'])
+            ->assertJsonPath('fields.password', ['invalid-password']);
+    }
+
     public function test_the_full_register_list_rename_delete_cycle(): void {
         $token = $this->token(5);
         $authenticator = new PasskeyAuthenticator();
 
         $options = $this->withToken($token)
-            ->postJson('admin/user/passkey/register/options')
+            ->postJson('admin/user/passkey/register/options', ['password' => self::PASSWORD])
             ->json('data');
         $challenge = Base64UrlSafe::decodeNoPadding($options['challenge']);
         $response = $authenticator->registrationResponse($challenge, self::RP_ID, self::ORIGIN);

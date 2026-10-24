@@ -609,6 +609,26 @@ class UserControllerTest extends FeatureTestCase {
         $this->assertNotContains('revoke-passkeys', $actions['without-passkey']);
     }
 
+    public function test_an_admin_resetting_a_password_revokes_the_accounts_passkeys(): void {
+        UserFactory::new()->createOne(['id' => 6000, 'username' => 'reset-me']);
+        PasskeyCredentialFactory::new()->createOne(['user_id' => 6000]);
+
+        $this->send($this->signIn(self::ADMIN), 'admin/user/6000/update', $this->form(['username' => 'reset-me', 'password' => 'another-Passw0rd', 'enable_time' => '2020-01-01 00:00:00']))
+            ->assertJsonPath('success', true);
+
+        $this->assertSame(0, PasskeyCredential::query()->where('user_id', 6000)->count());
+    }
+
+    public function test_an_update_without_a_new_password_keeps_the_accounts_passkeys(): void {
+        UserFactory::new()->createOne(['id' => 6000, 'username' => 'keep-me']);
+        PasskeyCredentialFactory::new()->createOne(['user_id' => 6000]);
+
+        $this->send($this->signIn(self::ADMIN), 'admin/user/6000/update', $this->form(['username' => 'keep-me', 'enable_time' => '2020-01-01 00:00:00']))
+            ->assertJsonPath('success', true);
+
+        $this->assertSame(1, PasskeyCredential::query()->where('user_id', 6000)->count());
+    }
+
     public function test_the_revoke_passkeys_row_action_never_shows_up_on_the_actors_own_row(): void {
         $self = UserFactory::new()->createOne(['id' => self::ADMIN, 'username' => 'self-account']);
 

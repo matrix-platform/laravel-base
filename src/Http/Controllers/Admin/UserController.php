@@ -74,6 +74,7 @@ class UserController extends CrudController {
             $user = User::query()->whereKey($result['id'])->firstOrFail();
 
             app(PasswordService::class)->revoke($user);
+            app(PasskeyService::class)->revokeAll($user);
 
             $user->writeLog(UserLogType::ChangePassword);
         }

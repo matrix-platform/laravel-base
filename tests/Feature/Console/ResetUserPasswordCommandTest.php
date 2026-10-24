@@ -6,10 +6,12 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Testing\PendingCommand;
 use Illuminate\Testing\TestResponse;
 use MatrixPlatform\Database\Seeders\UserSeeder;
+use MatrixPlatform\Models\PasskeyCredential;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Models\UserLog;
 use MatrixPlatform\Models\UserLogType;
 use Symfony\Component\Console\Exception\RuntimeException;
+use Tests\Factories\PasskeyCredentialFactory;
 use Tests\FeatureTestCase;
 
 class ResetUserPasswordCommandTest extends FeatureTestCase {
@@ -65,6 +67,17 @@ class ResetUserPasswordCommandTest extends FeatureTestCase {
 
         $this->assertSame(2, $log->user_id);
         $this->assertNull($log->creator_id);
+    }
+
+    public function test_a_console_reset_revokes_the_accounts_passkeys(): void {
+        PasskeyCredentialFactory::new()->createOne(['user_id' => 2]);
+
+        $this->command('admin')
+            ->expectsQuestion('New password', self::PASSWORD)
+            ->expectsQuestion('Retype new password', self::PASSWORD)
+            ->assertExitCode(0);
+
+        $this->assertSame(0, PasskeyCredential::query()->where('user_id', 2)->count());
     }
 
     public function test_an_unknown_account_fails_without_touching_any_password(): void {

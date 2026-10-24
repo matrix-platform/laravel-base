@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Testing\TestResponse;
 use MatrixPlatform\Models\AuthToken;
+use MatrixPlatform\Models\PasskeyCredential;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Models\UserLog;
 use MatrixPlatform\Models\UserLogType;
@@ -15,6 +16,7 @@ use MatrixPlatform\Services\Admin\MfaService;
 use MatrixPlatform\Services\Admin\Passkey\PasskeyService;
 use ParagonIE\ConstantTime\Base64UrlSafe;
 use PragmaRX\Google2FA\Google2FA;
+use Tests\Factories\PasskeyCredentialFactory;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
 use Tests\Support\PasskeyAuthenticator;
@@ -331,12 +333,27 @@ class AuthControllerTest extends FeatureTestCase {
             ->assertJsonPath('fields.code', ['invalid-challenge']);
     }
 
+    public function test_mfa_setup_requires_the_current_password(): void {
+        $user = $this->user();
+        $token = $user->createToken();
+
+        $this->withToken($token)
+            ->postJson('admin/auth/mfa/setup')
+            ->assertJsonPath('fields.password', ['required']);
+
+        $this->withToken($token)
+            ->postJson('admin/auth/mfa/setup', ['password' => 'wrong-Passw0rd'])
+            ->assertJsonPath('fields.password', ['invalid-password']);
+
+        $this->assertNull(User::query()->findOrFail($user->id)->secret);
+    }
+
     public function test_the_full_self_service_mfa_setup_confirm_and_disable_cycle(): void {
         $this->user();
 
         $token = $this->login()->json('data.token');
 
-        $secret = strval($this->withToken($token)->postJson('admin/auth/mfa/setup')->json('data.secret'));
+        $secret = strval($this->withToken($token)->postJson('admin/auth/mfa/setup', ['password' => self::PASSWORD])->json('data.secret'));
         $code = (new Google2FA())->getCurrentOtp($secret);
 
         $this->withToken($token)
@@ -667,6 +684,18 @@ class AuthControllerTest extends FeatureTestCase {
 
         $response->assertJson(['code' => 422, 'error' => 'validation-failed']);
         $response->assertJsonPath('fields.password', ['different']);
+    }
+
+    public function test_changing_ones_own_password_keeps_ones_passkeys(): void {
+        $user = $this->user();
+
+        PasskeyCredentialFactory::new()->createOne(['user_id' => $user->id]);
+
+        $this->withToken($this->login()->json('data.token'))
+            ->postJson('admin/auth/passwd', ['current' => self::PASSWORD, 'password' => 'another-Passw0rd'])
+            ->assertJsonPath('success', true);
+
+        $this->assertSame(1, PasskeyCredential::query()->where('user_id', $user->id)->count());
     }
 
     public function test_a_changed_password_replaces_the_old_one(): void {

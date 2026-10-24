@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Models\UserLogType;
+use MatrixPlatform\Services\Admin\Passkey\PasskeyService;
 use MatrixPlatform\Services\Admin\PasswordService;
 
 class ResetUserPasswordCommand extends Command {
@@ -46,6 +47,7 @@ class ResetUserPasswordCommand extends Command {
 
         DB::transaction(function () use ($user, $password) {
             app(PasswordService::class)->replace($user, $password);
+            app(PasskeyService::class)->revokeAll($user);
 
             $user->writeLog(UserLogType::ChangePassword);
         });

@@ -153,8 +153,16 @@ class AuthController extends BaseController {
      * @return array{secret: string, uri: string}
      */
     #[Action('mfa/setup')]
-    public function setupMfa(): array {
-        return $this->mfa->setup(actor()->requireUser());
+    public function setupMfa(Request $request): array {
+        $request->validate(['password' => ['required']]);
+
+        $user = actor()->requireUser();
+
+        if (!$this->passwords->verify($user, $request->string('password')->value())) {
+            invalid('password', 'invalid-password');
+        }
+
+        return $this->mfa->setup($user);
     }
 
     /**

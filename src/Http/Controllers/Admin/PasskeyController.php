@@ -8,10 +8,11 @@ use MatrixPlatform\Attributes\Action;
 use MatrixPlatform\Http\Controllers\BaseController;
 use MatrixPlatform\Models\PasskeyCredential;
 use MatrixPlatform\Services\Admin\Passkey\PasskeyService;
+use MatrixPlatform\Services\Admin\PasswordService;
 
 class PasskeyController extends BaseController {
 
-    public function __construct(private PasskeyService $service) {}
+    public function __construct(private PasskeyService $service, private PasswordService $passwords) {}
 
     #[Action('{id}/delete')]
     public function destroy(Request $request): void {
@@ -53,8 +54,16 @@ class PasskeyController extends BaseController {
      * @return array{options: array<string, mixed>, challenge: string}
      */
     #[Action('register/options')]
-    public function registrationOptions(): array {
-        return $this->service->registrationOptions(actor()->requireUser());
+    public function registrationOptions(Request $request): array {
+        $request->validate(['password' => ['required']]);
+
+        $user = actor()->requireUser();
+
+        if (!$this->passwords->verify($user, $request->string('password')->value())) {
+            invalid('password', 'invalid-password');
+        }
+
+        return $this->service->registrationOptions($user);
     }
 
     #[Action('{id}/rename')]
