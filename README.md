@@ -365,6 +365,19 @@ Schema::create('base_widget', function (BaseBlueprint $table) {
 
 **主鍵一定要走 `primaryKey()`。** 用 `$table->id()` 會拿到從 1 開始的 bigint,而 id 1 是 ROOT —— 稽核紀錄的歸屬會靜默錯亂。
 
+**自我參照的外鍵(例如 `parent_id` 參照自己的 `id`)要另開一個 `Schema::table()` 再加。** `primaryKey()` 的主鍵是 fluent 寫法,Laravel 會把它排在同一個 `Schema::create()` 所有指令的最後,外鍵先執行就會因為 `id` 還不是主鍵而失敗(PostgreSQL `42830`)。套件自己的 `base_drive_node`、`base_menu` 就是這樣寫:
+
+```php
+Schema::create('widget', function (BaseBlueprint $table) {
+    $table->primaryKey();
+    $table->integer('parent_id')->nullable();
+});
+
+Schema::table('widget', function (BaseBlueprint $table) {
+    $table->foreign('parent_id')->references('id')->on('widget');
+});
+```
+
 ### 2. Model
 
 ```php
@@ -407,7 +420,7 @@ class WidgetDeclaration implements Declares {
 }
 ```
 
-`Metadata` 的第一個參數是 **alias,它必須等於選單節點的路徑前綴**;第二個是「這一列叫什麼」的欄位（麵包屑與排序頁會用）。第三個參數可以指定父層關聯,巢狀資源才需要。第四、五個參數 `enable`/`disable` 標記上下架時間欄位,接上後解鎖 `POST admin/schedule/toggle`(單筆立即切換)與 `admin/{prefix}/arrange`、`arrange/save`(拖曳式批次上下架)兩支既有 API;`schedule/toggle` 是共用端點,只檢查模組選單有註冊 update 節點(最高權限帳號也一樣)與使用者的 update 權限,不經 controller 的 guard,存檔時才檢查的業務規則要放在 model 事件;也會讓清單自動提供「上下架」篩選(見[給前端](#給前端)),匯出吃同一個篩選。第六個參數 `ranking` 可指定排序用的欄位名稱,`CrudController` 會用它推導預設的 `$sorting`/`$sortable`。後面幾個參數建議用具名參數傳(`new Metadata('widget', ranking: 'ranking')`)。
+`Metadata` 的第一個參數是 **alias,它必須等於選單節點的路徑前綴**;第二個是「這一列叫什麼」的欄位（麵包屑與排序頁會用）。第三個參數可以指定父層關聯,巢狀資源才需要。第四、五個參數 `enable`/`disable` 標記上下架時間欄位,接上後解鎖 `POST admin/schedule/toggle`(單筆立即切換)與 `admin/{prefix}/arrange`、`arrange/save`(拖曳式批次上下架)兩支既有 API;`schedule/toggle` 是共用端點,只檢查模組選單有註冊 update 節點(最高權限帳號也一樣)與使用者的 update 權限,不經 controller 的 guard,也不套用 controller 的 `scope()`,存檔時才檢查的業務規則要放在 model 事件;也會讓清單自動提供「上下架」篩選(見[給前端](#給前端)),匯出吃同一個篩選。第六個參數 `ranking` 可指定排序用的欄位名稱,`CrudController` 會用它推導預設的 `$sorting`/`$sortable`。後面幾個參數建議用具名參數傳(`new Metadata('widget', ranking: 'ranking')`)。
 
 沒有 `#[Declared]` 的 model 一進 CRUD 端點就是 `undeclared-model`。
 
@@ -542,13 +555,92 @@ class WidgetController extends CrudController {
 
 **鎖定(`=`)是「可寫但不可編輯」。** 值在表單開啟之前就決定了(例如區塊的型別由型別選擇器決定),所以它照樣驗證、照樣寫入,但 `columns[]` 上的 `writable` 是 `false`,前端據此把輸入框停用。`readonly`(`!`)是另一回事:不驗證、不寫入。鎖定同時隱含必填 —— 值既然是先決定好的,就不該是空的;要「鎖定但可為空」請用陣列語法 `['name' => 'x', 'locked' => true]`。
 
-**清單回傳的是「欄位池」,`$lists` 只決定預設顯示哪些。** 欄位池 = 清單欄位(`$lists`,沒設就照 `listing()` 的退回規則)加上編輯欄位(`$updates` 或自動推導):清單欄位依 `$lists` 的順序排在前面,其餘編輯欄位依編輯欄位的順序接在後面;同名欄位用清單欄位的定義。清單欄位裡若有經由 `belongsTo` 關聯取值的欄位(例如 `category_title=category.title`),它會取代編輯欄位中該關聯的外鍵(`category_id`),外鍵不再另外進欄位池(同一個關聯有多個清單欄位時,由第一個取代),`columns[]` 上的 `replaces` 標出被取代的外鍵名稱(其餘欄位為 `null`),前端排列表單時用它把清單欄位對應回表單的外鍵欄位。只在編輯欄位裡、清單畫不出來的欄位不進欄位池:Composite、Password、Hidden、自訂呈現、虛擬(`+`;明寫了非 null `op` 的虛擬欄位除外,那是專供篩選的欄位,例如 `['name' => '+receipt_time', 'type' => 'datetime', 'op' => 'between']`,會進欄位池成為搜尋條件,值由 guard 填、篩選要由 controller 在呼叫 parent 前從輸入取出自行處理,否則框架會把它當成本表欄位下條件)、model `$hidden` 裡的欄位、有設定區塊(`section`)的欄位、沒宣告呈現方式也沒有選項的 JSON,以及巢狀資源的父層外鍵(例如 `faq-category/{category_id}/items` 的 `category_id`:巢狀清單裡它永遠是目前的父層,`$updates` 明列它並在 controller 開 `$movable`(見[已知限制與取捨](#已知限制與取捨))只為了讓編輯表單能搬移父層,每列資料仍照常帶這個外鍵);清單欄位本身一律保留。`columns[]` 上的 `default` 標出哪些屬於清單欄位,使用者沒有 preference 時前端只顯示這些;欄位池裡的欄位能不能篩選、排序,依各欄位的 `op` 與 `sortable`。後端不解讀 preference,每次都 select 整個欄位池。編輯頁(`get`)與新增頁(`new`)的回應也帶同一份 `preference`(`column:{key}`,沒登入身分或沒設定時為 `null`),前端據此排列表單欄位的順序。
+**清單回傳的是「欄位池」,`$lists` 只決定預設顯示哪些。** 欄位池 = 清單欄位(`$lists`,沒設就照 `listing()` 的退回規則)加上編輯欄位(`$updates` 或自動推導):清單欄位依 `$lists` 的順序排在前面,其餘編輯欄位依編輯欄位的順序接在後面;同名欄位用清單欄位的定義。清單欄位裡若有經由 `belongsTo` 關聯取值的欄位(例如 `category_title=category.title`),它會取代編輯欄位中該關聯的外鍵(`category_id`),外鍵不再另外進欄位池(同一個關聯有多個清單欄位時,由第一個取代),`columns[]` 上的 `replaces` 標出被取代的外鍵名稱(其餘欄位為 `null`),前端排列表單時用它把清單欄位對應回表單的外鍵欄位。只在編輯欄位裡、清單畫不出來的欄位不進欄位池:Composite、Password、Hidden、自訂呈現、虛擬(`+`;明寫了非 null `op` 的虛擬欄位除外,那是專供篩選的欄位,例如 `['name' => '+receipt_time', 'type' => 'datetime', 'op' => 'between']`,會進欄位池成為搜尋條件,值由 guard 填、篩選用 `filterUsing()` 掛處理方式,沒掛的話這個條件會被略過)、model `$hidden` 裡的欄位、有設定區塊(`section`)的欄位、沒宣告呈現方式也沒有選項的 JSON,以及巢狀資源的父層外鍵(例如 `faq-category/{category_id}/items` 的 `category_id`:巢狀清單裡它永遠是目前的父層,`$updates` 明列它並在 controller 開 `$movable`(見[已知限制與取捨](#已知限制與取捨))只為了讓編輯表單能搬移父層,每列資料仍照常帶這個外鍵);清單欄位本身一律保留。`columns[]` 上的 `default` 標出哪些屬於清單欄位,使用者沒有 preference 時前端只顯示這些;欄位池裡的欄位能不能篩選、排序,依各欄位的 `op` 與 `sortable`。後端不解讀 preference,每次都 select 整個欄位池。編輯頁(`get`)與新增頁(`new`)的回應也帶同一份 `preference`(`column:{key}`,沒登入身分或沒設定時為 `null`),前端據此排列表單欄位的順序。
 
-**要調整「編輯欄位」這一半,覆寫 `optionals()`。** 它預設回傳編輯欄位,清單與匯出的欄位池都從它來,例如改掛列表用的選項來源(`['name' => 'staff_id', 'options' => …]`)或補進稽核欄位:`return [...parent::optionals(), 'update_time'];`。稽核欄位(`Definitions::auditings()`)雖然帶 `section: 'other'`,由 `optionals()` 明確放入時仍會進欄位池(`default` 為 `false`,使用者自行勾選才顯示);其他有區塊的欄位照舊排除。`creator_id` / `updater_id` 放進來只會是裸 ID,要顯示帳號請用 `creator=creator.username`。
+**要調整「編輯欄位」這一半,覆寫 `optionals()`。** 它預設回傳編輯欄位,清單與匯出的欄位池都從它來,例如改掛列表用的選項來源(`['name' => 'staff_id', 'options' => …]`)或補進稽核欄位:`return [...parent::optionals(), 'update_time'];`。稽核欄位(`Definitions::auditings()`)雖然帶 `section: 'other'`,由 `optionals()` 明確放入時仍會進欄位池(`default` 為 `false`,使用者自行勾選才顯示);其他有區塊的欄位照舊排除。這個例外**只認本表的稽核欄位**:經由關聯取值的(例如 `order_create_time=order.create_time`)一樣帶區塊而被排除,要顯示就放進 `$lists`(清單欄位一律保留,但會預設顯示)。`creator_id` / `updater_id` 放進來只會是裸 ID,要顯示帳號請用 `creator=creator.username`。
 
 **匯出沿用同一個欄位池。** 篩選與排序只接受欄位池裡的欄位;只出現在 `$exports` 的欄位只輸出、不能篩選或排序(否則 `$exports` 列了 `$hidden` 欄位時,可以用篩選或排序推出值)。查詢只 select 輸出欄位與實際用到的篩選、排序欄位,所以 `cell()` 回呼拿到的那一列也只有這些欄位。輸出欄位:有宣告 `$exports` 就用 `$exports`;否則請求帶了 `columns: [...]` 且與欄位池有交集,就輸出交集、順序照請求(前端傳目前畫面上顯示的欄位);否則輸出清單欄位,順序照清單欄位。
 
 **編輯頁（`get`）會自動在「其他」區塊唯讀顯示稽核欄位,不用設定。** 只要宣告有 `Definitions::auditings()`,`onGet()` 就在 `$updates`(或自動推導的欄位)後面依宣告順序補上 `creator`、`!create_time`、`updater`、`!update_time`(`auditings(false)` 只補前兩個)。`creator` / `updater` 是關聯欄位 `creator=creator.username`、`updater=updater.username`:`BaseModel` 內建 `creator()`、`updater()` 兩個關聯(`BelongsTo` 到 `Operator`,即 `base_operator`),直接 join 出帳號名稱,以唯讀(前端停用)的文字欄位呈現。`Definitions::auditings()` 本身帶 `section: 'other'`,關聯欄位則用陣列語法的 `section` 鍵指定區塊。新增頁、存檔(`insert` / `update`)不含這些欄位,送上來的值會被忽略。`$updates` 已經放了同名欄位時以 `$updates` 為準;同名欄位只取第一個,所以在 `parent::onGet()` 之後再 `columns()` 同名欄位不會生效。不想要就覆寫 `onGet()` 且不呼叫 `parent::onGet()`。標題在套件的 `model/default.php`。清單要顯示建立者,寫 `creator=creator.username`;直接寫 `creator_id` 會因為有 `creator()` 關聯而自動變成下拉選項,把整張 `base_operator` 讀進來。
+
+**新增頁（`new`）的 `data` 只有四個來源:** 每個本表可寫欄位先給 `null`、巢狀路由上的父層外鍵、body 裡**已宣告且可寫**的值(原樣反映回來)、composite 的 `Presets` 預設值。跨關聯欄位(`tour_name=tour.name`)一定是空的——model 是新建的,沒有 join;guard 也不執行(那是寫入規則)。要預設值就在覆寫的 `new()` 裡 `mergeIfMissing`,要顯示關聯資料就自己補進回應:
+
+```php
+public function new(Request $request): array {
+    $tour = Tour::query()->findOrFail($request->route('tour_id'));
+
+    $request->mergeIfMissing(['enable_time' => Carbon::today()->format('Y-m-d H:i:s')]);
+
+    $result = parent::new($request);
+    $result['data']['tour_name'] = $tour->name;
+
+    return $result;
+}
+```
+
+#### 寫入路徑與 guard
+
+每條寫入路徑各自由一個 `onXxx()` 建立 service,**guard 不會跨路徑沿用**——只掛在 `onUpdate()` 的規則,匯入、複製、拖曳上下架、排序都擋不住:
+
+| 寫入路徑 | 掛 guard 的地方 | 沿用其他路徑的 guard |
+|---|---|---|
+| `insert` | `onInsert()` | —— |
+| `{id}/update` | `onUpdate()` | —— |
+| 暫存子項目的存檔 | 子 controller 的 `onInsert()` / `onUpdate()` | 會(見[暫存子項目](#暫存子項目)) |
+| `import` | `onImport()` | 不會 |
+| `{id}/copy` | `onCopy()`(子列也會跑同一組 guard) | 不會 |
+| `arrange/save` | `onArrange()` | 不會 |
+| `sort/save` | `onSort()` | 不會 |
+| `delete` | `onDelete()` | —— |
+| `admin/schedule/toggle` | **沒有掛點**,完全不經過 controller | —— |
+
+**跨路徑都要成立的規則(例如「沒有出發日不可上架」)放在 model 事件**(`saving` / `updating` 等),那是唯一連 `schedule/toggle` 都擋得住的地方;只跟某個畫面有關的規則才掛在對應的 `onXxx()`。
+
+**驗證在 guard 之前,沒有「驗證前補值」的掛點。** 寫入順序是驗證欄位規則 → 指派到 model(含虛擬欄位的 `assign`)→ guard → 存檔。要依其他欄位推算預設值,就把那個欄位宣告成非必填,在 guard 裡補:
+
+```php
+$guard = function (Model $model): void {
+    if ($model->getAttribute('signup_deadline') === null) {
+        $model->setAttribute('signup_deadline', Carbon::parse($model->getAttribute('depart_date'))->subDays(14));
+    }
+};
+```
+
+必填欄位會在驗證時就被擋下,輪不到 guard;要「沒填就補」的欄位一律宣告成非必填,真的補不出來時在 guard 裡 `invalid()`。覆寫 controller 的 `insert()` / `update()` 去改 request 只對那兩支端點有效,匯入與暫存子項目不經過它們。
+
+**沒有「純文字字數」與「單檔大小」規則。** `max:N` 算的是原始字串長度,富文字欄位的 HTML 標籤也算進去;雲端硬碟欄位(`DriveImage` / `DriveFile`)的 `max:` 只限制檔案數。要限制看得到的字數或每個檔案的大小,在 guard 裡檢查 —— 圖片／檔案欄位存的每一項都帶 `size`(位元組):
+
+```php
+$guard = function (Model $model): void {
+    if (mb_strlen(trim(html_entity_decode(strip_tags(strval($model->getAttribute('intro')))))) > 500) {
+        invalid('intro', 'max');
+    }
+
+    foreach ((array) $model->getAttribute('photos') as $photo) {
+        if (is_array($photo) && intval(array_get_value($photo, 'size')) > 5 * 1024 * 1024) {
+            invalid('photos', 'max');
+        }
+    }
+};
+```
+
+**`unique` 只檢查整張表。** `Definition` 的 `unique: true` 產生的是 `Rule::unique(表, 欄位)`(排除軟刪除與自己),沒有範圍條件。「同一個梯次底下房型不能重複」這種限定範圍的唯一性,在 guard 裡自己查,更新時排除自己:
+
+```php
+$guard = function (Model $model): void {
+    $duplicated = RoomPrice::query()
+        ->where('session_id', $model->getAttribute('session_id'))
+        ->where('room_type_id', $model->getAttribute('room_type_id'))
+        ->when($model->exists, fn ($query) => $query->whereKeyNot($model->getKey()))
+        ->exists();
+
+    if ($duplicated) {
+        invalid('room_type_id', 'unique');
+    }
+};
+```
+
+掛在 `onInsert()` 與 `onUpdate()`(有匯入、複製就一併掛)。資料庫另外建複合唯一索引當最後防線——只靠索引的話,撞到時回的是 500 `server-error`,不是欄位錯誤。
 
 #### 匯入
 
@@ -610,6 +702,7 @@ class CityController extends CrudController {
 - **編輯頁(`get`)與新增頁(`new`)的回應帶 `staged`**,依 `staged()` 的宣告順序列出 `[{ name, title }]`,`title` 是子資源前綴選單節點的標題(沒有節點時為 `null`)。trait 為此覆寫 `CrudController` 的 `prepare()`。前端用它把暫存子清單放進表單的欄位設定,排好的位置與欄位一起存在同一份 preference(`column:{key}`)裡。
 - **宣告的是子資源前綴,不是 class。** 框架用 `ActionRoutes::controller($prefix)` 找出掛在這個前綴上的子 controller,權限也用同一個前綴檢查(`AdminPermission::permits($prefix, $tag)`)。子 controller 必須用 `ActionRoutes::mount()` 掛上、不是 standalone,且子 model 的 metadata 要有父層(外鍵靠它推導),否則丟 `invalid-staged-child`。key 與父表單欄位同名會丟 `staged-key-conflict`(存檔時 body 會互相覆蓋)。這兩項只在用到暫存模式時才檢查:打下面四支端點,或存檔的 body 帶了宣告的 key。
 - **子 service 一律由子 controller 的 `onInsert()` / `onUpdate()` / `onDelete()` / `onSort()` 建立**,子資源原本的欄位與 guard 都沿用。params 是父路由參數去掉 `id`,加上 `[外鍵 => 父 id]`;新增頁沒有父 id,不放外鍵。
+- **編輯頁的既有子列用子 controller 的 `onUpdate()` 讀取:套用 scope,不跑 guard。** guard 是寫入規則,讀取時不執行,所以靠 guard 補的虛擬欄位在子表格裡會是空的;要顯示衍生值,在 `onUpdate()` 用 `scope()` 加 `addSelect` 子查詢,在 SQL 裡算出來。
 - **子 controller 覆寫的 `insert()` / `update()` 不會被呼叫**,框架只呼叫 service。副作用請掛在 guard 或父 controller 的 `afterStaged()`。父 controller 覆寫 `insert()` / `update()` 而不呼叫 `parent::` 的話,暫存子項目也不會被處理。
 - **子資源的 options、guard、`onX` 不可依賴 `request()` 讀子資源的路由參數。** 暫存模式下的 request 是父資源的路由(`city/5/update`),`request()->route('city_id')` 是 `null`,而且不會報錯。需要父資料時改讀 `app(StagedContext::class)`:`parent` 是父表單目前的值(端點的 body `parent`;存檔時是父 body 去掉暫存 key),`model` 是父 model(編輯頁,或存檔時剛寫好的父資料;新增頁的端點是 `null`)。
 
@@ -1216,7 +1309,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | `telegram.sandbox-recipient` | `''` | 同 `gmail.sandbox-recipient` |
 | `file.max-size` | `0` | 上傳大小上限,**0 = 不限制** |
 | `file.mime-patterns` | `''` | 型別白名單(正則,空白 = 不檢查) |
-| `drive.deduplicate` | `true` | 開啟後,雲端硬碟上傳內容雜湊相同的檔案會共用同一份實體檔案,不重複寫入。後台以開關呈現 |
+| `drive.deduplicate` | `true` | 開啟後,雲端硬碟上傳內容雜湊相同的檔案會共用同一份實體檔案,不重複寫入。後台以開關呈現。共用時 `api/files/@…` 的下載檔名取同一份實體檔最早、未刪除的節點名稱,可能是別人取的檔名;需要正確檔名請用欄位 JSON 裡的 `name` 搭配 `<a download>`(只對同源網址有效) |
 | `drive.trash-default-days` | `30` | `drive/trashed` 預設只列出這幾天內的垃圾桶項目,可用 `days`/`all` 參數放寬,不影響 `restore`。後台只接受 ≥ 1 的整數 |
 
 `gmail`、`mitake`、`webpush` 與 `telegram` 是出貨的供應商 bundle。加一個供應商就是加一份 `resources/cfg/{名稱}.php`,鍵的形狀照上面四組。
@@ -1322,7 +1415,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | `base_file` | 上傳檔案(含去重雜湊與媒體資訊) |
 | `base_group` | 後台群組 |
 | `base_mail_log` | 郵件佇列與寄送結果 |
-| `base_manipulation_log` | 稽核軌跡(誰改了哪一列的哪個欄位;model 不能修改或刪除既有列) |
+| `base_manipulation_log` | 稽核軌跡(誰改了哪一列的哪個欄位;model 不能修改或刪除既有列)。`endpoint` 記寫入當下的請求路徑(不含前導 `/`,例如 `admin/order/5/update`);console 指令與 queue worker 記 `null`,但在 HTTP 請求裡以 `sync` queue 執行的 job 記的是那個請求的路徑。沒有獨立的「來源」欄位,要分後台／前台／排程就依前綴與操作者身分自己推 |
 | `base_member` | 前台會員 |
 | `base_member_log` | 會員行為紀錄 |
 | `base_menu` | 可線上維護的選單資料 |
@@ -1380,6 +1473,8 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 
   `value` 為 `null` 或空字串 = 不篩選;`op` 不是 `eq` 靜默忽略;未知 id 回 500 `invalid-filter-value`。上架時間在未來、下架時間已過的列同時命中 `enabling` 與 `expired`。匯出同樣適用。
 
+**網址查詢字串會併進 body。** 套件的後台前端在清單頁、表單頁與匯出,會把網址查詢字串(`q` 除外)的每個鍵原樣放進請求 body——打開 `/order?session_id=12`,清單請求就是 `{"session_id": "12", "filters": …}`。後端預設**忽略**這些鍵(只讀 `filters`、`sort`、`page`、`size` 與表單欄位);要用它們限定範圍,就在 controller 讀取、**自己驗證**(值來自網址,使用者可以隨意改),再於 `onList()` / `onExport()` / `onGet()` 等處掛 `scope()`。
+
 **詳情 / 編輯頁**（`POST admin/widget/{id}`）不需要 body。
 
 **新增與更新**（`admin/widget/insert`、`admin/widget/{id}/update`）:欄位平鋪在最上層。
@@ -1419,9 +1514,9 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 
 清單回應另有 `filters[]`:**只用於篩選、不是資料欄**的欄位描述,形狀同 `columns[]`。前端為每一項畫一個單選下拉(前面補「全部」= 不送),送出格式為 `filters.{name} = { "op": {描述的 op}, "value": ... }`;**不要**畫成表格欄或併進搜尋欄位。目前只有可上下架清單會有一項 `schedule`,其餘清單是空陣列。
 
-**不可寫有三種原因:`readonly` 宣告、`locked` 宣告、以及跨關聯或聚合欄位(`group.title`、`count(orders)`)。** 前兩種在 `columns[]` 上另有 `readonly` / `locked` 鍵看得出來,但判斷能不能編輯時**前端要看 `writable`,不要看 `readonly`** —— 否則第二種會畫出一顆改了完全沒效果的輸入框,而使用者會看到「已儲存」。`virtual`(`+` 前綴)**不影響 `writable`**:虛擬欄位不落庫,但照樣可以收值交給 `guards` / 覆寫的 service 處理。
+**不可寫有三種原因:`readonly` 宣告、`locked` 宣告、以及跨關聯或聚合欄位(`group.title`、`count(orders)`)。** 前兩種在 `columns[]` 上另有 `readonly` / `locked` 鍵看得出來,但判斷能不能編輯時**前端要看 `writable`,不要看 `readonly`** —— 否則第二種會畫出一顆改了完全沒效果的輸入框,而使用者會看到「已儲存」。`virtual`(`+` 前綴)**不影響 `writable`**:虛擬欄位不落庫,但照樣可以收值交給 `guards` / 覆寫的 service 處理。但虛擬欄位**不經過後端驗證**:宣告在它上面的 `rule`、`required` 只會出現在 `columns[]` 給前端參考(前端會據此標示必填),後端不檢查,值也不會寫進 model。要驗證就在 guard 或覆寫的 service 裡自己做,例如 `Validator::make(request()->only('contact_name'), ['contact_name' => ['required', 'max:50']])->validate()`。
 
-`writable: false` 的欄位不在 `present` 驗證的範圍內,送不送都可以;`writable: true` 的**每一個都必須出現在 body 裡**,那與上面「更新是全量覆寫」是同一件事的兩面。
+`writable: false` 的欄位不在 `present` 驗證的範圍內,送不送都可以;`writable: true` 的**每一個都必須出現在 body 裡**(非必填的虛擬欄位除外),那與上面「更新是全量覆寫」是同一件事的兩面。
 
 **鎖定欄位是這條規則唯一的例外**:它的 `writable` 是 `false`,但它**必須**出現在 body 裡。把輸入框停用即可,值照送 —— 值本來就是伺服器在 `new` 回應的 `data` 裡給你的。清單的「新增」要不要先跳型別選擇器,看的是 `locked: true` 且帶選項的欄位,不是 `writable: false` —— 唯讀欄位同樣不可寫,但它的值不是在新增前決定的。
 
@@ -1645,6 +1740,8 @@ parameters:
 | **前台沒有上傳端點** | 前台要上傳就自己呼叫 `FileService::upload()`,並自己決定權限與限制 |
 | **seeder 要預建圖片時用 `FileService::import($path)`** | 把專案內的檔案匯入 `base_file`(預設公開),走 `upload()` 的去重所以重跑 seeder 不會重複建檔;不套用 `file.max-size` / `file.mime-patterns`;以暫存複本上傳,不動來源檔。存進圖片／檔案欄位(`DriveImage` / `DriveFile`)的值用 `FileService::entry($file)` 產生,形狀與從雲端硬碟選檔後存下的相同 |
 | **雲端硬碟(`drive/*`)上傳不檢查型別或大小**,沒有等同 `file.max-size` / `file.mime-patterns` 的設定 | 要限制就自己在 `DriveService::upload()` 前面加檢查 |
+| **偏好資料(`*/preference/save`)沒有大小上限**:沒宣告的鍵照原樣存進 `base_preference.data`,不限鍵名與長度;`merge` 可以分多次請求累積,`post_max_size` 只擋單次請求。user、member、vendor 登入就能寫自己的那一筆 | 受影響的是那個身分自己(CRUD 每頁都讀整份偏好)與資料庫空間。要限制就 `$app->bind(PreferenceService::class, 子類別)`,覆寫 `save()` 先檢查合併後的大小再呼叫 `parent::save()` |
+| **圖片／檔案欄位(`DriveImage` / `DriveFile`)裡沒帶 `id` 的項目,後端原樣存入,不驗證** | 帶 `id` 的項目(剛從雲端硬碟選的)會查節點、檢查雲端硬碟權限、由後端產生 `path` 等資訊;沒帶 `id` 的是既有的值或 `admin/file/upload` 直接上傳的結果,`path`、`name`、`mime_type` 等照前端送來的存。有寫入權限的人因此能寫進不存在的 `path`(前台破圖)或偽造顯示用的資訊,但拿不到原本看不到的檔案——`api/files/{path}` 只服務公開檔與已被引用過的雲端硬碟檔 |
 | **`drive/*` 沒有選單節點,只掛 `user-api`**(比照 `admin/auth/passwd`、`admin/file/*`)——任何登入的後台 User 都能呼叫,不需要選單授權 | 節點層級的 owner/群組存取完全交給 `DrivePermissionService` 這一層把關,不是靠選單權限 |
 | **`manipulation-log/query`、`schedule/toggle` 同樣沒有專屬選單節點、只掛 `user-api`**,但跟上面兩列不同——這兩支端點呼叫時會依請求帶的 `prefix` 找出目標資料實際所屬的既有選單節點,動態呼叫 `AdminPermission::permits()` 檢查 `query`/`update` 權限,行為上等同「借用」該資料原本的選單授權,不是完全不設防 | `prefix` 必須是某個已掛載 `ActionRoutes::mount()` 的 CRUD 資源的路由前綴(如 `group`);對應不到就回 `unsupported-model`,對應得到但沒權限一律 403。`manipulation-log/query` 另外會呼叫該資源 controller 的 `historyVisible(int $id)`,回 `false` 就回 404 `data-not-found`:預設一律 `true`,`UserController` 依帳號階層判斷(Admin 查不到 Root、Regular 只查得到 Regular)。判斷只拿得到 id(硬刪除的資料也要查得到歷史),所以 controller 有資料範圍限制時要自己覆寫;稽核紀錄是依**資料表**存的,多個 model 共用同一張表時,也要在這裡排除不屬於自己的 id |
 | **`manipulation-log/query` 的回應帶一份 `options`**(欄位名 → 選項清單,與 CRUD `columns[].options` 同構),而且**含已被軟刪除的關聯**,那些選項的 `deleted` 是 `true` | 歷史紀錄裡存的是 id,要翻得出名字就不能像表單那樣把軟刪除的關聯濾掉。CRUD 自己的 `new` / `{id}` / 清單 / 匯出維持原樣(只給沒刪除的),不受影響 |
@@ -1689,9 +1786,11 @@ php artisan matrix:clear-resource-cache
 |---|---|
 | **匯出會把整張表（套完篩選後）載進記憶體** | 沒有任何上限。大表要匯出請自己做背景任務 |
 | **清單的 `size` 沒有上限,`page` 或 `size` 給 0 以下就一次回整張表（套完篩選後）** | 有該資源 `query` 權限的人本來就翻得到全部資料,所以不是越權,而是一次載入整張表的記憶體與時間成本。大表要擋就靠權限控管或反向代理的逾時;前端的頁數選項只有 10 / 20 / 50 / 100 |
+| **縮圖在第一次請求時同步產生**(`api/files/{path}?size=…` 匿名可打、`admin/drive/{id}/download?size=…`) | 每個檔案、每個 `matrix.thumbnail-sizes` 尺寸只產生一次,之後直接回已存在的縮圖,所以匿名者能觸發的解碼次數上限是「圖檔數 × 尺寸數」。但那一次要在請求裡用 GD 解碼原圖:原圖越大越慢、越吃記憶體(`file.max-size` 出貨不限,超大圖可能讓那個請求記憶體不足而 500),同一張圖同時被第一次請求時也會各解一次。大圖多的站台請限制 `file.max-size`,或在上傳後自己預先打一次各尺寸 |
 | **匯入整批在一個請求、一個交易內處理** | 沒有筆數上限,實際上限由 `post_max_size` 與請求逾時決定 |
-| **`_id` 欄位的下拉選項成本與被參照資料表的列數成正比** | 被參照的表上千列時,那份選項就是整個清單回應的主要體積 |
+| **`_id` 欄位的下拉選項成本與被參照資料表的列數成正比**:欄位名稱以 `_id` 結尾、model 上又有同名關聯時,沒給其他選項來源就自動掛 `RelationOptions`,清單、編輯頁、新增頁的回應都把整張被參照的表(連同它的父層)讀進來 | 被參照的表上千列時,那份選項就是整個回應的主要體積。避開的方法:外鍵設 `Presentation::Hidden`(清單與表單都不顯示,不讀選項);或在欄位／Definition 明寫 `options`;清單要顯示名稱就改用關聯欄位(`member_name=member.name`),不要把外鍵本身列進清單。上架篩選只在被參照的 model 同時有 enable／disable 時才套用,沒有的話停用的資料也會出現在選項裡 |
 | **`$sortable` 只該開在資料量有上限的資源上** | 拖曳排序會把整組載進來跑重排演算法 |
+| **排序與拖曳上下架(`sort/save`、`arrange/save`)讀取整組時不上鎖** | 兩人同時對同一組存檔,結果可能是兩次排序的混合(只改到其中一方的列留著那一方的值,ranking 可能重複),偶爾互相等待而死結、其中一方回 500。資料不會遺失,重新排一次即可 |
 | 重排用最長遞增子序列找錨點,tie-break 是次佳選擇 | 最壞情況會把「只改一列」變成「整組重編」 |
 | `contains` / `endsWith` 走 `ILIKE`,本來就用不到 B-tree;**`startsWith` 也走 `ILIKE`,同樣用不到** | 要就自己加 `lower(col)` 運算式索引或 `pg_trgm` GIN |
 | **`api/common/city`、`menu` 與 `page` 沒有快取,而且是 POST** | CDN / proxy 快取不適用,要快取只能做在應用層 |
@@ -1722,12 +1821,12 @@ php artisan matrix:clear-resource-cache
 | **每個 `#[Action]` 都要有選單節點** | 漏一個,那個端點對所有人 403,包含 ROOT |
 | **每一個 action 都跑在一個交易裡** | `BaseController::callAction()` 用 `DB::transaction()` 包住整個動作。要在 rollback 之後仍然執行的副作用（寄信、打第三方、刪檔）請註冊到 `RollbackCallbacks`,不要直接做:`register()` 是撤銷,只在登記當下那一層交易 rollback 時執行(巢狀交易內層 rollback 不會動到外層登記的;交易外登記不會執行);`persist()` 是一定要留下的寫入(例如登入失敗紀錄),交易 commit 或 rollback 後執行一次,交易外則立即執行 |
 | **`#[Action]` 會沿繼承鏈繼承** | 覆寫 action 不需要重新宣告 attribute |
-| **套件的 controller 可以整個換成子類別** | 路由掛的是套件的類別,但 controller 由容器建立,所以 `$app->bind(MailLogController::class, App\...\MailLogController::class)` 就會改用子類別(例如改 `$lists`、加 guard);要加欄位就另外 `app(MetadataRegistry::class)->register(MailLog::class, new 子類別宣告())`,放在 `$app->booted()` 裡 |
+| **套件的 controller 可以整個換成子類別** | 路由掛的是套件的類別,但 controller 由容器建立,所以 `$app->bind(MailLogController::class, App\...\MailLogController::class)` 就會改用子類別(例如改 `$lists`、加 guard);要加欄位就另外 `app(MetadataRegistry::class)->register(MailLog::class, new 子類別宣告())`,放在 `$app->booted()` 裡。bind 只換掉「用哪個類別建立實例」,路由仍是依套件類別上的 `#[Action]` 註冊的:子類別覆寫既有的方法與屬性會生效,**新增的 `#[Action]` 不會被註冊**。要新增端點,就在自己的路由檔對同一個前綴、用子類別再 `ActionRoutes::mount()` 一次(相同方法與 URI 以後註冊的為準),選單也要有對應節點 |
 | **`#[Action(encrypted: false)]` 讓那支 action 不受所屬前綴的加密開關約束** | 呼叫方不可能封信封的端點要標記它:出貨已標的是 telegram webhook、兩支 multipart 上傳(`file/upload`、`drive/{id}/upload`)與 `encryption-key`。自己的上傳端點也要自己標,漏標的症狀是開關一開就變 `invalid-envelope`。**回傳檔案或串流(不是 JSON)的 action 也要標**:加密開著時,中介層遇到封不進信封的回應會改回加密過的 `500 server-error`,並寫 `encryption.unsealable-response` 日誌,不會把內容以明文送出 |
 | **篩選值的格式與型別都會驗證** | op 要的是單一值卻送陣列(`eq` / `contains` / `between` 的 from、to 等)、`in` / `notIn` 的清單裡有陣列,一律回 500 `invalid-filter-value`。值也要對得上欄位型別:`integer` 要整數或純數字字串而且在 bigint 範圍內(比較時一律以 `?::bigint` 綁定,所以超過 int4 的值只會比不到,不會溢位;`-0` 不收)、`float` 要 numeric 而且是有限值(綁定時轉成 float,下溢的值當 0)、`boolean` 要 `true`/`false`/`0`/`1`、`date` 要完全符合 `matrix.date-format`、`datetime` 要完全符合 `matrix.datetime-format` 而且解析出的年份 ≥ 1(不論格式把年份放在哪裡)（兩者不互通,也不收 `now`、`tomorrow`、`+1 day` 這類 PostgreSQL 或 PHP 認得的相對值,以及 `2026-02-31` 這種會被 PHP 悄悄進位的日期）,不符同樣回 500。**這一道是必要的**——不擋的話那個值會原樣進 SQL,PostgreSQL 丟 `22P02`,而 action 跑在交易裡,整個交易會進 aborted 狀態(`25P02`),該請求之後每一個查詢都失敗,真正的原因還被蓋掉。型別依的是欄位**宣告**的型別(DSL 標註 → 聚合函式 → `#[Declared]` 的 definition → model cast),都沒有就當 `text` 不檢查。欄位或 op 不被允許則靜默忽略,`in` 清單裡的 null 不擋（合法 SQL,永不匹配） |
-| **巢狀資源(非 standalone)的每個 CRUD 動作都會驗證路由上的父層鏈** | 所有查詢(清單、`get`、`update`、`delete` 含多筆 id、`copy`、排序、快速上下架、匯出)都加上直接父層的外鍵條件,不屬於該父層的 id 回 404 `data-not-found`(多筆刪除只要有一筆不屬於就整批拒絕)。另外在第一次取用父層外鍵時(`CrudService::owner()`),沿 `Subject::parent()` 往上逐層驗證:父層要能經由它自己的 model 查到(套用其 global scope 與軟刪除),且它的外鍵要等於路由上更上一層的參數,否則同樣回 404——所以父層不存在、被軟刪除、被 global scope 排除(例如共用表依類別分的 model),或祖父層參數對不上時,清單、新增頁、新增、匯入也一律 404。路由沒帶的上層參數不驗證;自我參照的樹(`menu/{parent_id}/children`)只驗證直接父層存在。standalone 模式不套用任何父層條件。`admin/schedule/toggle` 不走巢狀路由,只依 prefix 權限與 model 本身的 global scope 取資料 |
+| **巢狀資源(非 standalone)的每個 CRUD 動作都會驗證路由上的父層鏈** | 所有查詢(清單、`get`、`update`、`delete` 含多筆 id、`copy`、排序、拖曳式上下架(`arrange`、`arrange/save`)、匯出)都加上直接父層的外鍵條件,不屬於該父層的 id 回 404 `data-not-found`(多筆刪除只要有一筆不屬於就整批拒絕)。另外在第一次取用父層外鍵時(`CrudService::owner()`),沿 `Subject::parent()` 往上逐層驗證:父層要能經由它自己的 model 查到(套用其 global scope 與軟刪除),且它的外鍵要等於路由上更上一層的參數,否則同樣回 404——所以父層不存在、被軟刪除、被 global scope 排除(例如共用表依類別分的 model),或祖父層參數對不上時,清單、新增頁、新增、匯入也一律 404。路由沒帶的上層參數不驗證;自我參照的樹(`menu/{parent_id}/children`)只驗證直接父層存在。standalone 模式不套用任何父層條件。`admin/schedule/toggle`(單筆立即切換上下架)不走巢狀路由,只依 prefix 權限與 model 本身的 global scope 取資料:不加父層條件,也不經過 controller 的 `scope()` 與 guard——用 controller scope 限制資料列可見範圍的資源,這支端點擋不住,要擋就放在 model 的 global scope 或事件 |
 | **巢狀資源的 update 預設一律以路由上的父層覆寫外鍵**,表單送來的父層外鍵不生效 | 要讓編輯頁能把資料搬到別的父層,在 controller 設 `protected bool $movable = true;`(對應 `UpdateService::movable()`),並把外鍵列進 `$updates` 讓表單有這個欄位。開了之後被搬的那一筆仍必須屬於路由上的父層,別的父層底下的資料照樣 404;目標父層必須經由它自己的 model 查得到(存在、沒被軟刪除、沒被 global scope 排除),否則回欄位錯誤 `invalid-parent`,但不限制它的上層——可以搬到另一個祖父層底下;只列外鍵、沒開 `$movable` 的話表單看得到欄位,但存檔會被改回路由的父層 |
-| **子清單的條件不是父層外鍵時,用 `$mount` 指定動作前綴** | model 的 metadata 沒有父層(或父層不是路由上那一層),例如依行程所屬的群組列出資料,只能用 standalone 並在 `onList()` 等處自己加 `scope()`;這時動作 url 與權限節點仍依 metadata 推導(`{alias}/{id}`),會連到另一個資源。在 controller 設 `protected ?string $mount = 'tour/{tour_id}/reviews';`(對應 `CrudService::mount()`)後,所有動作 url 與權限檢查改用這個前綴,欄位偏好的 key 也跟著它。前綴裡的 `{tour_id}` 照常由前端用該列(列動作)或信封的 `context`(頁動作)展開,所以列資料與 `context` 要自己帶上這個值。`admin/schedule/toggle` 的權限仍看 model metadata 推導的前綴 |
+| **子清單的條件不是父層外鍵時,用 `$mount` 指定動作前綴** | model 的 metadata 沒有父層(或父層不是路由上那一層),例如依行程所屬的群組列出資料,只能用 standalone 並在 `onList()` 等處自己加 `scope()`;這時動作 url 與權限節點仍依 metadata 推導(`{alias}/{id}`),會連到另一個資源。在 controller 設 `protected ?string $mount = 'tour/{tour_id}/reviews';`(對應 `CrudService::mount()`)後,所有動作 url 與權限檢查改用這個前綴,欄位偏好的 key 也跟著它。前綴裡的 `{tour_id}` 照常由前端用該列(列動作)或信封的 `context`(頁動作)展開,所以列資料與 `context` 要自己帶上這個值。`admin/schedule/toggle` 的權限仍看 model metadata 推導的前綴。框架不知道前綴裡的參數(`{tour_id}`)對應哪個 model,所以除了 `scope()`,**參數的存在檢查**(填不存在的 id 照樣讀得到資料)與**麵包屑那一格的名稱**(`label` 是 `null`)也要自己補:在 scope 裡依參數查父資料,覆寫 `list()` / `get()` 把名稱填進回應的 `breadcrumbs` |
 | **樂觀鎖要自己呼叫** | `BaseModel::lock()` 會重讀該列並逐欄比對,值被別人改過就回 `data-conflicted`。CRUD 引擎不會自動幫你呼叫 |
 | **`AdminPermission` 在信封範圍外解析會靜默失敗** | 在 web 路由、console、queue job 裡解析它,`ServiceException` 不會被回報 |
 
@@ -1739,7 +1838,7 @@ php artisan matrix:clear-resource-cache
 | **手寫進資料庫的權限,形狀錯了會被靜默丟掉** | 存進去的形狀必須是 `{"路徑": {"動作": true}}`。值只認 `true`、`1`、`"1"`(寫入時一律存成 `true`),其他值(包括 `"true"`、`"false"` 這類字串)的項目在下一次寫入時就消失,而且不會有任何錯誤 |
 | **能編輯帳號或群組的人,可以授出任何權限** | 寫入不看編輯者自己有哪些權限,權限樹上的動作都能授出或拿掉(含編輯自己的帳號、指派任何群組);白名單以外的權限（例如維運用 SQL 寫的）會被保留。`user` / `group` 的 `update` / `insert` 權限等同最高權限,只給信任的人 |
 | **`guard` 是疊加的,套件先、宿主後** | 宿主看到的是已經過濾的值,而且無法覆蓋套件自己的 guard（例如「不能刪自己」） |
-| **`user` 的 `copy` 與 `export` 同受等級範圍約束** | 與 `get` / `update` / `delete` 一樣,管不到的帳號一律 `data-not-found`、匯不出來。`copy`、`export` 都是宿主加選單節點就開啟;`sort` 對 `user` 不可用（`base_user` 沒有 `ranking` 欄位）。`group` 不受等級範圍約束 |
+| **`user` 的 `copy` 與 `export` 同受等級範圍約束** | 與 `get` / `update` / `delete` 一樣,管不到的帳號一律 `data-not-found`、匯不出來。`export` 是宿主加選單節點就開啟;`copy` 加了節點也會撞唯一欄位(`user` 的 `username`、`group` 的 `title`)而回 500,要開就得覆寫 `onCopy()` 改掉唯一欄位——`user` 另外要把 `password`、`secret`、`confirmed_time` 清掉,否則複本沿用原帳號的密碼與 MFA,`permissions`、`group_id` 也照抄;`sort` 對 `user` 不可用（`base_user` 沒有 `ranking` 欄位）。`group` 不受等級範圍約束 |
 | **`password` 的 key 一定要送,值可以留空** | 完全不送 key 會回 422 `present`(更新是全量覆寫,漏送等於前端壞了)。送 `null` 或空字串則不寫入 —— 編輯保留原密碼與 session,新增建出沒有密碼、登不進來的帳號。只有非空值才必須符合 `admin.password-pattern`,編輯成功後撤銷該帳號全部 session |
 | **預先雜湊的值當密碼會被原樣存進去** | 政策只有 `admin.password-pattern` 一道,而 bcrypt hash 通過它(60 碼、含英文與數字)。`hashed` cast 對已雜湊的值不再雜湊,所以前端若先雜湊再送,該帳號之後得拿 hash 字串當密碼才能登入,而且沒有任何錯誤訊息 |
 | **`whereActive()` 把 `enable_time` 為 NULL 的列一律當成未啟用** | 對 `user` 的表徵是「後台建的帳號沒填啟用時間就登不進來」（`enable_time` 要非 null 且已到,而表單沒把它設成必填,症狀是「帳號或密碼錯誤」,看不出真正原因）;對 `base_menu` 的表徵是 `api/common/menu`（匿名端點）**靜默回空選單** —— 沒有報錯路徑,debug 起來毫無線索 |
@@ -1749,6 +1848,7 @@ php artisan matrix:clear-resource-cache
 | 事實 | 說明 |
 |---|---|
 | **清單預設按鈕是 `pageActions(['new', 'delete', 'arrange', 'sort', 'export', 'import'])`、`rowActions(['edit', 'copy', 'delete'])`(可追蹤的 model 再補 `log`)** | 每一顆都要選單有對應節點(`{prefix}/export`、`{prefix}/import`、`{prefix}/{id}/copy` 等)且使用者有權限才會出現,所以開不開複製／匯出／匯入由選單決定——端點本身也一樣:沒有節點的 `export` / `import` / `{id}/copy` 不會註冊,請求回 `endpoint-not-found`(含 ROOT),controller 不需要另開旗標;匯入另外要 controller `use ImportsRows` |
+| **複製不跑驗證規則,唯一欄位照抄** | `copy` 只做 `replicate()`、清掉上下架與 `ranking`、跑 guard 就存檔,不經過 `rules()`。有唯一欄位(資料庫 unique 索引)的資源照抄就撞索引,回 500 `server-error`;要開放複製,就在 controller 覆寫 `onCopy()`,用 guard 把唯一欄位改成不重複的值(guard 拿到的是複本與來源) |
 | **複製會沿用來源的 `ranking`** | 除非那個資源開了 `$sortable`,否則不會自我修復 |
 | 複製時 `$generators` 管的欄位（建立時間、建立者等）**重新產生**,不照抄 | —— |
 | **級聯複製只接受 `hasOne` / `hasMany` 及其 morph 形式** | `belongsToMany` 不支援 |
