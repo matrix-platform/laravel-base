@@ -2,6 +2,8 @@
 
 namespace MatrixPlatform\Support;
 
+use LogicException;
+
 class Menus {
 
     /**
@@ -97,7 +99,27 @@ class Menus {
             $menus = array_replace_recursive($bundle, $menus);
         }
 
+        $this->verify($menus);
+
         return $menus;
+    }
+
+    /**
+     * @param array<string, mixed> $menus
+     */
+    private function verify(array $menus): void {
+        foreach ($menus as $path => $node) {
+            if (!is_array($node) || !is_string(array_get_value($node, 'tag')) || array_get_value($node, 'group') === true) {
+                continue;
+            }
+
+            $parent = array_get_value($node, 'parent');
+            $owner = is_string($parent) ? array_get_value($menus, $parent) : null;
+
+            if (is_array($owner) && array_get_value($owner, 'group') !== true) {
+                throw new LogicException("menu node '{$path}' carries a tag, so its parent '{$parent}' must be a group");
+            }
+        }
     }
 
 }

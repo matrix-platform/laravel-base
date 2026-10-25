@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Support;
 
+use LogicException;
 use MatrixPlatform\Routing\ActionRoutes;
 use MatrixPlatform\Support\MenuNode;
 use MatrixPlatform\Support\Menus;
@@ -148,6 +149,15 @@ class MenusTest extends FeatureTestCase {
         }
 
         $this->assertGreaterThan(0, $checked);
+    }
+
+    public function test_an_action_node_hanging_on_a_non_group_node_is_refused(): void {
+        $this->useMenuFixtures('nested-action');
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage("menu node 'widget/{id}/update' carries a tag, so its parent 'widget/{id}' must be a group");
+
+        $this->menus()->nodes();
     }
 
     public function test_every_crud_action_has_a_menu_node(): void {

@@ -285,7 +285,7 @@ token 兩種帶法:`Authorization: Bearer {token}`,或登入時自動下的 `mat
 三條規則:
 
 1. **key 就是路由 URI**(去掉 `admin/` 前綴),逐字相同,含 `{id}` 佔位符。
-2. **`group => true` 的節點是授權單位**,它底下子節點的 `tag` 匯總成可以授予的動作。
+2. **`group => true` 的節點是授權單位**,它**直接**子節點的 `tag` 匯總成可以授予的動作。帶 `tag` 的非 group 節點,`parent` 必須是 group;掛在另一個非 group 節點底下(例如 `widget/{id}/update` 的 parent 寫成 `widget/{id}`)會在讀選單時丟 `LogicException`——那種形狀在權限樹上勾得到、執行時卻永遠打不開。
 3. **每一個端點都必須有對應的節點。漏一個,那個端點對所有人打不到 —— 包含 ROOT。** 掛在 `permission-api` 群組裡的 `ActionRoutes::mount()` / `scan()` 只註冊選單有節點的 action,沒節點的路由根本不存在,回 404 `endpoint-not-found`;自己用 `Route::post()` 掛在群組裡的路由照常註冊,沒節點則由 `permission-api` 擋成 403。選單一律只來自檔案(不讀 `base_resource_override`,讀選單不碰資料庫),路由在開機時就依當下的 `admin-menus` 定案。
 
 權限值存在 `base_user.permissions` 與 `base_group.permissions` 兩個 jsonb 欄位,形狀是 `{"widget": {"query": true}}`。
