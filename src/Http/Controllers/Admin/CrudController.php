@@ -222,6 +222,36 @@ abstract class CrudController extends BaseController {
         return $this->instance;
     }
 
+    /**
+     * @return list<string|array<string, mixed>>
+     */
+    protected function listing(): array {
+        if ($this->lists !== null) {
+            return $this->withCounts($this->lists);
+        }
+
+        if ($this->updates !== []) {
+            return $this->withCounts($this->updates);
+        }
+
+        $found = app(MetadataRegistry::class)->definitions($this->model);
+        $definitions = $found === null ? [] : $found;
+        $excluded = $this->arranging();
+        $names = [];
+
+        foreach ($this->derived() as $name) {
+            if (in_array($name, $excluded, true)) {
+                continue;
+            }
+
+            if (!$this->complex($definitions[$name])) {
+                $names[] = $this->joined($name);
+            }
+        }
+
+        return [...$names, ...$this->counted()];
+    }
+
     protected function onArrange(ArrangeService $service): ArrangeService {
         return $service->rankable($this->sortable())->descending($this->descending());
     }
@@ -452,36 +482,6 @@ abstract class CrudController extends BaseController {
         $metadata = app(MetadataRegistry::class)->of($related->getRelated()::class);
 
         return $metadata === null ? $name : "{$relation}.{$metadata->title}";
-    }
-
-    /**
-     * @return list<string|array<string, mixed>>
-     */
-    private function listing(): array {
-        if ($this->lists !== null) {
-            return $this->withCounts($this->lists);
-        }
-
-        if ($this->updates !== []) {
-            return $this->withCounts($this->updates);
-        }
-
-        $found = app(MetadataRegistry::class)->definitions($this->model);
-        $definitions = $found === null ? [] : $found;
-        $excluded = $this->arranging();
-        $names = [];
-
-        foreach ($this->derived() as $name) {
-            if (in_array($name, $excluded, true)) {
-                continue;
-            }
-
-            if (!$this->complex($definitions[$name])) {
-                $names[] = $this->joined($name);
-            }
-        }
-
-        return [...$names, ...$this->counted()];
     }
 
     private function shown(Definition $definition): bool {
