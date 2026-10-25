@@ -111,6 +111,45 @@ class NestedParentTest extends FeatureTestCase {
         $this->assertSame($theirs->id, $trinket->refresh()->widget_id);
     }
 
+    public function test_a_movable_update_refuses_a_parent_that_does_not_exist(): void {
+        [$relic, $mine, $trinket] = $this->tree('mine');
+
+        try {
+            (new UpdateService(Trinket::class))
+                ->movable(true)
+                ->columns(['label', 'widget_id'])
+                ->params(['relic_id' => $relic->id, 'widget_id' => $mine->id])
+                ->update($trinket->id, ['label' => 'moved', 'widget_id' => '999999']);
+
+            $this->fail('the update moved the row under a missing parent');
+        } catch (ServiceException $exception) {
+            $this->assertSame(['fields' => ['widget_id' => ['invalid-parent']]], $exception->getExtra());
+        }
+
+        $this->assertSame($mine->id, $trinket->refresh()->widget_id);
+    }
+
+    public function test_a_movable_update_refuses_a_parent_in_the_trash(): void {
+        [$relic, $widget] = $this->tree('mine');
+        [$trashed] = $this->tree('trashed');
+
+        $trashed->delete();
+
+        try {
+            (new UpdateService(Widget::class))
+                ->movable(true)
+                ->columns(['title', 'relic_id'])
+                ->params(['relic_id' => $relic->id])
+                ->update($widget->id, ['title' => 'moved', 'relic_id' => (string) $trashed->id]);
+
+            $this->fail('the update moved the row under a trashed parent');
+        } catch (ServiceException $exception) {
+            $this->assertSame(['fields' => ['relic_id' => ['invalid-parent']]], $exception->getExtra());
+        }
+
+        $this->assertSame($relic->id, $widget->refresh()->relic_id);
+    }
+
     public function test_a_movable_update_still_cannot_reach_a_row_under_another_parent(): void {
         [$relic, $mine] = $this->tree('mine');
         [, , $theirs] = $this->tree('theirs');

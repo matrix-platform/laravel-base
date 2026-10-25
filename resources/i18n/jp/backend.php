@@ -340,6 +340,7 @@ return [
     'validation.invalid-captcha' => 'キャプチャが正しくありません',
     'validation.invalid-challenge' => '2FAの確認情報が無効か期限切れです',
     'validation.invalid-code' => '認証コードが正しくありません',
+    'validation.invalid-parent' => '親データが見つかりません',
     'validation.invalid-passkey' => 'パスキーが無効です',
     'validation.invalid-password' => 'パスワードが正しくありません',
     'validation.invalid-username-or-password' => 'ユーザー名またはパスワードが正しくありません',

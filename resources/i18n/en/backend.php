@@ -340,6 +340,7 @@ return [
     'validation.invalid-captcha' => 'Invalid captcha',
     'validation.invalid-challenge' => 'Invalid or expired 2FA challenge',
     'validation.invalid-code' => 'Invalid authentication code',
+    'validation.invalid-parent' => 'The parent record does not exist',
     'validation.invalid-passkey' => 'Invalid passkey',
     'validation.invalid-password' => 'Invalid password',
     'validation.invalid-username-or-password' => 'Invalid username or password',

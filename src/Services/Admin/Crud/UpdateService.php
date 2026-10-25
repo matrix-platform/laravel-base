@@ -114,6 +114,22 @@ class UpdateService extends CrudService {
 
         if (!$this->movable || $foreign === null || !array_key_exists($foreign, $values)) {
             $this->attach($model);
+
+            return;
+        }
+
+        $relation = $this->subject->parent($model);
+        $target = $values[$foreign];
+
+        if ($relation === null || !is_scalar($target)) {
+            return;
+        }
+
+        $related = $relation->getRelated();
+        $query = $related->newQuery();
+
+        if (!($relation->getOwnerKeyName() === $related->getKeyName() ? $query->whereKey($target) : $query->where($relation->getQualifiedOwnerKeyName(), $target))->exists()) {
+            invalid($foreign, 'invalid-parent');
         }
     }
 

@@ -340,6 +340,7 @@ return [
     'validation.invalid-captcha' => '验证码错误',
     'validation.invalid-challenge' => '2FA 验证已过期或无效',
     'validation.invalid-code' => '验证码错误',
+    'validation.invalid-parent' => '找不到这笔上层数据',
     'validation.invalid-passkey' => 'Passkey 无效',
     'validation.invalid-password' => '密码错误',
     'validation.invalid-username-or-password' => '账号或密码错误',
