@@ -4,6 +4,7 @@ namespace Tests\Feature\Captcha;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use MatrixPlatform\Captcha\CaptchaService;
 use MatrixPlatform\Captcha\NoneDriver;
 use MatrixPlatform\Services\Admin\AuthService;
 use Tests\Factories\UserFactory;
@@ -124,6 +125,24 @@ class TurnstileDriverTest extends FeatureTestCase {
         $this->assertArrayHasKey('token', $data);
 
         Http::assertNothingSent();
+    }
+
+    public function test_a_driver_under_its_own_bundle_reads_that_bundle(): void {
+        $this->useCfgFixtures();
+        $this->siteverify(['success' => true, 'action' => 'signup', 'hostname' => 'member.example.test']);
+
+        $this->assertTrue(app(CaptchaService::class)->driver('captcha-turnstile-member')->verify('member-token', ''));
+
+        Http::assertSent(fn (Request $request): bool => $request->url() === 'https://member.example.test/siteverify'
+            && $request['secret'] === 'member-secret'
+            && $request['response'] === 'member-token');
+    }
+
+    public function test_a_driver_under_its_own_bundle_still_checks_that_bundles_action(): void {
+        $this->useCfgFixtures();
+        $this->siteverify(['success' => true, 'action' => 'login', 'hostname' => 'member.example.test']);
+
+        $this->assertFalse(app(CaptchaService::class)->driver('captcha-turnstile-member')->verify('member-token', ''));
     }
 
     public function test_the_captcha_endpoint_issues_no_challenge_under_this_provider(): void {

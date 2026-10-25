@@ -6,6 +6,8 @@ class RecaptchaDriver implements Driver {
 
     use SiteVerification;
 
+    public function __construct(private string $bundle = 'captcha-recaptcha') {}
+
     public function generate(): ?array {
         return null;
     }
@@ -15,13 +17,13 @@ class RecaptchaDriver implements Driver {
     }
 
     public function verify(string $token, string $code): bool {
-        $response = $this->siteverify('captcha-recaptcha', $token);
+        $response = $this->siteverify($this->bundle, $token);
 
         if ($response === null) {
             return false;
         }
 
-        return floatval($response->json('score')) >= floatval(cfg('captcha-recaptcha.threshold'));
+        return floatval($response->json('score')) >= floatval(cfg("{$this->bundle}.threshold"));
     }
 
 }

@@ -1610,6 +1610,22 @@ site key 是**公開值**,本來就會出現在前端 bundle 裡;secret 相反,�
 
 分數門檻是 `cfg('captcha-recaptcha.threshold')`,出貨 `0.5`。調它之前先看[已知限制與取捨](#安全)裡關於「分數不夠的真人沒有自證管道」那條。
 
+#### 在後台登入以外的地方用驗證碼
+
+driver 讀的是**它所屬的 cfg bundle**,不是寫死的 `captcha-turnstile` / `captcha-recaptcha`。前台(會員註冊、聯絡表單等)要用另一組 secret / action / hostnames 時,自己建一個 bundle,例如 `resources/cfg/captcha-turnstile-member.php`:
+
+```php
+return [
+    'driver' => MatrixPlatform\Captcha\TurnstileDriver::class,
+    'action' => 'signup',
+    'endpoint' => 'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+    'hostnames' => '',
+    'secret' => '',
+];
+```
+
+驗證時用 `app(CaptchaService::class)->driver('captcha-turnstile-member')->verify($token, '')`。`action` 一樣嚴格比對,值要和那個前端 render 時帶的一致;要從資源後台編輯這個 bundle,記得照 [cfg 的原則](#5-資源疊層你的檔案覆蓋套件的)把 `driver`、`endpoint`、`action` 標成 `readonly`。
+
 ### 傳輸加密
 
 三組前綴各有各的開關,出貨值是 `admin` 開、`vendor` 開、`api` 關。開關關著的那一組一切照舊,以下完全不存在。開著的那一組,**該前綴底下所有 POST 端點**(除了宣告 `#[Action(encrypted: false)]` 的 action)的 request 與 response body 都是加密信封,明文請求一律回 `invalid-envelope`。

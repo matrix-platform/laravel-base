@@ -72,7 +72,7 @@ function resolve_driver(string $bundle, string $contract, string $error): ?objec
         error($error);
     }
 
-    return app($class);
+    return app($class, ['bundle' => $bundle]);
 }
 
 /**

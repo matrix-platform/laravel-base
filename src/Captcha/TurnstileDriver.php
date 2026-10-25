@@ -6,6 +6,8 @@ class TurnstileDriver implements Driver {
 
     use SiteVerification;
 
+    public function __construct(private string $bundle = 'captcha-turnstile') {}
+
     public function generate(): ?array {
         return null;
     }
@@ -15,7 +17,7 @@ class TurnstileDriver implements Driver {
     }
 
     public function verify(string $token, string $code): bool {
-        return $this->siteverify('captcha-turnstile', $token) !== null;
+        return $this->siteverify($this->bundle, $token) !== null;
     }
 
 }
