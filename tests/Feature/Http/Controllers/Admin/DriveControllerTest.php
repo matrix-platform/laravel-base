@@ -7,6 +7,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
 use MatrixPlatform\Models\DriveNode;
+use MatrixPlatform\Models\DriveNodeType;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Services\Admin\DriveService;
 use Tests\Factories\UserFactory;
@@ -24,6 +25,26 @@ class DriveControllerTest extends FeatureTestCase {
         Storage::fake('local');
 
         $this->token = UserFactory::new()->createOne(['id' => User::ROOT])->createToken();
+    }
+
+    private function rival(string $event, string $name): void {
+        $raced = false;
+
+        DriveNode::{$event}(function (DriveNode $node) use ($name, &$raced): void {
+            if ($raced || $node->name !== $name) {
+                return;
+            }
+
+            $raced = true;
+
+            $rival = new DriveNode();
+
+            $rival->parent_id = $node->parent_id;
+            $rival->type = DriveNodeType::Folder;
+            $rival->name = $name;
+
+            $rival->save();
+        });
     }
 
     /**
@@ -229,6 +250,35 @@ class DriveControllerTest extends FeatureTestCase {
             ->get("admin/drive/{$folder}/download")
             ->assertNotFound()
             ->assertContent('');
+    }
+
+    public function test_a_folder_name_taken_by_a_concurrent_request_reports_the_name_conflict(): void {
+        $root = $this->send('admin/drive/root')->json('data.id');
+
+        $this->rival('creating', 'shared');
+
+        $this->send("admin/drive/{$root}/folder", ['name' => 'shared'])->assertJson(['success' => false, 'error' => 'name-already-exists']);
+    }
+
+    public function test_a_rename_racing_a_concurrent_request_reports_the_name_conflict(): void {
+        $root = $this->send('admin/drive/root')->json('data.id');
+        $folder = $this->send("admin/drive/{$root}/folder", ['name' => 'mine'])->json('data.id');
+
+        $this->rival('updating', 'taken');
+
+        $this->send("admin/drive/{$folder}/rename", ['name' => 'taken'])->assertJson(['success' => false, 'error' => 'name-already-exists']);
+    }
+
+    public function test_an_upload_that_loses_a_name_race_leaves_no_file_behind(): void {
+        $root = $this->send('admin/drive/root')->json('data.id');
+
+        $this->rival('creating', 'note.txt');
+
+        $this->withToken($this->token)
+            ->post("admin/drive/{$root}/upload", ['file' => UploadedFile::fake()->createWithContent('note.txt', 'hello')])
+            ->assertJson(['success' => false, 'error' => 'name-already-exists']);
+
+        $this->assertSame([], Storage::disk(app(DriveService::class)->disk())->allFiles());
     }
 
     public function test_a_deleted_node_can_be_restored(): void {

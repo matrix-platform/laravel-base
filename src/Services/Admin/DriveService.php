@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use MatrixPlatform\Models\DriveNode;
@@ -17,6 +18,7 @@ use MatrixPlatform\Models\User;
 use MatrixPlatform\Services\FileService;
 use MatrixPlatform\Services\FileStorage;
 use MatrixPlatform\Services\MediaMeasurer;
+use MatrixPlatform\Support\RollbackCallbacks;
 use MatrixPlatform\Support\Subject;
 
 class DriveService {
@@ -51,7 +53,7 @@ class DriveService {
         $node->type = DriveNodeType::Folder;
         $node->name = $name;
 
-        $node->save();
+        $this->named($node->save(...));
 
         return $node;
     }
@@ -172,7 +174,7 @@ class DriveService {
 
         $node->parent_id = $newParent->id;
 
-        $node->save();
+        $this->named($node->save(...));
     }
 
     /**
@@ -202,7 +204,7 @@ class DriveService {
         $node->name = $name;
         $node->description = $description;
 
-        $node->save();
+        $this->named($node->save(...));
     }
 
     public function requireAllowed(DriveNode $node, User $user): void {
@@ -218,7 +220,7 @@ class DriveService {
             error('name-already-exists');
         }
 
-        $node->restore();
+        $this->named($node->restore(...));
     }
 
     public function root(): DriveNode {
@@ -272,6 +274,8 @@ class DriveService {
             $path = $existing->path;
         } else {
             $path = app(FileStorage::class)->store($file, $disk, self::FOLDER);
+
+            app(RollbackCallbacks::class)->register(fn () => Storage::disk($disk)->delete(app(FileStorage::class)->location(self::FOLDER, $path)));
         }
 
         $measured = app(MediaMeasurer::class)->measure($mimeType, $file->getPathname());
@@ -289,7 +293,7 @@ class DriveService {
         $node->height = $measured['height'];
         $node->seconds = $measured['seconds'];
 
-        $node->save();
+        $this->named($node->save(...));
 
         return $node;
     }
@@ -344,6 +348,14 @@ class DriveService {
         }
 
         return false;
+    }
+
+    private function named(Closure $write): void {
+        try {
+            $write();
+        } catch (UniqueConstraintViolationException) {
+            error('name-already-exists');
+        }
     }
 
     private function requireContainer(DriveNode $node): void {
