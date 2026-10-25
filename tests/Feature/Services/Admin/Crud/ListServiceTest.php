@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Services\Admin\Crud;
 
+use Illuminate\Database\Eloquent\Builder;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Declarations\Definitions;
 use MatrixPlatform\Services\Admin\Crud\ListService;
@@ -313,6 +314,56 @@ class ListServiceTest extends FeatureTestCase {
         $this->assertSame(['title', 'ghost'], array_column($result['columns'], 'name'));
         $this->assertSame([true, false], array_column($result['columns'], 'default'));
         $this->assertSame('contains', $result['columns'][1]['op']);
+    }
+
+    public function test_a_virtual_filter_is_handed_to_its_handler(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
+
+        Widget::forceCreate(['title' => 'Alpha']);
+        Widget::forceCreate(['title' => 'Beta']);
+
+        $received = null;
+
+        $result = (new ListService(Widget::class))
+            ->standalone(true)
+            ->columns(['title', ['name' => '+note', 'type' => 'text', 'op' => 'contains']])
+            ->filterUsing('note', function (Builder $query, array $filter) use (&$received): void {
+                $received = $filter;
+
+                $query->where('title', $filter['value']);
+            })
+            ->list(['filters' => ['note' => ['op' => 'contains', 'value' => 'Beta']]]);
+
+        $this->assertSame(['Beta'], array_column($result['rows'], 'title'));
+        $this->assertSame(['op' => 'contains', 'value' => 'Beta'], $received);
+    }
+
+    public function test_a_virtual_filter_without_a_handler_is_left_out_instead_of_failing(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
+
+        Widget::forceCreate(['title' => 'Alpha']);
+
+        $result = (new ListService(Widget::class))
+            ->standalone(true)
+            ->columns(['title', ['name' => '+note', 'type' => 'text', 'op' => 'contains']])
+            ->list(['filters' => ['note' => ['op' => 'contains', 'value' => 'x']]]);
+
+        $this->assertSame(['Alpha'], array_column($result['rows'], 'title'));
+    }
+
+    public function test_a_handler_replaces_the_default_condition_of_a_stored_column(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
+
+        Widget::forceCreate(['title' => 'Alpha']);
+        Widget::forceCreate(['title' => 'Beta']);
+
+        $result = (new ListService(Widget::class))
+            ->standalone(true)
+            ->columns([['name' => 'title', 'op' => 'eq']])
+            ->filterUsing('title', fn (Builder $query) => $query->where('title', 'Alpha'))
+            ->list(['filters' => ['title' => ['op' => 'eq', 'value' => 'Beta']]]);
+
+        $this->assertSame(['Alpha'], array_column($result['rows'], 'title'));
     }
 
     public function test_an_optional_column_on_a_section_is_left_out_but_a_list_column_on_a_section_stays(): void {

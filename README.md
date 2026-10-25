@@ -551,7 +551,15 @@ class WidgetController extends CrudController {
 
 `*` 開頭代表必填。`!` 開頭代表唯讀。`+` 開頭代表虛擬。`=` **開頭**代表鎖定(見下段)。`=` 夾在中間是別名(`alias=source`)。`.` 走關聯。`:` 後面是型別或呈現方式。來源裡的 `{locale}` 在解析時換成當前語系,用來取多語欄位的單一語系值而不展成多語欄位(例如 `'!tour_name=session.tour.name__{locale}'`)。
 
-**虛擬欄位(`+` 前綴或宣告 `virtual: true`)預設不能篩選、不能排序**(`op` 為 `null`、`sortable` 為 `false`),因為資料庫沒有這個欄位。要讓它出現在搜尋條件,明寫 `op`(例如 `['name' => '+contact_name', 'op' => 'contains']`),並在覆寫的 `list()` / `export()` 從 `filters` 取出這個條件自己套用 —— 留在 `filters` 裡的虛擬欄位條件會被照一般欄位查詢而失敗。
+**虛擬欄位(`+` 前綴或宣告 `virtual: true`)預設不能篩選、不能排序**(`op` 為 `null`、`sortable` 為 `false`),因為資料庫沒有這個欄位。要讓它出現在搜尋條件,明寫 `op`(例如 `['name' => '+contact_name', 'op' => 'contains']`),再在 `onList()` / `onExport()` 用 `filterUsing()` 掛上處理方式:
+
+```php
+protected function onList(ListService $service): ListService {
+    return parent::onList($service)->filterUsing('contact_name', fn (Builder $query, array $filter) => $query->whereIn('id', Contact::query()->select('order_id')->where('name', 'ilike', '%' . $filter['value'] . '%')));
+}
+```
+
+closure 拿到的 `$filter` 是前端送來的條件,`op` 已確認在宣告的 `op` 之內(值為 `null` 的 `eq` / `neq` 已換成 `null` / `notNull`);**值沒有經過型別檢查,處理器自己驗證**。清單與匯出各自掛(匯出用的是 `onExport()`)。本表的虛擬欄位沒有處理器時,條件直接略過、不會查詢失敗——所以忘了掛的症狀是「篩了沒效果」。`filterUsing()` 也可以掛在一般欄位上,取代框架預設的條件。
 
 **鎖定(`=`)是「可寫但不可編輯」。** 值在表單開啟之前就決定了(例如區塊的型別由型別選擇器決定),所以它照樣驗證、照樣寫入,但 `columns[]` 上的 `writable` 是 `false`,前端據此把輸入框停用。`readonly`(`!`)是另一回事:不驗證、不寫入。鎖定同時隱含必填 —— 值既然是先決定好的,就不該是空的;要「鎖定但可為空」請用陣列語法 `['name' => 'x', 'locked' => true]`。
 

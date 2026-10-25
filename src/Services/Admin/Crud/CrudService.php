@@ -52,6 +52,11 @@ abstract class CrudService {
     protected array $composites = [];
 
     /**
+     * @var array<string, Closure>
+     */
+    protected array $filterHandlers = [];
+
+    /**
      * @var list<Closure>
      */
     protected array $guards = [];
@@ -130,6 +135,12 @@ abstract class CrudService {
         }
 
         $this->plan = null;
+
+        return $this;
+    }
+
+    public function filterUsing(string $name, Closure $apply): static {
+        $this->filterHandlers[$name] = $apply;
 
         return $this;
     }
@@ -471,7 +482,7 @@ abstract class CrudService {
             unset($filters[ScheduleFilter::NAME]);
         }
 
-        (new Filtering())->apply($query, $this->plan(), $filters);
+        (new Filtering())->apply($query, $this->plan(), $filters, $this->filterHandlers);
     }
 
     /**

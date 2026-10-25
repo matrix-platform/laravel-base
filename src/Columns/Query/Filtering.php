@@ -2,6 +2,7 @@
 
 namespace MatrixPlatform\Columns\Query;
 
+use Closure;
 use DateTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -22,8 +23,9 @@ class Filtering {
 
     /**
      * @param Builder<Model> $query
+     * @param array<string, Closure> $handlers
      */
-    public function apply(Builder $query, QueryPlan $plan, mixed $filters): void {
+    public function apply(Builder $query, QueryPlan $plan, mixed $filters, array $handlers = []): void {
         if (!is_array($filters)) {
             return;
         }
@@ -34,7 +36,7 @@ class Filtering {
             $operators = array_values(Arr::wrap($column->op));
 
             if ($operators !== []) {
-                $allowed[$column->name] = ['op' => $operators, 'type' => $column->type];
+                $allowed[$column->name] = ['op' => $operators, 'type' => $column->type, 'stored' => !$column->virtual || $column->expression->path !== []];
             }
         }
 
@@ -43,10 +45,21 @@ class Filtering {
                 continue;
             }
 
-            $field = $plan->field($name);
             $operator = $this->operator($filter, $allowed[$name]['op']);
 
-            if ($field !== null && $operator !== null) {
+            if ($operator === null) {
+                continue;
+            }
+
+            if (array_key_exists($name, $handlers)) {
+                $handlers[$name]($query, [...$filter, 'op' => $operator]);
+
+                continue;
+            }
+
+            $field = $allowed[$name]['stored'] ? $plan->field($name) : null;
+
+            if ($field !== null) {
                 $this->where($query, $field, $operator, $filter, $allowed[$name]['type']);
             }
         }

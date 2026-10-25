@@ -290,6 +290,20 @@ class ExportServiceTest extends FeatureTestCase {
         $this->assertSame([['title' => 'First, Second']], $rows);
     }
 
+    public function test_an_export_hands_a_virtual_filter_to_its_handler(): void {
+        Widget::forceCreate(['title' => 'Alpha']);
+        Widget::forceCreate(['title' => 'Beta']);
+
+        $rows = (new ExportService(Widget::class))
+            ->standalone(true)
+            ->columns(['title'])
+            ->filterColumns(['title', ['name' => '+note', 'type' => 'text', 'op' => 'contains']])
+            ->filterUsing('note', fn (Builder $query, array $filter) => $query->where('title', $filter['value']))
+            ->export(['filters' => ['note' => ['op' => 'contains', 'value' => 'Beta']]])['rows'];
+
+        $this->assertSame([['title' => 'Beta']], $rows);
+    }
+
     public function test_an_array_value_with_options_joins_the_titles_whatever_the_presentation(): void {
         Widget::forceCreate(['title' => 'Alpha', 'payload' => ['a', 'b']]);
 
