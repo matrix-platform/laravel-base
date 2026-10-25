@@ -1858,6 +1858,7 @@ php artisan matrix:clear-resource-cache
 | **資料庫不允許 NULL 的選填欄位,匯入空白會失敗** | 空白寫入 `null`(布林欄除外,寫 `false`)。這種欄位要設預設值或改成必填,否則該列報 `query-failed` |
 | **匯入的表頭與選項以目前介面語系的標題完全比對** | 範本與匯入要用同一個介面語系;樹狀選項攤平後不同父層同名(例如兩個「其他」)會回 `in`,所以含同名節點的匯出檔無法原樣匯入。跨 model 的選項樹(例如國家 > 城市)只有目標 model 的節點可反查(`Option::$selectable`) |
 | **匯入不支援多選欄位** | 存成 Json 的多選收不了標題,存成 Text 的驗證規則是 `string`,第一版一律排除 |
+| **有選項的欄位,值是陣列時匯出成標題以「, 」串接** | 不論呈現方式(`multi-select` 或自訂的 `transfer` 等)都一樣;沒有選項的 Json 欄位匯出空字串 |
 | **`$exports = []` 是「沒有欄位」,不是「退回清單欄位」** | —— |
 | **多語欄位用 `ExportService::locales([...])` 展開時,表頭帶語系名稱** | 每個語系一欄(`{欄位}__{語系}`),`title` 依 `backend.export.locale-column` 組成,例如「問題（繁體中文）」、英文介面「Question (English)」;語系名稱取 `backend.locale-{語系}`。沒呼叫 `locales()` 時只輸出目前語系一欄,表頭不變 |
 | **`$hidden` 只對 root model 的欄位有效** | join 進來的別名不受它保護 |

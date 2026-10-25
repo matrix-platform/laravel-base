@@ -163,7 +163,7 @@ class ExportService extends CrudService {
             return '';
         }
 
-        if ($column->presentation === Presentation::MultiSelect) {
+        if ($column->presentation === Presentation::MultiSelect || ($column->options !== null && is_array($value))) {
             return implode(', ', array_map(fn (mixed $item): string => $this->label($item, $column->name), $this->many($value)));
         }
 

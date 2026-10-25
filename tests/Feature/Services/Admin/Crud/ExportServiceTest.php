@@ -290,6 +290,15 @@ class ExportServiceTest extends FeatureTestCase {
         $this->assertSame([['title' => 'First, Second']], $rows);
     }
 
+    public function test_an_array_value_with_options_joins_the_titles_whatever_the_presentation(): void {
+        Widget::forceCreate(['title' => 'Alpha', 'payload' => ['a', 'b']]);
+
+        $options = new StaticOptions([$this->option('a', 'First'), $this->option('b', 'Second')]);
+        $rows = $this->exported([['name' => 'payload', 'type' => 'transfer', 'options' => $options]])['rows'];
+
+        $this->assertSame([['payload' => 'First, Second']], $rows);
+    }
+
     public function test_an_export_shows_the_label_of_a_disabled_relation(): void {
         app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget', 'title', enable: 'enable_time', disable: 'disable_time')));
 
