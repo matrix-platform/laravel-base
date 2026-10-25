@@ -265,7 +265,7 @@ worker 會睡掉供應商的 `interval` 來節流,所以 `--timeout` 與 connect
 
 **順序是約束,不是機制保證。** 把 `permission-api` 掛在 `user-api` 前面不會有人阻止你,但授權會先跑,拿到的是 401 而不是 403。
 
-token 兩種帶法:`Authorization: Bearer {token}`,或登入時自動下的 `matrix-user` cookie。cookie 是 `httpOnly`,`secure` 跟隨 `config('session.secure')` —— 本機開發走 HTTP 時那個值必須是 false,否則瀏覽器不會回送,症狀是「登入成功但下一個請求就 401」。跨網域的前端要送 `credentials: 'include'`,而且 CORS 要自己設(套件的前綴不在 Laravel 預設的 `cors.paths` 裡)。
+token 兩種帶法:`Authorization: Bearer {token}`,或登入時自動下的 `matrix-user` cookie;兩者都帶時以 Bearer 為準(明確帶上的 header 優先於瀏覽器自動帶的 cookie,殘留的過期 cookie 不會擋掉有效的 Bearer)。cookie 是 `httpOnly`,`secure` 跟隨 `config('session.secure')` —— 本機開發走 HTTP 時那個值必須是 false,否則瀏覽器不會回送,症狀是「登入成功但下一個請求就 401」。跨網域的前端要送 `credentials: 'include'`,而且 CORS 要自己設(套件的前綴不在 Laravel 預設的 `cors.paths` 裡)。
 
 ### 4. 選單即權限
 

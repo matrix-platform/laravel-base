@@ -111,6 +111,15 @@ class IdentityMiddlewareTest extends FeatureTestCase {
     }
 
     #[DataProvider('identities')]
+    public function test_a_bearer_token_wins_over_a_stale_cookie(IdentityType $type): void {
+        $this->withCredentials()
+            ->withUnencryptedCookie($type->cookie(), 'stale-token')
+            ->withToken($this->token($type))
+            ->postJson('identity/' . strtolower($type->value))
+            ->assertJsonPath($this->slot($type), self::SHARED);
+    }
+
+    #[DataProvider('identities')]
     public function test_only_the_matching_actor_slot_is_filled(IdentityType $type): void {
         $response = $this->reach($type, $this->token($type));
 

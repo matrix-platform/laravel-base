@@ -19,7 +19,7 @@ class IdentityToken {
     public static function from(Request $request, IdentityType $type): ?string {
         $cookie = $request->cookie($type->cookie());
 
-        return (is_string($cookie) ? $cookie : null) ?: $request->bearerToken();
+        return $request->bearerToken() ?: (is_string($cookie) ? $cookie : null);
     }
 
 }
