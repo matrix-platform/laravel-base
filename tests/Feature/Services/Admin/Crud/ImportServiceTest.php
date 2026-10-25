@@ -11,6 +11,7 @@ use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Services\Admin\Crud\ImportService;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
+use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
 use Tests\Stubs\StubDeclaration;
 use Tests\Stubs\Trinket;
@@ -21,6 +22,7 @@ class ImportServiceTest extends FeatureTestCase {
     protected function setUp(): void {
         parent::setUp();
 
+        $this->useMenuFixtures('crud');
         $this->actAsRoot();
 
         $this->declare([]);
@@ -28,6 +30,15 @@ class ImportServiceTest extends FeatureTestCase {
         app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'widget'), [
             'amount' => Definition::integer(unique: true)
         ]));
+    }
+
+    /**
+     * @param array<string, array<string, bool>> $permissions
+     */
+    private function actAsRegular(array $permissions): void {
+        app()->forgetScopedInstances();
+
+        actor()->setUser(UserFactory::new()->createOne(['id' => 5000, 'permissions' => $permissions]));
     }
 
     /**
@@ -393,6 +404,38 @@ class ImportServiceTest extends FeatureTestCase {
         $this->assertSame(2, Widget::query()->count());
         $this->assertSame(['Gamma', '2026-01-02 03:04:05'], [$first->refresh()->title, $first->enable_time?->format('Y-m-d H:i:s')]);
         $this->assertSame(['Beta', '2026-03-04 05:06:07'], [$second->refresh()->title, $second->enable_time?->format('Y-m-d H:i:s')]);
+    }
+
+    public function test_a_located_import_needs_the_update_permission_as_well(): void {
+        $widget = Widget::forceCreate(['title' => 'Alpha']);
+
+        $this->actAsRegular(['widget' => ['query' => true, 'insert' => true]]);
+
+        try {
+            $this->locatedByKeyCell($this->importer(['title']))->import($this->input([['key' => strval($widget->id), 'title' => 'Hijacked']]));
+
+            $this->fail('expected the located import to be refused');
+        } catch (ServiceException $exception) {
+            $this->assertSame(['permission-denied', 403], [$exception->getError(), $exception->getCode()]);
+        }
+
+        $this->assertSame('Alpha', $widget->refresh()->title);
+    }
+
+    public function test_a_located_import_runs_for_whoever_may_update(): void {
+        $widget = Widget::forceCreate(['title' => 'Alpha']);
+
+        $this->actAsRegular(['widget' => ['query' => true, 'insert' => true, 'update' => true]]);
+
+        $this->locatedByKeyCell($this->importer(['title']))->import($this->input([['key' => strval($widget->id), 'title' => 'Gamma']]));
+
+        $this->assertSame('Gamma', $widget->refresh()->title);
+    }
+
+    public function test_a_plain_import_still_needs_only_the_insert_permission(): void {
+        $this->actAsRegular(['widget' => ['query' => true, 'insert' => true]]);
+
+        $this->assertSame(['count' => 1], $this->importer(['title'])->import($this->input([['title' => 'Fresh']])));
     }
 
     public function test_a_located_row_with_only_blank_cells_is_skipped_without_looking_it_up(): void {

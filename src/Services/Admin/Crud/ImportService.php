@@ -35,6 +35,10 @@ class ImportService extends CrudService {
      * @return array{count: int}
      */
     public function import(mixed $input): array {
+        if ($this->locator !== null && $this->permitted(['update'], $this->prefix()) === []) {
+            error('permission-denied', 403);
+        }
+
         $rows = $this->rows($input);
 
         $this->narrow();
