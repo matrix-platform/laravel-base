@@ -194,6 +194,16 @@ class ColumnResolverTest extends FeatureTestCase {
         $this->assertSame(Presentation::Count, $column->presentation);
     }
 
+    public function test_a_count_drills_into_its_relation_unless_the_path_is_switched_off(): void {
+        $this->useMenuFixtures('crud');
+
+        app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'widget')));
+
+        $this->assertSame('widget/{id}/trinket', $this->resolve('count(trinkets)')->path);
+        $this->assertSame('', $this->resolve(['name' => 'count(trinkets)', 'path' => false])->path);
+        $this->assertSame('', $this->resolve(['name' => 'count(trinkets)', 'path' => ''])->path);
+    }
+
     public function test_a_relation_column_takes_its_type_from_the_terminal_model(): void {
         $this->assertSame(ColumnType::DateTime, $this->resolve('widget.enable_time', new Trinket())->type);
     }

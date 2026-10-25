@@ -86,7 +86,7 @@ class ColumnParser {
             $locked,
             $this->provider(array_get_value($given, 'options')),
             $optionsName,
-            $this->text(array_get_value($given, 'path')),
+            array_get_value($given, 'path') === false ? '' : $this->text(array_get_value($given, 'path')),
             $this->text(array_get_value($given, 'placeholder')),
             $this->presentation($type),
             $readonly,
