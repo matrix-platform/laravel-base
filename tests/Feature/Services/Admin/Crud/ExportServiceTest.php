@@ -3,6 +3,7 @@
 namespace Tests\Feature\Services\Admin\Crud;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Options\Option;
@@ -288,6 +289,23 @@ class ExportServiceTest extends FeatureTestCase {
         $rows = $this->exported([['name' => 'title', 'type' => 'multi-select', 'options' => $options]])['rows'];
 
         $this->assertSame([['title' => 'First, Second']], $rows);
+    }
+
+    public function test_the_extra_selects_reach_the_guard_as_they_do_on_the_list(): void {
+        Widget::forceCreate(['title' => 'Alpha'])->forceFill(['ip' => '10.0.0.1'])->save();
+
+        $rows = (new ExportService(Widget::class))
+            ->standalone(true)
+            ->columns(['title', '+ip_label'])
+            ->selects(['ip'])
+            ->guard(function (Model $model): void {
+                $ip = $model->getAttribute('ip');
+
+                $model->setAttribute('ip_label', is_string($ip) ? "IP {$ip}" : 'missing');
+            })
+            ->export([])['rows'];
+
+        $this->assertSame([['title' => 'Alpha', 'ip_label' => 'IP 10.0.0.1']], $rows);
     }
 
     public function test_an_export_hands_a_virtual_filter_to_its_handler(): void {

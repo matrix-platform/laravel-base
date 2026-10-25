@@ -42,11 +42,6 @@ class ListService extends CrudService {
      */
     private array $rowActions = ['edit', 'copy', 'delete'];
 
-    /**
-     * @var list<string>
-     */
-    private array $selects = [];
-
     private ?bool $sortable = null;
 
     /**
@@ -152,15 +147,6 @@ class ListService extends CrudService {
         return $this;
     }
 
-    /**
-     * @param list<string> $selects
-     */
-    public function selects(array $selects): static {
-        $this->selects = $selects;
-
-        return $this;
-    }
-
     public function sortable(bool $sortable): static {
         $this->sortable = $sortable;
 
@@ -254,19 +240,6 @@ class ListService extends CrudService {
             'options' => new BundleOptions(ScheduleFilter::NAME),
             'readonly' => true
         ]), $this->model);
-    }
-
-    /**
-     * @param Builder<Model> $query
-     * @param list<string> $fields
-     */
-    private function select(Builder $query, array $fields): void {
-        $present = array_column($this->columns, 'name');
-        $missing = array_values(array_diff(array_unique($fields), $present));
-
-        if ($missing !== []) {
-            $query->addSelect(array_map(fn (string $field): string => "{$this->plan()->table()}.{$field}", $missing));
-        }
     }
 
 }

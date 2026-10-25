@@ -240,6 +240,7 @@ abstract class CrudController extends BaseController {
             ->filterColumns($this->listing())
             ->optionals($this->optionals())
             ->selectable($this->exports === null)
+            ->selects($this->selects)
             ->sorting($this->sorting());
     }
 

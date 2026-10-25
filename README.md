@@ -569,6 +569,8 @@ closure 拿到的 `$filter` 是前端送來的條件,`op` 已確認在宣告的 
 
 **匯出沿用同一個欄位池。** 篩選與排序只接受欄位池裡的欄位;只出現在 `$exports` 的欄位只輸出、不能篩選或排序(否則 `$exports` 列了 `$hidden` 欄位時,可以用篩選或排序推出值)。查詢只 select 輸出欄位與實際用到的篩選、排序欄位,所以 `cell()` 回呼拿到的那一列也只有這些欄位。輸出欄位:有宣告 `$exports` 就用 `$exports`;否則請求帶了 `columns: [...]` 且與欄位池有交集,就輸出交集、順序照請求(前端傳目前畫面上顯示的欄位);否則輸出清單欄位,順序照清單欄位。
 
+**清單畫面不顯示、但 guard 或虛擬欄位要用的原始欄位,列在 `$selects`。** 查詢只 select 輸出欄位與篩選、排序用到的欄位,其他欄位在 guard 拿到的那一列裡不存在(`getAttribute()` 是 `null`)。`protected array $selects = ['ip'];` 會讓清單與匯出都把這幾個本表欄位補進 select;沒有列進去的話,靠它算出來的虛擬欄位會是空的。
+
 **編輯頁（`get`）會自動在「其他」區塊唯讀顯示稽核欄位,不用設定。** 只要宣告有 `Definitions::auditings()`,`onGet()` 就在 `$updates`(或自動推導的欄位)後面依宣告順序補上 `creator`、`!create_time`、`updater`、`!update_time`(`auditings(false)` 只補前兩個)。`creator` / `updater` 是關聯欄位 `creator=creator.username`、`updater=updater.username`:`BaseModel` 內建 `creator()`、`updater()` 兩個關聯(`BelongsTo` 到 `Operator`,即 `base_operator`),直接 join 出帳號名稱,以唯讀(前端停用)的文字欄位呈現。`Definitions::auditings()` 本身帶 `section: 'other'`,關聯欄位則用陣列語法的 `section` 鍵指定區塊。新增頁、存檔(`insert` / `update`)不含這些欄位,送上來的值會被忽略。`$updates` 已經放了同名欄位時以 `$updates` 為準;同名欄位只取第一個,所以在 `parent::onGet()` 之後再 `columns()` 同名欄位不會生效。不想要就覆寫 `onGet()` 且不呼叫 `parent::onGet()`。標題在套件的 `model/default.php`。清單要顯示建立者,寫 `creator=creator.username`;直接寫 `creator_id` 會因為有 `creator()` 關聯而自動變成下拉選項,把整張 `base_operator` 讀進來。
 
 **新增頁（`new`）的 `data` 只有四個來源:** 每個本表可寫欄位先給 `null`、巢狀路由上的父層外鍵、body 裡**已宣告且可寫**的值(原樣反映回來)、composite 的 `Presets` 預設值。跨關聯欄位(`tour_name=tour.name`)一定是空的——model 是新建的,沒有 join;guard 也不執行(那是寫入規則)。要預設值就在覆寫的 `new()` 裡 `mergeIfMissing`,要顯示關聯資料就自己補進回應:

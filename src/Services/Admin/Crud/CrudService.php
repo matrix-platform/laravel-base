@@ -91,6 +91,11 @@ abstract class CrudService {
     protected array $scopes = [];
 
     /**
+     * @var list<string>
+     */
+    protected array $selects = [];
+
+    /**
      * @var list<array{name: string, title: ?string}>
      */
     protected array $staged = [];
@@ -178,6 +183,15 @@ abstract class CrudService {
 
     public function scope(Closure $scope): static {
         $this->scopes[] = $scope;
+
+        return $this;
+    }
+
+    /**
+     * @param list<string> $selects
+     */
+    public function selects(array $selects): static {
+        $this->selects = $selects;
 
         return $this;
     }
@@ -766,6 +780,19 @@ abstract class CrudService {
      */
     protected function scalars(array $values): bool {
         return array_filter($values, fn (mixed $value): bool => !is_int($value) && !is_string($value)) === [];
+    }
+
+    /**
+     * @param Builder<Model> $query
+     * @param list<string> $fields
+     */
+    protected function select(Builder $query, array $fields): void {
+        $present = array_column($this->columns, 'name');
+        $missing = array_values(array_diff(array_unique($fields), $present));
+
+        if ($missing !== []) {
+            $query->addSelect(array_map(fn (string $field): string => "{$this->plan()->table()}.{$field}", $missing));
+        }
     }
 
     /**

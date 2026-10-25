@@ -80,6 +80,7 @@ class ExportService extends CrudService {
         $items = Arr::wrap(array_get_value($values, 'id'));
         $query = $this->projection();
 
+        $this->select($query, $this->selects);
         $this->filter($query, $filters);
 
         if ($items !== []) {
