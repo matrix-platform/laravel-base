@@ -136,7 +136,7 @@ class PasskeyService {
     public function register(User $user, string $challenge, array $credential, string $name): PasskeyCredential {
         $options = Cache::pull(self::REGISTRATION_PREFIX . $challenge);
 
-        if (!$options instanceof PublicKeyCredentialCreationOptions) {
+        if (!$options instanceof PublicKeyCredentialCreationOptions || $options->user->id !== (string) $user->id) {
             invalid('challenge', 'invalid-challenge');
         }
 

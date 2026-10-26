@@ -137,6 +137,16 @@ class PasskeyServiceTest extends FeatureTestCase {
         $this->refusesField('challenge', 'invalid-challenge', fn () => $this->service()->register($user, $options['challenge'], $response, 'my device'));
     }
 
+    public function test_a_registration_challenge_issued_to_another_user_is_rejected(): void {
+        $issuer = UserFactory::new()->createOne();
+        $victim = UserFactory::new()->createOne();
+        $options = $this->service()->registrationOptions($issuer);
+        $response = (new PasskeyAuthenticator())->registrationResponse(Base64UrlSafe::decodeNoPadding($options['challenge']), self::RP_ID, self::ORIGIN);
+
+        $this->refusesField('challenge', 'invalid-challenge', fn () => $this->service()->register($victim, $options['challenge'], $response, 'my device'));
+        $this->assertFalse(PasskeyCredential::query()->exists());
+    }
+
     public function test_authentication_options_never_include_allow_credentials(): void {
         $user = UserFactory::new()->createOne();
         $this->register($user);
