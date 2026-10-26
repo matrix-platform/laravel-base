@@ -14,11 +14,7 @@ class LoginThrottleMiddleware {
     public function handle(Request $request, Closure $next, string $bundle): mixed {
         $name = "matrix-login-{$bundle}";
 
-        $limiter = new LoginRateLimiter($bundle);
-
-        RateLimiter::for($name, $limiter(...));
-
-        $limit = $limiter($request);
+        $limit = (new LoginRateLimiter($bundle))($request);
         $key = "{$name}|{$limit->key}";
 
         if (RateLimiter::increment($key, $limit->decaySeconds) > $limit->maxAttempts) {
