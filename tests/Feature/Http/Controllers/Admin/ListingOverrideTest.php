@@ -56,4 +56,14 @@ class ListingOverrideTest extends FeatureTestCase {
         $this->assertSame(['Beta'], array_column($rows, 'title'));
     }
 
+    public function test_an_export_builds_the_listing_once(): void {
+        $token = UserFactory::new()->createOne(['id' => User::ROOT])->createToken();
+
+        ListingWidgetController::$listings = 0;
+
+        $this->withToken($token)->postJson('admin/listing-widget/export');
+
+        $this->assertSame(1, ListingWidgetController::$listings);
+    }
+
 }

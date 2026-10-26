@@ -272,9 +272,11 @@ abstract class CrudController extends BaseController {
     }
 
     protected function onExport(ExportService $service): ExportService {
+        $listing = $this->listing();
+
         return $this->filtered($service)
-            ->columns($this->exporting())
-            ->filterColumns($this->listing())
+            ->columns($this->exports === null ? $listing : $this->exports)
+            ->filterColumns($listing)
             ->optionals($this->optionals())
             ->selectable($this->exports === null)
             ->selects($this->selects)
@@ -458,13 +460,6 @@ abstract class CrudController extends BaseController {
         $ranking = $this->ranking();
 
         return $ranking !== null && $this->sorting === ["-{$ranking}"];
-    }
-
-    /**
-     * @return list<string|array<string, mixed>>
-     */
-    private function exporting(): array {
-        return $this->exports === null ? $this->listing() : $this->exports;
     }
 
     /**
