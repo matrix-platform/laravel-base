@@ -17,7 +17,10 @@ class WebPushDriver implements Driver {
     public function send(MessageLog $log): string {
         $bundle = $log->provider;
         $sandbox = Sandbox::recipient($bundle);
-        $subscriptions = PushSubscription::query()->where('member_id', $sandbox === null ? $log->member_id : intval($sandbox))->get();
+        $subscriptions = PushSubscription::query()
+            ->where('member_id', $sandbox === null ? $log->member_id : intval($sandbox))
+            ->get()
+            ->filter(fn (PushSubscription $subscription): bool => PushSubscription::supports($subscription->endpoint));
 
         if ($subscriptions->isEmpty()) {
             error('push-subscription-not-found');

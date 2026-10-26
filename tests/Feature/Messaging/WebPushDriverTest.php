@@ -22,6 +22,8 @@ class WebPushDriverTest extends FeatureTestCase {
 
         $keys = VAPID::createVapidKeys();
 
+        config(['matrix.webpush-hosts' => ['push.example.test']]);
+
         $this->useCfg('webpush', [
             'subject' => 'mailto:test@example.com',
             'public-key' => $keys['publicKey'],
@@ -62,11 +64,11 @@ class WebPushDriverTest extends FeatureTestCase {
         $this->useCfg('webpush-sandboxed', array_merge(['public-key' => $keys['publicKey'], 'private-key' => $keys['privateKey']], $overrides));
     }
 
-    private function subscription(int $memberId = 1): PushSubscription {
+    private function subscription(int $memberId = 1, ?string $endpoint = null): PushSubscription {
         $subscription = new PushSubscription();
 
         $subscription->member_id = $memberId;
-        $subscription->endpoint = 'https://push.example.test/' . uniqid();
+        $subscription->endpoint = $endpoint === null ? 'https://push.example.test/' . uniqid() : $endpoint;
         $subscription->p256dh = VAPID::createVapidKeys()['publicKey'];
         $subscription->auth = Base64Url::encode(random_bytes(16));
 
@@ -99,6 +101,26 @@ class WebPushDriverTest extends FeatureTestCase {
 
         $this->assertNotNull($active->fresh());
         $this->assertNull($expired->fresh());
+    }
+
+    public function test_an_endpoint_outside_the_push_services_is_skipped_and_kept(): void {
+        $allowed = $this->subscription();
+        $blocked = $this->subscription(endpoint: 'https://10.0.0.5/hook');
+        $handler = new MockHandler([new Response(201), new Response(201)]);
+
+        app()->instance(ClientInterface::class, new Client(['handler' => HandlerStack::create($handler)]));
+
+        $response = (new WebPushDriver())->send($this->log());
+
+        $this->assertSame($allowed->endpoint, $response);
+        $this->assertSame(1, $handler->count());
+        $this->assertNotNull($blocked->fresh());
+    }
+
+    public function test_a_receiver_with_only_unsupported_endpoints_is_refused(): void {
+        $this->subscription(endpoint: 'https://10.0.0.5/hook');
+
+        $this->refuses('push-subscription-not-found', fn () => (new WebPushDriver())->send($this->log()));
     }
 
     public function test_a_receiver_with_no_subscriptions_is_refused(): void {

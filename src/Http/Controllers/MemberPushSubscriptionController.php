@@ -3,7 +3,6 @@
 namespace MatrixPlatform\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use MatrixPlatform\Attributes\Action;
 use MatrixPlatform\Models\PushSubscription;
 
@@ -22,7 +21,7 @@ class MemberPushSubscriptionController extends BaseController {
 
         $endpoint = $request->string('endpoint')->value();
 
-        if (!$this->supported($endpoint)) {
+        if (!PushSubscription::supports($endpoint)) {
             invalid('endpoint', 'unsupported-push-endpoint');
         }
 
@@ -53,24 +52,6 @@ class MemberPushSubscriptionController extends BaseController {
         $subscription?->delete();
 
         return [];
-    }
-
-    private function supported(string $endpoint): bool {
-        $host = parse_url($endpoint, PHP_URL_HOST);
-
-        if (parse_url($endpoint, PHP_URL_SCHEME) !== 'https' || !is_string($host)) {
-            return false;
-        }
-
-        $hosts = config('matrix.webpush-hosts');
-
-        foreach (is_array($hosts) ? $hosts : [] as $pattern) {
-            if (is_string($pattern) && Str::is(strtolower($pattern), strtolower($host))) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
 }
