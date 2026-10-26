@@ -35,6 +35,14 @@ class ActionRoutes {
         }
     }
 
+    /**
+     * @param class-string $controller
+     * @return class-string
+     */
+    private static function concrete(string $controller): string {
+        return app()->bound($controller) ? app($controller)::class : $controller;
+    }
+
     public static function controller(string $prefix): ?string {
         $stripped = strval(config('matrix.admin-api-prefix')) . '/';
 
@@ -118,6 +126,7 @@ class ActionRoutes {
      * @param class-string $controller
      */
     public static function scan(string $controller, ?string $scope = null, ?string $mount = null): void {
+        $controller = self::concrete($controller);
         $listed = self::listed();
         $routes = self::resolve($controller, $scope);
         $literals = array_unique(array_map(fn (array $route): string => preg_quote(Str::before($route['path'], '/'), '/'), array_filter($routes, fn (array $route): bool => $route['path'] !== '' && !str_starts_with($route['path'], '{'))));
