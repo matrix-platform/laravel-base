@@ -2,6 +2,7 @@
 
 namespace MatrixPlatform\Columns\Syntax;
 
+use Closure;
 use Illuminate\Support\Arr;
 use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Columns\Options\OptionProvider;
@@ -75,6 +76,7 @@ class ColumnParser {
 
         $expression = $this->expression(str_replace('{locale}', app()->getLocale(), $source));
         $sortable = array_get_value($given, 'sortable');
+        $assign = array_get_value($given, 'assign');
 
         return new ParsedColumn(
             $expression,
@@ -97,7 +99,8 @@ class ColumnParser {
             $this->text(array_get_value($given, 'section')),
             $this->text(array_get_value($given, 'title')),
             $type === null ? null : ColumnType::tryFrom($type),
-            $virtual
+            $virtual,
+            $assign instanceof Closure ? $assign : null
         );
     }
 

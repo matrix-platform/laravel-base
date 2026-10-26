@@ -240,6 +240,12 @@ abstract class CrudService {
         }
 
         $this->assignComposites($model, $values);
+
+        foreach ($this->columns as $column) {
+            if ($column->virtual && $column->assign !== null && $this->writable($column) && array_key_exists($column->name, $values)) {
+                ($column->assign)($model, $values[$column->name]);
+            }
+        }
     }
 
     /**
@@ -757,14 +763,14 @@ abstract class CrudService {
     protected function rules(int|string|null $ignoreId = null): array {
         $rules = [];
 
-        foreach ($this->local() as $column) {
+        foreach ($this->columns as $column) {
             if (!$this->writable($column)) {
                 continue;
             }
 
             $rule = $column->rule === [] ? [$column->type->rule()] : $column->rule;
             $rule = $this->composed($column) ? $rule : [...$rule, ...$this->range($column, $rule)];
-            $prefix = $column->required ? ['required'] : ['present', 'nullable'];
+            $prefix = $column->required ? ['required'] : ($column->virtual ? ['nullable'] : ['present', 'nullable']);
             $keys = $column->translatable ? $this->translated($column) : [$column->name];
 
             foreach ($keys as $key) {

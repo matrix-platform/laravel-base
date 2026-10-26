@@ -65,7 +65,8 @@ class ColumnResolver {
             $definition !== null && $definition->unique,
             $definition?->group,
             $virtual,
-            $definition === null ? [] : $definition->props
+            $definition === null ? [] : $definition->props,
+            $column->assign
         );
     }
 

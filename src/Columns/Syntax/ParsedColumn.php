@@ -2,6 +2,7 @@
 
 namespace MatrixPlatform\Columns\Syntax;
 
+use Closure;
 use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Columns\Options\OptionProvider;
 use MatrixPlatform\Columns\Presentation;
@@ -33,7 +34,8 @@ class ParsedColumn {
         public readonly ?string $section,
         public readonly ?string $title,
         public readonly ?ColumnType $type,
-        public readonly bool $virtual
+        public readonly bool $virtual,
+        public readonly ?Closure $assign = null
     ) {}
 
 }

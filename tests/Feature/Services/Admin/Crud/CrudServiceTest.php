@@ -217,6 +217,68 @@ class CrudServiceTest extends FeatureTestCase {
         $this->assertTrue($columns[0]['writable']);
     }
 
+    public function test_a_required_virtual_column_rejects_a_missing_value(): void {
+        $this->expectException(ValidationException::class);
+
+        (new InsertService(Widget::class))
+            ->standalone(true)
+            ->columns(['*title', ['name' => '+nickname', 'required' => true]])
+            ->insert(['title' => 'Plain']);
+    }
+
+    public function test_an_optional_virtual_column_may_be_left_out(): void {
+        (new InsertService(Widget::class))
+            ->standalone(true)
+            ->columns(['*title', ['name' => '+nickname', 'rule' => ['max:3']]])
+            ->insert(['title' => 'Plain']);
+
+        $this->assertSame('Plain', Widget::query()->sole()->title);
+    }
+
+    public function test_a_virtual_column_enforces_its_declared_rule(): void {
+        $this->expectException(ValidationException::class);
+
+        (new InsertService(Widget::class))
+            ->standalone(true)
+            ->columns(['*title', ['name' => '+nickname', 'rule' => ['max:3']]])
+            ->insert(['title' => 'Plain', 'nickname' => 'too long']);
+    }
+
+    public function test_a_virtual_column_assign_writes_the_validated_value_on_insert(): void {
+        $columns = [['name' => '+label', 'assign' => fn (Widget $widget, mixed $value) => $widget->setAttribute('title', strtoupper(strval($value)))]];
+
+        (new InsertService(Widget::class))
+            ->standalone(true)
+            ->columns($columns)
+            ->insert(['label' => 'shout']);
+
+        $this->assertSame('SHOUT', Widget::query()->sole()->title);
+    }
+
+    public function test_a_virtual_column_assign_writes_the_validated_value_on_update(): void {
+        $widget = $this->widgets();
+        $columns = [['name' => '+label', 'assign' => fn (Widget $widget, mixed $value) => $widget->setAttribute('title', strtoupper(strval($value)))]];
+
+        (new UpdateService(Widget::class))
+            ->standalone(true)
+            ->columns($columns)
+            ->update($widget->id, ['label' => 'renamed']);
+
+        $this->assertSame('RENAMED', Widget::query()->sole()->title);
+    }
+
+    public function test_a_readonly_virtual_column_is_neither_validated_nor_assigned(): void {
+        $widget = $this->widgets();
+        $columns = [['name' => '+label', 'readonly' => true, 'required' => true, 'assign' => fn (Widget $widget) => $widget->setAttribute('title', 'assigned')]];
+
+        (new UpdateService(Widget::class))
+            ->standalone(true)
+            ->columns(['*title', ...$columns])
+            ->update($widget->id, ['title' => 'kept', 'label' => 'ignored']);
+
+        $this->assertSame('kept', Widget::query()->sole()->title);
+    }
+
     public function test_a_joined_column_is_never_writable_even_when_not_virtual(): void {
         $columns = (new ListService(Trinket::class))->standalone(true)->columns(['widget.title'])->list([])['columns'];
 

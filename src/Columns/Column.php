@@ -2,6 +2,7 @@
 
 namespace MatrixPlatform\Columns;
 
+use Closure;
 use MatrixPlatform\Columns\Options\OptionProvider;
 use MatrixPlatform\Columns\Syntax\Expression;
 
@@ -35,7 +36,8 @@ class Column {
         public readonly bool $unique,
         public readonly ?string $variantGroup,
         public readonly bool $virtual,
-        public readonly array $props = []
+        public readonly array $props = [],
+        public readonly ?Closure $assign = null
     ) {}
 
 }

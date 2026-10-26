@@ -575,7 +575,7 @@ closure 拿到的 `$filter` 是前端送來的條件,`op` 已確認在宣告的 
 
 **編輯頁（`get`）會自動在「其他」區塊唯讀顯示稽核欄位,不用設定。** 只要宣告有 `Definitions::auditings()`,`onGet()` 就在 `$updates`(或自動推導的欄位)後面依宣告順序補上 `creator`、`!create_time`、`updater`、`!update_time`(`auditings(false)` 只補前兩個)。`creator` / `updater` 是關聯欄位 `creator=creator.username`、`updater=updater.username`:`BaseModel` 內建 `creator()`、`updater()` 兩個關聯(`BelongsTo` 到 `Operator`,即 `base_operator`),直接 join 出帳號名稱,以唯讀(前端停用)的文字欄位呈現。`Definitions::auditings()` 本身帶 `section: 'other'`,關聯欄位則用陣列語法的 `section` 鍵指定區塊。新增頁、存檔(`insert` / `update`)不含這些欄位,送上來的值會被忽略。`$updates` 已經放了同名欄位時以 `$updates` 為準;同名欄位只取第一個,所以在 `parent::onGet()` 之後再 `columns()` 同名欄位不會生效。不想要就覆寫 `onGet()` 且不呼叫 `parent::onGet()`。標題在套件的 `model/default.php`。清單要顯示建立者,寫 `creator=creator.username`;直接寫 `creator_id` 會因為有 `creator()` 關聯而自動變成下拉選項,把整張 `base_operator` 讀進來。
 
-**新增頁（`new`）的 `data` 只有四個來源:** 每個本表可寫欄位先給 `null`、巢狀路由上的父層外鍵、body 裡**已宣告且可寫**的值(原樣反映回來)、composite 的 `Presets` 預設值。跨關聯欄位(`tour_name=tour.name`)一定是空的——model 是新建的,沒有 join;guard 也不執行(那是寫入規則)。要預設值就在覆寫的 `new()` 裡 `mergeIfMissing`,要顯示關聯資料就自己補進回應:
+**新增頁（`new`）的 `data` 只有四個來源:** 每個本表欄位(含唯讀,不含虛擬欄位)先給 `null`、巢狀路由上的父層外鍵、body 裡**已宣告且可寫**的本表欄位值(原樣反映回來;虛擬欄位的值不會反映)、composite 的 `Presets` 預設值。跨關聯欄位(`tour_name=tour.name`)一定是空的——model 是新建的,沒有 join;guard 也不執行(那是寫入規則)。要預設值就在覆寫的 `new()` 裡 `mergeIfMissing`,要顯示關聯資料就自己補進回應:
 
 ```php
 public function new(Request $request): array {
@@ -1491,7 +1491,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 
 **新增與更新**（`admin/widget/insert`、`admin/widget/{id}/update`）:欄位平鋪在最上層。
 
-> **更新是全量覆寫,不是局部更新。** 每一個可寫欄位都會被加上 `present` 驗證規則 —— 不送就是 422,送 `null` 就是把它清成 null。前端要送完整的表單,不能只送改過的欄位。
+> **更新是全量覆寫,不是局部更新。** 每一個可寫的本表欄位都會被加上 `present` 驗證規則 —— 不送就是 422,送 `null` 就是把它清成 null。前端要送完整的表單,不能只送改過的欄位。例外是虛擬欄位(`+`):它不落庫,非必填的只加 `nullable`,不送就不檢查。
 >
 > **數值欄位預設帶範圍。** `integer` 欄位自動多一條 `between:-2147483648,2147483647`(套件慣例整數欄位是 int4),`float` 欄位自動多一條 `between:±1.7976931348623157e308`(擋 `1e400` 這類無限值),超出範圍回 422,不會在寫入時變成 500。欄位自己的 `rule` 已經有 `between:`,或同時有 `min:` 與 `max:` 時不自動補,以宣告的為準;只寫 `max:`(或只寫 `min:`)時仍會補上,另一側才有保護 —— bigint 欄位要走 CRUD 寫入就宣告 `'between:-9223372036854775808,9223372036854775807'`(或同時寫 `min:`、`max:`)。複合欄位的子欄位存在 JSON 裡,不套用。`float` 欄位寫入時字串會先轉成 float,下溢的值(例如 `1e-400`)存成 0;因為經過 PHP float,`numeric` 欄位超過約 15～17 位有效數字的值會失去精度,需要完整精度的欄位請改宣告成 `text` 自行處理。`matrix:make-crud` 會依資料表欄位型別直接產生對應的 `between`(`smallint`、`bigint`、`real`、`numeric(p,s)`),`float` 欄位也會產生 `float` cast。
 
@@ -1526,7 +1526,13 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 
 清單回應另有 `filters[]`:**只用於篩選、不是資料欄**的欄位描述,形狀同 `columns[]`。前端為每一項畫一個單選下拉(前面補「全部」= 不送),送出格式為 `filters.{name} = { "op": {描述的 op}, "value": ... }`;**不要**畫成表格欄或併進搜尋欄位。目前只有可上下架清單會有一項 `schedule`,其餘清單是空陣列。
 
-**不可寫有三種原因:`readonly` 宣告、`locked` 宣告、以及跨關聯或聚合欄位(`group.title`、`count(orders)`)。** 前兩種在 `columns[]` 上另有 `readonly` / `locked` 鍵看得出來,但判斷能不能編輯時**前端要看 `writable`,不要看 `readonly`** —— 否則第二種會畫出一顆改了完全沒效果的輸入框,而使用者會看到「已儲存」。`virtual`(`+` 前綴)**不影響 `writable`**:虛擬欄位不落庫,但照樣可以收值交給 `guards` / 覆寫的 service 處理。但虛擬欄位**不經過後端驗證**:宣告在它上面的 `rule`、`required` 只會出現在 `columns[]` 給前端參考(前端會據此標示必填),後端不檢查,值也不會寫進 model。要驗證就在 guard 或覆寫的 service 裡自己做,例如 `Validator::make(request()->only('contact_name'), ['contact_name' => ['required', 'max:50']])->validate()`。
+**不可寫有三種原因:`readonly` 宣告、`locked` 宣告、以及跨關聯或聚合欄位(`group.title`、`count(orders)`)。** 前兩種在 `columns[]` 上另有 `readonly` / `locked` 鍵看得出來,但判斷能不能編輯時**前端要看 `writable`,不要看 `readonly`** —— 否則第二種會畫出一顆改了完全沒效果的輸入框,而使用者會看到「已儲存」。`virtual`(`+` 前綴)**不影響 `writable`**:虛擬欄位不落庫,但照樣可以收值交給 `guards` / 覆寫的 service 處理。可寫的虛擬欄位**照樣經過後端驗證**:宣告的 `required`、`rule`(沒宣告就用型別預設規則)和實體欄位一樣檢查,差別是非必填的虛擬欄位只加 `nullable`、不要求 `present`,沒送就不檢查。驗證過的值預設不寫進 model;要寫就在欄位上宣告 `assign`,它在實體欄位都指派完、guard 執行前被呼叫,只在請求有送這個欄位時才呼叫:
+
+```php
+['name' => '+headline', 'required' => true, 'assign' => fn (Model $model, mixed $value) => $model->setAttribute('title', trim(strval($value)))]
+```
+
+`assign` 是 Closure,不能寫在屬性預設值或常數裡,要在 `listing()` / `forming()` / `onInsert()` / `onUpdate()` 等方法裡組欄位。值若由 controller 自己處理、不想讓框架驗證(例如另外寫到關聯資料表、允許部分更新),就別把那個欄位交給 `UpdateService` / `InsertService` 的 `columns()`;表單顯示用的欄位不受影響。
 
 `writable: false` 的欄位不在 `present` 驗證的範圍內,送不送都可以;`writable: true` 的**每一個都必須出現在 body 裡**(非必填的虛擬欄位除外),那與上面「更新是全量覆寫」是同一件事的兩面。
 
@@ -1814,9 +1820,9 @@ php artisan matrix:clear-resource-cache
 |---|---|
 | **匯出會把整張表（套完篩選後）載進記憶體** | 沒有任何上限。大表要匯出請自己做背景任務 |
 | **清單的 `size` 沒有上限,`page` 或 `size` 給 0 以下就一次回整張表（套完篩選後）** | 有該資源 `query` 權限的人本來就翻得到全部資料,所以不是越權,而是一次載入整張表的記憶體與時間成本。大表要擋就靠權限控管或反向代理的逾時;前端的頁數選項只有 10 / 20 / 50 / 100 |
-| **縮圖在第一次請求時同步產生**(`api/files/{path}?size=…` 匿名可打、`admin/drive/{id}/download?size=…`) | 每個檔案、每個 `matrix.thumbnail-sizes` 尺寸只產生一次,之後直接回已存在的縮圖,所以匿名者能觸發的解碼次數上限是「圖檔數 × 尺寸數」。但那一次要在請求裡用 GD 解碼原圖:原圖越大越慢、越吃記憶體(`file.max-size` 出貨不限,超大圖可能讓那個請求記憶體不足而 500),同一張圖同時被第一次請求時也會各解一次。大圖多的站台請限制 `file.max-size`,或在上傳後自己預先打一次各尺寸 |
+| **縮圖在第一次請求時同步產生**(`api/files/{path}?size=…` 匿名可打、`admin/drive/{id}/download?size=…`) | 每個檔案、每個 `matrix.thumbnail-sizes` 尺寸只產生一次,之後直接回已存在的縮圖,所以匿名者能觸發的解碼次數上限是「圖檔數 × 尺寸數」。但那一次要在請求裡用 GD 解碼原圖:原圖越大越慢、越吃記憶體(`file.max-size` 出貨不限,超大圖可能讓那個請求記憶體不足而 500),同一張圖同時被第一次請求時也會各解一次。大圖多的站台請限制 `file.max-size`(只管 `admin/file/upload`;雲端硬碟上傳不受它限制,要擋就在 `DriveService::upload()` 前自己檢查),或在上傳後自己預先打一次各尺寸 |
 | **匯入整批在一個請求、一個交易內處理** | 沒有筆數上限,實際上限由 `post_max_size` 與請求逾時決定 |
-| **`_id` 欄位的下拉選項成本與被參照資料表的列數成正比**:欄位名稱以 `_id` 結尾、model 上又有同名關聯時,沒給其他選項來源就自動掛 `RelationOptions`,清單、編輯頁、新增頁的回應都把整張被參照的表(連同它的父層)讀進來 | 被參照的表上千列時,那份選項就是整個回應的主要體積。避開的方法:外鍵設 `Presentation::Hidden`(清單與表單都不顯示,不讀選項);或在欄位／Definition 明寫 `options`;清單要顯示名稱就改用關聯欄位(`member_name=member.name`),不要把外鍵本身列進清單。上架篩選只在被參照的 model 同時有 enable／disable 時才套用,沒有的話停用的資料也會出現在選項裡 |
+| **`_id` 欄位的下拉選項成本與被參照資料表的列數成正比**:欄位名稱以 `_id` 結尾、model 上又有同名關聯時,沒給其他選項來源就自動掛 `RelationOptions`,清單、編輯頁、新增頁的回應都把整張被參照的表(連同它的父層)讀進來 | 被參照的表上千列時,那份選項就是整個回應的主要體積。避開的方法:外鍵設 `Presentation::Hidden`(清單與表單都不顯示,不讀選項;但同時明寫 `op` 讓它可篩選時仍會讀);或在欄位／Definition 明寫 `options`;清單要顯示名稱就改用關聯欄位(`member_name=member.name`),不要把外鍵本身列進清單。上架篩選只在被參照的 model 同時有 enable／disable 時才套用,沒有的話停用的資料也會出現在選項裡 |
 | **`$sortable` 只該開在資料量有上限的資源上** | 拖曳排序會把整組載進來跑重排演算法 |
 | **排序與拖曳上下架(`sort/save`、`arrange/save`)讀取整組時不上鎖** | 兩人同時對同一組存檔,結果可能是兩次排序的混合(只改到其中一方的列留著那一方的值,ranking 可能重複),偶爾互相等待而死結、其中一方回 500。資料不會遺失,重新排一次即可 |
 | 重排用最長遞增子序列找錨點,tie-break 是次佳選擇 | 最壞情況會把「只改一列」變成「整組重編」 |
