@@ -1271,7 +1271,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | `captcha-recaptcha.endpoint` | `'https://www.google.com/recaptcha/api/siteverify'` | 驗證端點 |
 | `captcha-recaptcha.hostnames` | `''` | 允許的 token 來源網域清單(空白/逗號/分號分隔),對應 siteverify 回應的 `hostname`。**空字串 = 不檢查**,見[已知限制與取捨](#安全) |
 | `captcha-recaptcha.secret` | `''` | 後端密鑰,**出貨是空的,自己填**。空字串不會放行——驗證一律失敗,登入擋下 |
-| `captcha-recaptcha.threshold` | `0.5` | 分數門檻,低於就擋。回應沒有 `score` 時當成 `0.0`(擋下)。後台只接受 0～1 |
+| `captcha-recaptcha.threshold` | `0.5` | 分數門檻,低於就擋。回應沒有 `score` 時一律擋下(門檻設成 0 也一樣)。沒設定時(例如自建的 bundle 漏寫)用 `0.5`。後台只接受 0～1 |
 | `captcha-turnstile.driver` | `TurnstileDriver::class` | Cloudflare Turnstile |
 | `captcha-turnstile.action` | `'login'` | 同 `captcha-recaptcha.action` |
 | `captcha-turnstile.endpoint` | `'https://challenges.cloudflare.com/turnstile/v0/siteverify'` | 驗證端點 |

@@ -95,6 +95,33 @@ class RecaptchaDriverTest extends FeatureTestCase {
         $this->refusesField('code', 'invalid-captcha', fn () => $this->attempt());
     }
 
+    public function test_a_response_without_a_score_is_rejected_even_at_a_zero_threshold(): void {
+        config(['matrix.admin-captcha-provider' => 'captcha-recaptcha']);
+
+        $this->useCfg('captcha-recaptcha', ['secret' => 'test-secret', 'threshold' => 0]);
+        $this->siteverify(['success' => true, 'action' => 'login']);
+
+        $this->refusesField('code', 'invalid-captcha', fn () => $this->attempt());
+    }
+
+    public function test_a_missing_threshold_falls_back_to_the_default_and_rejects_a_low_score(): void {
+        config(['matrix.admin-captcha-provider' => 'captcha-recaptcha']);
+
+        $this->useCfg('captcha-recaptcha', ['secret' => 'test-secret', 'threshold' => null]);
+        $this->siteverify(['success' => true, 'action' => 'login', 'score' => 0.3]);
+
+        $this->refusesField('code', 'invalid-captcha', fn () => $this->attempt());
+    }
+
+    public function test_a_missing_threshold_falls_back_to_the_default_and_accepts_a_high_score(): void {
+        config(['matrix.admin-captcha-provider' => 'captcha-recaptcha']);
+
+        $this->useCfg('captcha-recaptcha', ['secret' => 'test-secret', 'threshold' => null]);
+        $this->siteverify(['success' => true, 'action' => 'login', 'score' => 0.7]);
+
+        $this->assertArrayHasKey('token', $this->attempt());
+    }
+
     public function test_a_response_without_a_score_is_rejected(): void {
         $this->useRecaptcha();
         $this->siteverify(['success' => true, 'action' => 'login']);
