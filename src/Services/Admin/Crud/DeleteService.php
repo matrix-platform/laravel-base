@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOneOrMany;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Arr;
+use MatrixPlatform\Attributes\Unreferenced;
 use ReflectionClass;
 use ReflectionMethod;
 use ReflectionNamedType;
@@ -200,7 +201,8 @@ class DeleteService extends CrudService {
             if ($method->getNumberOfParameters() === 0
                 && $type instanceof ReflectionNamedType
                 && !$type->isBuiltin()
-                && is_a($type->getName(), HasOneOrMany::class, true)) {
+                && is_a($type->getName(), HasOneOrMany::class, true)
+                && $method->getAttributes(Unreferenced::class) === []) {
                 $names[] = $method->getName();
             }
         }

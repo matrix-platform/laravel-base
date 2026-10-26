@@ -21,6 +21,7 @@ use MatrixPlatform\Support\MetadataRegistry;
 use stdClass;
 use Tests\FeatureTestCase;
 use Tests\Stubs\Gizmo;
+use Tests\Stubs\LooseWidget;
 use Tests\Stubs\PremiumWidget;
 use Tests\Stubs\Relic;
 use Tests\Stubs\StubDeclaration;
@@ -574,6 +575,19 @@ class CrudServiceTest extends FeatureTestCase {
         }
 
         $this->fail('the delete was expected to be refused');
+    }
+
+    public function test_a_relation_marked_unreferenced_does_not_block_a_delete(): void {
+        app(MetadataRegistry::class)->register(LooseWidget::class, new StubDeclaration(new Metadata('widget')));
+
+        $widget = LooseWidget::forceCreate(['title' => 'Loose']);
+
+        $this->trinkets($widget->id, ['a']);
+
+        (new DeleteService(LooseWidget::class))->standalone(true)->delete(['id' => $widget->id]);
+
+        $this->assertSame(0, LooseWidget::query()->count());
+        $this->assertSame(1, Trinket::query()->count());
     }
 
     public function test_cascade_delete_still_checks_an_uncascaded_relation_on_a_cascaded_child(): void {
