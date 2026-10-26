@@ -338,6 +338,25 @@ class ListServiceTest extends FeatureTestCase {
         $this->assertSame(['op' => 'contains', 'value' => 'Beta'], $received);
     }
 
+    public function test_a_handlers_or_condition_stays_inside_the_parent(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
+        app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label', 'widget')));
+
+        $mine = $this->widget('Mine');
+        $theirs = $this->widget('Theirs');
+
+        Trinket::forceCreate(['label' => 'shared', 'widget_id' => $mine->id]);
+        Trinket::forceCreate(['label' => 'shared', 'widget_id' => $theirs->id]);
+
+        $result = (new ListService(Trinket::class))
+            ->params(['widget_id' => strval($mine->id)])
+            ->columns(['label', ['name' => '+note', 'type' => 'text', 'op' => 'contains']])
+            ->filterUsing('note', fn (Builder $query, array $filter) => $query->where('label', 'none')->orWhere('label', $filter['value']))
+            ->list(['filters' => ['note' => ['op' => 'contains', 'value' => 'shared']]]);
+
+        $this->assertSame([$mine->id], array_column($result['rows'], 'widget_id'));
+    }
+
     public function test_a_virtual_filter_without_a_handler_is_left_out_instead_of_failing(): void {
         app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
 

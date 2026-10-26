@@ -52,7 +52,7 @@ class Filtering {
             }
 
             if (array_key_exists($name, $handlers)) {
-                $handlers[$name]($query, [...$filter, 'op' => $operator]);
+                $query->where(fn (Builder $nested) => $handlers[$name]($nested, [...$filter, 'op' => $operator]));
 
                 continue;
             }
