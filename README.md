@@ -32,6 +32,7 @@ class WidgetController extends CrudController {
 - [給前端](#給前端) —— [請求形狀](#請求形狀)、[回應形狀](#回應形狀)、[語系](#語系)、[`api/common/page`](#apicommonpage)、[驗證碼](#驗證碼)、[傳輸加密](#傳輸加密)
 - [沿用套件的 lint](#沿用套件的-lint) —— 選用,共用同一套風格檢查([style-check 檢查什麼](#style-check-檢查什麼))
 - [已知限制與取捨](#已知限制與取捨) —— [安全](#安全)、[規模與效能](#規模與效能)、[資料生命週期](#資料生命週期)、[行為細節](#行為細節)、[暫存子項目的取捨](#暫存子項目的取捨)
+- [開發與測試](#開發與測試) —— 用 Docker 跑套件本身的測試與檢查
 
 ---
 
@@ -1941,3 +1942,44 @@ php artisan matrix:clear-resource-cache
 | **`base_menu` 的迴圈與孤兒節點會被靜默丟掉** | 資料完整性由你負責,不會有錯誤訊息 |
 | **上下架篩選的「現在」以 PHP `now()`(app 時區)綁定** | 不用資料庫的 `NOW()`,因為 `timestamp without time zone` 欄位是以 app 時區寫入;結果是查詢當下的快照 |
 | **`whereActive()`／`whereExpired()`／`whereNotExpired()` 的欄位一律加 model 表名** | 以 `qualifyColumn()` 補成 `表.欄位`,查詢 join 了同樣有 `enable_time` 的表也不會 ambiguous;已帶表名(含 `.`)的欄位原樣使用。條件只套在 model 自己的表,要判斷 join 進來的表請在 `whereHas()` 裡呼叫 |
+
+---
+
+## 開發與測試
+
+修改套件本身時，用 repo 附的 `compose.yaml` 在容器裡測試，不必在本機裝 PHP 與 PostgreSQL。以下指令都在 laravel-base 目錄執行。
+
+**啟動**(第一次會建映像,之後很快)
+
+```sh
+docker compose up -d
+docker compose exec php composer install   # 第一次使用、還沒有 vendor/ 時
+```
+
+**跑測試**
+
+```sh
+docker compose exec php composer test                                  # 全套
+docker compose exec php vendor/bin/phpunit tests/Feature/Database      # 指定目錄或檔案
+docker compose exec php vendor/bin/phpunit --filter=測試方法名稱         # 指定測試
+docker compose exec php vendor/bin/phpunit --testsuite=Unit            # 只跑 Unit 或 Feature
+```
+
+**其他檢查**
+
+```sh
+docker compose exec php composer stan       # PHPStan
+docker compose exec php composer lint       # 程式風格檢查
+docker compose exec php composer format     # 自動修正程式風格
+docker compose exec php composer coverage   # 覆蓋率,結果在 build/coverage/clover.xml
+```
+
+**停止**
+
+```sh
+docker compose down
+```
+
+- 每次跑測試都會重建測試資料庫 `laravel_base_test`,跑完就刪掉,不必先準備資料。
+- PostgreSQL 的資料只放在記憶體,`down` 之後就清空,不影響測試。
+- Xdebug 平常關閉,只有 `composer coverage` 會開啟。

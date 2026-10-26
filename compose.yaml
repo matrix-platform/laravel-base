@@ -1,0 +1,30 @@
+name: laravel-base
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+    tmpfs:
+      - /var/lib/postgresql/data
+    restart: unless-stopped
+
+  php:
+    build:
+      context: docker
+      dockerfile: dev.Dockerfile
+    image: laravel-base-dev
+    command: sleep infinity
+    environment:
+      DB_HOST: postgres
+      TEST_DATABASE_ALLOWED_HOSTS: postgres
+      XDEBUG_MODE: "off"
+    volumes:
+      - .:/workspace
+      - composer-cache:/root/.composer/cache
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  composer-cache:
