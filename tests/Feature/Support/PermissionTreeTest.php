@@ -162,4 +162,12 @@ class PermissionTreeTest extends FeatureTestCase {
         $this->assertSame(['user' => ['query' => true, 'insert' => true]], $revised);
     }
 
+    public function test_a_revision_keeps_stored_grants_outside_the_tree(): void {
+        $this->useMenuFixtures('authority');
+
+        $revised = app(PermissionTree::class)->revise(['nowhere' => ['query' => true], 'user' => ['delete' => true]], ['nowhere' => [], 'user' => ['query' => true]]);
+
+        $this->assertSame(['nowhere' => ['query' => true], 'user' => ['query' => true]], $revised);
+    }
+
 }

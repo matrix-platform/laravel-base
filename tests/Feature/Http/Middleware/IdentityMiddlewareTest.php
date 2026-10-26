@@ -246,40 +246,27 @@ class IdentityMiddlewareTest extends FeatureTestCase {
             ->assertJson(['code' => 401, 'error' => 'invalid-token']);
     }
 
-    public function test_a_member_model_pointing_at_a_missing_class_is_reported(): void {
-        $token = $this->token(IdentityType::Member);
+    /**
+     * @return array<string, array{IdentityType, string, ?string}>
+     */
+    public static function misconfiguredModels(): array {
+        return [
+            'member missing class' => [IdentityType::Member, 'member-model', 'MatrixPlatform\Models\Nonexistent'],
+            'member non-model class' => [IdentityType::Member, 'member-model', StubDeclaration::class],
+            'member unrelated model' => [IdentityType::Member, 'member-model', User::class],
+            'member null' => [IdentityType::Member, 'member-model', null],
+            'vendor unrelated model' => [IdentityType::Vendor, 'vendor-model', Member::class]
+        ];
+    }
 
-        config()->set('matrix.member-model', 'MatrixPlatform\Models\Nonexistent');
+    #[DataProvider('misconfiguredModels')]
+    public function test_a_misconfigured_identity_model_is_reported(IdentityType $type, string $key, ?string $class): void {
+        $token = $this->token($type);
 
-        $this->reach(IdentityType::Member, $token)
+        config()->set("matrix.{$key}", $class);
+
+        $this->reach($type, $token)
             ->assertJson(['success' => false, 'code' => 500, 'error' => 'invalid-identity-model']);
-    }
-
-    public function test_a_member_model_pointing_at_a_non_model_class_is_reported(): void {
-        $token = $this->token(IdentityType::Member);
-
-        config()->set('matrix.member-model', StubDeclaration::class);
-
-        $this->reach(IdentityType::Member, $token)
-            ->assertJson(['code' => 500, 'error' => 'invalid-identity-model']);
-    }
-
-    public function test_a_member_model_unrelated_to_member_is_reported(): void {
-        $token = $this->token(IdentityType::Member);
-
-        config()->set('matrix.member-model', User::class);
-
-        $this->reach(IdentityType::Member, $token)
-            ->assertJson(['code' => 500, 'error' => 'invalid-identity-model']);
-    }
-
-    public function test_a_member_model_set_to_null_is_reported(): void {
-        $token = $this->token(IdentityType::Member);
-
-        config()->set('matrix.member-model', null);
-
-        $this->reach(IdentityType::Member, $token)
-            ->assertJson(['code' => 500, 'error' => 'invalid-identity-model']);
     }
 
     public function test_a_member_subclass_is_resolved_as_the_subclass(): void {
@@ -296,24 +283,6 @@ class IdentityMiddlewareTest extends FeatureTestCase {
     public function test_the_default_member_model_resolves_to_the_shipped_class(): void {
         $this->reach(IdentityType::Member, $this->token(IdentityType::Member))
             ->assertJsonPath('class', Member::class);
-    }
-
-    public function test_a_vendor_model_unrelated_to_vendor_is_reported(): void {
-        $token = $this->token(IdentityType::Vendor);
-
-        config()->set('matrix.vendor-model', Member::class);
-
-        $this->reach(IdentityType::Vendor, $token)
-            ->assertJson(['code' => 500, 'error' => 'invalid-identity-model']);
-    }
-
-    public function test_a_vendor_model_pointing_at_a_missing_class_is_reported(): void {
-        $token = $this->token(IdentityType::Vendor);
-
-        config()->set('matrix.vendor-model', 'MatrixPlatform\Models\Nonexistent');
-
-        $this->reach(IdentityType::Vendor, $token)
-            ->assertJson(['code' => 500, 'error' => 'invalid-identity-model']);
     }
 
     public function test_a_configuration_error_stays_hidden_until_a_valid_token_arrives(): void {

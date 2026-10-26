@@ -88,10 +88,6 @@ class UserControllerTest extends FeatureTestCase {
         return UserFactory::new()->createOne(['id' => $id, 'permissions' => $permissions])->createToken();
     }
 
-    public function test_a_valid_token_reaches_the_listing_through_both_middlewares(): void {
-        $this->send($this->signIn(User::ROOT), 'admin/user')->assertJsonPath('success', true);
-    }
-
     public function test_the_listing_joins_the_group_title_and_labels_the_boolean(): void {
         $group = GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors']);
 
@@ -399,12 +395,6 @@ class UserControllerTest extends FeatureTestCase {
         $response->assertJsonPath('error', 'permission-denied');
     }
 
-    public function test_a_regular_user_reaches_the_listing_once_granted(): void {
-        $token = $this->signIn(self::REGULAR, ['user' => ['query' => true]]);
-
-        $this->send($token, 'admin/user')->assertJsonPath('success', true);
-    }
-
     public function test_a_regular_user_without_further_grants_sees_no_page_actions(): void {
         $token = $this->signIn(self::REGULAR, ['user' => ['query' => true]]);
 
@@ -485,14 +475,6 @@ class UserControllerTest extends FeatureTestCase {
         $this->send($token, 'admin/user/600')->assertJsonPath('data.data.username', 'peer-admin');
     }
 
-    public function test_root_can_read_an_admin_account(): void {
-        UserFactory::new()->createOne(['id' => self::ADMIN, 'username' => 'admin-account']);
-
-        $token = $this->signIn(User::ROOT);
-
-        $this->send($token, 'admin/user/' . self::ADMIN)->assertJsonPath('data.data.username', 'admin-account');
-    }
-
     public function test_the_account_resource_offers_no_copy_export_or_sort(): void {
         $token = $this->signIn(User::ROOT);
 
@@ -523,9 +505,28 @@ class UserControllerTest extends FeatureTestCase {
         $this->send($token, 'admin/user/6000/disable-mfa')->assertJsonPath('success', true);
 
         $fresh = User::query()->findOrFail(6000);
+        $log = UserLog::query()->where('type', UserLogType::MfaDisabled)->sole();
 
         $this->assertNull($fresh->secret);
         $this->assertNull($fresh->confirmed_time);
+        $this->assertSame(6000, $log->user_id);
+        $this->assertSame(self::ADMIN, $log->creator_id);
+    }
+
+    public function test_disabling_mfa_or_revoking_passkeys_requires_the_update_grant(): void {
+        $peer = UserFactory::new()->createOne(['id' => 6000, 'username' => 'visible-regular']);
+
+        $this->enableMfa($peer);
+        PasskeyCredentialFactory::new()->createOne(['user_id' => 6000]);
+
+        $token = $this->signIn(self::REGULAR, ['user' => ['query' => true, 'delete' => true]]);
+
+        foreach (['disable-mfa', 'revoke-passkeys'] as $action) {
+            $this->send($token, "admin/user/6000/{$action}")->assertJson(['code' => 403, 'error' => 'permission-denied']);
+        }
+
+        $this->assertTrue(User::query()->findOrFail(6000)->hasMfaEnabled());
+        $this->assertSame(1, PasskeyCredential::query()->where('user_id', 6000)->count());
     }
 
     public function test_the_disable_mfa_row_action_only_shows_up_for_accounts_with_mfa_enabled(): void {

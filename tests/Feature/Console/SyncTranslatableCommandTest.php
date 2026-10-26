@@ -10,6 +10,7 @@ use MatrixPlatform\Models\AnotherProbe;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
 use MatrixPlatform\Support\PackageRegistry;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\FeatureTestCase;
 use Tests\Stubs\StubDeclaration;
 
@@ -32,9 +33,19 @@ class SyncTranslatableCommandTest extends FeatureTestCase {
         AnotherProbe::forceCreate(['id' => 2, 'translated__tw' => 'Gamma', 'translated__en' => 'Delta']);
     }
 
-    private function declare(string $model, string $field): void {
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function uncopiedUniqueIndexes(): array {
+        return [
+            'a partial unique index' => ['CREATE UNIQUE INDEX stub_widget_translated__tw_partial ON stub_widget (translated__tw) WHERE id > 0'],
+            'a composite unique constraint' => ['ALTER TABLE stub_widget ADD CONSTRAINT stub_widget_translated__tw_id_unique UNIQUE (translated__tw, id)']
+        ];
+    }
+
+    private function declare(string $model, string $field, bool $translatable = true): void {
         app(MetadataRegistry::class)->register($model, new StubDeclaration(new Metadata('probe'), [
-            $field => Definition::text(translatable: true)
+            $field => Definition::text(translatable: $translatable)
         ]));
     }
 
@@ -98,6 +109,28 @@ class SyncTranslatableCommandTest extends FeatureTestCase {
         $this->assertFalse(DB::table('pg_indexes')->where('tablename', 'stub_gadget')->where('indexname', 'like', '%translated__fr_unique')->exists());
     }
 
+    #[DataProvider('uncopiedUniqueIndexes')]
+    public function test_a_partial_or_composite_unique_index_is_not_copied(string $statement): void {
+        DB::statement($statement);
+
+        config(['matrix.locales' => 'tw en fr']);
+
+        $this->artisanCommand('matrix:sync-translatable')->assertExitCode(0);
+
+        $this->assertTrue(Schema::hasColumn('stub_widget', 'translated__fr'));
+        $this->assertFalse(DB::table('pg_indexes')->where('tablename', 'stub_widget')->where('indexname', 'stub_widget_translated__fr_unique')->exists());
+    }
+
+    public function test_a_field_that_is_not_translatable_gets_no_new_locale_column(): void {
+        DB::statement('ALTER TABLE stub_widget ADD COLUMN caption__tw text');
+
+        $this->declare('App\\Models\\Probe', 'caption', false);
+
+        $this->artisanCommand('matrix:sync-translatable')->assertExitCode(0);
+
+        $this->assertFalse(Schema::hasColumn('stub_widget', 'caption__en'));
+    }
+
     public function test_identifiers_are_quoted(): void {
         DB::statement('ALTER TABLE stub_widget ADD COLUMN "Caption__tw" text');
 
@@ -126,16 +159,6 @@ class SyncTranslatableCommandTest extends FeatureTestCase {
         $this->artisanCommand('matrix:sync-translatable')->assertExitCode(0);
 
         $this->assertTrue(Schema::hasColumn('stub_widget', 'translated__fr'));
-    }
-
-    public function test_a_locale_that_already_has_its_column_is_left_alone(): void {
-        $before = Probe::query()->findOrFail(1)->getAttributes();
-
-        $this->artisanCommand('matrix:sync-translatable')->assertExitCode(0);
-
-        $after = Probe::query()->findOrFail(1)->getAttributes();
-
-        $this->assertSame($before, $after);
     }
 
     public function test_an_unloadable_model_file_is_reported_instead_of_silently_skipped(): void {

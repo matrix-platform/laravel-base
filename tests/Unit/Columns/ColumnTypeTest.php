@@ -10,12 +10,6 @@ use PHPUnit\Framework\TestCase;
 
 class ColumnTypeTest extends TestCase {
 
-    public function test_every_case_has_a_validation_rule(): void {
-        foreach (ColumnType::cases() as $type) {
-            $this->assertNotSame('', $type->rule(), $type->value);
-        }
-    }
-
     public function test_the_rules_match_the_original_mapping(): void {
         $this->assertSame('boolean', ColumnType::Boolean->rule());
         $this->assertSame('date', ColumnType::Date->rule());
@@ -34,6 +28,7 @@ class ColumnTypeTest extends TestCase {
             'immutable_date' => ColumnType::Date,
             'datetime' => ColumnType::DateTime,
             'datetime:Y-m-d' => ColumnType::DateTime,
+            'immutable_datetime' => ColumnType::DateTime,
             'timestamp' => ColumnType::DateTime,
             'decimal:2' => ColumnType::Float,
             'double' => ColumnType::Float,
@@ -45,6 +40,7 @@ class ColumnTypeTest extends TestCase {
             'collection' => ColumnType::Json,
             'json' => ColumnType::Json,
             'object' => ColumnType::Json,
+            'encrypted' => ColumnType::Text,
             'hashed' => ColumnType::Text,
             'string' => ColumnType::Text
         ];

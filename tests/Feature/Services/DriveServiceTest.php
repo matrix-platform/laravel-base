@@ -84,6 +84,7 @@ class DriveServiceTest extends FeatureTestCase {
         $this->assertNotNull($second);
         $this->assertSame($group->id, $first->id);
         $this->assertSame($first->id, $second->id);
+        $this->assertSame($group->title__en, $first->name);
         $this->assertNull($first->parent_id);
     }
 
@@ -166,6 +167,20 @@ class DriveServiceTest extends FeatureTestCase {
         $second = $service->upload($root, $this->blob('report.pdf', 'second'), $owner);
 
         $this->assertSame('report (1).pdf', $second->name);
+    }
+
+    public function test_upload_auto_renames_a_name_without_an_extension_to_the_next_free_index(): void {
+        $service = $this->service();
+        $root = $service->root();
+        $owner = $this->user();
+
+        $names = [];
+
+        foreach (['first', 'second', 'third'] as $content) {
+            $names[] = $service->upload($root, $this->blob('notes', $content), $owner)->name;
+        }
+
+        $this->assertSame(['notes', 'notes (1)', 'notes (2)'], $names);
     }
 
     public function test_uploading_an_image_records_its_dimensions(): void {
@@ -299,6 +314,23 @@ class DriveServiceTest extends FeatureTestCase {
         $this->assertCount(1, Storage::disk('local')->allFiles('drive/' . date('Ym')));
     }
 
+    public function test_upload_stores_the_content_again_when_its_duplicate_is_gone_from_the_disk(): void {
+        $this->useCfg('drive', ['deduplicate' => true]);
+
+        $service = $this->service();
+        $root = $service->root();
+        $owner = $this->user();
+
+        $first = $service->upload($root, $this->blob('a.bin', 'same-content'), $owner);
+
+        Storage::disk('local')->delete($service->location($first));
+
+        $second = $service->upload($root, $this->blob('b.bin', 'same-content'), $owner);
+
+        $this->assertNotSame($first->path, $second->path);
+        Storage::disk('local')->assertExists($service->location($second));
+    }
+
     public function test_upload_does_not_deduplicate_when_disabled(): void {
         $this->useCfg('drive', ['deduplicate' => false]);
 
@@ -421,6 +453,25 @@ class DriveServiceTest extends FeatureTestCase {
         $this->assertSame(['recent'], $names);
     }
 
+    public function test_trashed_with_an_explicit_day_window_overrides_the_configured_one(): void {
+        $this->useCfg('drive', ['trash-default-days' => 10]);
+
+        $service = $this->service();
+        $root = $service->root();
+        $owner = $this->user();
+        $recent = $service->createFolder($root, 'recent', $owner);
+        $old = $service->createFolder($root, 'old', $owner);
+
+        $service->trash($recent, $owner);
+        $service->trash($old, $owner);
+
+        $this->backdate($recent, 2);
+        $this->backdate($old, 20);
+
+        $this->assertEqualsCanonicalizing(['recent', 'old'], $service->trashed($owner, 30, false)->pluck('name')->all());
+        $this->assertSame([], $service->trashed($owner, 1, false)->pluck('name')->all());
+    }
+
     public function test_trashed_with_all_ignores_the_day_window(): void {
         $service = $this->service();
         $root = $service->root();
@@ -508,6 +559,16 @@ class DriveServiceTest extends FeatureTestCase {
         $b = $service->createFolder($a, 'b', $owner);
 
         $this->refuses('invalid-move-target', fn () => $service->move($a, $b, $owner));
+    }
+
+    public function test_move_rejects_a_node_as_its_own_destination(): void {
+        $service = $this->service();
+        $root = $service->root();
+        $owner = $this->user();
+        $folder = $service->createFolder($root, 'folder', $owner);
+
+        $this->refuses('invalid-move-target', fn () => $service->move($folder, $folder, $owner));
+        $this->assertSame($root->id, $folder->refresh()->parent_id);
     }
 
     public function test_move_allows_an_unrelated_destination_elsewhere_in_the_tree(): void {

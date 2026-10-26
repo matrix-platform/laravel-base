@@ -808,9 +808,7 @@ class FileServiceTest extends FeatureTestCase {
     }
 
     public function test_importing_a_missing_file_is_refused(): void {
-        $this->expectException(ServiceException::class);
-
-        $this->service()->import(sys_get_temp_dir() . '/missing-' . Str::random(8) . '.png');
+        $this->refuses('data-not-found', fn () => $this->service()->import(sys_get_temp_dir() . '/missing-' . Str::random(8) . '.png'));
     }
 
     public function test_the_entry_of_a_file_matches_what_an_image_field_stores(): void {

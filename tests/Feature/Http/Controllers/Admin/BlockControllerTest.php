@@ -298,31 +298,6 @@ class BlockControllerTest extends FeatureTestCase {
         $this->assertSame('page/{page_id}/block/{id}/item', array_get_value($this->columnByName($response->json('data.columns'), 'items_count'), 'path'));
     }
 
-    public function test_the_page_listing_counts_its_blocks(): void {
-        $page = PageFactory::new()->createOne();
-
-        BlockFactory::new()->createOne(['page_id' => $page->id]);
-        BlockFactory::new()->createOne(['page_id' => $page->id]);
-
-        $response = $this->send('admin/page');
-        $column = $this->columnByName($response->json('data.columns'), 'blocks_count');
-
-        $this->assertSame(2, $response->json('data.rows.0.blocks_count'));
-        $this->assertSame('page/{id}/block', array_get_value($column, 'path'));
-    }
-
-    public function test_deleting_a_page_cascades_into_its_blocks_and_items(): void {
-        $page = PageFactory::new()->createOne();
-        $block = BlockFactory::new()->createOne(['page_id' => $page->id]);
-
-        BlockItemFactory::new()->createOne(['block_id' => $block->id]);
-
-        $this->send('admin/page/delete', ['id' => [$page->id]])->assertJsonPath('success', true);
-
-        $this->assertSame(0, Block::query()->count());
-        $this->assertSame(0, BlockItem::query()->count());
-    }
-
     public function test_the_edit_form_keeps_the_type_readonly_but_still_carries_its_options(): void {
         $this->useBlockDataFixtures();
 

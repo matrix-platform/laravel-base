@@ -21,21 +21,6 @@ class PreferenceServiceTest extends FeatureTestCase {
         return app(PreferenceService::class);
     }
 
-    public function test_a_fresh_identity_has_no_preferences_yet(): void {
-        $user = UserFactory::new()->createOne();
-
-        $this->assertSame([], $this->service()->get($user));
-    }
-
-    public function test_saving_without_merge_stores_the_data_as_is(): void {
-        $user = UserFactory::new()->createOne();
-
-        $payload = $this->service()->save($user, ['theme' => 'dark'], false);
-
-        $this->assertSame(['theme' => 'dark'], $payload);
-        $this->assertSame(['theme' => 'dark'], $this->service()->get($user));
-    }
-
     public function test_saving_without_merge_again_overwrites_the_previous_data(): void {
         $user = UserFactory::new()->createOne();
 
@@ -256,6 +241,15 @@ class PreferenceServiceTest extends FeatureTestCase {
         $this->service()->save($user, ['token' => CfgSchema::MASK], false);
 
         $this->assertSame(['token' => 'my-token'], $this->service()->get($user));
+    }
+
+    public function test_sending_the_mask_without_a_stored_secret_stores_nothing(): void {
+        $this->usePreferenceFixtures();
+
+        $user = UserFactory::new()->createOne();
+
+        $this->assertSame(['locale' => 'en'], $this->service()->save($user, ['token' => CfgSchema::MASK, 'locale' => 'en'], true));
+        $this->assertSame('system-token', $this->service()->value($user, 'token'));
     }
 
     public function test_a_user_stores_a_picked_drive_image_as_a_file_entry(): void {

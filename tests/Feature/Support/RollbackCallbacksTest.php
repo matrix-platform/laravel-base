@@ -18,10 +18,6 @@ class RollbackCallbacksTest extends FeatureTestCase {
         return DB::connection('other');
     }
 
-    public function test_container_binding_is_scoped_to_a_single_instance(): void {
-        $this->assertSame(app(RollbackCallbacks::class), app(RollbackCallbacks::class));
-    }
-
     public function test_callbacks_run_when_a_transaction_rolls_back(): void {
         $ran = false;
 

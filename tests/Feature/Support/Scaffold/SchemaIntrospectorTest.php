@@ -129,6 +129,25 @@ class SchemaIntrospectorTest extends FeatureTestCase {
         $this->assertSame(['jp'], $columns['title']->missingLocales);
     }
 
+    public function test_a_locale_suffixed_column_whose_base_name_is_also_a_column_stays_separate(): void {
+        config(['matrix.locales' => 'tw en']);
+
+        DB::statement('create table introspect_suffixed (id integer primary key, title text, title__tw text)');
+
+        $columns = (new SchemaIntrospector())->columns('introspect_suffixed');
+
+        $this->assertSame(['id', 'title', 'title__tw'], array_keys($columns));
+        $this->assertFalse($columns['title']->translatable);
+    }
+
+    public function test_a_unique_constraint_on_a_locale_column_marks_the_translatable_field_unique(): void {
+        config(['matrix.locales' => 'tw en']);
+
+        DB::statement('create table introspect_tag (id integer primary key, title__tw text unique, title__en text)');
+
+        $this->assertTrue((new SchemaIntrospector())->columns('introspect_tag')['title']->unique);
+    }
+
     public function test_table_existence_is_reported(): void {
         $introspector = new SchemaIntrospector();
 

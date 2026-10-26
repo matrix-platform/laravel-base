@@ -173,6 +173,53 @@ class ExportServiceTest extends FeatureTestCase {
         $this->assertSame('title', $columns[0]['name']);
     }
 
+    public function test_the_used_filter_columns_are_selected_after_the_outputs_in_their_declared_order(): void {
+        Trinket::forceCreate(['label' => 'keep', 'widget_id' => $this->widget('Alpha')->id, 'amount' => 5]);
+
+        DB::enableQueryLog();
+
+        (new ExportService(Trinket::class))
+            ->standalone(true)
+            ->columns(['label'])
+            ->filterColumns(['ranking', 'weight', 'amount'])
+            ->sorting(['ranking'])
+            ->export(['filters' => ['amount' => ['op' => 'between', 'from' => 1, 'to' => 9]]]);
+
+        $sql = strval(collect(DB::getQueryLog())->pluck('query')->last(fn (string $query): bool => str_contains($query, 'stub_trinket')));
+
+        preg_match_all('/ as "(\w+)"/', strval(strstr($sql, ' from ', true)), $matches);
+
+        $this->assertSame(['label', 'ranking', 'amount'], $matches[1]);
+    }
+
+    public function test_a_filter_on_an_output_column_follows_the_output_definition(): void {
+        $this->widget('Alpha');
+        $this->widget('Beta');
+
+        $titles = fn (string $op, string $value): array => array_column((new ExportService(Widget::class))
+            ->standalone(true)
+            ->columns([['name' => 'title', 'op' => 'eq']])
+            ->filterColumns([['name' => 'title', 'op' => 'contains']])
+            ->export(['filters' => ['title' => ['op' => $op, 'value' => $value]]])['rows'], 'title');
+
+        $this->assertSame(['Alpha', 'Beta'], $titles('contains', 'Al'));
+        $this->assertSame(['Alpha'], $titles('eq', 'Alpha'));
+    }
+
+    public function test_a_selectable_export_outputs_the_pooled_definition_of_a_column(): void {
+        $this->widget('Alpha');
+
+        $titles = fn (bool $selectable): array => array_column((new ExportService(Widget::class))
+            ->standalone(true)
+            ->columns([['name' => 'title', 'title' => 'Declared']])
+            ->filterColumns([['name' => 'title', 'title' => 'Pooled']])
+            ->selectable($selectable)
+            ->export([])['columns'], 'title');
+
+        $this->assertSame(['Declared'], $titles(false));
+        $this->assertSame(['Pooled'], $titles(true));
+    }
+
     public function test_a_joined_filter_column_registers_its_join(): void {
         $mine = $this->widget('Alpha');
         $other = $this->widget('Beta');
@@ -641,12 +688,6 @@ class ExportServiceTest extends FeatureTestCase {
             ->export([])['rows'];
 
         $this->assertSame([['title' => 'second']], $rows);
-    }
-
-    public function test_the_title_falls_back_to_the_alias_when_there_is_no_menu(): void {
-        $this->widget('Alpha');
-
-        $this->assertSame('widget', $this->exported(['title'])['title']);
     }
 
     public function test_translatable_export_defaults_to_the_current_locale(): void {

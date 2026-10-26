@@ -169,6 +169,16 @@ class StagedSaveTest extends FeatureTestCase {
         $response->assertJson(['success' => false, 'code' => 422, 'fields' => ['trinkets' => ['invalid-sort-order']]]);
     }
 
+    public function test_an_order_on_a_child_that_cannot_be_sorted_is_not_found(): void {
+        $widget = $this->widget('Alpha');
+
+        $response = $this->admin("admin/widget/{$widget->id}/update", $this->parent('Renamed', ['gadgets' => ['rows' => [$this->gadgetRow('Banner')], 'order' => [0]]]));
+
+        $response->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
+        $this->assertSame('Alpha', $widget->fresh()?->title);
+        $this->assertSame(0, StagedGadget::query()->count());
+    }
+
     public function test_a_refused_delete_is_reported_under_its_id(): void {
         $widget = $this->widget('Alpha');
         $locked = $this->trinket($widget, 'locked', 1);
@@ -295,6 +305,18 @@ class StagedSaveTest extends FeatureTestCase {
 
         $this->admin("admin/widget/{$widget->id}/update", $this->parent('Beta', ['trinkets' => ['rows' => [['label' => 'added', 'amount' => '1']]]]), $token)
             ->assertJsonPath('success', true);
+    }
+
+    public function test_reordering_needs_the_child_update_permission(): void {
+        $widget = $this->widget('Alpha');
+        $first = $this->trinket($widget, 'first', 1);
+        $second = $this->trinket($widget, 'second', 2);
+        $token = $this->regular(['widget' => ['update' => true], 'widget/{widget_id}/trinket' => ['insert' => true, 'delete' => true]]);
+
+        $this->admin("admin/widget/{$widget->id}/update", $this->parent('Alpha', ['trinkets' => ['order' => ["id:{$second->id}", "id:{$first->id}"]]]), $token)
+            ->assertJson(['success' => false, 'code' => 403, 'error' => 'permission-denied']);
+
+        $this->assertSame(['first', 'second'], $this->labels($widget));
     }
 
     public function test_inserting_rows_needs_the_child_insert_permission(): void {

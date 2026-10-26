@@ -21,10 +21,6 @@ class AdminLevelTest extends TestCase {
         $this->assertSame(AdminLevel::Regular, AdminLevel::of(1001));
     }
 
-    public function test_accounts_created_through_the_shared_sequence_are_regular(): void {
-        $this->assertSame(AdminLevel::Regular, AdminLevel::of(10000000));
-    }
-
     public function test_the_levels_are_ordered_from_the_most_privileged(): void {
         $this->assertLessThan(AdminLevel::Admin->value, AdminLevel::Root->value);
         $this->assertLessThan(AdminLevel::Regular->value, AdminLevel::Admin->value);

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Support;
 
-use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Support\Template;
 use Tests\FeatureTestCase;
 
@@ -48,9 +47,7 @@ class TemplateTest extends FeatureTestCase {
     }
 
     public function test_rendering_an_unknown_template_is_refused(): void {
-        $this->expectException(ServiceException::class);
-
-        Template::render('does-not-exist');
+        $this->refuses('message-template-not-found', fn () => Template::render('does-not-exist'));
     }
 
     public function test_resolving_an_unknown_template_returns_null_instead_of_failing(): void {

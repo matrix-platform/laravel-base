@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Support;
 
+use Illuminate\Support\Facades\File;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Support\PackageRegistry;
 use Tests\FeatureTestCase;
@@ -86,6 +87,28 @@ class PackageRegistryTest extends FeatureTestCase {
         $this->expectExceptionMessage('unknown-package');
 
         $packages->paths();
+    }
+
+    public function test_models_map_each_package_model_directory_onto_its_namespace(): void {
+        $path = sys_get_temp_dir() . '/matrix-packages-' . bin2hex(random_bytes(4));
+
+        File::ensureDirectoryExists("{$path}/src/Models");
+        File::ensureDirectoryExists("{$path}/app/Models");
+        File::put("{$path}/src/Models/Shipped.php", '<?php');
+        File::put("{$path}/app/Models/Hosted.php", '<?php');
+        File::put("{$path}/app/Models/notes.txt", '');
+
+        $packages = new PackageRegistry();
+
+        $packages->register('temp', $path);
+
+        config()->set('matrix.packages', 'temp');
+
+        $models = iterator_to_array($packages->models(), false);
+
+        File::deleteDirectory($path);
+
+        $this->assertSame(['MatrixPlatform\\Models\\Shipped', 'App\\Models\\Hosted'], $models);
     }
 
 }

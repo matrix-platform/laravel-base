@@ -6,6 +6,7 @@ use MatrixPlatform\Messaging\Channels;
 use MatrixPlatform\Models\MailLog;
 use MatrixPlatform\Models\SmsLog;
 use MatrixPlatform\Services\Messaging\MailService;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\FeatureTestCase;
 use Tests\Stubs\Gizmo;
 
@@ -25,14 +26,19 @@ class ChannelsTest extends FeatureTestCase {
         $this->assertSame('messaging-mail', $channel->queue);
     }
 
-    public function test_a_channel_carries_the_queue_it_declares(): void {
-        config()->set('matrix.messaging.channels.mail.queue', 'somewhere-else');
-
-        $this->assertSame('somewhere-else', $this->channels()->get('mail')->queue);
+    /**
+     * @return array<string, array{?string}>
+     */
+    public static function missingQueues(): array {
+        return [
+            'no queue' => [null],
+            'empty queue' => ['']
+        ];
     }
 
-    public function test_a_channel_without_a_queue_is_refused(): void {
-        config()->set('matrix.messaging.channels.mail.queue', null);
+    #[DataProvider('missingQueues')]
+    public function test_a_channel_without_a_queue_is_refused(?string $queue): void {
+        config()->set('matrix.messaging.channels.mail.queue', $queue);
 
         $this->refuses('invalid-message-channel', fn () => $this->channels()->get('mail'));
     }

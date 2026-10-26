@@ -5,9 +5,13 @@ namespace Tests\Feature\Http\Controllers\Admin;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Arr;
 use Illuminate\Testing\TestResponse;
+use MatrixPlatform\Models\Block;
+use MatrixPlatform\Models\BlockItem;
 use MatrixPlatform\Models\Page;
 use MatrixPlatform\Models\User;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\Factories\BlockFactory;
+use Tests\Factories\BlockItemFactory;
 use Tests\Factories\PageFactory;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
@@ -64,6 +68,19 @@ class PageControllerTest extends FeatureTestCase {
         $this->assertEqualsCanonicalizing(['path', 'title', 'blocks_count', 'update_time'], array_column($response->json('data.columns'), 'name'));
         $this->assertSame('about-us', $response->json('data.rows.0.path'));
         $this->assertSame(0, $response->json('data.rows.0.blocks_count'));
+    }
+
+    public function test_the_listing_counts_the_blocks_of_each_page(): void {
+        $page = $this->page('about-us');
+
+        BlockFactory::new()->createOne(['page_id' => $page->id]);
+        BlockFactory::new()->createOne(['page_id' => $page->id]);
+
+        $response = $this->send('admin/page');
+        $column = $this->columnByName($response->json('data.columns'), 'blocks_count');
+
+        $this->assertSame(2, $response->json('data.rows.0.blocks_count'));
+        $this->assertSame('page/{id}/block', array_get_value($column, 'path'));
     }
 
     public function test_the_new_form_carries_every_editable_column(): void {
@@ -173,12 +190,17 @@ class PageControllerTest extends FeatureTestCase {
         $this->send("admin/page/{$page->id}")->assertJsonPath('data.data.path', 'about-us');
     }
 
-    public function test_deleting_removes_the_page(): void {
+    public function test_deleting_a_page_cascades_into_its_blocks_and_items(): void {
         $page = $this->page('about-us');
+        $block = BlockFactory::new()->createOne(['page_id' => $page->id]);
+
+        BlockItemFactory::new()->createOne(['block_id' => $block->id]);
 
         $this->send('admin/page/delete', ['id' => [$page->id]])->assertJsonPath('success', true);
 
         $this->assertNull(Page::query()->find($page->id));
+        $this->assertSame(0, Block::query()->count());
+        $this->assertSame(0, BlockItem::query()->count());
     }
 
     public function test_the_arrange_endpoints_answer(): void {

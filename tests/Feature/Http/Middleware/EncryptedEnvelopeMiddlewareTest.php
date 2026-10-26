@@ -14,6 +14,7 @@ use MatrixPlatform\Models\EncryptionKey;
 use MatrixPlatform\Routing\ActionRoutes;
 use MatrixPlatform\Support\ApiEncryption;
 use MatrixPlatform\Support\PackageRegistry;
+use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionMethod;
 use Tests\FeatureTestCase;
 use Tests\Stubs\StubController;
@@ -54,10 +55,35 @@ class EncryptedEnvelopeMiddlewareTest extends FeatureTestCase {
     }
 
     /**
-     * @param array<string, mixed> $body
+     * @return array<string, array{string, ?string}>
+     */
+    public static function malformedFields(): array {
+        return [
+            'a missing kid' => ['kid', null],
+            'an empty epk' => ['epk', ''],
+            'an epk that is not a public key' => ['epk', 'not-a-public-key'],
+            'a missing iv' => ['iv', null],
+            'an iv that is not base64' => ['iv', '***'],
+            'an iv of the wrong length' => ['iv', base64_encode('short')],
+            'a missing ct' => ['ct', null]
+        ];
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function nonObjectPayloads(): array {
+        return [
+            'not json' => ['not-json'],
+            'a json scalar' => ['7']
+        ];
+    }
+
+    /**
+     * @param array<string, mixed>|string $body
      * @return array<string, mixed>
      */
-    private function envelope(string $path, array $body = [], ?int $timestamp = null): array {
+    private function envelope(string $path, array|string $body = [], ?int $timestamp = null): array {
         $server = EncryptionKey::active();
 
         $this->assertNotNull($server);
@@ -68,7 +94,7 @@ class EncryptedEnvelopeMiddlewareTest extends FeatureTestCase {
         $this->secret = ApiEncryption::derive($ephemeral['private'], $server->public_key);
         $this->aad = "response|POST {$path}|{$moment}";
 
-        $sealed = ApiEncryption::seal($this->secret, strval(json_encode($body)), "request|POST {$path}|{$moment}");
+        $sealed = ApiEncryption::seal($this->secret, is_string($body) ? $body : strval(json_encode($body)), "request|POST {$path}|{$moment}");
 
         return ['kid' => $server->kid, 'epk' => $ephemeral['public'], 'ts' => $moment, 'iv' => $sealed['iv'], 'ct' => $sealed['ct']];
     }
@@ -237,6 +263,66 @@ class EncryptedEnvelopeMiddlewareTest extends FeatureTestCase {
         EncryptionKey::issue();
 
         $envelope = $this->envelope('admin/plain', [], now()->getTimestamp() - 1000);
+
+        $this->postJson('admin/plain', $envelope)->assertJson(['success' => false, 'code' => 400, 'error' => 'invalid-envelope']);
+    }
+
+    public function test_a_timestamp_too_far_in_the_future_is_rejected(): void {
+        EncryptionKey::issue();
+
+        $envelope = $this->envelope('admin/plain', [], now()->getTimestamp() + 1000);
+
+        $this->postJson('admin/plain', $envelope)->assertJson(['success' => false, 'code' => 400, 'error' => 'invalid-envelope']);
+    }
+
+    public function test_a_timestamp_on_the_edge_of_the_window_is_accepted(): void {
+        EncryptionKey::issue();
+
+        $this->freezeTime();
+
+        $envelope = $this->envelope('admin/plain', [], now()->getTimestamp() - 300);
+
+        $this->assertSame(['success' => true, 'data' => 'plain'], $this->opened($this->postJson('admin/plain', $envelope)));
+    }
+
+    public function test_a_timestamp_sent_as_a_string_is_rejected(): void {
+        EncryptionKey::issue();
+
+        $envelope = $this->envelope('admin/plain');
+        $envelope['ts'] = strval($envelope['ts']);
+
+        $this->postJson('admin/plain', $envelope)->assertJson(['success' => false, 'code' => 400, 'error' => 'invalid-envelope']);
+    }
+
+    public function test_a_timestamp_changed_after_sealing_is_rejected(): void {
+        EncryptionKey::issue();
+
+        $envelope = $this->envelope('admin/plain');
+        $envelope['ts'] = intval($envelope['ts']) - 1;
+
+        $this->postJson('admin/plain', $envelope)->assertJson(['success' => false, 'code' => 400, 'error' => 'invalid-envelope']);
+    }
+
+    #[DataProvider('malformedFields')]
+    public function test_a_malformed_envelope_field_is_rejected(string $field, ?string $value): void {
+        EncryptionKey::issue();
+
+        $envelope = $this->envelope('admin/plain');
+
+        if ($value === null) {
+            unset($envelope[$field]);
+        } else {
+            $envelope[$field] = $value;
+        }
+
+        $this->postJson('admin/plain', $envelope)->assertJson(['success' => false, 'code' => 400, 'error' => 'invalid-envelope']);
+    }
+
+    #[DataProvider('nonObjectPayloads')]
+    public function test_a_decrypted_payload_that_is_not_a_json_object_is_rejected(string $plain): void {
+        EncryptionKey::issue();
+
+        $envelope = $this->envelope('admin/plain', $plain);
 
         $this->postJson('admin/plain', $envelope)->assertJson(['success' => false, 'code' => 400, 'error' => 'invalid-envelope']);
     }

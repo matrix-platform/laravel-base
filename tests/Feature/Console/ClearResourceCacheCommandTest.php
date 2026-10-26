@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Console;
 
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use MatrixPlatform\Models\ResourceOverride;
 use MatrixPlatform\Support\PackageRegistry;
@@ -23,12 +22,16 @@ class ClearResourceCacheCommandTest extends FeatureTestCase {
 
         app(PackageRegistry::class)->register('clear-cache-fixture', $path);
         config()->set('matrix.packages', 'clear-cache-fixture app base');
+        config()->set('matrix.resource-cache-enabled', true);
+        config()->set('matrix.resource-cache-store', 'array');
 
         return $path;
     }
 
-    public function test_the_command_is_registered(): void {
-        $this->assertArrayHasKey('matrix:clear-resource-cache', Artisan::all());
+    private function fresh(): Resources {
+        app()->forgetScopedInstances();
+
+        return app(Resources::class);
     }
 
     public function test_a_stale_file_default_is_re_read_after_clearing(): void {
@@ -38,9 +41,11 @@ class ClearResourceCacheCommandTest extends FeatureTestCase {
 
         File::put("{$path}/resources/cfg/temp.php", "<?php return ['key' => 'new'];");
 
+        $this->assertSame('old', $this->fresh()->config('temp.key'));
+
         $this->command();
 
-        $this->assertSame('new', app(Resources::class)->config('temp.key'));
+        $this->assertSame('new', $this->fresh()->config('temp.key'));
 
         File::deleteDirectory($path);
     }
@@ -57,9 +62,11 @@ class ClearResourceCacheCommandTest extends FeatureTestCase {
 
         $override->save();
 
+        $this->assertSame('default', $this->fresh()->config('temp.key'));
+
         $this->command();
 
-        $this->assertSame('overridden', app(Resources::class)->config('temp.key'));
+        $this->assertSame('overridden', $this->fresh()->config('temp.key'));
 
         File::deleteDirectory($path);
     }

@@ -93,7 +93,7 @@ class GeminiTranslateDriverTest extends FeatureTestCase {
     }
 
     public function test_a_transport_level_failure_is_refused_as_a_failed_request(): void {
-        Http::fake(['*' => Http::response('', 500)]);
+        Http::fake(['*' => Http::response($this->reply('translated'), 500)]);
 
         $this->refuses('translation-request-failed', fn () => $this->driver()->translate('Hello', 'en', 'tw'));
     }

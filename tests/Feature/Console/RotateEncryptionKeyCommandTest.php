@@ -5,10 +5,22 @@ namespace Tests\Feature\Console;
 use Illuminate\Testing\PendingCommand;
 use MatrixPlatform\Models\EncryptionKey;
 use MatrixPlatform\Support\ApiEncryption;
+use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Tests\FeatureTestCase;
 
 class RotateEncryptionKeyCommandTest extends FeatureTestCase {
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function invalidGracePeriods(): array {
+        return [
+            'a word' => ['soon'],
+            'a negative number' => ['-1'],
+            'a fraction' => ['1.5']
+        ];
+    }
 
     private function command(string $arguments = ''): PendingCommand {
         return $this->artisanCommand(trim("matrix:rotate-encryption-key {$arguments}"));
@@ -72,8 +84,24 @@ class RotateEncryptionKeyCommandTest extends FeatureTestCase {
         $this->assertSame($previous->kid, EncryptionKey::active()?->kid);
     }
 
-    public function test_a_non_numeric_grace_period_fails(): void {
-        $this->command('--grace=soon')->assertExitCode(1);
+    public function test_a_key_still_inside_its_grace_period_keeps_its_expiry_on_the_next_rotation(): void {
+        $graced = EncryptionKey::issue();
+        $expiry = now()->addHour()->startOfSecond();
+        $graced->expire_time = $expiry;
+        $graced->save();
+
+        EncryptionKey::issue();
+
+        $this->command('--grace=86400')->assertExitCode(0);
+
+        $this->assertEquals($expiry, EncryptionKey::query()->findOrFail($graced->id)->expire_time);
+    }
+
+    #[DataProvider('invalidGracePeriods')]
+    public function test_a_grace_period_that_is_not_a_non_negative_integer_fails(string $grace): void {
+        $this->command("--grace={$grace}")
+            ->expectsOutputToContain('The --grace option must be a non-negative integer')
+            ->assertExitCode(1);
 
         $this->assertNull(EncryptionKey::active());
     }

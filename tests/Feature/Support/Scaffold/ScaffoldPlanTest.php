@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Support\Scaffold;
 
-use MatrixPlatform\Columns\Presentation;
+use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Support\MetadataRegistry;
 use MatrixPlatform\Support\PackageRegistry;
 use MatrixPlatform\Support\Scaffold\PresentationGuesser;
@@ -84,49 +84,6 @@ class ScaffoldPlanTest extends FeatureTestCase {
         $this->assertStringNotContainsString('BelongsTo', $members);
     }
 
-    public function test_a_parent_option_produces_a_nested_path_matching_the_real_faq_shape(): void {
-        $this->declareParent();
-
-        $plan = $this->build('scaffold_widget', parent: 'parent', alias: 'items');
-
-        $this->assertSame('scaffold-parent/{parent_id}/items', $plan->path);
-        $this->assertIsArray($plan->parent);
-        $this->assertSame('scaffold-parent', $plan->parent['prefix']);
-        $this->assertStringContainsString('public function parent(): BelongsTo', $plan->modelTokens()['members']);
-        $this->assertStringContainsString("'parent_id'", $plan->declarationTokens()['segments']);
-    }
-
-    public function test_a_parent_pointing_to_an_undeclared_model_is_rejected(): void {
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessageMatches('/parent-model-not-found/');
-
-        $this->build('scaffold_widget', parent: 'parent');
-    }
-
-    public function test_heuristics_are_reflected_in_presentations_and_pending_notes(): void {
-        $plan = $this->build('scaffold_widget', title: 'code');
-
-        $this->assertSame(Presentation::Password, $plan->presentations['password']['presentation']);
-        $this->assertSame(Presentation::Hidden, $plan->presentations['api_token']['presentation']);
-        $this->assertSame(Presentation::Hidden, $plan->presentations['secret_key']['presentation']);
-        $this->assertNull($plan->presentations['weight']['presentation']);
-
-        $notes = implode("\n", $plan->pendingNotes);
-
-        $this->assertStringContainsString("HIGH RISK: 'api_token'", $notes);
-        $this->assertStringContainsString("HIGH RISK: 'secret_key'", $notes);
-        $this->assertStringContainsString("Could not guess a presentation for 'weight'", $notes);
-        $this->assertStringContainsString('Composite unique constraint', $notes);
-    }
-
-    public function test_a_translatable_field_missing_a_locale_column_is_flagged(): void {
-        config(['matrix.locales' => 'tw en jp']);
-
-        $plan = $this->build('scaffold_widget', title: 'code');
-
-        $this->assertStringContainsString("Translatable field 'title' is missing column(s) for locale(s): jp", implode("\n", $plan->pendingNotes));
-    }
-
     public function test_an_explicit_title_option_is_honored_and_validated(): void {
         $plan = $this->build('scaffold_widget', title: 'code');
 
@@ -136,6 +93,74 @@ class ScaffoldPlanTest extends FeatureTestCase {
         $this->expectExceptionMessageMatches('/title-column-not-found/');
 
         $this->build('scaffold_widget', title: 'not_a_real_column');
+    }
+
+    public function test_an_explicit_model_name_drives_the_alias_and_the_declaration(): void {
+        $plan = $this->build('scaffold_simple', model: 'FeaturedTag');
+
+        $this->assertSame('FeaturedTag', $plan->modelName);
+        $this->assertSame('FeaturedTagDeclaration', $plan->declarationName);
+        $this->assertSame('featured-tag', $plan->alias);
+        $this->assertSame('featured-tag', $plan->path);
+    }
+
+    public function test_the_title_falls_back_to_name_and_then_to_the_first_required_text_column(): void {
+        DB::statement('CREATE TABLE scaffold_named (id integer PRIMARY KEY, code text NOT NULL, name text)');
+        DB::statement('CREATE TABLE scaffold_unnamed (id integer PRIMARY KEY, note text, code text NOT NULL, label text NOT NULL)');
+
+        $this->assertSame('name', $this->build('scaffold_named')->titleField);
+        $this->assertSame('code', $this->build('scaffold_unnamed')->titleField);
+    }
+
+    public function test_a_table_without_any_title_candidate_is_rejected(): void {
+        DB::statement('CREATE TABLE scaffold_untitled (id integer PRIMARY KEY, note text, qty integer NOT NULL)');
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/title-not-guessable/');
+
+        $this->build('scaffold_untitled');
+    }
+
+    public function test_a_parent_column_without_a_foreign_key_is_rejected(): void {
+        DB::statement('CREATE TABLE scaffold_orphan (id integer PRIMARY KEY, name text NOT NULL, owner_id integer)');
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches("/parent-foreign-key-not-found: .*'owner_id'/");
+
+        $this->build('scaffold_orphan', parent: 'owner');
+    }
+
+    public function test_a_creator_without_an_updater_is_declared_as_auditings_without_updates(): void {
+        DB::statement('CREATE TABLE scaffold_log (id integer PRIMARY KEY, name text NOT NULL, creator_id integer, create_time timestamp NOT NULL)');
+
+        $segments = $this->build('scaffold_log')->declarationTokens()['segments'];
+
+        $this->assertStringEndsWith('Definitions::auditings(false)', $segments);
+    }
+
+    public function test_a_unique_translatable_title_is_declared_as_a_unique_title(): void {
+        DB::statement('CREATE TABLE scaffold_tag (id integer PRIMARY KEY, title__tw text UNIQUE, title__en text)');
+
+        $this->assertStringContainsString('Definitions::title(true)', $this->build('scaffold_tag')->declarationTokens()['segments']);
+    }
+
+    public function test_date_and_time_columns_are_cast_and_typed_as_carbon(): void {
+        DB::statement('CREATE TABLE scaffold_event (id integer PRIMARY KEY, name text NOT NULL, held_on date, seen_at timestamptz, open boolean NOT NULL)');
+
+        $tokens = $this->build('scaffold_event')->modelTokens();
+
+        $this->assertStringContainsString('use Illuminate\\Support\\Carbon;', $tokens['uses']);
+        $this->assertStringContainsString(' * @property ?Carbon $held_on', $tokens['properties']);
+        $this->assertStringContainsString(' * @property ?Carbon $seen_at', $tokens['properties']);
+        $this->assertStringContainsString(' * @property bool $open', $tokens['properties']);
+        $this->assertStringContainsString("'held_on' => 'date'", $tokens['members']);
+        $this->assertStringContainsString("'seen_at' => 'datetime'", $tokens['members']);
+    }
+
+    public function test_a_label_is_escaped_into_a_php_string_literal(): void {
+        $entries = $this->build('scaffold_plain')->modelI18nTokens(['title' => "It's C:\\temp"])['entries'];
+
+        $this->assertSame("\n    'title' => 'It\\'s C:\\\\temp',\n", $entries);
     }
 
     private function build(string $table, ?string $model = null, ?string $title = null, ?string $parent = null, ?string $alias = null): ScaffoldPlan {

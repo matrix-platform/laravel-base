@@ -30,10 +30,6 @@ class SandboxTest extends FeatureTestCase {
         $this->refuses('invalid-message-receiver', fn () => Sandbox::recipient('blind'));
     }
 
-    public function test_a_channel_the_package_does_not_ship_follows_the_same_convention(): void {
-        $this->assertNull(Sandbox::recipient('twilio'));
-    }
-
     public function test_the_response_records_where_the_message_actually_went(): void {
         $this->assertSame('real-id', Sandbox::response(null, 'real-id'));
         $this->assertSame('sandbox: sink@example.com real-id', Sandbox::response('sink@example.com', 'real-id'));

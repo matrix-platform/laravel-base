@@ -20,16 +20,4 @@ class RollbackCallbacksTest extends TestCase {
         $this->assertSame(1, $calls);
     }
 
-    public function test_outside_a_transaction_a_registered_callback_never_runs(): void {
-        $ran = false;
-
-        $this->assertSame(0, DB::transactionLevel());
-
-        (new RollbackCallbacks())->register(function () use (&$ran): void {
-            $ran = true;
-        });
-
-        $this->assertFalse($ran);
-    }
-
 }

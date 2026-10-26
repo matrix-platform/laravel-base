@@ -140,6 +140,7 @@ class MessageServiceTest extends FeatureTestCase {
         $log = $this->mail()->schedule(now(), 'alice@example.com', null, [], ['provider' => 'stub', 'subject' => 'Bare', 'content' => 'Body only']);
         $mail = $this->reload($log);
 
+        $this->assertSame('stub', $mail->provider);
         $this->assertSame('Bare', $mail->subject);
         $this->assertSame('Body only', $mail->content);
         $this->assertNull($mail->template);
@@ -163,12 +164,6 @@ class MessageServiceTest extends FeatureTestCase {
 
         $this->assertSame('relay', $log->provider);
         $this->assertSame('relay@example.com', $this->reload($log)->sender);
-    }
-
-    public function test_a_message_with_no_template_is_routed_by_the_caller(): void {
-        $log = $this->mail()->schedule(now(), 'alice@example.com', null, [], ['provider' => 'stub', 'subject' => 'Bare', 'content' => 'Body']);
-
-        $this->assertSame('stub', $log->provider);
     }
 
     public function test_a_message_that_names_no_provider_at_all_is_refused(): void {
@@ -252,6 +247,26 @@ class MessageServiceTest extends FeatureTestCase {
 
         $this->assertNull($log->cc);
         $this->assertNull($log->bcc);
+    }
+
+    public function test_resend_drops_the_outcome_of_the_original_and_sends_now(): void {
+        $original = $this->reload($this->mail()->schedule(now()->addDay(), 'alice@example.com', 'welcome', ['name' => 'Alice']));
+
+        $original->status = MessageStatus::Failed;
+        $original->response = 'vendor reply';
+        $original->error = 'smtp exploded';
+        $original->send_time = now();
+        $original->save();
+
+        $resent = $this->reload($this->mail()->resend($original->id));
+
+        $this->assertSame(MessageStatus::Scheduled, $resent->status);
+        $this->assertNull($resent->response);
+        $this->assertNull($resent->error);
+        $this->assertNull($resent->send_time);
+        $this->assertFalse($resent->schedule_time->isFuture());
+
+        Queue::assertPushed(SendMessageJob::class, fn (SendMessageJob $job) => $job->channel === 'mail');
     }
 
     public function test_resend_keeps_the_cc_and_bcc_of_the_original(): void {

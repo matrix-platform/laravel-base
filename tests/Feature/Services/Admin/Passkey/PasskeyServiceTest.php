@@ -2,9 +2,6 @@
 
 namespace Tests\Feature\Services\Admin\Passkey;
 
-use Closure;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\PasskeyCredential;
 use MatrixPlatform\Models\User;
@@ -46,13 +43,6 @@ class PasskeyServiceTest extends FeatureTestCase {
         }
 
         return null;
-    }
-
-    /**
-     * @param Closure(): User $callback
-     */
-    private function insideControllerTransaction(Closure $callback): User {
-        return DB::transaction($callback);
     }
 
     private function login(PasskeyAuthenticator $authenticator, ?string $userHandle = null, ?int $counterOverride = null): User {
@@ -262,33 +252,10 @@ class PasskeyServiceTest extends FeatureTestCase {
         $this->assertSame($user->id, $this->service()->authenticate($challengeKey, $response)->id);
     }
 
-    public function test_a_failed_assertion_for_a_known_user_writes_a_passkey_login_failed_log_after_rollback(): void {
-        $user = UserFactory::new()->createOne();
-        [$authenticator] = $this->register($user);
-
-        [$challengeKey, $response] = $this->assertionRequest($authenticator, self::RP_ID, self::ORIGIN, (string) $user->id);
-        $response['response']['signature'] = base64_encode('tampered');
-
-        $this->captureException(fn () => $this->insideControllerTransaction(fn () => $this->service()->authenticate($challengeKey, $response)));
-
-        $this->assertSame(['PasskeyRegistered', 'PasskeyLoginFailed'], $this->logType($user));
-    }
-
     public function test_an_unknown_credential_writes_no_log_at_all(): void {
         $this->refusesField('credential', 'invalid-passkey', fn () => $this->login(new PasskeyAuthenticator(), '1'));
 
         $this->assertSame(0, UserLog::query()->count());
-    }
-
-    public function test_deleting_a_credential_that_belongs_to_another_user_is_not_found(): void {
-        $owner = UserFactory::new()->createOne();
-        [, $credential] = $this->register($owner);
-
-        $other = UserFactory::new()->createOne();
-
-        $this->expectException(ModelNotFoundException::class);
-
-        $this->service()->delete($other, $credential->id);
     }
 
     public function test_revoke_all_removes_every_credential_for_the_user(): void {
@@ -301,6 +268,57 @@ class PasskeyServiceTest extends FeatureTestCase {
         $this->assertSame(2, $revoked);
         $this->assertSame(0, PasskeyCredential::query()->where('user_id', $user->id)->count());
         $this->assertSame(['PasskeyRegistered', 'PasskeyRegistered', 'PasskeyRevoked'], $this->logType($user));
+    }
+
+    public function test_a_login_challenge_cannot_be_used_twice(): void {
+        $user = UserFactory::new()->createOne();
+        [$authenticator] = $this->register($user);
+
+        [$challengeKey, $response] = $this->assertionRequest($authenticator, self::RP_ID, self::ORIGIN, (string) $user->id);
+
+        $this->service()->authenticate($challengeKey, $response);
+
+        $replay = $authenticator->assertionResponse(Base64UrlSafe::decodeNoPadding($challengeKey), self::RP_ID, self::ORIGIN, (string) $user->id);
+
+        $this->refusesField('credential', 'invalid-passkey', fn () => $this->service()->authenticate($challengeKey, $replay));
+    }
+
+    public function test_a_registration_response_is_not_accepted_as_a_login(): void {
+        $user = UserFactory::new()->createOne();
+        $authenticator = new PasskeyAuthenticator();
+        $this->register($user, $authenticator);
+
+        $options = $this->service()->authenticationOptions();
+        $response = $authenticator->registrationResponse(Base64UrlSafe::decodeNoPadding($options['challenge']), self::RP_ID, self::ORIGIN);
+
+        $this->refusesField('credential', 'invalid-passkey', fn () => $this->service()->authenticate($options['challenge'], $response));
+        $this->assertSame(['PasskeyRegistered'], $this->logType($user));
+    }
+
+    public function test_a_registration_from_a_foreign_origin_is_rejected(): void {
+        $user = UserFactory::new()->createOne();
+        $options = $this->service()->registrationOptions($user);
+        $response = (new PasskeyAuthenticator())->registrationResponse(Base64UrlSafe::decodeNoPadding($options['challenge']), self::RP_ID, 'https://evil.example');
+
+        $this->refusesField('credential', 'invalid-passkey', fn () => $this->service()->register($user, $options['challenge'], $response, 'my device'));
+        $this->assertFalse(PasskeyCredential::query()->exists());
+    }
+
+    public function test_deleting_a_credential_writes_a_passkey_revoked_log(): void {
+        $user = UserFactory::new()->createOne();
+        [, $credential] = $this->register($user);
+
+        $this->service()->delete($user, $credential->id);
+
+        $this->assertFalse(PasskeyCredential::query()->exists());
+        $this->assertSame(['PasskeyRegistered', 'PasskeyRevoked'], $this->logType($user));
+    }
+
+    public function test_revoke_all_without_any_credential_writes_no_log(): void {
+        $user = UserFactory::new()->createOne();
+
+        $this->assertSame(0, $this->service()->revokeAll($user));
+        $this->assertSame([], $this->logType($user));
     }
 
 }

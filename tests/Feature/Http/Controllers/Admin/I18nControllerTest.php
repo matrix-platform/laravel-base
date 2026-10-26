@@ -27,13 +27,6 @@ class I18nControllerTest extends FeatureTestCase {
             ->assertJsonPath('data.mail-setting', 'Mail settings');
     }
 
-    public function test_a_name_that_climbs_out_of_the_resource_directory_is_rejected(): void {
-        $this->postJson('admin/i18n/get', ['name' => '../../../config/app'])
-            ->assertOk()
-            ->assertJson(['success' => false, 'error' => 'invalid-resource-token'])
-            ->assertJsonMissingPath('data.key');
-    }
-
     public function test_an_unknown_bundle_answers_null_without_failing(): void {
         $this->postJson('admin/i18n/get', ['name' => 'does-not-exist'])
             ->assertOk()
@@ -52,13 +45,13 @@ class I18nControllerTest extends FeatureTestCase {
         $this->assertNull($store->get(Resources::defaultsCacheKey('i18n/' . app()->getLocale() . '/does-not-exist', $generation)));
     }
 
-    public function test_a_name_with_glob_characters_or_an_equivalent_path_is_rejected_without_a_cache_entry(): void {
+    public function test_a_traversing_or_glob_or_equivalent_name_is_rejected_without_a_cache_entry(): void {
         config()->set('matrix.resource-cache-enabled', true);
         config()->set('matrix.resource-cache-store', 'array');
 
         $store = Cache::store('array');
 
-        foreach (['[w]idget', 'w*', 'menu/*', './widget', 'menu//resource'] as $name) {
+        foreach (['../../../config/app', '[w]idget', 'w*', 'menu/*', './widget', 'menu//resource'] as $name) {
             $this->postJson('admin/i18n/get', ['name' => $name])
                 ->assertOk()
                 ->assertJson(['success' => false, 'error' => 'invalid-resource-token']);

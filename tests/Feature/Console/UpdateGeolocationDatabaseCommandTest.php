@@ -53,20 +53,26 @@ class UpdateGeolocationDatabaseCommandTest extends FeatureTestCase {
         return config()->string('matrix.file-private-disk');
     }
 
-    public function test_a_download_that_is_not_an_archive_fails(): void {
+    public function test_a_download_that_is_not_an_archive_fails_and_leaves_no_temporary_file(): void {
         $this->useCfg('ip2location-bin', ['download-token' => 'a-token']);
+
+        $before = $this->leftovers();
 
         Http::fake(['www.ip2location.com/*' => Http::response('INVALID DOWNLOAD TOKEN')]);
 
-        $this->command()->assertExitCode(1);
+        $this->command()
+            ->expectsOutputToContain('INVALID DOWNLOAD TOKEN')
+            ->assertExitCode(1);
 
         Storage::disk($this->disk())->assertMissing(strval(cfg('ip2location-bin.bin-path')));
+
+        $this->assertSame($before, $this->leftovers());
     }
 
-    public function test_a_failed_request_fails(): void {
+    public function test_a_failed_request_fails_even_when_it_carries_an_archive(): void {
         $this->useCfg('ip2location-bin', ['download-token' => 'a-token']);
 
-        Http::fake(['www.ip2location.com/*' => Http::response('nope', 503)]);
+        Http::fake(['www.ip2location.com/*' => Http::response($this->archive('DB11.BIN', 'payload'), 503)]);
 
         $this->command()->assertExitCode(1);
 
@@ -81,6 +87,28 @@ class UpdateGeolocationDatabaseCommandTest extends FeatureTestCase {
         $this->command()->assertExitCode(1);
 
         Storage::disk($this->disk())->assertMissing(strval(cfg('ip2location-bin.bin-path')));
+    }
+
+    public function test_a_download_that_only_looks_like_an_archive_fails(): void {
+        $this->useCfg('ip2location-bin', ['download-token' => 'a-token']);
+
+        Http::fake(['www.ip2location.com/*' => Http::response("PK\x03\x04truncated")]);
+
+        $this->command()
+            ->expectsOutputToContain('The downloaded file is not a valid zip archive')
+            ->assertExitCode(1);
+
+        Storage::disk($this->disk())->assertMissing(strval(cfg('ip2location-bin.bin-path')));
+    }
+
+    public function test_a_bin_entry_is_found_whatever_the_case_of_its_extension(): void {
+        $this->useCfg('ip2location-bin', ['download-token' => 'a-token']);
+
+        Http::fake(['www.ip2location.com/*' => Http::response($this->archive('ip2location-lite-db11.bin', 'payload'))]);
+
+        $this->command()->assertExitCode(0);
+
+        $this->assertSame('payload', Storage::disk($this->disk())->get(strval(cfg('ip2location-bin.bin-path'))));
     }
 
     public function test_an_empty_download_token_fails(): void {
@@ -170,18 +198,6 @@ class UpdateGeolocationDatabaseCommandTest extends FeatureTestCase {
             ->expectsOutputToContain('Could not reach the IP2Location download server')
             ->doesntExpectOutputToContain('a-token')
             ->assertExitCode(1);
-
-        $this->assertSame($before, $this->leftovers());
-    }
-
-    public function test_a_rejected_download_leaves_no_temporary_file(): void {
-        $this->useCfg('ip2location-bin', ['download-token' => 'a-token']);
-
-        $before = $this->leftovers();
-
-        Http::fake(['www.ip2location.com/*' => Http::response('INVALID DOWNLOAD TOKEN')]);
-
-        $this->command()->assertExitCode(1);
 
         $this->assertSame($before, $this->leftovers());
     }

@@ -140,14 +140,32 @@ class ColumnResolverTest extends FeatureTestCase {
         $this->assertSame(ColumnType::Boolean, $this->resolve('title:boolean')->type);
     }
 
-    public function test_view_flags_are_never_inherited_from_the_declaration(): void {
+    public function test_a_plain_declaration_leaves_every_flag_off(): void {
         $this->declare(['title' => Definition::text()]);
 
         $column = $this->resolve('title');
 
         $this->assertFalse($column->required);
-        $this->assertFalse($column->readonly);
+        $this->assertFalse($column->unique);
+        $this->assertFalse($column->translatable);
         $this->assertFalse($column->virtual);
+        $this->assertNull($column->variantGroup);
+        $this->assertSame([], $column->props);
+    }
+
+    public function test_a_declaration_carries_its_flags_group_and_props(): void {
+        $this->declare([
+            'title' => Definition::text(translatable: true, required: true, unique: true, props: ['rows' => 3]),
+            'payload' => Definition::composite('menu-data')
+        ]);
+
+        $column = $this->resolve('title');
+
+        $this->assertTrue($column->required);
+        $this->assertTrue($column->unique);
+        $this->assertTrue($column->translatable);
+        $this->assertSame(['rows' => 3], $column->props);
+        $this->assertSame('menu-data', $this->resolve('payload')->variantGroup);
     }
 
     public function test_a_declaration_can_mark_a_column_virtual_without_a_plus_prefix(): void {
@@ -278,6 +296,12 @@ class ColumnResolverTest extends FeatureTestCase {
         $this->resolve('gadget_id', new Trinket());
     }
 
+    public function test_a_path_through_something_that_is_not_a_relation_is_refused(): void {
+        $this->expectExceptionMessage('invalid-column-expression');
+
+        $this->resolve('title.label');
+    }
+
     public function test_a_column_on_an_undeclared_model_is_refused(): void {
         $this->expectExceptionMessage('undeclared-model');
 
@@ -311,6 +335,10 @@ class ColumnResolverTest extends FeatureTestCase {
         $this->assertNull($column->options);
         $this->assertNull($column->op);
         $this->assertFalse($column->sortable);
+    }
+
+    public function test_a_hidden_column_keeps_a_given_title(): void {
+        $this->assertSame('Given', $this->resolve(['name' => 'title:hidden', 'title' => 'Given'])->title);
     }
 
     public function test_a_hidden_column_with_an_operator_resolves_everything(): void {
@@ -371,13 +399,6 @@ class ColumnResolverTest extends FeatureTestCase {
         $this->assertSame(array_values($bundle), array_map(fn (Option $option): string => $option->title, $options));
     }
 
-    public function test_a_boolean_column_is_still_compared_by_equality(): void {
-        $column = $this->resolve('disabled', new User());
-
-        $this->assertNotNull($column->options);
-        $this->assertSame('eq', $column->op);
-    }
-
     public function test_an_explicit_option_provider_wins_over_the_boolean_default(): void {
         $options = new StaticOptions([]);
         $column = $this->resolve(['name' => 'disabled', 'options' => $options], new User());
@@ -387,10 +408,6 @@ class ColumnResolverTest extends FeatureTestCase {
 
     public function test_a_custom_widget_name_survives_resolution(): void {
         $this->assertSame('permissions', $this->resolve('title:permissions')->presentation);
-    }
-
-    public function test_a_caller_supplied_rule_is_carried_through(): void {
-        $this->assertSame(['max:10'], $this->resolve(['name' => 'title', 'rule' => 'max:10'])->rule);
     }
 
 }

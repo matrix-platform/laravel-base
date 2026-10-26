@@ -15,7 +15,11 @@ class BaseControllerTest extends FeatureTestCase {
      * @param Router $router
      */
     protected function defineRoutes($router): void {
-        $router->middleware('envelope-api')->group(fn () => ActionRoutes::scan(StubController::class));
+        $router->middleware('envelope-api')->group(function () use ($router): void {
+            ActionRoutes::scan(StubController::class);
+
+            $router->post('undeclared', [StubController::class, 'notAnAction']);
+        });
     }
 
     public function test_a_returned_value_is_wrapped_in_the_success_envelope(): void {
@@ -30,6 +34,10 @@ class BaseControllerTest extends FeatureTestCase {
 
         $response->assertStatus(200);
         $response->assertExactJson(['raw' => true]);
+    }
+
+    public function test_a_method_routed_without_the_action_attribute_is_refused(): void {
+        $this->postJson('undeclared')->assertJson(['success' => false, 'error' => 'undeclared-action']);
     }
 
     public function test_the_action_runs_inside_a_transaction(): void {

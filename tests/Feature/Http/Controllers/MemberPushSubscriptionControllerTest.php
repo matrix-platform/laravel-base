@@ -82,6 +82,12 @@ class MemberPushSubscriptionControllerTest extends FeatureTestCase {
             ->assertJsonPath('fields.endpoint', ['unsupported-push-endpoint']);
     }
 
+    public function test_an_endpoint_naming_the_default_port_explicitly_is_accepted(): void {
+        $this->withToken($this->token())
+            ->postJson('api/member/push/subscribe', $this->payload(['endpoint' => 'https://fcm.googleapis.com:443/fcm/send/device-1']))
+            ->assertJson(['success' => true]);
+    }
+
     public function test_a_subdomain_of_a_wildcard_push_service_is_accepted(): void {
         $this->withToken($this->token())
             ->postJson('api/member/push/subscribe', $this->payload(['endpoint' => 'https://updates.push.services.mozilla.com/wpush/v2/abc']))

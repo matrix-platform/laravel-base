@@ -17,6 +17,16 @@ class EncryptionControllerTest extends FeatureTestCase {
         $this->assertNotSame('', ApiEncryption::derive(ApiEncryption::generate()['private'], strval($response->json('data.public_key'))));
     }
 
+    public function test_the_endpoint_hands_out_the_new_key_right_after_a_rotation(): void {
+        $previous = EncryptionKey::issue();
+
+        $this->postJson('encryption-key')->assertJson(['data' => ['kid' => $previous->kid]]);
+
+        $rotated = EncryptionKey::rotate(3600);
+
+        $this->postJson('encryption-key')->assertJson(['success' => true, 'data' => ['kid' => $rotated->kid, 'public_key' => $rotated->public_key]]);
+    }
+
     public function test_the_endpoint_reports_a_missing_key_ring(): void {
         $this->postJson('encryption-key')->assertJson(['success' => false, 'error' => 'encryption-unavailable']);
     }

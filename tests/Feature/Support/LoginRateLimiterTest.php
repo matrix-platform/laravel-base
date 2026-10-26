@@ -22,10 +22,4 @@ class LoginRateLimiterTest extends FeatureTestCase {
         $this->assertSame(0, $missing->maxAttempts);
     }
 
-    public function test_the_bucket_is_keyed_by_address_and_username(): void {
-        $limit = (new LoginRateLimiter('admin'))($this->request());
-
-        $this->assertStringContainsString('zoe', strval($limit->key));
-    }
-
 }

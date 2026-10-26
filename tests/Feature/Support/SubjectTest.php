@@ -136,4 +136,24 @@ class SubjectTest extends FeatureTestCase {
         $this->assertSame([$second->id, $first->id], array_map(fn ($parent) => $parent->getKey(), $parents));
     }
 
+    public function test_generic_replaces_only_the_last_placeholder(): void {
+        $this->assertSame('widget/{id}/trinket', $this->subject()->generic('widget/{widget_id}/trinket'));
+        $this->assertSame('widget/{widget_id}/trinket/{id}/part', $this->subject()->generic('widget/{widget_id}/trinket/{trinket_id}/part'));
+        $this->assertSame('widget', $this->subject()->generic('widget'));
+    }
+
+    public function test_key_collapses_every_placeholder_segment(): void {
+        $this->assertSame('widget-trinket', $this->subject()->key('widget/{widget_id}/trinket'));
+        $this->assertSame('widget', $this->subject()->key('widget'));
+    }
+
+    public function test_only_a_model_parented_by_its_own_class_is_recursive(): void {
+        $this->assertFalse($this->subject()->recursive(new Widget()));
+        $this->assertFalse($this->subject()->recursive(new Trinket()));
+
+        $this->declare(Trinket::class, new Metadata('trinket', 'label', 'trinket'));
+
+        $this->assertTrue($this->subject()->recursive(new Trinket()));
+    }
+
 }

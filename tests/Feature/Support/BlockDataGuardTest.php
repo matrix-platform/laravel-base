@@ -12,14 +12,16 @@ use Tests\FeatureTestCase;
 
 class BlockDataGuardTest extends FeatureTestCase {
 
-    private function variant(): Variant {
-        return new class implements Variant {
+    private function variant(bool $translatable = false): Variant {
+        return new class($translatable) implements Variant {
+
+            public function __construct(private bool $translatable) {}
 
             /**
              * @return array<string, Definition>
              */
             public function definitions(): array {
-                return ['flag' => Definition::integer(Presentation::Select, options: new BundleOptions('boolean'))];
+                return ['flag' => Definition::integer(Presentation::Select, options: new BundleOptions('boolean'), translatable: $this->translatable)];
             }
 
         };
@@ -37,6 +39,18 @@ class BlockDataGuardTest extends FeatureTestCase {
             BlockDataGuard::inspect($this->variant(), ['flag' => 7]);
         } catch (ServiceException $exception) {
             $this->assertSame(['fields' => ['data__flag' => ['in']]], $exception->getExtra());
+
+            return;
+        }
+
+        $this->fail('the value was expected to be refused');
+    }
+
+    public function test_a_translatable_select_value_is_checked_and_reported_per_locale(): void {
+        try {
+            BlockDataGuard::inspect($this->variant(true), ['flag' => ['tw' => 1, 'en' => 7]]);
+        } catch (ServiceException $exception) {
+            $this->assertSame(['fields' => ['data__flag__en' => ['in']]], $exception->getExtra());
 
             return;
         }

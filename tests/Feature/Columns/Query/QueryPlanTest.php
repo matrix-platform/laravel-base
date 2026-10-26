@@ -162,6 +162,25 @@ class QueryPlanTest extends FeatureTestCase {
         );
     }
 
+    public function test_complete_leaves_out_a_virtual_column(): void {
+        $sql = $this->plan(['widget.title', '+note'], new Trinket())
+            ->complete()
+            ->toSql();
+
+        $this->assertStringStartsWith('select "stub_trinket".*, "widget"."title" as "widget_title" from', $sql);
+        $this->assertStringNotContainsString('note', $sql);
+    }
+
+    public function test_projection_also_selects_the_required_field(): void {
+        $model = new Trinket();
+        $column = app(ColumnResolver::class)->resolve((new ColumnParser())->parse('label'), $model);
+        $sql = (new QueryPlan($model, [$column], 'widget_id'))
+            ->projection()
+            ->toSql();
+
+        $this->assertSame('select "stub_trinket"."id", "stub_trinket"."widget_id", "stub_trinket"."label" as "label" from "stub_trinket"', $sql);
+    }
+
     public function test_a_virtual_column_is_not_selected(): void {
         $sql = $this->plan(['title', '+note'])
             ->projection()

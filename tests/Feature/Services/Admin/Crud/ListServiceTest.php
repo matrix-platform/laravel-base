@@ -3,6 +3,7 @@
 namespace Tests\Feature\Services\Admin\Crud;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Declarations\Definitions;
 use MatrixPlatform\Services\Admin\Crud\ListService;
@@ -129,18 +130,32 @@ class ListServiceTest extends FeatureTestCase {
         $this->assertSame(['title'], array_column($result['columns'], 'name'));
     }
 
+    /**
+     * @param list<string> $selects
+     */
+    private function listedSql(array $selects): string {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $result = (new ListService(Widget::class))
+            ->standalone(true)
+            ->columns(['title'])
+            ->selects($selects)
+            ->list([]);
+
+        DB::disableQueryLog();
+
+        $this->assertSame('Alpha', $result['rows'][0]['title']);
+
+        return strval(collect(DB::getQueryLog())->pluck('query')->last(fn (string $query): bool => str_contains($query, 'stub_widget')));
+    }
+
     public function test_selects_does_not_duplicate_a_field_already_in_columns(): void {
         $this->arrangeable();
 
         $this->widget('Alpha');
 
-        $result = (new ListService(Widget::class))
-            ->standalone(true)
-            ->columns(['title'])
-            ->selects(['title'])
-            ->list([]);
-
-        $this->assertSame('Alpha', $result['rows'][0]['title']);
+        $this->assertSame($this->listedSql([]), $this->listedSql(['title']));
     }
 
     public function test_an_arrangeable_model_offers_the_schedule_filter(): void {
@@ -511,6 +526,18 @@ class ListServiceTest extends FeatureTestCase {
         $result = $this->pooled(['title'], ['trinket_id'], ['sort' => [['name' => 'trinket_id', 'direction' => 'desc']]]);
 
         $this->assertSame(['Beta' => 17, 'Alpha' => 5], array_column($result['rows'], 'trinket_id', 'title'));
+    }
+
+    public function test_a_date_typed_optional_column_drops_the_time_component_from_the_rows(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
+
+        $this->useDateFormats('Y-m-d', 'Y-m-d H:i:s');
+
+        Widget::forceCreate(['title' => 'Alpha', 'enable_time' => '2026-08-12 15:30:00']);
+
+        $rows = $this->pooled(['title'], [['name' => 'enable_time', 'type' => 'date']])['rows'];
+
+        $this->assertSame('2026-08-12', $rows[0]['enable_time']);
     }
 
     public function test_an_optional_column_can_be_filtered_but_a_hidden_one_cannot(): void {

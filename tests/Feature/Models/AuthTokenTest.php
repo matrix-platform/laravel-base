@@ -22,4 +22,12 @@ class AuthTokenTest extends FeatureTestCase {
         $this->assertSame(1, AuthToken::findByToken($token, IdentityType::User)?->target_id);
     }
 
+    public function test_a_token_is_found_only_for_its_own_identity_and_never_when_empty(): void {
+        $token = AuthToken::issue(IdentityType::User, 1);
+
+        $this->assertNull(AuthToken::findByToken($token, IdentityType::Member));
+        $this->assertNull(AuthToken::findByToken('', IdentityType::User));
+        $this->assertNull(AuthToken::findByToken(null, IdentityType::User));
+    }
+
 }

@@ -29,7 +29,7 @@ class MessageStatusTest extends FeatureTestCase {
 
         sort($values);
 
-        foreach (['mail-log-status', 'sms-log-status'] as $bundle) {
+        foreach (['mail-log-status', 'push-log-status', 'sms-log-status', 'telegram-log-status'] as $bundle) {
             foreach (['en', 'tw'] as $locale) {
                 $labels = app(Resources::class)->getI18nBundle("options/{$bundle}", $locale);
 

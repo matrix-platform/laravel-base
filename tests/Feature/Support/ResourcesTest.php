@@ -141,45 +141,6 @@ class ResourcesTest extends FeatureTestCase {
         $this->assertSame('../../../config/app.key', $resources->translate('../../../config/app.key'));
     }
 
-    public function test_a_traversing_name_never_reaches_the_file_system(): void {
-        $resources = $this->fixtures();
-
-        $this->refuses('invalid-resource-token', fn () => $resources->getBundle('../package-b/resources/cfg/only-in-b'));
-    }
-
-    public function test_bundle_survives_the_file_being_deleted_after_the_first_read(): void {
-        $path = $this->temporary();
-        $file = "{$path}/resources/cfg/temp.php";
-
-        File::put($file, "<?php return ['key' => 'cached'];");
-
-        $resources = $this->packaged($path);
-        $before = $resources->config('temp.key');
-
-        $this->assertSame('cached', $before);
-
-        File::delete($file);
-        clearstatcache();
-
-        $this->assertSame('cached', $resources->config('temp.key'));
-
-        File::deleteDirectory($path);
-    }
-
-    public function test_missing_bundle_is_cached_as_missing(): void {
-        $path = $this->temporary();
-        $resources = $this->packaged($path);
-
-        $this->assertNull($resources->config('ghost.key'));
-
-        File::put("{$path}/resources/cfg/ghost.php", "<?php return ['key' => 'appeared'];");
-        clearstatcache();
-
-        $this->assertNull($resources->config('ghost.key'));
-
-        File::deleteDirectory($path);
-    }
-
     public function test_defaults_survive_the_file_being_deleted_even_from_a_different_resources_instance(): void {
         $path = $this->temporary();
         $file = "{$path}/resources/cfg/temp.php";

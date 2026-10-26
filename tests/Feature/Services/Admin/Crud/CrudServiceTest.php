@@ -118,6 +118,23 @@ class CrudServiceTest extends FeatureTestCase {
         $this->assertTrue($titles[0]['required']);
     }
 
+    public function test_a_column_declared_first_keeps_its_place_when_declared_again(): void {
+        $columns = (new ListService(Widget::class))
+            ->standalone(true)
+            ->columns(['ip'])
+            ->columns(['title', 'ip', 'enable_time'])
+            ->list([])['columns'];
+
+        $this->assertSame(['ip', 'title', 'enable_time'], array_column($columns, 'name'));
+    }
+
+    public function test_a_repeated_column_is_still_resolved_and_refused_when_invalid(): void {
+        $this->refuses('invalid-column-expression', fn () => (new ListService(Widget::class))
+            ->standalone(true)
+            ->columns(['title'])
+            ->columns(['title=nothing.label']));
+    }
+
     public function test_the_identifier_key_stays_protected_unless_declared_as_a_column(): void {
         $widget = $this->widgets();
 

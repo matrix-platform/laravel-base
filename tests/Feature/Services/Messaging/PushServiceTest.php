@@ -41,16 +41,11 @@ class PushServiceTest extends FeatureTestCase {
         Queue::assertPushed(SendMessageJob::class, fn (SendMessageJob $job) => $job->channel === 'push');
     }
 
-    public function test_a_message_without_a_title_stores_a_null_title(): void {
-        $log = $this->push()->schedule(now(), '1', null, [], ['provider' => 'webpush', 'content' => 'Body']);
+    public function test_a_message_without_a_title_or_data_stores_nulls(): void {
+        $push = $this->reload($this->push()->schedule(now(), '1', null, [], ['provider' => 'webpush', 'content' => 'Body']));
 
-        $this->assertNull($this->reload($log)->title);
-    }
-
-    public function test_a_message_without_data_stores_a_null_data(): void {
-        $log = $this->push()->schedule(now(), '1', null, [], ['provider' => 'webpush', 'content' => 'Body']);
-
-        $this->assertNull($this->reload($log)->data);
+        $this->assertNull($push->title);
+        $this->assertNull($push->data);
     }
 
 }

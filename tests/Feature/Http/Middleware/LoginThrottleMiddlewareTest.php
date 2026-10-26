@@ -6,7 +6,6 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\RateLimiter;
 use MatrixPlatform\Models\IdentityType;
-use MatrixPlatform\Support\LoginRateLimiter;
 use Tests\FeatureTestCase;
 
 class LoginThrottleMiddlewareTest extends FeatureTestCase {
@@ -26,16 +25,34 @@ class LoginThrottleMiddlewareTest extends FeatureTestCase {
         $router->middleware('login-throttle-api:admin')->post('probe/in-flight', fn (Request $request) => ['attempts' => RateLimiter::attempts("matrix-login-admin|{$request->ip()}|")]);
     }
 
-    private function request(): Request {
-        return Request::create('/', 'POST', ['username' => 'zoe']);
+    public function test_each_bundle_keeps_its_own_bucket(): void {
+        $max = intval(cfg('admin.login-throttle-max'));
+
+        for ($attempt = 0; $attempt < $max; $attempt++) {
+            $this->postJson('probe/admin');
+        }
+
+        $this->postJson('probe/admin')->assertStatus(429);
+        $this->postJson('probe/member')->assertStatus(200);
+        $this->postJson('probe/vendor')->assertStatus(200);
     }
 
-    public function test_every_identity_resolves_a_limit_from_its_own_bundle(): void {
-        foreach (IdentityType::cases() as $identity) {
-            $bundle = $identity->bundle();
+    public function test_the_bucket_is_keyed_by_address_and_username(): void {
+        $max = intval(cfg('admin.login-throttle-max'));
 
-            $this->assertGreaterThan(0, (new LoginRateLimiter($bundle))($this->request())->maxAttempts, $bundle);
+        for ($attempt = 0; $attempt < $max; $attempt++) {
+            $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.1'])->postJson('probe/admin', ['username' => 'alice']);
         }
+
+        $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.1'])
+            ->postJson('probe/admin', ['username' => 'alice'])
+            ->assertStatus(429);
+        $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.1'])
+            ->postJson('probe/admin', ['username' => 'bob'])
+            ->assertStatus(200);
+        $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.2'])
+            ->postJson('probe/admin', ['username' => 'alice'])
+            ->assertStatus(200);
     }
 
     public function test_the_requests_are_throttled_once_the_limit_is_exhausted(): void {

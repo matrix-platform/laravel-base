@@ -3,6 +3,7 @@
 namespace Tests\Unit\Columns\Syntax;
 
 use MatrixPlatform\Columns\ColumnType;
+use MatrixPlatform\Columns\Options\StaticOptions;
 use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Columns\Syntax\ColumnParser;
 use MatrixPlatform\Columns\Syntax\ParsedColumn;
@@ -54,6 +55,20 @@ class ColumnParserTest extends TestCase {
 
         $this->assertTrue($column->virtual);
         $this->assertFalse($column->sortable);
+    }
+
+    public function test_the_equals_prefix_locks_the_column_and_makes_it_required(): void {
+        $column = $this->parse('=title');
+
+        $this->assertSame('title', $column->name);
+        $this->assertTrue($column->locked);
+        $this->assertTrue($column->required);
+    }
+
+    public function test_a_name_that_is_not_a_string_is_refused(): void {
+        $this->expectExceptionMessage('invalid-column-expression');
+
+        $this->parse(['name' => null]);
     }
 
     public function test_stacked_prefixes_are_refused(): void {
@@ -281,6 +296,33 @@ class ColumnParserTest extends TestCase {
         $this->assertSame('Tip', $column->hint);
         $this->assertFalse($column->sortable);
         $this->assertSame('other', $column->section);
+    }
+
+    public function test_the_array_form_carries_flags_and_attachments(): void {
+        $options = new StaticOptions([]);
+        $assign = fn (): null => null;
+        $column = $this->parse([
+            'name' => 'title',
+            'locked' => true,
+            'readonly' => true,
+            'required' => true,
+            'virtual' => true,
+            'sortable' => true,
+            'group' => 'stats',
+            'type' => 'integer',
+            'options' => $options,
+            'assign' => $assign
+        ]);
+
+        $this->assertTrue($column->locked);
+        $this->assertTrue($column->readonly);
+        $this->assertTrue($column->required);
+        $this->assertTrue($column->virtual);
+        $this->assertTrue($column->sortable);
+        $this->assertSame('stats', $column->group);
+        $this->assertSame(ColumnType::Integer, $column->type);
+        $this->assertSame($options, $column->options);
+        $this->assertSame($assign, $column->assign);
     }
 
     public function test_an_explicit_null_operator_is_distinguishable_from_an_absent_one(): void {

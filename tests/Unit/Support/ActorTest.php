@@ -94,4 +94,32 @@ class ActorTest extends TestCase {
         $actor->setVendor($this->model());
     }
 
+    public function test_the_current_identity_prefers_the_user_then_the_member_then_the_vendor(): void {
+        $user = new User();
+        $member = $this->model();
+        $vendor = $this->model();
+
+        $actor = new Actor();
+        $actor->setVendor($vendor);
+        $this->assertSame($vendor, $actor->requireCurrent());
+
+        $actor->setMember($member);
+        $this->assertSame($member, $actor->requireCurrent());
+
+        $actor->setUser($user);
+        $this->assertSame($user, $actor->requireCurrent());
+    }
+
+    public function test_require_current_fails_with_401_when_nobody_is_authenticated(): void {
+        $actor = new Actor();
+
+        $this->assertNull($actor->current());
+
+        $this->expectException(ServiceException::class);
+        $this->expectExceptionMessage('invalid-token');
+        $this->expectExceptionCode(401);
+
+        $actor->requireCurrent();
+    }
+
 }

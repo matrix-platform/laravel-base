@@ -148,12 +148,28 @@ class DriveControllerTest extends FeatureTestCase {
 
     public function test_downloading_with_an_unknown_size_parameter_streams_the_original_file(): void {
         $root = $this->send('admin/drive/root')->json('data.id');
+        $image = UploadedFile::fake()->image('photo.png', 200, 100);
+        $content = strval(file_get_contents($image->getPathname()));
+
+        $node = $this->withToken($this->token)
+            ->post("admin/drive/{$root}/upload", ['file' => $image])
+            ->json('data');
+
+        $download = $this->withToken($this->token)->get("admin/drive/{$node['id']}/download?size=not-configured");
+
+        $download->assertOk();
+        $download->assertHeader('Content-Type', 'image/png');
+        $this->assertSame($content, $download->streamedContent());
+    }
+
+    public function test_a_size_parameter_on_a_file_that_is_not_an_image_streams_the_original_file(): void {
+        $root = $this->send('admin/drive/root')->json('data.id');
 
         $node = $this->withToken($this->token)
             ->post("admin/drive/{$root}/upload", ['file' => UploadedFile::fake()->createWithContent('note.txt', 'hello')])
             ->json('data');
 
-        $download = $this->withToken($this->token)->get("admin/drive/{$node['id']}/download?size=not-configured");
+        $download = $this->withToken($this->token)->get("admin/drive/{$node['id']}/download?size=icon");
 
         $download->assertOk();
         $this->assertSame('hello', $download->streamedContent());

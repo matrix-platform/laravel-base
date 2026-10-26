@@ -154,6 +154,20 @@ class ImportServiceTest extends FeatureTestCase {
         $this->assertNull($template['columns'][1]['options']);
     }
 
+    public function test_the_template_and_the_import_can_take_turns_on_the_same_instance(): void {
+        $service = $this->importer([['name' => 'title', 'options' => new StaticOptions([$this->option('draft', 'Draft')])], 'enable_time', 'payload']);
+        $template = $service->template();
+
+        $service->import($this->input([['title' => 'Draft']]));
+
+        $this->assertSame($template, $service->template());
+        $this->assertSame(['title', 'enable_time'], array_column($template['columns'], 'name'));
+
+        $service->import($this->input([['title' => 'Draft', 'enable_time' => '2026-01-02 03:04:05']]));
+
+        $this->assertSame(['draft', 'draft'], Widget::query()->orderBy('id')->pluck('title')->all());
+    }
+
     public function test_a_column_with_a_lookup_offers_no_options(): void {
         $options = new StaticOptions([$this->option(1, 'Alpha')]);
 

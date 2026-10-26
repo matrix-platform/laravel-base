@@ -43,12 +43,6 @@ class PermissionMapTest extends FeatureTestCase {
         $this->assertSame('{"user": {"query": true}}', $this->raw($group));
     }
 
-    public function test_a_truthy_action_is_normalised_into_a_boolean_true(): void {
-        $group = $this->stored(['user' => ['query' => 1, 'update' => '1']]);
-
-        $this->assertSame(['user' => ['query' => true, 'update' => true]], $group->refresh()->permissions);
-    }
-
     public function test_only_true_one_and_the_string_one_grant_an_action(): void {
         $group = $this->stored(['user' => [
             'a' => true, 'b' => 1, 'c' => '1',
@@ -88,6 +82,21 @@ class PermissionMapTest extends FeatureTestCase {
         $group->permissions = ['user' => ['update' => true, 'query' => 1]];
 
         $this->assertFalse($group->isDirty('permissions'));
+    }
+
+    public function test_an_object_is_accepted_as_a_grant_map(): void {
+        $group = GroupFactory::new()->createOne();
+
+        $group->permissions = (object) ['user' => (object) ['query' => true]];
+        $group->save();
+
+        $this->assertSame('{"user": {"query": true}}', $this->raw($group));
+    }
+
+    public function test_an_empty_map_serializes_as_a_json_object(): void {
+        $group = GroupFactory::new()->createOne();
+
+        $this->assertSame('{}', json_encode($group->toArray()['permissions']));
     }
 
 }

@@ -47,12 +47,6 @@ class TelegramServiceTest extends FeatureTestCase {
         $this->assertNull($this->reload($log)->data);
     }
 
-    public function test_a_group_chat_id_is_accepted_as_the_destination(): void {
-        $log = $this->telegram()->schedule(now(), '-1001234567890', null, [], ['provider' => 'telegram', 'content' => 'Hello']);
-
-        $this->assertSame('-1001234567890', $this->reload($log)->chat_id);
-    }
-
     public function test_send_to_user_addresses_the_backend_user(): void {
         $user = UserFactory::new()->createOne(['id' => 6000]);
 

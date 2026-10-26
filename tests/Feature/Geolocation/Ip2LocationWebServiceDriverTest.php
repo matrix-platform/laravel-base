@@ -38,6 +38,17 @@ class Ip2LocationWebServiceDriverTest extends FeatureTestCase {
         $this->assertSame('Google LLC', $location->isp);
     }
 
+    public function test_a_field_the_provider_leaves_out_is_null(): void {
+        Http::fake(['*' => Http::response(['response' => 'OK', 'country_code' => 'US'])]);
+
+        $location = (new Ip2LocationWebServiceDriver())->locate('8.8.8.8');
+
+        $this->assertNotNull($location);
+        $this->assertSame('US', $location->countryCode);
+        $this->assertNull($location->city);
+        $this->assertNull($location->latitude);
+    }
+
     public function test_the_request_sends_the_configured_key_and_package_for_the_given_ip(): void {
         $this->useCfg('ip2location-webservice', ['api-key' => 'test-key', 'package' => 'WS10']);
 
@@ -62,7 +73,7 @@ class Ip2LocationWebServiceDriverTest extends FeatureTestCase {
     }
 
     public function test_a_transport_level_failure_is_refused_as_a_failed_request(): void {
-        Http::fake(['*' => Http::response('', 500)]);
+        Http::fake(['*' => Http::response(['response' => 'OK', 'country_code' => 'US'], 500)]);
 
         $this->refuses('geolocation-request-failed', fn () => (new Ip2LocationWebServiceDriver())->locate('8.8.8.8'));
     }

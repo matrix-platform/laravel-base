@@ -69,10 +69,10 @@ class MenuGatedRoutesTest extends FeatureTestCase {
             ->assertJson(['success' => false, 'code' => 404, 'error' => 'endpoint-not-found']);
     }
 
-    public function test_an_unlisted_literal_action_is_not_captured_by_the_id_route(): void {
-        $this->postJson('admin/sms-log/insert')
-            ->assertOk()
-            ->assertJson(['success' => false, 'code' => 404, 'error' => 'endpoint-not-found']);
+    public function test_an_identifier_that_only_starts_with_an_action_name_still_reaches_the_id_route(): void {
+        foreach (['12', 'deleted', 'export-1'] as $id) {
+            $this->assertSame('admin/widget/{id}', Route::getRoutes()->match(request()->create("admin/widget/{$id}", 'POST'))->uri(), $id);
+        }
     }
 
 }

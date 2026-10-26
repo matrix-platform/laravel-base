@@ -77,4 +77,21 @@ class SchemaMacroTest extends FeatureTestCase {
         $this->assertSame(['YES', 'YES', 'YES', 'YES'], $nullable->values()->all());
     }
 
+    public function test_a_unique_translatable_column_is_unique_per_locale(): void {
+        Schema::create('stub_translatable_probe', function (BaseBlueprint $table) {
+            $table->translatable('code', unique: true);
+            $table->translatable('caption');
+        });
+
+        $unique = [];
+
+        foreach (Schema::getIndexes('stub_translatable_probe') as $index) {
+            if ($index['unique']) {
+                $unique[] = $index['columns'];
+            }
+        }
+
+        $this->assertEqualsCanonicalizing([['code__tw'], ['code__en']], $unique);
+    }
+
 }

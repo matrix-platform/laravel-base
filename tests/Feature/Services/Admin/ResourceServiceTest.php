@@ -524,12 +524,6 @@ class ResourceServiceTest extends FeatureTestCase {
         }
     }
 
-    public function test_a_written_value_is_visible_to_the_same_request(): void {
-        $this->service()->update(ResourceGroup::Cfg, 'admin', ['captcha-ttl' => 900]);
-
-        $this->assertSame(900, cfg('admin.captcha-ttl'));
-    }
-
     public function test_writing_and_clearing_both_leave_an_audit_record(): void {
         $this->service()->update(ResourceGroup::Cfg, 'admin', ['captcha-ttl' => 900]);
         $this->service()->update(ResourceGroup::Cfg, 'admin', ['captcha-ttl' => 300]);

@@ -4,11 +4,15 @@ namespace Tests\Feature\Services\Admin\Crud;
 
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use MatrixPlatform\Exceptions\ServiceException;
+use MatrixPlatform\Services\Admin\Crud\ArrangeService;
 use MatrixPlatform\Services\Admin\Crud\DeleteService;
+use MatrixPlatform\Services\Admin\Crud\ExportService;
 use MatrixPlatform\Services\Admin\Crud\GetService;
+use MatrixPlatform\Services\Admin\Crud\ImportService;
 use MatrixPlatform\Services\Admin\Crud\InsertService;
 use MatrixPlatform\Services\Admin\Crud\ListService;
 use MatrixPlatform\Services\Admin\Crud\NewService;
+use MatrixPlatform\Services\Admin\Crud\SortService;
 use MatrixPlatform\Services\Admin\Crud\UpdateService;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
@@ -326,6 +330,32 @@ class NestedParentTest extends FeatureTestCase {
             ->get($trinket->id);
 
         $this->assertSame('mine', $this->label($data));
+    }
+
+    public function test_a_list_checks_the_parent_before_resolving_its_optional_columns(): void {
+        $this->refuses('invalid-column-expression', fn () => (new ListService(Trinket::class))->standalone(true)->columns(['label'])->optionals(['nothing.label'])->list([]));
+        $this->refuses('data-not-found', fn () => (new ListService(Trinket::class))->columns(['label'])->optionals(['nothing.label'])->list([]));
+    }
+
+    public function test_an_export_resolves_its_filter_columns_before_checking_the_parent(): void {
+        $this->refuses('invalid-column-expression', fn () => (new ExportService(Trinket::class))->columns(['label'])->filterColumns(['nothing.label'])->export([]));
+    }
+
+    public function test_an_export_checks_the_parent_before_planning_its_query(): void {
+        $this->refuses('invalid-column-expression', fn () => (new ExportService(Trinket::class))->standalone(true)->columns(['label', 'trinkets.label'])->export([]));
+        $this->refuses('data-not-found', fn () => (new ExportService(Trinket::class))->columns(['label', 'trinkets.label'])->export([]));
+    }
+
+    public function test_an_import_checks_the_parent_only_once_a_row_is_written(): void {
+        $this->refuses('validation-failed', fn () => (new ImportService(Trinket::class))->columns(['label'])->import(['rows' => 'x']));
+        $this->refuses('import-column-unsupported', fn () => (new ImportService(Trinket::class))->columns(['label', '*amount:hidden'])->import(['rows' => [['row' => 2, 'values' => ['label' => 'a']]]]));
+        $this->refuses('data-not-found', fn () => (new ImportService(Trinket::class))->columns(['label'])->import(['rows' => [['row' => 2, 'values' => ['label' => 'a']]]]));
+    }
+
+    public function test_the_identifiers_are_checked_before_the_parent(): void {
+        $this->refuses('validation-failed', fn () => (new DeleteService(Trinket::class))->delete(['id' => [[1]]]));
+        $this->refuses('invalid-sort-order', fn () => (new SortService(Trinket::class))->sort(['order' => [[1]]]));
+        $this->refuses('invalid-arrange-order', fn () => (new ArrangeService(Trinket::class))->save(['enabled' => [[1]]]));
     }
 
     public function test_a_standalone_service_ignores_the_route_parent(): void {

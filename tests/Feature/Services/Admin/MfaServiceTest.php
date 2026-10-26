@@ -3,6 +3,7 @@
 namespace Tests\Feature\Services\Admin;
 
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Services\Admin\MfaService;
@@ -203,6 +204,28 @@ class MfaServiceTest extends FeatureTestCase {
         $fresh->save();
 
         $this->assertFalse(app(MfaService::class)->trusted($this->reload($user), $token));
+    }
+
+    public function test_confirm_without_a_pending_setup_is_rejected(): void {
+        $user = UserFactory::new()->createOne();
+
+        $this->refusesField('code', 'invalid-code', fn () => app(MfaService::class)->confirm($user, '000000'));
+        $this->assertNull($this->reload($user)->confirmed_time);
+    }
+
+    public function test_trusted_rejects_a_token_it_did_not_issue(): void {
+        [$user] = $this->trustedUser();
+        $fresh = $this->reload($user);
+
+        $tokens = [
+            'garbage' => 'not-an-encrypted-token',
+            'scalar payload' => Crypt::encryptString('"scalar"'),
+            'non-integer expiry' => Crypt::encryptString(json_encode(['user_id' => $user->id, 'expires' => 'never', 'fingerprint' => hash('sha256', $fresh->password . '|' . $fresh->secret)], JSON_THROW_ON_ERROR))
+        ];
+
+        foreach ($tokens as $case => $token) {
+            $this->assertFalse(app(MfaService::class)->trusted($fresh, $token), $case);
+        }
     }
 
 }

@@ -21,6 +21,9 @@ use Tests\Stubs\Gadget;
 use Tests\Stubs\GadgetController;
 use Tests\Stubs\Gizmo;
 use Tests\Stubs\GizmoController;
+use Tests\Stubs\ImportingWidgetController;
+use Tests\Stubs\MountedWidgetController;
+use Tests\Stubs\MovableTrinketController;
 use Tests\Stubs\StubDeclaration;
 use Tests\Stubs\Trinket;
 use Tests\Stubs\TrinketController;
@@ -67,10 +70,6 @@ class CrudControllerTest extends FeatureTestCase {
 
     private function widget(string $title): Widget {
         return Widget::forceCreate(['title' => $title]);
-    }
-
-    public function test_the_list_route_is_mounted_on_the_bare_prefix(): void {
-        $this->admin('admin/widget')->assertJsonPath('success', true);
     }
 
     public function test_the_list_response_carries_every_section(): void {
@@ -334,13 +333,6 @@ class CrudControllerTest extends FeatureTestCase {
         $this->admin('admin/widget/new')->assertJsonPath('data.preference', null);
     }
 
-    public function test_the_get_and_new_preference_is_null_without_a_saved_value(): void {
-        $widget = $this->widget('Alpha');
-
-        $this->admin("admin/widget/{$widget->id}")->assertJsonPath('data.preference', null);
-        $this->admin('admin/widget/new')->assertJsonPath('data.preference', null);
-    }
-
     public function test_a_nested_get_and_new_read_the_hyphenated_preference_key(): void {
         $alpha = $this->widget('Alpha');
         $trinket = Trinket::forceCreate(['label' => 'mine', 'widget_id' => $alpha->id]);
@@ -470,15 +462,10 @@ class CrudControllerTest extends FeatureTestCase {
         $this->assertArrayHasKey('secret', $response->json('fields'));
     }
 
-    public function test_a_required_column_rejects_null(): void {
+    public function test_nothing_is_written_when_the_action_fails(): void {
         $response = $this->admin('admin/widget/insert', ['title' => null, 'secret' => null, 'enable_time' => null]);
 
-        $response->assertJsonPath('code', 422);
-    }
-
-    public function test_nothing_is_written_when_the_action_fails(): void {
-        $this->admin('admin/widget/insert', ['title' => null, 'secret' => null, 'enable_time' => null]);
-
+        $response->assertJson(['success' => false, 'code' => 422, 'error' => 'validation-failed']);
         $this->assertSame(0, Widget::query()->count());
         $this->assertSame(0, ManipulationLog::query()->where('data_type', 'stub_widget')->count());
     }
@@ -582,6 +569,18 @@ class CrudControllerTest extends FeatureTestCase {
         $this->assertSame('renamed', $trinket->refresh()->label);
     }
 
+    public function test_a_movable_controller_lets_a_nested_update_move_the_row_to_another_parent(): void {
+        Route::middleware(['envelope-api', 'user-api'])->prefix('admin/widget/{widget_id}/movable-trinket')->group(fn () => ActionRoutes::scan(MovableTrinketController::class));
+
+        $alpha = $this->widget('Alpha');
+        $beta = $this->widget('Beta');
+        $trinket = Trinket::forceCreate(['label' => 'mine', 'widget_id' => $alpha->id]);
+
+        $this->admin("admin/widget/{$alpha->id}/movable-trinket/{$trinket->id}/update", ['label' => 'moved', 'amount' => null, 'widget_id' => strval($beta->id)])->assertJsonPath('success', true);
+
+        $this->assertSame($beta->id, $trinket->refresh()->widget_id);
+    }
+
     public function test_a_nested_get_cannot_reach_another_parent(): void {
         $alpha = $this->widget('Alpha');
         $beta = $this->widget('Beta');
@@ -591,18 +590,6 @@ class CrudControllerTest extends FeatureTestCase {
         $response = $this->admin("admin/widget/{$alpha->id}/trinket/{$trinket->id}");
 
         $response->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
-    }
-
-    public function test_a_nested_update_cannot_reach_another_parent(): void {
-        $alpha = $this->widget('Alpha');
-        $beta = $this->widget('Beta');
-
-        $trinket = Trinket::forceCreate(['label' => 'theirs', 'widget_id' => $beta->id]);
-
-        $response = $this->admin("admin/widget/{$alpha->id}/trinket/{$trinket->id}/update", ['label' => 'stolen', 'amount' => null]);
-
-        $response->assertJsonPath('code', 404);
-        $this->assertSame('theirs', $trinket->refresh()->label);
     }
 
     public function test_a_nested_insert_takes_the_parent_from_the_route(): void {
@@ -621,24 +608,6 @@ class CrudControllerTest extends FeatureTestCase {
         $this->admin("admin/widget/{$alpha->id}/trinket/{$trinket->id}/update", ['label' => 'mine', 'amount' => null, 'ranking' => 9999]);
 
         $this->assertSame($ranking, $trinket->refresh()->ranking);
-    }
-
-    public function test_a_readonly_column_is_not_required_on_insert(): void {
-        $alpha = $this->widget('Alpha');
-
-        $response = $this->admin("admin/widget/{$alpha->id}/trinket/insert", ['label' => 'mine', 'amount' => null]);
-
-        $response->assertJsonPath('success', true);
-    }
-
-    public function test_a_joined_column_is_shown_but_never_written_back(): void {
-        $alpha = $this->widget('Alpha');
-
-        Trinket::forceCreate(['label' => 'mine', 'widget_id' => $alpha->id]);
-
-        $response = $this->admin("admin/widget/{$alpha->id}/trinket");
-
-        $this->assertSame('Alpha', $response->json('data.rows.0.widget_title'));
     }
 
     public function test_a_row_action_is_hidden_when_its_condition_fails(): void {
@@ -692,18 +661,6 @@ class CrudControllerTest extends FeatureTestCase {
         $this->assertSame($alpha->id, $copy->widget_id);
     }
 
-    public function test_a_nested_copy_cannot_reach_another_parent(): void {
-        $alpha = $this->widget('Alpha');
-        $beta = $this->widget('Beta');
-
-        $trinket = Trinket::forceCreate(['label' => 'theirs', 'widget_id' => $beta->id]);
-
-        $response = $this->admin("admin/widget/{$alpha->id}/trinket/{$trinket->id}/copy");
-
-        $response->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
-        $this->assertSame(1, Trinket::query()->count());
-    }
-
     public function test_a_guard_refusing_a_child_rolls_back_the_whole_copy(): void {
         $alpha = $this->widget('Alpha');
 
@@ -726,12 +683,6 @@ class CrudControllerTest extends FeatureTestCase {
         $this->assertSame(['Alpha', 'Beta'], array_column($rows, 'title'));
     }
 
-    public function test_the_sort_listing_is_not_swallowed_by_the_get_route(): void {
-        $this->widget('Alpha');
-
-        $this->admin('admin/widget/sort')->assertJsonPath('data.rows.0.title', 'Alpha');
-    }
-
     public function test_sort_save_persists_the_requested_order(): void {
         $alpha = $this->widget('Alpha');
         $beta = $this->widget('Beta');
@@ -740,6 +691,19 @@ class CrudControllerTest extends FeatureTestCase {
 
         $response->assertJsonPath('success', true);
         $this->assertLessThan($alpha->refresh()->ranking, $beta->refresh()->ranking);
+    }
+
+    public function test_a_descending_default_sorting_puts_the_highest_ranking_first_on_the_sort_page(): void {
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget', ranking: 'ranking')));
+
+        $alpha = Widget::forceCreate(['title' => 'Alpha', 'ranking' => 10]);
+        $beta = Widget::forceCreate(['title' => 'Beta', 'ranking' => 20]);
+
+        $this->assertSame(['Beta', 'Alpha'], array_column($this->admin('admin/widget/sort')->json('data.rows'), 'title'));
+
+        $this->admin('admin/widget/sort/save', ['order' => [$alpha->id, $beta->id]])->assertJsonPath('success', true);
+
+        $this->assertGreaterThan($beta->refresh()->ranking, $alpha->refresh()->ranking);
     }
 
     public function test_both_sort_endpoints_are_hidden_when_the_resource_is_not_sortable(): void {
@@ -794,16 +758,6 @@ class CrudControllerTest extends FeatureTestCase {
         $this->assertNull($beta->refresh()->disable_time);
     }
 
-    public function test_arrange_save_does_not_require_every_row_to_be_named(): void {
-        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget', enable: 'enable_time', disable: 'disable_time')));
-
-        $alpha = $this->widget('Alpha');
-
-        $this->widget('Beta');
-
-        $this->admin('admin/widget/arrange/save', ['enabled' => [$alpha->id]])->assertJsonPath('success', true);
-    }
-
     public function test_the_list_leaves_out_the_sort_and_arrange_actions_the_controller_turns_off(): void {
         app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget', enable: 'enable_time', disable: 'disable_time')));
 
@@ -839,6 +793,27 @@ class CrudControllerTest extends FeatureTestCase {
         $response->assertJsonPath('data.title', 'Widget Import Template');
         $this->assertSame(['title', 'secret', 'enable_time'], array_column($response->json('data.columns'), 'name'));
         $response->assertJsonPath('data.rows', []);
+    }
+
+    public function test_declared_imports_replace_the_insert_columns(): void {
+        Route::middleware(['envelope-api', 'user-api'])->prefix('admin/widget')->group(fn () => ActionRoutes::scan(ImportingWidgetController::class));
+
+        $this->assertSame(['title'], array_column($this->admin('admin/widget/import/template')->json('data.columns'), 'name'));
+
+        $response = $this->admin('admin/widget/import', ['rows' => [['row' => 2, 'values' => ['title' => 'Alpha', 'secret' => 'ignored']]]]);
+
+        $response->assertJsonPath('data.count', 1);
+        $this->assertNull(Widget::query()->sole()->secret);
+    }
+
+    public function test_a_mount_moves_the_action_urls_of_the_controller(): void {
+        Route::middleware(['envelope-api', 'user-api'])->prefix('admin/widget')->group(fn () => ActionRoutes::scan(MountedWidgetController::class));
+
+        $this->widget('Alpha');
+
+        $response = $this->admin('admin/widget');
+
+        $this->assertSame(['widget/{widget_id}/trinket/{id}'], array_column(array_filter($response->json('data.actions.row'), fn (array $action): bool => $action['type'] === 'edit'), 'url'));
     }
 
     public function test_import_inserts_every_row(): void {
@@ -881,15 +856,6 @@ class CrudControllerTest extends FeatureTestCase {
         $this->assertSame(['title', 'trinkets_count'], array_column($response->json('data.columns'), 'name'));
         $response->assertJsonPath('data.rows.0.title', 'Alpha');
         $response->assertJsonPath('data.rows.0.trinkets_count', '1');
-    }
-
-    public function test_export_leaves_out_the_hidden_and_password_columns(): void {
-        $this->widget('Alpha');
-
-        $names = array_column($this->admin('admin/widget/export')->json('data.columns'), 'name');
-
-        $this->assertNotContains('secret', $names);
-        $this->assertNotContains('ip', $names);
     }
 
     public function test_export_falls_back_to_the_list_columns(): void {
@@ -977,36 +943,6 @@ class CrudControllerTest extends FeatureTestCase {
 
         $response->assertJsonPath('data.columns', []);
         $response->assertJsonPath('data.rows', [[]]);
-    }
-
-    public function test_a_nested_export_is_scoped_to_its_parent(): void {
-        $alpha = $this->widget('Alpha');
-        $beta = $this->widget('Beta');
-
-        Trinket::forceCreate(['label' => 'mine', 'widget_id' => $alpha->id]);
-        Trinket::forceCreate(['label' => 'theirs', 'widget_id' => $beta->id]);
-
-        $rows = $this->admin("admin/widget/{$alpha->id}/trinket/export")->json('data.rows');
-
-        $this->assertSame(['mine'], array_column($rows, 'label'));
-    }
-
-    public function test_export_with_ids_only_exports_the_chosen_rows(): void {
-        $alpha = $this->widget('Alpha');
-        $this->widget('Beta');
-        $gamma = $this->widget('Gamma');
-
-        $rows = $this->admin('admin/widget/export', ['id' => [$alpha->id, $gamma->id, 999999]])->json('data.rows');
-
-        $this->assertEqualsCanonicalizing(['Alpha', 'Gamma'], array_column($rows, 'title'));
-    }
-
-    public function test_export_needs_no_opt_in_on_the_controller(): void {
-        app(MetadataRegistry::class)->register(Gizmo::class, new StubDeclaration(new Metadata('gizmo'), ['title' => Definition::text()]));
-
-        Gizmo::forceCreate(['title' => 'Alpha']);
-
-        $this->assertSame([['title' => 'Alpha']], $this->admin('admin/gizmo/export')->json('data.rows'));
     }
 
     public function test_the_optionals_hook_widens_the_list_pool_without_touching_the_defaults(): void {

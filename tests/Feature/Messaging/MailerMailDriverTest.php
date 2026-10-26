@@ -4,7 +4,6 @@ namespace Tests\Feature\Messaging;
 
 use Illuminate\Mail\MailManager;
 use Illuminate\Support\Facades\Mail;
-use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Mail\MessageMail;
 use MatrixPlatform\Messaging\MailerMailDriver;
 use MatrixPlatform\Models\MailLog;
@@ -48,7 +47,7 @@ class MailerMailDriverTest extends FeatureTestCase {
     }
 
     public function test_the_record_keeps_the_sender_the_message_actually_went_out_with(): void {
-        $this->useCfg('gmail', ['from-address' => 'changed@example.com']);
+        $this->useCfg('gmail', ['from-address' => 'changed@example.com', 'from-name' => 'Changed']);
 
         $log = $this->log();
 
@@ -56,7 +55,7 @@ class MailerMailDriverTest extends FeatureTestCase {
 
         (new MailerMailDriver())->send($log);
 
-        Mail::assertSent(MessageMail::class, fn (MessageMail $mail) => $mail->fromAddress === 'changed@example.com');
+        Mail::assertSent(MessageMail::class, fn (MessageMail $mail) => $mail->fromAddress === 'changed@example.com' && $mail->fromName === 'Changed');
 
         $this->assertSame('changed@example.com', $log->sender);
     }
@@ -103,15 +102,6 @@ class MailerMailDriverTest extends FeatureTestCase {
         $this->assertSame('smtp.relay.example', config('mail.mailers.matrix-smtp:relay.host'));
         $this->assertSame(2525, config('mail.mailers.matrix-smtp:relay.port'));
         $this->assertSame('smtps', config('mail.mailers.matrix-smtp:relay.scheme'));
-    }
-
-    public function test_a_second_provider_on_the_same_channel_is_reachable(): void {
-        $this->useMessagingFixtures();
-
-        (new MailerMailDriver())->send($this->log());
-
-        $this->assertSame(cfg('gmail.host'), config('mail.mailers.matrix-smtp:gmail.host'));
-        $this->assertSame('smtp', config('mail.mailers.matrix-smtp:gmail.transport'));
     }
 
     public function test_each_provider_gets_its_own_mailer_so_a_resolved_one_cannot_be_reused(): void {
@@ -182,9 +172,9 @@ class MailerMailDriverTest extends FeatureTestCase {
 
         $log->provider = 'blind';
 
-        $this->expectException(ServiceException::class);
+        $this->refuses('invalid-message-receiver', fn () => (new MailerMailDriver())->send($log));
 
-        (new MailerMailDriver())->send($log);
+        Mail::assertNothingSent();
     }
 
 }

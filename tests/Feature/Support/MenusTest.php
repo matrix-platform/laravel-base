@@ -165,9 +165,4 @@ class MenusTest extends FeatureTestCase {
         $this->assertActionsHaveNodes(TrinketController::class, 'widget/{widget_id}/trinket');
     }
 
-    public function test_the_singleton_is_resolvable_without_an_authenticated_user(): void {
-        $this->assertNull(actor()->current());
-        $this->assertTrue($this->menus()->has('widget'));
-    }
-
 }

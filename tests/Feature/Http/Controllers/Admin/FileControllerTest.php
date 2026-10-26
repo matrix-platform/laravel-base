@@ -68,6 +68,19 @@ class FileControllerTest extends FeatureTestCase {
         Storage::disk('public')->assertExists("files/{$path}");
     }
 
+    public function test_an_upload_records_the_usage_it_was_given(): void {
+        $response = $this->withToken($this->token())->post('admin/file/upload', [
+            'file' => UploadedFile::fake()->createWithContent('avatar.bin', 'avatar-bytes'),
+            'privilege' => File::PRIVATE,
+            'usage' => 'avatar'
+        ]);
+
+        $file = File::query()->where('path', $response->json('data.path'))->sole();
+
+        $this->assertSame('avatar', $file->usage);
+        $this->assertSame(File::PRIVATE, $file->privilege);
+    }
+
     public function test_an_upload_with_a_privilege_outside_the_enum_is_rejected(): void {
         $response = $this->send($this->token(), 'admin/file/upload', [
             'file' => UploadedFile::fake()->image('photo.png', 10, 10),
@@ -106,18 +119,9 @@ class FileControllerTest extends FeatureTestCase {
         $this->assertSame('note', $file->description);
     }
 
-    public function test_an_account_without_any_permission_reaches_every_file_endpoint(): void {
-        $token = $this->token();
-        $file = $this->stored();
-
-        $upload = $this->withToken($token)->post('admin/file/upload', [
-            'file' => UploadedFile::fake()->image('photo.png', 10, 10),
-            'privilege' => File::PUBLIC
-        ]);
-
-        $upload->assertJsonPath('success', true);
-
-        $this->send($token, 'admin/file/update', ['path' => $file->path, 'name' => 'renamed.bin'])->assertJsonPath('success', true);
+    public function test_updating_an_unknown_path_is_not_found(): void {
+        $this->send($this->token(), 'admin/file/update', ['path' => 'nowhere/missing.bin', 'name' => 'x'])
+            ->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
     }
 
     public function test_the_same_account_is_still_refused_by_a_guarded_endpoint(): void {

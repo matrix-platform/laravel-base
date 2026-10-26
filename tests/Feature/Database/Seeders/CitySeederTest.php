@@ -62,4 +62,14 @@ class CitySeederTest extends FeatureTestCase {
         $this->assertSame(371, ManipulationLog::query()->where('data_type', 'base_city_area')->count());
     }
 
+    public function test_each_title_lands_in_its_own_locale_column(): void {
+        $city = DB::table('base_city')->where('id', 1)->first(['title__tw', 'title__en']);
+        $area = DB::table('base_city_area')->where('id', 2900)->first(['title__tw', 'title__en']);
+
+        $this->assertNotNull($city);
+        $this->assertNotNull($area);
+        $this->assertSame(['臺北市', 'Taipei City'], [$city->title__tw, $city->title__en]);
+        $this->assertSame(['釣魚台列嶼', null], [$area->title__tw, $area->title__en]);
+    }
+
 }

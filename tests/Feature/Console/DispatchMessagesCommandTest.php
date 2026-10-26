@@ -109,16 +109,6 @@ class DispatchMessagesCommandTest extends FeatureTestCase {
         Queue::assertPushed(SendMessageJob::class, fn (SendMessageJob $job) => $job->afterCommit === true);
     }
 
-    public function test_a_job_lands_on_the_queue_its_channel_declares(): void {
-        config()->set('matrix.messaging.channels.mail.queue', 'somewhere-else');
-
-        $this->mail();
-
-        $this->dispatch()->assertSuccessful();
-
-        Queue::assertPushed(SendMessageJob::class, fn (SendMessageJob $job) => $job->queue === 'somewhere-else');
-    }
-
     public function test_the_shipped_channels_are_served_by_a_queue_each(): void {
         config()->set('matrix.messaging.channels.mail.queue', 'queue-mail');
         config()->set('matrix.messaging.channels.sms.queue', 'queue-sms');

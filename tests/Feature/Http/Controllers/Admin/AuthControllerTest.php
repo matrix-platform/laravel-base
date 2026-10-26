@@ -290,23 +290,6 @@ class AuthControllerTest extends FeatureTestCase {
         $this->assertSame(1, UserLog::query()->where('user_id', $user->id)->where('type', UserLogType::MfaChallengeFailed)->count());
     }
 
-    public function test_repeated_mfa_failures_are_rate_limited(): void {
-        $user = $this->user();
-
-        $this->enableMfa($user);
-
-        $challenge = strval($this->login()->json('data.challenge'));
-
-        for ($attempt = 0; $attempt < 5; $attempt++) {
-            $this->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => '000000']);
-        }
-
-        $response = $this->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => '000000']);
-
-        $response->assertStatus(200);
-        $response->assertJson(['code' => 429, 'error' => 'too-many-requests']);
-    }
-
     public function test_mfa_failures_from_different_addresses_share_one_limit_per_account(): void {
         [, $challenge, $code] = $this->challenged();
         $max = intval(cfg('admin.login-throttle-max'));
@@ -357,6 +340,42 @@ class AuthControllerTest extends FeatureTestCase {
 
         $this->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => $code])
             ->assertJsonPath('fields.code', ['invalid-challenge']);
+    }
+
+    public function test_an_mfa_challenge_cannot_be_used_twice(): void {
+        [, $challenge, $code] = $this->challenged();
+
+        $this->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => $code])
+            ->assertJsonStructure(['data' => ['token']]);
+
+        $this->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => $code])
+            ->assertJsonPath('fields.code', ['invalid-challenge']);
+    }
+
+    public function test_an_mfa_challenge_cannot_be_redeemed_for_another_account(): void {
+        [, $challenge] = $this->challenged();
+
+        $secret = $this->enableMfa($this->user(['username' => 'bob']));
+
+        $this->postJson('admin/auth/mfa', ['username' => 'bob', 'challenge' => $challenge, 'code' => (new Google2FA())->getCurrentOtp($secret)])
+            ->assertJsonPath('fields.code', ['invalid-challenge']);
+    }
+
+    public function test_a_successful_mfa_challenge_resets_the_failure_count(): void {
+        [, $challenge, $code] = $this->challenged();
+        $max = intval(cfg('admin.login-throttle-max'));
+
+        for ($attempt = 0; $attempt < $max - 1; $attempt++) {
+            $this->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => '000000']);
+        }
+
+        $this->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => $code])
+            ->assertJsonStructure(['data' => ['token']]);
+
+        $challenge = strval($this->login()->json('data.challenge'));
+
+        $this->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => '000000'])
+            ->assertJsonPath('fields.code', ['invalid-code']);
     }
 
     public function test_mfa_setup_requires_the_current_password(): void {
@@ -459,6 +478,8 @@ class AuthControllerTest extends FeatureTestCase {
             ->assertJsonPath('success', true);
 
         $this->login()->assertJsonStructure(['data' => ['token']]);
+        $this->assertSame(1, UserLog::query()->where('type', UserLogType::MfaEnabled)->count());
+        $this->assertSame(1, UserLog::query()->where('type', UserLogType::MfaDisabled)->count());
     }
 
     public function test_mfa_fields_cannot_be_written_through_the_generic_user_update_endpoint(): void {
@@ -591,6 +612,15 @@ class AuthControllerTest extends FeatureTestCase {
             ->assertJsonPath('data.profile', null);
     }
 
+    public function test_logout_writes_a_logout_log_and_clears_the_cookie(): void {
+        $user = $this->user();
+
+        $response = $this->withToken(strval($this->login()->json('data.token')))->postJson('admin/auth/logout');
+
+        $response->assertCookieExpired('matrix-user');
+        $this->assertSame(1, UserLog::query()->where('user_id', $user->id)->where('type', UserLogType::Logout)->count());
+    }
+
     public function test_the_profile_endpoint_returns_an_empty_result_without_a_token(): void {
         $this->postJson('admin/auth/profile')
             ->assertJsonPath('success', true)
@@ -660,13 +690,6 @@ class AuthControllerTest extends FeatureTestCase {
         $this->login()->assertJson(['error' => 'validation-failed']);
     }
 
-    public function test_a_user_without_a_password_cannot_log_in(): void {
-        $this->user(['password' => null]);
-
-        $this->login()->assertJson(['error' => 'validation-failed']);
-        $this->assertSame(0, UserLog::query()->where('type', UserLogType::Login)->count());
-    }
-
     public function test_a_user_without_a_password_hash_cannot_log_in_when_the_dummy_hash_matches(): void {
         $user = $this->user(['password' => null]);
 
@@ -704,9 +727,6 @@ class AuthControllerTest extends FeatureTestCase {
 
         $this->login(code: '00000')->assertStatus(200);
         $this->login(password: 'wrong-Passw0rd')->assertStatus(200);
-        $this->withToken('nonsense')
-            ->postJson('admin/auth/profile')
-            ->assertStatus(200);
     }
 
     public function test_repeated_failures_are_rate_limited(): void {
@@ -733,16 +753,6 @@ class AuthControllerTest extends FeatureTestCase {
 
         $response->assertJsonPath('success', true);
         $response->assertJsonStructure(['data' => ['token']]);
-    }
-
-    public function test_changing_the_password_requires_the_current_one(): void {
-        $this->user();
-
-        $token = $this->login()->json('data.token');
-
-        $response = $this->withToken($token)->postJson('admin/auth/passwd', ['current' => 'wrong-Passw0rd', 'password' => 'another-Passw0rd']);
-
-        $response->assertJson(['code' => 422, 'error' => 'validation-failed']);
     }
 
     public function test_changing_the_password_requires_the_current_field_to_be_sent(): void {

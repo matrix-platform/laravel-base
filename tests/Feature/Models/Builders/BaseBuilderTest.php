@@ -113,4 +113,11 @@ class BaseBuilderTest extends FeatureTestCase {
         $this->assertSame([], $this->titles(Widget::query()->whereKey(['abc', '-1'])));
     }
 
+    public function test_a_model_or_a_null_key_takes_the_default_lookup(): void {
+        $widget = Widget::forceCreate(['title' => 'alpha']);
+
+        $this->assertSame(['alpha'], $this->titles(Widget::query()->whereKey($widget)));
+        $this->assertSame([], $this->titles(Widget::query()->whereKey(null)));
+    }
+
 }

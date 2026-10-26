@@ -2,19 +2,31 @@
 
 namespace Tests\Feature\Geolocation;
 
-use MatrixPlatform\Geolocation\Driver;
 use MatrixPlatform\Geolocation\GeoLocationService;
 use Tests\FeatureTestCase;
+use Tests\Stubs\NotFoundGeolocationDriver;
 use Tests\Stubs\OkGeolocationDriver;
 
 class GeoLocationServiceTest extends FeatureTestCase {
+
+    protected function setUp(): void {
+        parent::setUp();
+
+        OkGeolocationDriver::$requested = null;
+    }
 
     private function service(): GeoLocationService {
         return app(GeoLocationService::class);
     }
 
     public function test_an_invalid_ip_format_is_refused_before_any_driver_runs(): void {
+        $this->useGeolocationFixtures();
+
+        config()->set('matrix.geolocation-provider', 'stub');
+
         $this->refuses('invalid-ip-address', fn () => $this->service()->locate('not-an-ip'));
+
+        $this->assertNull(OkGeolocationDriver::$requested);
     }
 
     public function test_a_provider_with_no_driver_configured_returns_no_location_instead_of_failing(): void {
@@ -47,11 +59,10 @@ class GeoLocationServiceTest extends FeatureTestCase {
 
         config()->set('matrix.geolocation-provider', 'stub');
 
-        $bound = new OkGeolocationDriver();
+        app()->instance(OkGeolocationDriver::class, new NotFoundGeolocationDriver());
 
-        app()->instance(OkGeolocationDriver::class, $bound);
-
-        $this->assertSame($bound, resolve_driver('stub', Driver::class, 'invalid-geolocation-driver'));
+        $this->assertNull($this->service()->locate('8.8.8.8'));
+        $this->assertNull(OkGeolocationDriver::$requested);
     }
 
 }

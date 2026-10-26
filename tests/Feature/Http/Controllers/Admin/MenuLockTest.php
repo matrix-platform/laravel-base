@@ -4,7 +4,6 @@ namespace Tests\Feature\Http\Controllers\Admin;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Testing\TestResponse;
-use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\Menu;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Support\MenuLocks;
@@ -138,9 +137,7 @@ class MenuLockTest extends FeatureTestCase {
 
         $synced->data = null;
 
-        $this->expectException(ServiceException::class);
-
-        $synced->save();
+        $this->refuses('menu-locked', fn () => $synced->save());
     }
 
     public function test_toggling_the_schedule_of_a_synced_item_is_refused(): void {
@@ -185,7 +182,7 @@ class MenuLockTest extends FeatureTestCase {
         $this->assertSame(0, Menu::query()->where('parent_id', $leaf->id)->count());
     }
 
-    public function test_a_leaf_item_can_still_be_edited_and_deleted(): void {
+    public function test_a_leaf_item_can_still_be_deleted(): void {
         $root = $this->node(null, 'root', 100);
         $leaf = $this->node($root->id, 'leaf', 100, ['kind' => 'leaf']);
 
@@ -202,9 +199,15 @@ class MenuLockTest extends FeatureTestCase {
         $menu->title__tw = 'copy';
         $menu->data = ['kind' => 'synced', 'source' => 7];
 
-        $this->expectException(ServiceException::class);
+        $this->refuses('menu-locked', fn () => $menu->save());
+    }
 
-        $menu->save();
+    public function test_deleting_a_locked_item_outside_a_release_is_refused(): void {
+        $root = $this->node(null, 'root', 100);
+        $locked = $this->node($root->id, 'locked', 100, ['kind' => 'locked']);
+
+        $this->refuses('menu-locked', fn () => $locked->delete());
+        $this->assertNotNull(Menu::query()->find($locked->id));
     }
 
     public function test_writes_inside_a_release_bypass_the_locks(): void {

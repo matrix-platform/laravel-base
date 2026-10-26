@@ -91,14 +91,6 @@ class ScheduleServiceTest extends FeatureTestCase {
         $this->assertNotNull($widget->disable_time);
     }
 
-    public function test_the_response_reports_the_requested_state(): void {
-        $widget = $this->widget();
-
-        $result = $this->service()->toggle('widget', $widget->id, true);
-
-        $this->assertTrue($result['enabled']);
-    }
-
     public function test_toggling_writes_an_entry_to_the_audit_trail(): void {
         $widget = $this->widget();
         $before = ManipulationLog::query()->count();

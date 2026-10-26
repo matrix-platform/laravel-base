@@ -230,6 +230,24 @@ class BaseModelTest extends FeatureTestCase {
         $this->assertSame($user->getKey(), $widget->updater_id);
     }
 
+    public function test_creator_and_updater_resolve_to_their_operators(): void {
+        $creator = User::forceCreate(['username' => 'the-creator']);
+        $updater = User::forceCreate(['username' => 'the-updater']);
+
+        app(Actor::class)->setUser($creator);
+
+        $widget = Widget::forceCreate(['title' => 'alpha']);
+
+        app()->forgetScopedInstances();
+        app(Actor::class)->setUser($updater);
+
+        $widget->setAttribute('title', 'beta');
+        $widget->save();
+
+        $this->assertSame('the-creator', $widget->creator?->username);
+        $this->assertSame('the-updater', $widget->updater?->username);
+    }
+
     public function test_generators_fill_their_column_on_create(): void {
         $this->useRequestFrom('198.51.100.7', 'Probe/1.0');
 

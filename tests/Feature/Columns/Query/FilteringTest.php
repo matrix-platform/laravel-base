@@ -194,17 +194,9 @@ class FilteringTest extends FeatureTestCase {
         $this->declareTypedTrinket();
         $this->trinkets();
 
-        foreach (['2026-02-31 00:00:00', '+1 day', 'next monday', 'abc'] as $value) {
+        foreach (['2026-02-31 00:00:00', '+1 day', 'next monday', 'now', 'tomorrow', 'abc'] as $value) {
             $this->refusesDate('create_time', $value);
         }
-    }
-
-    public function test_a_datetime_column_refuses_the_postgresql_keywords_that_used_to_slip_through(): void {
-        $this->declareTypedTrinket();
-        $this->trinkets();
-
-        $this->refusesDate('create_time', 'now');
-        $this->refusesDate('create_time', 'tomorrow');
     }
 
     public function test_a_datetime_column_refuses_a_bare_date(): void {
@@ -258,25 +250,46 @@ class FilteringTest extends FeatureTestCase {
         $this->refusesDate('create_time', '2026-02-31');
     }
 
-    public function test_a_rejected_date_filter_also_leaves_the_transaction_usable(): void {
-        $this->declareTypedTrinket();
-        $this->trinkets();
-
-        DB::beginTransaction();
-
-        $this->refusesDate('create_time', 'next monday');
-
-        $probe = DB::select('select 1 as probe');
-
-        DB::rollBack();
-
-        $this->assertSame(1, $probe[0]->probe);
-    }
-
-    public function test_the_type_check_follows_the_declared_type_so_an_undeclared_column_is_not_covered(): void {
+    public function test_a_dsl_type_drives_the_type_check_of_an_undeclared_column(): void {
         $this->trinkets();
 
         $this->refuses('invalid-filter-value', fn () => $this->labels([['name' => 'amount:integer', 'op' => 'eq']], ['amount' => ['op' => 'eq', 'value' => 'not-a-number']]));
+    }
+
+    public function test_a_boolean_column_accepts_only_boolean_like_values(): void {
+        Widget::forceCreate(['title' => 'on', 'flag' => true]);
+        Widget::forceCreate(['title' => 'off', 'flag' => false]);
+
+        $columns = ['title', ['name' => 'flag:boolean', 'op' => 'eq']];
+        $titles = function (mixed $value) use ($columns): array {
+            $plan = $this->plan($columns, new Widget());
+            $query = $plan->projection();
+
+            (new Filtering())->apply($query, $plan, ['flag' => ['op' => 'eq', 'value' => $value]]);
+
+            return array_values($query->pluck('title')->all());
+        };
+
+        foreach ([true, 1, '1'] as $value) {
+            $this->assertSame(['on'], $titles($value), var_export($value, true));
+        }
+
+        foreach ([false, 0, '0'] as $value) {
+            $this->assertSame(['off'], $titles($value), var_export($value, true));
+        }
+
+        foreach (['yes', 2, 'true'] as $value) {
+            $this->refuses('invalid-filter-value', fn () => $titles($value));
+        }
+    }
+
+    public function test_an_operator_the_filter_does_not_know_adds_no_clause(): void {
+        $plan = $this->plan([['name' => 'label', 'op' => 'regex']]);
+        $query = $plan->projection();
+
+        (new Filtering())->apply($query, $plan, ['label' => ['op' => 'regex', 'value' => 'a']]);
+
+        $this->assertStringNotContainsString('where', $query->toSql());
     }
 
     public function test_every_operator_compiles_into_a_where_clause(): void {

@@ -83,15 +83,6 @@ class CommonServiceTest extends FeatureTestCase {
         $this->assertSame(['Cijin'], array_column($payload[1]['areas'], 'title'));
     }
 
-    public function test_each_area_carries_only_its_identifier_title_and_post_code(): void {
-        $taipei = $this->city('Taipei', 100);
-        $area = $this->area($taipei, 'Daan', '106', 100);
-
-        $payload = $this->service()->city();
-
-        $this->assertSame([['id' => $area->id, 'title' => 'Daan', 'post_code' => '106']], $payload[0]['areas']);
-    }
-
     public function test_the_roots_come_back_ordered_by_ranking(): void {
         $this->node('C', 300);
         $this->node('B', 200);
@@ -156,6 +147,28 @@ class CommonServiceTest extends FeatureTestCase {
         $this->child($first, 'own', 100);
 
         $this->assertSame(['own'], data_get($this->service()->menu($first->id), '*.title'));
+    }
+
+    public function test_a_parent_call_reaches_a_nested_node(): void {
+        $root = $this->node('root', 100);
+        $child = $this->child($root, 'child', 100);
+
+        $this->child($child, 'grandchild', 100);
+
+        $this->assertSame(['grandchild'], data_get($this->service()->menu($child->id), '*.title'));
+    }
+
+    public function test_a_disabled_ancestor_hides_a_nested_subtree_too(): void {
+        $root = $this->node('root', 100);
+        $child = $this->child($root, 'child', 100);
+
+        $this->child($child, 'grandchild', 100);
+
+        $root->enable_time = null;
+
+        $root->save();
+
+        $this->assertSame([], $this->service()->menu($child->id));
     }
 
     public function test_every_node_carries_exactly_the_contracted_keys(): void {

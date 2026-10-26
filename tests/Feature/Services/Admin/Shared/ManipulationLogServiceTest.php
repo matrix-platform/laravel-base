@@ -240,6 +240,12 @@ class ManipulationLogServiceTest extends FeatureTestCase {
         $this->assertSame([], $this->service()->query('widget', $widget->id, 1, 20)['options']);
     }
 
+    public function test_a_model_without_a_declaration_is_refused(): void {
+        $widget = Widget::forceCreate(['title' => 'Alpha']);
+
+        $this->refuses('undeclared-model', fn () => $this->service()->query('widget', $widget->id, 1, 20));
+    }
+
     public function test_resolving_creators_runs_a_single_query_no_matter_how_many_rows_there_are(): void {
         $group = GroupFactory::new()->createOne(['title__tw' => 'A', 'title__en' => 'A']);
 

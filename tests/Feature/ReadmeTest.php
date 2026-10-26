@@ -209,4 +209,20 @@ class ReadmeTest extends FeatureTestCase {
         }
     }
 
+    public function test_every_middleware_alias_of_the_package_is_documented(): void {
+        $documented = [];
+
+        foreach ($this->rows('### 3. 身分') as $row) {
+            foreach (explode(' / ', $row[0]) as $alias) {
+                $documented[] = explode(':', trim($alias, '`'))[0];
+            }
+        }
+
+        foreach (Route::getMiddleware() as $alias => $class) {
+            if (str_starts_with($class, 'MatrixPlatform\\')) {
+                $this->assertContains($alias, $documented, "middleware '{$alias}' is not documented");
+            }
+        }
+    }
+
 }

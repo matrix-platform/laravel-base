@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Models;
 
-use Illuminate\Support\Facades\Schema;
 use MatrixPlatform\Models\City;
 use MatrixPlatform\Models\CityArea;
 use Tests\FeatureTestCase;
@@ -31,13 +30,6 @@ class CityTest extends FeatureTestCase {
         $city->save();
 
         return $city;
-    }
-
-    public function test_the_table_carries_the_declared_columns(): void {
-        $this->assertEqualsCanonicalizing(
-            ['id', 'title__tw', 'title__en', 'ranking', 'creator_id', 'create_time', 'updater_id', 'update_time'],
-            Schema::getColumnListing('base_city')
-        );
     }
 
     public function test_the_relation_returns_only_the_areas_of_that_city(): void {

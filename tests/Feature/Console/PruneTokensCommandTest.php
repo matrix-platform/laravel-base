@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Console;
 
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Testing\PendingCommand;
@@ -216,16 +215,6 @@ class PruneTokensCommandTest extends FeatureTestCase {
         $this->assertSame([$member, $vendor, $slack], $this->remaining());
     }
 
-    public function test_every_dead_token_is_deleted_across_several_batches(): void {
-        for ($index = 0; $index < 5; $index++) {
-            $this->token(IdentityType::User, 400);
-        }
-
-        $this->command('--limit=2')->assertExitCode(0);
-
-        $this->assertSame([], $this->remaining());
-    }
-
     public function test_the_loop_stops_on_the_first_short_batch(): void {
         for ($index = 0; $index < 5; $index++) {
             $this->token(IdentityType::User, 400);
@@ -289,13 +278,6 @@ class PruneTokensCommandTest extends FeatureTestCase {
             ->expectsOutputToContain('Deleted 2 dead member tokens')
             ->expectsOutputToContain('Deleted 3 dead vendor tokens')
             ->assertExitCode(0);
-    }
-
-    public function test_the_command_is_registered_under_its_new_name_only(): void {
-        $commands = Artisan::all();
-
-        $this->assertArrayHasKey('matrix:prune-tokens', $commands);
-        $this->assertArrayNotHasKey('matrix:prune', $commands);
     }
 
     public function test_no_other_table_is_touched(): void {

@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use Illuminate\Database\Eloquent\Model;
 use MatrixPlatform\Models\User;
+use MatrixPlatform\Services\PreferenceService;
 use MatrixPlatform\Support\Actor;
+use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
 
 class HelpersTest extends FeatureTestCase {
@@ -36,6 +38,19 @@ class HelpersTest extends FeatureTestCase {
         $this->assertSame($user, user());
         $this->assertSame($member, member());
         $this->assertSame($vendor, vendor());
+    }
+
+    public function test_preference_reads_an_explicit_identity_instead_of_the_current_one(): void {
+        $this->usePreferenceFixtures();
+
+        $owner = UserFactory::new()->createOne();
+
+        actor()->setUser(UserFactory::new()->createOne());
+
+        app(PreferenceService::class)->save($owner, ['locale' => 'en'], true);
+
+        $this->assertSame('en', preference('locale', $owner));
+        $this->assertSame('tw', preference('locale'));
     }
 
     public function test_locales_tokenizes_the_configured_locale_list(): void {

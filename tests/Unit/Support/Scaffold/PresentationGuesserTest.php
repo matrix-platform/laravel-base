@@ -27,7 +27,8 @@ class PresentationGuesserTest extends TestCase {
             'contains secret' => ['client_secret'],
             'contains credential' => ['credential_value'],
             'contains hash' => ['password_hash'],
-            'contains pwd' => ['user_pwd']
+            'contains pwd' => ['user_pwd'],
+            'upper case' => ['API_TOKEN']
         ];
     }
 
@@ -37,6 +38,13 @@ class PresentationGuesserTest extends TestCase {
 
         $this->assertSame(Presentation::Hidden, $result['presentation']);
         $this->assertTrue($result['sensitive']);
+    }
+
+    public function test_a_sensitive_name_wins_over_a_guess_from_the_column_type(): void {
+        $guesser = new PresentationGuesser();
+
+        $this->assertSame(['presentation' => Presentation::Hidden, 'sensitive' => true], $guesser->guess('has_api_key', ColumnType::Boolean));
+        $this->assertSame(['presentation' => Presentation::Hidden, 'sensitive' => true], $guesser->guess('key_image', ColumnType::Json));
     }
 
     public function test_a_boolean_column_is_guessed_as_a_switch(): void {

@@ -25,6 +25,12 @@ class TelegramWebhookController extends BaseController {
     }
 
     private function bind(Request $request, string $token): void {
+        $chatId = strval($request->input('message.chat.id'));
+
+        if ($chatId === '') {
+            return;
+        }
+
         $userId = Cache::pull("telegram-link:{$token}");
 
         if ($userId === null) {
@@ -32,7 +38,6 @@ class TelegramWebhookController extends BaseController {
         }
 
         $userId = intval($userId);
-        $chatId = strval($request->input('message.chat.id'));
         $username = $request->input('message.from.username');
 
         if (TelegramSubscription::query()->where('chat_id', $chatId)->where('user_id', '!=', $userId)->exists()) {

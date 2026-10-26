@@ -16,6 +16,7 @@ class EnvelopeMiddlewareTest extends FeatureTestCase {
     protected function defineRoutes($router): void {
         $router->middleware('envelope-api')->group(fn () => ActionRoutes::scan(StubController::class));
         $router->middleware('envelope-api')->post('service-failure', fn () => error('encryption-unavailable'));
+        $router->middleware('envelope-api')->post('forbidden', fn () => abort(403));
         $router->middleware('envelope-api')->post('overriding-extra', fn () => error('data-conflicted', 409, ['success' => true, 'code' => 200, 'error' => 'x', 'message' => 'x', 'extra' => 1]));
     }
 
@@ -101,10 +102,11 @@ class EnvelopeMiddlewareTest extends FeatureTestCase {
         $response->assertJson(['success' => false, 'code' => 429, 'error' => 'too-many-requests']);
     }
 
-    public function test_every_error_still_answers_with_http_200(): void {
-        foreach (['boom', 'missing', 'unexpected', 'validated'] as $path) {
-            $this->postJson($path)->assertStatus(200);
-        }
+    public function test_any_other_http_exception_becomes_a_request_failed_envelope_with_its_status(): void {
+        $response = $this->postJson('forbidden');
+
+        $response->assertStatus(200);
+        $response->assertJson(['success' => false, 'code' => 403, 'error' => 'request-failed']);
     }
 
 }

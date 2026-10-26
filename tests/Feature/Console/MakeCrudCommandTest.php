@@ -97,6 +97,14 @@ class MakeCrudCommandTest extends FeatureTestCase {
             ->assertExitCode(0);
     }
 
+    public function test_an_unknown_table_fails_without_writing_any_file(): void {
+        $this->artisanCommand('matrix:make-crud no_such_table --path=' . $this->root)
+            ->expectsOutputToContain("table-not-found: 'no_such_table'")
+            ->assertExitCode(1);
+
+        $this->assertDirectoryDoesNotExist("{$this->root}/app");
+    }
+
     public function test_a_parent_pointing_to_an_undeclared_model_fails_without_writing_any_file(): void {
         $this->artisanCommand('matrix:make-crud scaffold_widget --path=' . $this->root . ' --parent=parent')
             ->expectsOutputToContain('parent-model-not-found')
@@ -252,6 +260,20 @@ class MakeCrudCommandTest extends FeatureTestCase {
     public function test_a_top_level_menu_snippet_always_carries_a_ranking(): void {
         $this->artisanCommand('matrix:make-crud scaffold_plain --path=' . $this->root . ' --dry-run')
             ->expectsOutputToContain("'ranking' => 100")
+            ->assertExitCode(0);
+    }
+
+    public function test_a_scheduled_table_gets_arrange_actions_in_the_menu_snippet(): void {
+        $this->artisanCommand('matrix:make-crud scaffold_simple --dry-run')
+            ->expectsOutputToContain("'simple/arrange/save' => ['parent' => 'simple', 'tag' => 'update'],")
+            ->doesntExpectOutputToContain("'simple/sort'")
+            ->assertExitCode(0);
+    }
+
+    public function test_a_ranked_table_without_schedules_gets_sort_actions_in_the_menu_snippet(): void {
+        $this->artisanCommand('matrix:make-crud scaffold_parent --dry-run')
+            ->expectsOutputToContain("'parent/sort/save' => ['parent' => 'parent', 'tag' => 'update'],")
+            ->doesntExpectOutputToContain("'parent/arrange'")
             ->assertExitCode(0);
     }
 

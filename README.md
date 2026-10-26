@@ -258,11 +258,13 @@ worker 會睡掉供應商的 `interval` 來節流,所以 `--timeout` 與 connect
 | `envelope-api` | 把例外收斂成信封。**必須掛在 `encrypted-api` 以外的最外層** |
 | `locale-api` | 讀 `Matrix-Locale` header 決定語系。**放在最外層**(`encrypted-api` 之前),信封解不開時的錯誤訊息才會跟著語系走 |
 | `user-api` | 後台身分,解析 token,失敗回 401 `invalid-token` |
+| `user-aware-api` | 後台身分,有 token 就解析,沒有也放行 |
 | `permission-api` | 授權,**必須掛在 `user-api` 之後**,而且只能用在 `admin` 前綴底下(用在其他前綴時,`ActionRoutes` 註冊路由就會丟 `LogicException`) |
 | `member-api` / `vendor-api` | 前台身分 |
 | `member-aware-api` | 有 token 就解析,沒有也放行 |
 | `login-throttle-api:{bundle}` | 登入節流,鍵是 `IP + 帳號`。請求進來先計一次(同時送出的請求也各佔一次),回應 `success: true` 時清空這個鍵的計數 |
 | `anonymous-throttle-api:{bundle}` | 匿名端點節流,鍵是 `路徑 + IP`,讀 `{bundle}.anonymous-throttle-*` |
+| `telegram-webhook-api` | 比對 `X-Telegram-Bot-Api-Secret-Token` header 與 `telegram.webhook-secret`,不符或沒設定 secret 時回 403 `permission-denied` |
 
 **順序是約束,不是機制保證。** 把 `permission-api` 掛在 `user-api` 前面不會有人阻止你,但授權會先跑,拿到的是 401 而不是 403。
 

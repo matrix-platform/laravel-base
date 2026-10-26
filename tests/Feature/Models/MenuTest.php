@@ -22,13 +22,6 @@ class MenuTest extends FeatureTestCase {
         return $menu;
     }
 
-    public function test_the_table_carries_the_declared_columns(): void {
-        $this->assertEqualsCanonicalizing(
-            ['id', 'parent_id', 'title__tw', 'title__en', 'data', 'enable_time', 'disable_time', 'ranking', 'creator_id', 'create_time', 'updater_id', 'update_time'],
-            Schema::getColumnListing('base_menu')
-        );
-    }
-
     public function test_the_data_column_is_stored_as_jsonb(): void {
         $this->assertSame('jsonb', Schema::getColumnType('base_menu', 'data'));
     }

@@ -86,15 +86,6 @@ class CommonControllerTest extends FeatureTestCase {
         ]);
     }
 
-    public function test_the_menu_endpoint_answers_without_any_identity(): void {
-        $this->node('root', 100);
-
-        $response = $this->postJson('api/common/menu');
-
-        $response->assertOk();
-        $response->assertJson(['success' => true]);
-    }
-
     public function test_the_menu_endpoint_without_a_body_returns_the_whole_tree(): void {
         $root = $this->node('root', 100);
 
@@ -246,6 +237,21 @@ class CommonControllerTest extends FeatureTestCase {
 
         $english->assertJsonPath('data.children.0.children.0.data.caption', 'English caption');
         $chinese->assertJsonPath('data.children.0.children.0.data.caption', '中文說明');
+    }
+
+    public function test_a_translatable_subfield_without_a_value_for_the_requested_locale_reads_as_null(): void {
+        $this->useBlockDataFixtures();
+
+        $page = PageFactory::new()->createOne(['path' => 'about-us']);
+        $block = BlockFactory::new()->createOne(['page_id' => $page->id, 'type' => 'gallery']);
+
+        BlockItemFactory::new()->createOne(['block_id' => $block->id, 'ranking' => 100, 'data' => ['caption' => ['tw' => '中文說明'], 'image' => []]]);
+        BlockItemFactory::new()->createOne(['block_id' => $block->id, 'ranking' => 200, 'data' => ['caption' => 'not-per-locale', 'image' => []]]);
+
+        $response = $this->postJson('api/common/page', ['path' => 'about-us'], ['Matrix-Locale' => 'en']);
+
+        $response->assertJsonPath('data.children.0.children.0.data.caption', null);
+        $response->assertJsonPath('data.children.0.children.1.data.caption', null);
     }
 
     public function test_a_subfield_that_is_not_translatable_is_left_alone(): void {

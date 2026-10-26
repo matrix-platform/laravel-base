@@ -18,7 +18,6 @@ use MatrixPlatform\Models\User;
 use MatrixPlatform\Services\FileService;
 use MatrixPlatform\Services\FileStorage;
 use MatrixPlatform\Services\MediaMeasurer;
-use MatrixPlatform\Support\RollbackCallbacks;
 use MatrixPlatform\Support\Subject;
 
 class DriveService {
@@ -274,8 +273,6 @@ class DriveService {
             $path = $existing->path;
         } else {
             $path = app(FileStorage::class)->store($file, $disk, self::FOLDER);
-
-            app(RollbackCallbacks::class)->register(fn () => Storage::disk($disk)->delete(app(FileStorage::class)->location(self::FOLDER, $path)));
         }
 
         $measured = app(MediaMeasurer::class)->measure($mimeType, $file->getPathname());

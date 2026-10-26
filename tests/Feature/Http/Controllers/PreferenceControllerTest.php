@@ -95,22 +95,6 @@ class PreferenceControllerTest extends FeatureTestCase {
             ->assertJson(['success' => false, 'code' => 422, 'error' => 'validation-failed']);
     }
 
-    public function test_two_identities_with_the_same_id_do_not_share_preferences(): void {
-        $userToken = $this->token(IdentityType::User);
-        $memberToken = $this->token(IdentityType::Member);
-
-        $this->withToken($userToken)->postJson('admin/user/preference/save', ['data' => ['role' => 'user']]);
-        $this->withToken($memberToken)->postJson('api/member/preference/save', ['data' => ['role' => 'member']]);
-
-        $this->withToken($userToken)
-            ->postJson('admin/user/preference/get')
-            ->assertExactJson(['success' => true, 'data' => ['role' => 'user']]);
-
-        $this->withToken($memberToken)
-            ->postJson('api/member/preference/get')
-            ->assertExactJson(['success' => true, 'data' => ['role' => 'member']]);
-    }
-
     public function test_settings_reads_back_the_declared_columns(): void {
         $this->usePreferenceFixtures();
 

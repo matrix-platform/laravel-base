@@ -327,6 +327,16 @@ class StagedSublistTest extends FeatureTestCase {
             ->assertJson(['success' => false, 'code' => 403, 'error' => 'permission-denied']);
     }
 
+    public function test_validating_on_the_new_page_needs_the_child_insert_permission(): void {
+        $input = ['data' => ['label' => 'fresh', 'amount' => '5']];
+
+        $this->admin('admin/widget/staged/trinkets/validate', $input, $this->regular(['widget' => ['insert' => true], 'widget/{widget_id}/trinket' => ['update' => true]]))
+            ->assertJson(['success' => false, 'code' => 403, 'error' => 'permission-denied']);
+
+        $this->admin('admin/widget/staged/trinkets/validate', $input, $this->regular(['widget' => ['insert' => true], 'widget/{widget_id}/trinket' => ['insert' => true]], 2001))
+            ->assertJsonPath('success', true);
+    }
+
     public function test_a_parent_outside_the_scope_is_not_found(): void {
         $hidden = $this->widget('hidden');
 

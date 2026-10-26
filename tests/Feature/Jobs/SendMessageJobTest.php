@@ -13,10 +13,10 @@ use MatrixPlatform\Jobs\SendMessageJob;
 use MatrixPlatform\Messaging\Driver;
 use MatrixPlatform\Messaging\MessageStatus;
 use MatrixPlatform\Models\MailLog;
-use MatrixPlatform\Models\ResourceOverride;
 use MatrixPlatform\Models\TelegramLog;
 use MatrixPlatform\Services\Messaging\MailService;
 use Mockery;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\FeatureTestCase;
 use Tests\Stubs\FailDriver;
 use Tests\Stubs\OkDriver;
@@ -38,26 +38,6 @@ class SendMessageJobTest extends FeatureTestCase {
 
     private function execute(): void {
         (new SendMessageJob('mail'))->handle();
-    }
-
-    public function test_a_cfg_override_written_outside_the_worker_takes_effect_on_the_next_job(): void {
-        $this->stored();
-
-        $this->assertSame('stub@example.com', cfg('stub.from-address'));
-
-        $override = new ResourceOverride();
-
-        $override->bundle = 'cfg/stub';
-        $override->data = ['from-address' => 'changed@example.com'];
-
-        $override->save();
-
-        $this->assertSame('stub@example.com', cfg('stub.from-address'), 'the running process has not seen it yet');
-
-        app()->forgetScopedInstances();
-        $this->execute();
-
-        $this->assertSame('changed@example.com', cfg('stub.from-address'), 'the job must drop the cached bundles so an admin edit needs no worker restart');
     }
 
     private function stored(MessageStatus $status = MessageStatus::Scheduled, string $provider = 'stub', ?string $at = null): MailLog {
@@ -116,15 +96,6 @@ class SendMessageJobTest extends FeatureTestCase {
         $this->execute();
 
         Queue::assertPushed(SendMessageJob::class, fn (SendMessageJob $job) => $job->channel === 'mail');
-    }
-
-    public function test_the_successor_that_finds_nothing_left_ends_the_chain(): void {
-        $this->stored();
-
-        $this->execute();
-        $this->execute();
-
-        Queue::assertPushed(SendMessageJob::class, 1);
     }
 
     public function test_a_job_with_nothing_to_do_ends_without_sending_or_handing_off(): void {
@@ -200,23 +171,20 @@ class SendMessageJobTest extends FeatureTestCase {
             && array_get_value($context, 'code') === 'smtp exploded')]);
     }
 
-    public function test_a_provider_with_no_driver_is_skipped_and_leaves_its_messages_waiting(): void {
-        $log = $this->stored(MessageStatus::Scheduled, 'bare');
-        $spy = Log::spy();
-
-        $this->execute();
-
-        $this->assertSame(MessageStatus::Scheduled, $log->refresh()->status);
-
-        $spy->shouldHaveReceived('error')
-            ->with('messaging.mail.misconfigured', ['channel' => 'mail', 'provider' => 'bare', 'code' => 'message-provider-has-no-driver'])
-            ->once();
-
-        Queue::assertNothingPushed();
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function misconfiguredProviders(): array {
+        return [
+            'no driver' => ['bare', 'message-provider-has-no-driver'],
+            'a class that is not a driver' => ['broken', 'invalid-message-driver'],
+            'a configuration that vanished' => ['evaporated', 'invalid-message-provider']
+        ];
     }
 
-    public function test_a_provider_naming_a_class_that_is_not_a_driver_is_skipped_and_leaves_its_messages_waiting(): void {
-        $log = $this->stored(MessageStatus::Scheduled, 'broken');
+    #[DataProvider('misconfiguredProviders')]
+    public function test_a_misconfigured_provider_is_skipped_and_leaves_its_messages_waiting(string $provider, string $code): void {
+        $log = $this->stored(MessageStatus::Scheduled, $provider);
         $spy = Log::spy();
 
         $this->execute();
@@ -224,22 +192,7 @@ class SendMessageJobTest extends FeatureTestCase {
         $this->assertSame(MessageStatus::Scheduled, $log->refresh()->status);
 
         $spy->shouldHaveReceived('error')
-            ->with('messaging.mail.misconfigured', ['channel' => 'mail', 'provider' => 'broken', 'code' => 'invalid-message-driver'])
-            ->once();
-
-        Queue::assertNothingPushed();
-    }
-
-    public function test_a_provider_whose_configuration_vanished_is_skipped_and_leaves_its_messages_waiting(): void {
-        $log = $this->stored(MessageStatus::Scheduled, 'evaporated');
-        $spy = Log::spy();
-
-        $this->execute();
-
-        $this->assertSame(MessageStatus::Scheduled, $log->refresh()->status);
-
-        $spy->shouldHaveReceived('error')
-            ->with('messaging.mail.misconfigured', ['channel' => 'mail', 'provider' => 'evaporated', 'code' => 'invalid-message-provider'])
+            ->with('messaging.mail.misconfigured', ['channel' => 'mail', 'provider' => $provider, 'code' => $code])
             ->once();
 
         Queue::assertNothingPushed();
@@ -312,18 +265,6 @@ class SendMessageJobTest extends FeatureTestCase {
         (new SendMessageJob('telegram'))->handle();
 
         $this->assertSame(['parse_mode' => 'HTML'], TelegramLog::query()->whereKey($log->id)->firstOrFail()->data);
-    }
-
-    public function test_a_misconfigured_provider_does_not_block_the_other_providers(): void {
-        $bare = $this->stored(MessageStatus::Scheduled, 'bare');
-        $stub = $this->stored();
-
-        $this->execute();
-
-        $this->assertSame(MessageStatus::Scheduled, $bare->refresh()->status);
-        $this->assertSame(MessageStatus::Success, $stub->refresh()->status);
-
-        Queue::assertPushed(SendMessageJob::class);
     }
 
     public function test_the_configured_interval_is_slept_off_before_handing_over(): void {

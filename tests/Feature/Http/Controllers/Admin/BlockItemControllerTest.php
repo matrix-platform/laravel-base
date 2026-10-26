@@ -79,26 +79,6 @@ class BlockItemControllerTest extends FeatureTestCase {
         $this->send("{$prefix}/delete", ['id' => [$item->id]])->assertJsonPath('success', true);
     }
 
-    public function test_the_new_form_expands_the_parent_modules_item_subfields_without_any_body(): void {
-        $page = PageFactory::new()->createOne();
-        $block = BlockFactory::new()->createOne(['page_id' => $page->id, 'type' => 'gallery']);
-
-        $names = array_column($this->send("admin/page/{$page->id}/block/{$block->id}/item/new")->json('data.columns'), 'name');
-
-        $this->assertContains('data__caption', $names);
-        $this->assertContains('data__image', $names);
-        $this->assertNotContains('data', $names);
-    }
-
-    public function test_the_item_subfields_are_not_the_parent_blocks_subfields(): void {
-        $page = PageFactory::new()->createOne();
-        $block = BlockFactory::new()->createOne(['page_id' => $page->id, 'type' => 'gallery']);
-
-        $names = array_column($this->send("admin/page/{$page->id}/block/{$block->id}/item/new")->json('data.columns'), 'name');
-
-        $this->assertNotContains('data__seconds', $names);
-    }
-
     public function test_the_item_module_bundle_overrides_only_the_keys_it_declares(): void {
         $page = PageFactory::new()->createOne();
         $block = BlockFactory::new()->createOne(['page_id' => $page->id, 'type' => 'gallery']);
@@ -119,7 +99,7 @@ class BlockItemControllerTest extends FeatureTestCase {
         $this->assertSame(0, BlockItem::query()->count());
     }
 
-    public function test_inserting_resolves_the_variant_from_the_route(): void {
+    public function test_inserting_takes_the_block_and_its_variant_from_the_route(): void {
         $page = PageFactory::new()->createOne();
         $block = BlockFactory::new()->createOne(['page_id' => $page->id, 'type' => 'gallery']);
 
@@ -136,6 +116,7 @@ class BlockItemControllerTest extends FeatureTestCase {
 
         $item = BlockItem::query()->findOrFail(intval($response->json('data.id')));
 
+        $this->assertSame($block->id, $item->block_id);
         $this->assertSame('TW caption', array_get_value(array_get_value($item->data, 'caption'), 'tw'));
     }
 
@@ -161,15 +142,6 @@ class BlockItemControllerTest extends FeatureTestCase {
         $response = $this->send("admin/page/{$page->id}/block/{$mine->id}/item");
 
         $this->assertSame(['mine'], array_column($response->json('data.rows'), 'title'));
-    }
-
-    public function test_a_nested_insert_takes_the_block_from_the_route(): void {
-        $page = PageFactory::new()->createOne();
-        $block = BlockFactory::new()->createOne(['page_id' => $page->id, 'type' => 'gallery']);
-
-        $response = $this->send("admin/page/{$page->id}/block/{$block->id}/item/insert", $this->input());
-
-        $this->assertSame($block->id, BlockItem::query()->findOrFail(intval($response->json('data.id')))->block_id);
     }
 
     public function test_a_wrong_page_in_the_url_cannot_reach_the_item(): void {

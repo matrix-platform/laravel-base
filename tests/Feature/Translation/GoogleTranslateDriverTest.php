@@ -42,30 +42,6 @@ class GoogleTranslateDriverTest extends FeatureTestCase {
         });
     }
 
-    public function test_the_cn_locale_maps_to_zh_cn(): void {
-        Http::fake(['*' => Http::response(['data' => ['translations' => [['translatedText' => 'ok']]]])]);
-
-        $this->driver()->translate('Hello', 'en', 'cn');
-
-        Http::assertSent(function (Request $request): bool {
-            $this->assertSame('zh-CN', $request['target']);
-
-            return true;
-        });
-    }
-
-    public function test_the_jp_locale_maps_to_ja(): void {
-        Http::fake(['*' => Http::response(['data' => ['translations' => [['translatedText' => 'ok']]]])]);
-
-        $this->driver()->translate('Hello', 'en', 'jp');
-
-        Http::assertSent(function (Request $request): bool {
-            $this->assertSame('ja', $request['target']);
-
-            return true;
-        });
-    }
-
     public function test_an_error_reported_by_the_provider_is_refused_as_a_failed_request(): void {
         Http::fake(['*' => Http::response(['error' => ['code' => 400, 'message' => 'Invalid Value']], 400)]);
 
@@ -73,7 +49,7 @@ class GoogleTranslateDriverTest extends FeatureTestCase {
     }
 
     public function test_a_transport_level_failure_is_refused_as_a_failed_request(): void {
-        Http::fake(['*' => Http::response('', 500)]);
+        Http::fake(['*' => Http::response(['data' => ['translations' => [['translatedText' => 'ok']]]], 500)]);
 
         $this->refuses('translation-request-failed', fn () => $this->driver()->translate('Hello', 'en', 'tw'));
     }

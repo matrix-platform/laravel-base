@@ -101,12 +101,11 @@ class PreferenceService {
     }
 
     /**
+     * @param array<string, mixed> $input
      * @return array<string, mixed>
      */
-    public function update(Model $identity, mixed $input): array {
-        $values = is_array($input) ? $input : [];
-
-        $this->save($identity, array_intersect_key($values, $this->defaults($identity)), true);
+    public function update(Model $identity, array $input): array {
+        $this->save($identity, array_intersect_key($input, $this->defaults($identity)), true);
 
         return $this->settings($identity);
     }

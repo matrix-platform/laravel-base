@@ -64,6 +64,12 @@ class SortingTest extends FeatureTestCase {
         $this->assertStringNotContainsString('order by', $this->sql(['label'], [['name' => 'nothing']]));
     }
 
+    public function test_a_malformed_sort_payload_is_ignored(): void {
+        $this->assertStringNotContainsString('order by', $this->sql(['label'], 'label'));
+        $this->assertStringNotContainsString('order by', $this->sql(['label'], ['label']));
+        $this->assertStringNotContainsString('order by', $this->sql(['label'], [['name' => 'label', 'direction' => 1]]));
+    }
+
     public function test_a_missing_direction_defaults_to_ascending(): void {
         $this->assertStringContainsString('order by "stub_trinket"."label" asc', $this->sql(['label'], [['name' => 'label']]));
     }

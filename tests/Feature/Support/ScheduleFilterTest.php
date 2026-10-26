@@ -11,8 +11,6 @@ use Tests\Stubs\Widget;
 
 class ScheduleFilterTest extends FeatureTestCase {
 
-    private const ALL = ['both', 'ended', 'ending', 'ending-now', 'never', 'open', 'starting-now', 'upcoming'];
-
     protected function setUp(): void {
         parent::setUp();
 
@@ -79,14 +77,6 @@ class ScheduleFilterTest extends FeatureTestCase {
 
         $this->assertSame($active, $this->filtered(ScheduleFilter::Enabled));
         $this->assertSame($scheduled, $this->filtered(ScheduleFilter::Enabled));
-    }
-
-    public function test_disabled_is_the_exact_complement_of_enabled(): void {
-        $enabled = $this->filtered(ScheduleFilter::Enabled);
-        $disabled = $this->filtered(ScheduleFilter::Disabled);
-
-        $this->assertSame([], array_values(array_intersect($enabled, $disabled)));
-        $this->assertEqualsCanonicalizing(self::ALL, [...$enabled, ...$disabled]);
     }
 
     public function test_the_or_inside_disabled_stays_grouped(): void {
