@@ -150,6 +150,24 @@ class NestedParentTest extends FeatureTestCase {
         $this->assertSame($relic->id, $widget->refresh()->relic_id);
     }
 
+    public function test_a_movable_update_refuses_to_detach_a_row_from_every_parent(): void {
+        [$relic, $widget] = $this->tree('mine');
+
+        try {
+            (new UpdateService(Widget::class))
+                ->movable(true)
+                ->columns(['title', 'relic_id'])
+                ->params(['relic_id' => $relic->id])
+                ->update($widget->id, ['title' => 'moved', 'relic_id' => null]);
+
+            $this->fail('the update detached the row from every parent');
+        } catch (ServiceException $exception) {
+            $this->assertSame(['fields' => ['relic_id' => ['invalid-parent']]], $exception->getExtra());
+        }
+
+        $this->assertSame($relic->id, $widget->refresh()->relic_id);
+    }
+
     public function test_a_movable_update_still_cannot_reach_a_row_under_another_parent(): void {
         [$relic, $mine] = $this->tree('mine');
         [, , $theirs] = $this->tree('theirs');

@@ -121,8 +121,12 @@ class UpdateService extends CrudService {
         $relation = $this->subject->parent($model);
         $target = $values[$foreign];
 
-        if ($relation === null || !is_scalar($target)) {
+        if ($relation === null) {
             return;
+        }
+
+        if (!is_scalar($target)) {
+            invalid($foreign, 'invalid-parent');
         }
 
         $related = $relation->getRelated();
