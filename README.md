@@ -552,19 +552,19 @@ class WidgetController extends CrudController {
 
 `*` 開頭代表必填。`!` 開頭代表唯讀。`+` 開頭代表虛擬。`=` **開頭**代表鎖定(見下段)。`=` 夾在中間是別名(`alias=source`)。`.` 走關聯。`:` 後面是型別或呈現方式。來源裡的 `{locale}` 在解析時換成當前語系,用來取多語欄位的單一語系值而不展成多語欄位(例如 `'!tour_name=session.tour.name__{locale}'`)。
 
-**虛擬欄位(`+` 前綴或宣告 `virtual: true`)預設不能篩選、不能排序**(`op` 為 `null`、`sortable` 為 `false`),因為資料庫沒有這個欄位。要讓它出現在搜尋條件,明寫 `op`(例如 `['name' => '+contact_name', 'op' => 'contains']`),再在 `onList()` / `onExport()` 用 `filterUsing()` 掛上處理方式:
+**虛擬欄位(`+` 前綴或宣告 `virtual: true`)預設不能篩選、不能排序**(`op` 為 `null`、`sortable` 為 `false`),因為資料庫沒有這個欄位。要讓它出現在搜尋條件,明寫 `op`(例如 `['name' => '+contact_name', 'op' => 'contains']`),再在 controller 覆寫 `filters()` 掛上處理方式(清單與匯出共用這一份):
 
 ```php
-protected function onList(ListService $service): ListService {
-    return parent::onList($service)->filterUsing('contact_name', fn (Builder $query, array $filter) => $query->whereIn('id', Contact::query()->select('order_id')->where('name', 'ilike', '%' . $filter['value'] . '%')));
+protected function filters(): array {
+    return ['contact_name' => fn (Builder $query, array $filter) => $query->whereIn('id', Contact::query()->select('order_id')->where('name', 'ilike', '%' . $filter['value'] . '%'))];
 }
 ```
 
-closure 拿到的 `$filter` 是前端送來的條件,`op` 已確認在宣告的 `op` 之內(值為 `null` 的 `eq` / `neq` 已換成 `null` / `notNull`);**值沒有經過型別檢查,處理器自己驗證**。處理器拿到的 `$query` 是包在一組括號裡的子條件,父層與 `scope()` 的條件在括號外,所以 `orWhere` 跳不出去;也因此只能加篩選條件,在它上面加的 join、select、orderBy 不會生效。清單與匯出各自掛(匯出用的是 `onExport()`)。本表的虛擬欄位沒有處理器時,條件直接略過、不會查詢失敗——所以忘了掛的症狀是「篩了沒效果」。`filterUsing()` 也可以掛在一般欄位上,取代框架預設的條件。
+closure 拿到的 `$filter` 是前端送來的條件,`op` 已確認在宣告的 `op` 之內(值為 `null` 的 `eq` / `neq` 已換成 `null` / `notNull`);**值沒有經過型別檢查,處理器自己驗證**。處理器拿到的 `$query` 是包在一組括號裡的子條件,父層與 `scope()` 的條件在括號外,所以 `orWhere` 跳不出去;也因此只能加篩選條件,在它上面加的 join、select、orderBy 不會生效。`filters()` 會同時掛到清單與匯出;直接在 `onList()` / `onExport()` 呼叫 service 的 `filterUsing()` 也可以,但那樣只對該處生效。本表的虛擬欄位沒有處理器時,條件直接略過、不會查詢失敗——所以忘了掛的症狀是「篩了沒效果」。`filterUsing()` 也可以掛在一般欄位上,取代框架預設的條件。
 
 **鎖定(`=`)是「可寫但不可編輯」。** 值在表單開啟之前就決定了(例如區塊的型別由型別選擇器決定),所以它照樣驗證、照樣寫入,但 `columns[]` 上的 `writable` 是 `false`,前端據此把輸入框停用。`readonly`(`!`)是另一回事:不驗證、不寫入。鎖定同時隱含必填 —— 值既然是先決定好的,就不該是空的;要「鎖定但可為空」請用陣列語法 `['name' => 'x', 'locked' => true]`。
 
-**清單回傳的是「欄位池」,`$lists` 只決定預設顯示哪些。** 欄位池 = 清單欄位(`$lists`,沒設就照 `listing()` 的退回規則)加上編輯欄位(`$updates` 或自動推導):清單欄位依 `$lists` 的順序排在前面,其餘編輯欄位依編輯欄位的順序接在後面;同名欄位用清單欄位的定義。清單欄位裡若有經由 `belongsTo` 關聯取值的欄位(例如 `category_title=category.title`),它會取代編輯欄位中該關聯的外鍵(`category_id`),外鍵不再另外進欄位池(同一個關聯有多個清單欄位時,由第一個取代),`columns[]` 上的 `replaces` 標出被取代的外鍵名稱(其餘欄位為 `null`),前端排列表單時用它把清單欄位對應回表單的外鍵欄位。只在編輯欄位裡、清單畫不出來的欄位不進欄位池:Composite、Password、Hidden、自訂呈現、虛擬(`+`;明寫了非 null `op` 的虛擬欄位除外,那是專供篩選的欄位,例如 `['name' => '+receipt_time', 'type' => 'datetime', 'op' => 'between']`,會進欄位池成為搜尋條件,值由 guard 填、篩選用 `filterUsing()` 掛處理方式,沒掛的話這個條件會被略過)、model `$hidden` 裡的欄位、有設定區塊(`section`)的欄位、沒宣告呈現方式也沒有選項的 JSON,以及巢狀資源的父層外鍵(例如 `faq-category/{category_id}/items` 的 `category_id`:巢狀清單裡它永遠是目前的父層,`$updates` 明列它並在 controller 開 `$movable`(見[已知限制與取捨](#已知限制與取捨))只為了讓編輯表單能搬移父層,每列資料仍照常帶這個外鍵);清單欄位本身一律保留。`columns[]` 上的 `default` 標出哪些屬於清單欄位,使用者沒有 preference 時前端只顯示這些;欄位池裡的欄位能不能篩選、排序,依各欄位的 `op` 與 `sortable`。後端不解讀 preference,每次都 select 整個欄位池。編輯頁(`get`)與新增頁(`new`)的回應也帶同一份 `preference`(`column:{key}`,沒登入身分或沒設定時為 `null`),前端據此排列表單欄位的順序。
+**清單回傳的是「欄位池」,`$lists` 只決定預設顯示哪些。** 欄位池 = 清單欄位(`$lists`,沒設就照 `listing()` 的退回規則)加上編輯欄位(`$updates` 或自動推導):清單欄位依 `$lists` 的順序排在前面,其餘編輯欄位依編輯欄位的順序接在後面;同名欄位用清單欄位的定義。清單欄位裡若有經由 `belongsTo` 關聯取值的欄位(例如 `category_title=category.title`),它會取代編輯欄位中該關聯的外鍵(`category_id`),外鍵不再另外進欄位池(同一個關聯有多個清單欄位時,由第一個取代),`columns[]` 上的 `replaces` 標出被取代的外鍵名稱(其餘欄位為 `null`),前端排列表單時用它把清單欄位對應回表單的外鍵欄位。只在編輯欄位裡、清單畫不出來的欄位不進欄位池:Composite、Password、Hidden、自訂呈現、虛擬(`+`;明寫了非 null `op` 的虛擬欄位除外,那是專供篩選的欄位,例如 `['name' => '+receipt_time', 'type' => 'datetime', 'op' => 'between']`,會進欄位池成為搜尋條件,值由 guard 填、篩選用 `filters()` 掛處理方式,沒掛的話這個條件會被略過)、model `$hidden` 裡的欄位、有設定區塊(`section`)的欄位、沒宣告呈現方式也沒有選項的 JSON,以及巢狀資源的父層外鍵(例如 `faq-category/{category_id}/items` 的 `category_id`:巢狀清單裡它永遠是目前的父層,`$updates` 明列它並在 controller 開 `$movable`(見[已知限制與取捨](#已知限制與取捨))只為了讓編輯表單能搬移父層,每列資料仍照常帶這個外鍵);清單欄位本身一律保留。`columns[]` 上的 `default` 標出哪些屬於清單欄位,使用者沒有 preference 時前端只顯示這些;欄位池裡的欄位能不能篩選、排序,依各欄位的 `op` 與 `sortable`。後端不解讀 preference,每次都 select 整個欄位池。編輯頁(`get`)與新增頁(`new`)的回應也帶同一份 `preference`(`column:{key}`,沒登入身分或沒設定時為 `null`),前端據此排列表單欄位的順序。
 
 **要在程式裡決定清單欄位(例如依設定多加幾欄),覆寫 `listing()`。** 它預設回傳 `$lists`(沒設就照退回規則),清單欄位、匯出輸出欄位(沒設 `$exports` 時)與匯出的篩選欄位池都從它來,覆寫一次三處一起生效。不要在 `onList()` / `onExport()` 裡先 `columns(...)` 再呼叫 `parent`——那樣匯出的篩選欄位池不會跟著變,新加的欄位匯出時篩不到。
 

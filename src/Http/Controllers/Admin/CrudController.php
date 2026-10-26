@@ -201,6 +201,13 @@ abstract class CrudController extends BaseController {
     }
 
     /**
+     * @return array<string, Closure>
+     */
+    protected function filters(): array {
+        return [];
+    }
+
+    /**
      * @return list<string|array<string, mixed>>
      */
     protected function forming(): array {
@@ -265,7 +272,7 @@ abstract class CrudController extends BaseController {
     }
 
     protected function onExport(ExportService $service): ExportService {
-        return $service
+        return $this->filtered($service)
             ->columns($this->exporting())
             ->filterColumns($this->listing())
             ->optionals($this->optionals())
@@ -287,7 +294,7 @@ abstract class CrudController extends BaseController {
     }
 
     protected function onList(ListService $service): ListService {
-        return $service
+        return $this->filtered($service)
             ->columns($this->listing())
             ->optionals($this->optionals())
             ->sorting($this->sorting())
@@ -458,6 +465,19 @@ abstract class CrudController extends BaseController {
      */
     private function exporting(): array {
         return $this->exports === null ? $this->listing() : $this->exports;
+    }
+
+    /**
+     * @template T of CrudService
+     * @param T $service
+     * @return T
+     */
+    private function filtered(CrudService $service): CrudService {
+        foreach ($this->filters() as $name => $apply) {
+            $service->filterUsing($name, $apply);
+        }
+
+        return $service;
     }
 
     /**
