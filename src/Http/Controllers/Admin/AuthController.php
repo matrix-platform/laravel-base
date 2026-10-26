@@ -45,9 +45,7 @@ class AuthController extends BaseController {
 
         $user = actor()->requireUser();
 
-        if (!$this->passwords->verify($user, $request->string('password')->value())) {
-            invalid('password', 'invalid-password');
-        }
+        $this->passwords->confirm($user, $request->string('password')->value(), 'password');
 
         $this->mfa->disable($user);
 
@@ -158,9 +156,7 @@ class AuthController extends BaseController {
 
         $user = actor()->requireUser();
 
-        if (!$this->passwords->verify($user, $request->string('password')->value())) {
-            invalid('password', 'invalid-password');
-        }
+        $this->passwords->confirm($user, $request->string('password')->value(), 'password');
 
         return $this->mfa->setup($user);
     }

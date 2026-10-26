@@ -1758,7 +1758,7 @@ parameters:
 | **被雲端硬碟欄位引用過的檔案,憑 URL 永遠可以匿名下載**。不只區塊,任何 model 的 `DriveImage` / `DriveFile` 欄位(含只有後台看得到的資料表)選過的檔案都會建一筆 `base_file`,`api/files/@…` 對它不看 `privilege`、不需要登入。拿掉引用不會刪那一列;節點丟進垃圾桶也照樣串流 | 刻意的:已發佈的頁面不會因為有人清理雲端硬碟而破圖。路徑是隨機檔名猜不到,風險在 URL 已經流出去的時候。要下架只能直接刪 `base_file` 那一列或磁碟上的實體檔;機密文件不要放進雲端硬碟欄位 |
 | **`api/common/cfg`、`api/common/i18n` 匿名且沒有節流**,`matrix.public-cfg`、`matrix.public-i18n` 列出的 bundle 會原樣出現在回應裡(cfg 的 `secret` 欄位也不例外) | 不要把含非公開內容或憑證的 bundle 列進這兩份白名單 |
 | **登入節流的鍵是「IP + 帳號」** —— 同一個 IP 換帳號就換一份配額,擋不住拿一組密碼掃一堆帳號 | 要擋就在應用層之外做（WAF / 反向代理） |
-| **新增第二道憑證要重新輸入密碼**:`admin/user/passkey/register/options`、`admin/auth/mfa/setup` 與 `mfa/disable` 一樣要帶 `password`(錯就是 `invalid-password`) | 偷到 token 的人不知道密碼,就沒辦法把一次性的 token 換成自己的長期後門(passkey 登入不需要密碼與 MFA),也沒辦法幫還沒開 MFA 的帳號開啟、把本人鎖在外面 |
+| **新增第二道憑證要重新輸入密碼**:`admin/user/passkey/register/options`、`admin/auth/mfa/setup` 與 `mfa/disable` 一樣要帶 `password`(錯就是 `invalid-password`)。這三處與 `admin/auth/passwd` 的 `current` 共用一組每帳號的失敗計數,在 `admin.login-throttle-window` 分鐘內錯滿 `admin.login-throttle-max` 次就回 `too-many-requests`,答對歸零 | 偷到 token 的人不知道密碼,就沒辦法把一次性的 token 換成自己的長期後門(passkey 登入不需要密碼與 MFA),也沒辦法幫還沒開 MFA 的帳號開啟、把本人鎖在外面 |
 | **管理員重設密碼會撤銷 passkey,自己改密碼不會**:`admin/user/{id}/update` 帶了新密碼、或 `matrix:passwd`,都會刪掉該帳號全部 passkey;`admin/auth/passwd` 只撤銷其他 token | 由別人重設密碼通常是帳號可能被盜、要救回的情境,不能留下攻擊者註冊的 passkey。自己改密碼時本人可以在 passkey 清單裡自行刪除不認得的;懷疑被盜時要一起檢查 |
 | **Passkey 登入端點沒有帳號欄位,節流退化成近似純 IP** | 比密碼登入更粗放的取捨,若濫用明顯可考慮改用 `IP + credential_id 前綴` 當節流鍵 |
 | **`matrix.passkey-rp-id` 的 fallback 是當次請求的主機名稱,只在後台前端與此 API 同源時才正確**;RP ID 一旦設錯或事後變更,所有已註冊 passkey 會**全部永久失效,無遷移路徑**(WebAuthn 規格的密碼學綁定特性) | 若前後端分離部署在不同網域,啟用 passkey 前務必明確設定 `matrix.passkey-rp-id`,不要依賴 fallback |

@@ -3,14 +3,32 @@
 namespace MatrixPlatform\Services\Admin;
 
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use MatrixPlatform\Models\AuthToken;
 use MatrixPlatform\Models\IdentityType;
 use MatrixPlatform\Models\User;
+use MatrixPlatform\Support\RollbackCallbacks;
 
 class PasswordService {
 
     private static ?string $dummyHash = null;
+
+    public function confirm(User $user, string $password, string $field): void {
+        $key = "matrix-confirm|{$user->id}";
+
+        if (RateLimiter::tooManyAttempts($key, (int) cfg('admin.login-throttle-max'))) {
+            error('too-many-requests', 429);
+        }
+
+        if (!$this->verify($user, $password)) {
+            app(RollbackCallbacks::class)->persist(fn () => RateLimiter::hit($key, (int) cfg('admin.login-throttle-window') * 60));
+
+            invalid($field, 'invalid-password');
+        }
+
+        RateLimiter::clear($key);
+    }
 
     public function replace(User $user, string $password, ?string $preservedToken = null): void {
         $user->password = $password;

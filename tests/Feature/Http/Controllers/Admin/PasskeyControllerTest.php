@@ -41,6 +41,21 @@ class PasskeyControllerTest extends FeatureTestCase {
             ->assertJsonPath('fields.password', ['invalid-password']);
     }
 
+    public function test_repeated_registration_password_failures_are_rate_limited(): void {
+        $token = $this->token(5);
+        $max = intval(cfg('admin.login-throttle-max'));
+
+        for ($attempt = 0; $attempt < $max; $attempt++) {
+            $this->withToken($token)
+                ->postJson('admin/user/passkey/register/options', ['password' => 'wrong-Passw0rd'])
+                ->assertJsonPath('fields.password', ['invalid-password']);
+        }
+
+        $this->withToken($token)
+            ->postJson('admin/user/passkey/register/options', ['password' => self::PASSWORD])
+            ->assertJson(['code' => 429, 'error' => 'too-many-requests']);
+    }
+
     public function test_the_full_register_list_rename_delete_cycle(): void {
         $token = $this->token(5);
         $authenticator = new PasskeyAuthenticator();

@@ -18,6 +18,7 @@ use MatrixPlatform\Services\Admin\MfaService;
 use MatrixPlatform\Services\Admin\Passkey\PasskeyService;
 use Orchestra\Testbench\Attributes\WithConfig;
 use ParagonIE\ConstantTime\Base64UrlSafe;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PragmaRX\Google2FA\Google2FA;
 use Tests\Factories\PasskeyCredentialFactory;
 use Tests\Factories\UserFactory;
@@ -371,6 +372,72 @@ class AuthControllerTest extends FeatureTestCase {
             ->assertJsonPath('fields.password', ['invalid-password']);
 
         $this->assertNull(User::query()->findOrFail($user->id)->secret);
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function passwordConfirmationProvider(): array {
+        return [
+            'mfa setup' => ['admin/auth/mfa/setup', 'password'],
+            'mfa disable' => ['admin/auth/mfa/disable', 'password'],
+            'passwd' => ['admin/auth/passwd', 'current']
+        ];
+    }
+
+    #[DataProvider('passwordConfirmationProvider')]
+    public function test_repeated_password_confirmation_failures_are_rate_limited(string $uri, string $field): void {
+        $token = $this->user()->createToken();
+        $max = intval(cfg('admin.login-throttle-max'));
+
+        for ($attempt = 0; $attempt < $max; $attempt++) {
+            $this->withToken($token)
+                ->postJson($uri, [$field => 'wrong-Passw0rd', 'password' => 'another-Passw0rd'])
+                ->assertJsonPath("fields.{$field}", ['invalid-password']);
+        }
+
+        $this->withToken($token)
+            ->postJson($uri, [$field => self::PASSWORD, 'password' => 'another-Passw0rd'])
+            ->assertJson(['code' => 429, 'error' => 'too-many-requests']);
+    }
+
+    #[WithConfig('cache.default', 'database')]
+    public function test_password_confirmation_failures_are_counted_on_a_database_cache_store(): void {
+        Schema::create('cache', function (Blueprint $table): void {
+            $table->string('key')->primary();
+            $table->mediumText('value');
+            $table->bigInteger('expiration');
+        });
+
+        $token = $this->user()->createToken();
+        $max = intval(cfg('admin.login-throttle-max'));
+
+        for ($attempt = 0; $attempt < $max; $attempt++) {
+            $this->withToken($token)
+                ->postJson('admin/auth/mfa/setup', ['password' => 'wrong-Passw0rd'])
+                ->assertJsonPath('fields.password', ['invalid-password']);
+        }
+
+        $this->withToken($token)
+            ->postJson('admin/auth/mfa/setup', ['password' => self::PASSWORD])
+            ->assertJson(['code' => 429, 'error' => 'too-many-requests']);
+    }
+
+    public function test_a_confirmed_password_resets_the_failure_count(): void {
+        $token = $this->user()->createToken();
+        $max = intval(cfg('admin.login-throttle-max'));
+
+        for ($attempt = 0; $attempt < $max - 1; $attempt++) {
+            $this->withToken($token)->postJson('admin/auth/mfa/setup', ['password' => 'wrong-Passw0rd']);
+        }
+
+        $this->withToken($token)
+            ->postJson('admin/auth/mfa/setup', ['password' => self::PASSWORD])
+            ->assertJson(['success' => true]);
+
+        $this->withToken($token)
+            ->postJson('admin/auth/mfa/setup', ['password' => 'wrong-Passw0rd'])
+            ->assertJsonPath('fields.password', ['invalid-password']);
     }
 
     public function test_the_full_self_service_mfa_setup_confirm_and_disable_cycle(): void {

@@ -127,9 +127,7 @@ class AuthService {
     }
 
     public function passwd(User $user, string $current, string $password, ?string $token): void {
-        if (!$this->passwords->verify($user, $current)) {
-            invalid('current', 'invalid-password');
-        }
+        $this->passwords->confirm($user, $current, 'current');
 
         $this->passwords->replace($user, $password, $token);
 

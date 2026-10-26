@@ -59,9 +59,7 @@ class PasskeyController extends BaseController {
 
         $user = actor()->requireUser();
 
-        if (!$this->passwords->verify($user, $request->string('password')->value())) {
-            invalid('password', 'invalid-password');
-        }
+        $this->passwords->confirm($user, $request->string('password')->value(), 'password');
 
         return $this->service->registrationOptions($user);
     }
