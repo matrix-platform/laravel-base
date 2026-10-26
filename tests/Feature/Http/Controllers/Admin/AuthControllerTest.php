@@ -3,9 +3,11 @@
 namespace Tests\Feature\Http\Controllers\Admin;
 
 use Illuminate\Contracts\Hashing\Hasher;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Testing\TestResponse;
 use MatrixPlatform\Models\AuthToken;
 use MatrixPlatform\Models\PasskeyCredential;
@@ -14,6 +16,7 @@ use MatrixPlatform\Models\UserLog;
 use MatrixPlatform\Models\UserLogType;
 use MatrixPlatform\Services\Admin\MfaService;
 use MatrixPlatform\Services\Admin\Passkey\PasskeyService;
+use Orchestra\Testbench\Attributes\WithConfig;
 use ParagonIE\ConstantTime\Base64UrlSafe;
 use PragmaRX\Google2FA\Google2FA;
 use Tests\Factories\PasskeyCredentialFactory;
@@ -304,6 +307,28 @@ class AuthControllerTest extends FeatureTestCase {
     }
 
     public function test_mfa_failures_from_different_addresses_share_one_limit_per_account(): void {
+        [, $challenge, $code] = $this->challenged();
+        $max = intval(cfg('admin.login-throttle-max'));
+
+        for ($attempt = 0; $attempt < $max; $attempt++) {
+            $this->withServerVariables(['REMOTE_ADDR' => "10.0.0.{$attempt}"])
+                ->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => '000000'])
+                ->assertJsonPath('fields.code', ['invalid-code']);
+        }
+
+        $this->withServerVariables(['REMOTE_ADDR' => '10.0.1.1'])
+            ->postJson('admin/auth/mfa', ['username' => 'alice', 'challenge' => $challenge, 'code' => $code])
+            ->assertJson(['code' => 429, 'error' => 'too-many-requests']);
+    }
+
+    #[WithConfig('cache.default', 'database')]
+    public function test_mfa_failures_are_counted_on_a_database_cache_store(): void {
+        Schema::create('cache', function (Blueprint $table): void {
+            $table->string('key')->primary();
+            $table->mediumText('value');
+            $table->bigInteger('expiration');
+        });
+
         [, $challenge, $code] = $this->challenged();
         $max = intval(cfg('admin.login-throttle-max'));
 

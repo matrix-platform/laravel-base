@@ -82,7 +82,7 @@ class AuthController extends BaseController {
         return response()->json(['success' => true])->withoutCookie(IdentityType::User->cookie());
     }
 
-    #[Action(scope: 'anonymous', middleware: 'login-throttle-api:admin')]
+    #[Action(scope: 'anonymous', middleware: 'login-throttle-api:admin', transaction: false)]
     public function mfa(Request $request): JsonResponse {
         $request->validate([
             'username' => ['required'],
