@@ -135,6 +135,10 @@ class UpdateService extends CrudService {
         if (!($relation->getOwnerKeyName() === $related->getKeyName() ? $query->whereKey($target) : $query->where($relation->getQualifiedOwnerKeyName(), $target))->exists()) {
             invalid($foreign, 'invalid-parent');
         }
+
+        if ($this->subject->recursive($model) && in_array($model->getKey(), array_map(fn (Model $parent): mixed => $parent->getKey(), $this->subject->parents($model, [$foreign => $target])), true)) {
+            invalid($foreign, 'invalid-parent');
+        }
     }
 
 }

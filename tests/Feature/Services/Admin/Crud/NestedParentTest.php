@@ -168,6 +168,47 @@ class NestedParentTest extends FeatureTestCase {
         $this->assertSame($relic->id, $widget->refresh()->relic_id);
     }
 
+    public function test_a_movable_update_refuses_to_move_a_node_under_itself_or_its_descendant(): void {
+        app(MetadataRegistry::class)->register(Relic::class, new StubDeclaration(new Metadata('relic', 'label', 'relic')));
+
+        $root = Relic::forceCreate(['label' => 'root']);
+        $node = Relic::forceCreate(['label' => 'node', 'relic_id' => $root->id]);
+        $child = Relic::forceCreate(['label' => 'child', 'relic_id' => $node->id]);
+        $grandchild = Relic::forceCreate(['label' => 'grandchild', 'relic_id' => $child->id]);
+
+        foreach ([$node, $grandchild] as $target) {
+            try {
+                (new UpdateService(Relic::class))
+                    ->movable(true)
+                    ->columns(['label', 'relic_id'])
+                    ->params(['relic_id' => $root->id])
+                    ->update($node->id, ['label' => 'moved', 'relic_id' => (string) $target->id]);
+
+                $this->fail("the update moved the node under {$target->label}");
+            } catch (ServiceException $exception) {
+                $this->assertSame(['fields' => ['relic_id' => ['invalid-parent']]], $exception->getExtra());
+            }
+        }
+
+        $this->assertSame($root->id, $node->refresh()->relic_id);
+    }
+
+    public function test_a_movable_update_moves_a_node_under_an_unrelated_branch(): void {
+        app(MetadataRegistry::class)->register(Relic::class, new StubDeclaration(new Metadata('relic', 'label', 'relic')));
+
+        $root = Relic::forceCreate(['label' => 'root']);
+        $node = Relic::forceCreate(['label' => 'node', 'relic_id' => $root->id]);
+        $sibling = Relic::forceCreate(['label' => 'sibling', 'relic_id' => $root->id]);
+
+        (new UpdateService(Relic::class))
+            ->movable(true)
+            ->columns(['label', 'relic_id'])
+            ->params(['relic_id' => $root->id])
+            ->update($node->id, ['label' => 'moved', 'relic_id' => (string) $sibling->id]);
+
+        $this->assertSame($sibling->id, $node->refresh()->relic_id);
+    }
+
     public function test_a_movable_update_still_cannot_reach_a_row_under_another_parent(): void {
         [$relic, $mine] = $this->tree('mine');
         [, , $theirs] = $this->tree('theirs');
