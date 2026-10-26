@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Geolocation;
 
+use MatrixPlatform\Geolocation\Driver;
 use MatrixPlatform\Geolocation\GeoLocationService;
 use Tests\FeatureTestCase;
 use Tests\Stubs\OkGeolocationDriver;
@@ -39,6 +40,18 @@ class GeoLocationServiceTest extends FeatureTestCase {
 
         $this->assertSame('8.8.8.8', OkGeolocationDriver::$requested);
         $this->assertSame('US', $location?->countryCode);
+    }
+
+    public function test_a_driver_instance_bound_in_the_container_is_the_one_used(): void {
+        $this->useGeolocationFixtures();
+
+        config()->set('matrix.geolocation-provider', 'stub');
+
+        $bound = new OkGeolocationDriver();
+
+        app()->instance(OkGeolocationDriver::class, $bound);
+
+        $this->assertSame($bound, resolve_driver('stub', Driver::class, 'invalid-geolocation-driver'));
     }
 
 }

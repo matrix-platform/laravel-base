@@ -5,13 +5,13 @@ namespace MatrixPlatform\Captcha;
 class CaptchaService {
 
     public function driver(string $provider): Driver {
-        $driver = resolve_driver($provider, Driver::class, 'invalid-captcha-driver');
+        $class = cfg("{$provider}.driver");
 
-        if ($driver === null) {
+        if (!is_string($class) || !is_a($class, Driver::class, true)) {
             error('invalid-captcha-driver');
         }
 
-        return $driver;
+        return app($class, ['bundle' => $provider]);
     }
 
 }

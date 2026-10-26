@@ -1801,7 +1801,7 @@ INSERT INTO base_resource_override (bundle, data, create_time)
 VALUES ('cfg/captcha-turnstile', '{"driver":"MatrixPlatform\\Captcha\\NoneDriver"}', NOW());
 ```
 
-⚠️ **那是兩個反斜線,不是四個,而且 `create_time` 不能省。** PostgreSQL 的 `standard_conforming_strings` 預設是 `on`,字串字面量裡的反斜線不再被跳脫,所以 JSON 的 `\\` 剛好解成一個反斜線;寫成四個會存進 `MatrixPlatform\\Captcha\\NoneDriver`,那不是合法的類別名稱,`resolve_driver()` 會改丟 `invalid-captcha-driver` —— **逃生門反而把門鎖得更死**。`create_time` 是 NOT NULL 且沒有預設值,漏掉會直接被資料庫擋下(這個至少是大聲失敗)。
+⚠️ **那是兩個反斜線,不是四個,而且 `create_time` 不能省。** PostgreSQL 的 `standard_conforming_strings` 預設是 `on`,字串字面量裡的反斜線不再被跳脫,所以 JSON 的 `\\` 剛好解成一個反斜線;寫成四個會存進 `MatrixPlatform\\Captcha\\NoneDriver`,那不是合法的類別名稱,`CaptchaService` 會改丟 `invalid-captcha-driver` —— **逃生門反而把門鎖得更死**。`create_time` 是 NOT NULL 且沒有預設值,漏掉會直接被資料庫擋下(這個至少是大聲失敗)。
 
 ```bash
 php artisan matrix:clear-resource-cache
