@@ -16,12 +16,10 @@ use MatrixPlatform\Columns\ColumnResolver;
 use MatrixPlatform\Columns\ColumnType;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Declarations\Definitions;
-use MatrixPlatform\Columns\Declarations\Presets;
 use MatrixPlatform\Columns\Presentation;
 use MatrixPlatform\Columns\Query\Filtering;
 use MatrixPlatform\Columns\Query\QueryPlan;
 use MatrixPlatform\Columns\Syntax\ColumnParser;
-use MatrixPlatform\Columns\Syntax\Expression;
 use MatrixPlatform\Columns\Syntax\ParsedColumn;
 use MatrixPlatform\Models\BaseModel;
 use MatrixPlatform\Services\FileService;
@@ -30,7 +28,6 @@ use MatrixPlatform\Support\Actions;
 use MatrixPlatform\Support\AdminPermission;
 use MatrixPlatform\Support\Menus;
 use MatrixPlatform\Support\MetadataRegistry;
-use MatrixPlatform\Support\Resources;
 use MatrixPlatform\Support\ScheduleFilter;
 use MatrixPlatform\Support\Subject;
 use MatrixPlatform\Support\Variants;
@@ -318,35 +315,7 @@ abstract class CrudService {
     }
 
     protected function expandComposites(mixed $input, ?Model $model): Form {
-        $expanded = [];
-        $composites = [];
-        $presets = [];
-
-        foreach ($this->columns as $column) {
-            if ($column->variantGroup === null) {
-                $expanded[] = $column;
-
-                continue;
-            }
-
-            $type = $this->variants->type($column->variantGroup, $model, $input);
-            $variant = $this->variants->of($column->variantGroup, $type);
-
-            if ($variant === null) {
-                continue;
-            }
-
-            if ($variant instanceof Presets) {
-                $presets[$column->name] = $variant->defaults();
-            }
-
-            foreach ($this->subfields($column, $column->variantGroup, $type, $variant->definitions()) as $field => $subfield) {
-                $composites[$column->name][$field] = $subfield;
-                $expanded[] = $subfield;
-            }
-        }
-
-        return new Form($expanded, $composites, $presets);
+        return Form::expand($this->variants, $this->columns, $input, $model);
     }
 
     /**
@@ -726,54 +695,6 @@ abstract class CrudService {
     }
 
     /**
-     * @param array<string, Definition> $definitions
-     * @return array<string, Column>
-     */
-    protected function subfields(Column $composite, string $group, ?string $type, array $definitions): array {
-        $bundle = $this->bundle($group, $type);
-        $columns = [];
-
-        foreach ($definitions as $field => $definition) {
-            if ($definition->presentation === Presentation::Composite) {
-                error('nested-composite-not-supported');
-            }
-
-            $name = "{$composite->name}__{$field}";
-            $options = $definition->options === null ? null : (is_string($definition->options) ? app($definition->options) : $definition->options);
-            $presentation = $definition->presentation;
-            $title = $this->label($bundle, $field);
-
-            $columns[$field] = new Column(
-                expression: new Expression(null, [], $name, null, []),
-                group: $definition->group,
-                hint: $this->label($bundle, "{$field}:hint"),
-                name: $name,
-                locked: false,
-                op: null,
-                options: $options,
-                path: null,
-                placeholder: $this->label($bundle, "{$field}:placeholder"),
-                presentation: $presentation === null ? ($options === null ? Presentation::Plain : Presentation::Select) : $presentation,
-                readonly: $composite->readonly,
-                remark: $this->label($bundle, "{$field}:remark"),
-                required: $definition->required,
-                rule: $definition->rule instanceof Closure ? ($definition->rule)() : $definition->rule,
-                sortable: false,
-                section: $definition->section === null ? $composite->section : $definition->section,
-                title: $title === null ? "{{$field}}" : $title,
-                translatable: $definition->translatable,
-                type: $definition->type,
-                unique: false,
-                variantGroup: null,
-                virtual: false,
-                props: $definition->props
-            );
-        }
-
-        return $columns;
-    }
-
-    /**
      * @param list<Model> $parents
      */
     protected function subtitle(array $parents): ?string {
@@ -881,17 +802,6 @@ abstract class CrudService {
         return $this->rooted($column) && array_key_exists(strval($column->expression->field), Definitions::auditings());
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    private function bundle(string $group, ?string $type): array {
-        $resources = app(Resources::class);
-        $shared = $resources->getI18nBundle("model/{$group}");
-        $specific = $type === null ? null : $resources->getI18nBundle("model/{$group}-{$type}");
-
-        return array_replace($shared === null ? [] : $shared, $specific === null ? [] : $specific);
-    }
-
     private function declared(ParsedColumn $parsed, Column $column): bool {
         if ($parsed->presentation !== null) {
             return true;
@@ -964,15 +874,6 @@ abstract class CrudService {
 
     private function isLocal(Column $column): bool {
         return !$column->virtual && $this->rooted($column);
-    }
-
-    /**
-     * @param array<string, mixed> $bundle
-     */
-    private function label(array $bundle, string $token): ?string {
-        $found = array_get_value($bundle, $token);
-
-        return is_string($found) ? $found : null;
     }
 
     private function listable(ParsedColumn $parsed, Column $column): bool {
