@@ -46,19 +46,7 @@ abstract class CrudService {
      */
     protected array $columns = [];
 
-    /**
-     * @var array<string, Closure>
-     */
-    protected array $filterHandlers = [];
-
-    /**
-     * @var list<Closure>
-     */
-    protected array $guards = [];
-
     protected BaseModel $model;
-
-    protected ?string $mount = null;
 
     /**
      * @var list<string>
@@ -71,11 +59,6 @@ abstract class CrudService {
     protected array $params = [];
 
     /**
-     * @var list<Closure>
-     */
-    protected array $scopes = [];
-
-    /**
      * @var list<string>
      */
     protected array $selects = [];
@@ -85,11 +68,28 @@ abstract class CrudService {
      */
     protected array $staged = [];
 
-    protected bool $standalone = false;
-
     protected Subject $subject;
 
+    /**
+     * @var array<string, Closure>
+     */
+    private array $filterHandlers = [];
+
+    /**
+     * @var list<Closure>
+     */
+    private array $guards = [];
+
+    private ?string $mount = null;
+
     private ColumnResolver $resolver;
+
+    /**
+     * @var list<Closure>
+     */
+    private array $scopes = [];
+
+    private bool $standalone = false;
 
     private Variants $variants;
 
@@ -222,52 +222,6 @@ abstract class CrudService {
         }
     }
 
-    /**
-     * @param array<string, mixed> $values
-     */
-    protected function assignComposites(Form $form, Model $model, array $values): void {
-        foreach ($form->composites as $group => $columns) {
-            if (array_filter($columns, fn (Column $column): bool => $column->readonly) !== []) {
-                continue;
-            }
-
-            $data = [];
-
-            foreach ($columns as $field => $column) {
-                if (!$column->translatable) {
-                    if (array_key_exists($column->name, $values)) {
-                        $data[$field] = $this->driveResolved($column, $values[$column->name]);
-                    }
-
-                    continue;
-                }
-
-                $translated = [];
-
-                foreach (array_combine(locales(), $this->translated($column)) as $locale => $key) {
-                    if (array_key_exists($key, $values)) {
-                        $translated[$locale] = $this->driveResolved($column, $values[$key]);
-                    }
-                }
-
-                $data[$field] = $translated;
-            }
-
-            $model->setAttribute($group, $data);
-        }
-    }
-
-    /**
-     * @param array<string, mixed> $values
-     */
-    protected function assignTranslated(Model $model, Column $column, array $values): void {
-        foreach ($this->translated($column) as $key) {
-            if (array_key_exists($key, $values)) {
-                $model->setAttribute($key, $this->driveResolved($column, $values[$key]));
-            }
-        }
-    }
-
     protected function attach(Model $model): void {
         $foreign = $this->foreign();
 
@@ -361,45 +315,6 @@ abstract class CrudService {
         }
 
         return $data;
-    }
-
-    /**
-     * @param array<mixed> $value
-     * @return list<array<string, mixed>>
-     */
-    protected function driveEntries(array $value): array {
-        /** @var list<array<string, mixed>> $entries */
-        $entries = array_values(array_filter($value, is_array(...)));
-
-        return $entries;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    protected function driveProps(Column $column): array {
-        if (!$this->drives($column)) {
-            return [];
-        }
-
-        $multiple = in_array('array', $column->rule, true);
-        $max = null;
-
-        foreach ($multiple ? $column->rule : [] as $rule) {
-            if (str_starts_with($rule, 'max:')) {
-                $max = (int) substr($rule, 4);
-            }
-        }
-
-        return ['max' => $max, 'multiple' => $multiple];
-    }
-
-    protected function driveResolved(Column $column, mixed $value): mixed {
-        if (!$this->drives($column) || !is_array($value)) {
-            return $value;
-        }
-
-        return app(FileService::class)->resolveDriveReferences($this->driveEntries($value), actor()->requireUser());
     }
 
     protected function expandComposites(mixed $input, ?Model $model): Form {
@@ -546,10 +461,6 @@ abstract class CrudService {
      */
     protected function local(array $columns): array {
         return array_values(array_filter($columns, $this->isLocal(...)));
-    }
-
-    protected function localized(string $title, string $locale): string {
-        return strtr(i18n('backend.export.locale-column'), [':title' => $title, ':locale' => i18n("backend.locale-{$locale}")]);
     }
 
     /**
@@ -902,28 +813,12 @@ abstract class CrudService {
     }
 
     /**
-     * @param list<string>|null $locales
-     * @return list<string>
-     */
-    protected function translated(Column $column, ?array $locales = null): array {
-        return array_map(fn (string $locale): string => "{$column->name}__{$locale}", $locales === null ? locales() : $locales);
-    }
-
-    /**
      * @return array<string, mixed>
      */
     protected function validated(Form $form, mixed $input, int|string|null $ignoreId = null): array {
         $values = is_array($input) ? $input : [];
 
         return Validator::make($values, $this->rules($form, $ignoreId))->validate();
-    }
-
-    /**
-     * @param list<string|Operation> $operations
-     * @return list<Operation>
-     */
-    protected function wrap(array $operations): array {
-        return array_map(fn (string|Operation $operation): Operation => $operation instanceof Operation ? $operation : new Operation($operation), $operations);
     }
 
     protected function writable(Column $column): bool {
@@ -934,6 +829,52 @@ abstract class CrudService {
         $url = $this->resolvedUrl(app(Actions::class)->define($type), $prefix);
 
         return $url !== null && app(AdminPermission::class)->reaches($url);
+    }
+
+    /**
+     * @param array<string, mixed> $values
+     */
+    private function assignComposites(Form $form, Model $model, array $values): void {
+        foreach ($form->composites as $group => $columns) {
+            if (array_filter($columns, fn (Column $column): bool => $column->readonly) !== []) {
+                continue;
+            }
+
+            $data = [];
+
+            foreach ($columns as $field => $column) {
+                if (!$column->translatable) {
+                    if (array_key_exists($column->name, $values)) {
+                        $data[$field] = $this->driveResolved($column, $values[$column->name]);
+                    }
+
+                    continue;
+                }
+
+                $translated = [];
+
+                foreach (array_combine(locales(), $this->translated($column)) as $locale => $key) {
+                    if (array_key_exists($key, $values)) {
+                        $translated[$locale] = $this->driveResolved($column, $values[$key]);
+                    }
+                }
+
+                $data[$field] = $translated;
+            }
+
+            $model->setAttribute($group, $data);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $values
+     */
+    private function assignTranslated(Model $model, Column $column, array $values): void {
+        foreach ($this->translated($column) as $key) {
+            if (array_key_exists($key, $values)) {
+                $model->setAttribute($key, $this->driveResolved($column, $values[$key]));
+            }
+        }
     }
 
     private function auditing(Column $column): bool {
@@ -960,6 +901,45 @@ abstract class CrudService {
         $definition = $definitions === null ? null : array_get_value($definitions, strval($column->expression->field));
 
         return $definition instanceof Definition && $definition->presentation !== null;
+    }
+
+    /**
+     * @param array<mixed> $value
+     * @return list<array<string, mixed>>
+     */
+    private function driveEntries(array $value): array {
+        /** @var list<array<string, mixed>> $entries */
+        $entries = array_values(array_filter($value, is_array(...)));
+
+        return $entries;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function driveProps(Column $column): array {
+        if (!$this->drives($column)) {
+            return [];
+        }
+
+        $multiple = in_array('array', $column->rule, true);
+        $max = null;
+
+        foreach ($multiple ? $column->rule : [] as $rule) {
+            if (str_starts_with($rule, 'max:')) {
+                $max = (int) substr($rule, 4);
+            }
+        }
+
+        return ['max' => $max, 'multiple' => $multiple];
+    }
+
+    private function driveResolved(Column $column, mixed $value): mixed {
+        if (!$this->drives($column) || !is_array($value)) {
+            return $value;
+        }
+
+        return app(FileService::class)->resolveDriveReferences($this->driveEntries($value), actor()->requireUser());
     }
 
     private function drives(Column $column): bool {
@@ -1005,6 +985,10 @@ abstract class CrudService {
         }
 
         return $column->type !== ColumnType::Json || $column->presentation !== Presentation::Plain || $this->declared($parsed, $column);
+    }
+
+    private function localized(string $title, string $locale): string {
+        return strtr(i18n('backend.export.locale-column'), [':title' => $title, ':locale' => i18n("backend.locale-{$locale}")]);
     }
 
     private function mounted(): ?string {
@@ -1189,6 +1173,14 @@ abstract class CrudService {
         return $column->type === ColumnType::Float && is_string($value) && is_numeric($value) ? floatval($value) : $value;
     }
 
+    /**
+     * @param list<string>|null $locales
+     * @return list<string>
+     */
+    private function translated(Column $column, ?array $locales = null): array {
+        return array_map(fn (string $locale): string => "{$column->name}__{$locale}", $locales === null ? locales() : $locales);
+    }
+
     private function uniqueRule(string $field, int|string|null $ignoreId): Unique {
         $rule = Rule::unique($this->model->getTable(), $field);
 
@@ -1229,6 +1221,14 @@ abstract class CrudService {
 
             $model = $child = $parent;
         }
+    }
+
+    /**
+     * @param list<string|Operation> $operations
+     * @return list<Operation>
+     */
+    private function wrap(array $operations): array {
+        return array_map(fn (string|Operation $operation): Operation => $operation instanceof Operation ? $operation : new Operation($operation), $operations);
     }
 
 }
