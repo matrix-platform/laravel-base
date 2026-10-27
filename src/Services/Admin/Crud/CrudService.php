@@ -81,11 +81,6 @@ abstract class CrudService {
     protected array $presets = [];
 
     /**
-     * @var array<string, string>
-     */
-    protected array $replaced = [];
-
-    /**
      * @var list<Closure>
      */
     protected array $scopes = [];
@@ -129,11 +124,9 @@ abstract class CrudService {
      * @param list<string|array<string, mixed>> $columns
      */
     public function columns(array $columns): static {
-        foreach ($columns as $column) {
-            $resolved = $this->resolve($column);
-
-            if (!$this->has($resolved->name)) {
-                $this->columns[] = $resolved;
+        foreach ($this->resolved($columns) as $column) {
+            if (!$this->has($column->name)) {
+                $this->columns[] = $column;
             }
         }
 
@@ -671,20 +664,24 @@ abstract class CrudService {
     }
 
     /**
+     * @param list<Column> $columns
      * @param list<string|array<string, mixed>> $optionals
      */
-    protected function pool(array $optionals): void {
-        $defaults = array_column($this->columns, null, 'name');
+    protected function pool(array $columns, array $optionals): Pool {
+        $defaults = array_column($columns, null, 'name');
         $replacements = $this->replacements($defaults);
         $foreign = $this->foreign();
         $placed = [];
         $pooled = [];
-
-        $this->replaced = [];
+        $replaced = [];
 
         foreach ($optionals as $optional) {
             $parsed = (new ColumnParser())->parse($optional);
-            $name = $this->replacementName($parsed, $defaults, $replacements, $placed);
+            $name = $this->replacementName($parsed, $defaults, $replacements);
+
+            if ($name !== $parsed->name && !array_key_exists($name, $placed)) {
+                $replaced[$name] = strval($parsed->expression->field);
+            }
 
             if (array_key_exists($name, $defaults)) {
                 $placed[$name] = true;
@@ -704,7 +701,7 @@ abstract class CrudService {
             }
         }
 
-        $this->swap([...array_values($defaults), ...$pooled]);
+        return new Pool([...array_values($defaults), ...$pooled], $replaced);
     }
 
     /**
@@ -750,6 +747,24 @@ abstract class CrudService {
      */
     protected function reassignRankings(array $models, string $field, array $order): array {
         return Ranking::reassign(array_map(fn (string $id): int => intval($models[$id]->getAttribute($field)), $order));
+    }
+
+    /**
+     * @param list<string|array<string, mixed>> $specs
+     * @return list<Column>
+     */
+    protected function resolved(array $specs): array {
+        $resolved = [];
+
+        foreach ($specs as $spec) {
+            $column = $this->resolve($spec);
+
+            if (!array_key_exists($column->name, $resolved)) {
+                $resolved[$column->name] = $column;
+            }
+        }
+
+        return array_values($resolved);
     }
 
     /**
@@ -1123,19 +1138,14 @@ abstract class CrudService {
     /**
      * @param array<string, Column> $defaults
      * @param array<string, string> $replacements
-     * @param array<string, true> $placed
      */
-    private function replacementName(ParsedColumn $parsed, array $defaults, array $replacements, array $placed): string {
+    private function replacementName(ParsedColumn $parsed, array $defaults, array $replacements): string {
         $expression = $parsed->expression;
         $field = strval($expression->field);
         $name = $parsed->name;
 
         if (!array_key_exists($name, $defaults) && $expression->path === [] && $expression->aggregate === null && array_key_exists($field, $replacements)) {
             $name = $replacements[$field];
-
-            if (!array_key_exists($name, $placed)) {
-                $this->replaced[$name] = $field;
-            }
         }
 
         return $name;

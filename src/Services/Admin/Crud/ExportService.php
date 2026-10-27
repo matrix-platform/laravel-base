@@ -60,12 +60,7 @@ class ExportService extends CrudService {
     public function export(mixed $input): array {
         $values = is_array($input) ? $input : [];
         $declared = $this->columns;
-
-        $this->swap([]);
-        $this->columns($this->filterColumns);
-        $this->pool($this->optionals);
-
-        $pooled = $this->columns;
+        $pooled = $this->pool($this->resolved($this->filterColumns), $this->optionals)->columns;
         $filterable = array_column($pooled, 'name');
         $outputs = $this->visible($this->outputs($declared, $pooled, array_get_value($values, 'columns')));
         $fields = $this->fields($outputs, $this->locales);
@@ -74,11 +69,12 @@ class ExportService extends CrudService {
         $used = [...array_keys($filters), ...array_column($sorts, 'name'), ...array_map(fn (string $sort): string => ltrim($sort, '-'), $this->sorting)];
         $names = array_column($outputs, 'name');
 
-        $this->swap([...$outputs, ...array_values(array_filter($pooled, fn (Column $column): bool => in_array($column->name, $used, true) && !in_array($column->name, $names, true)))]);
+        $queried = [...$outputs, ...array_values(array_filter($pooled, fn (Column $column): bool => in_array($column->name, $used, true) && !in_array($column->name, $names, true)))];
+
         $this->attach($this->model);
 
         $items = Arr::wrap(array_get_value($values, 'id'));
-        $plan = $this->plan($this->columns);
+        $plan = $this->plan($queried);
         $query = $this->projection($plan);
 
         $this->select($query, $plan, $this->selects);

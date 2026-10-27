@@ -76,9 +76,7 @@ class ListService extends CrudService {
         $this->attach($context);
 
         $defaults = array_column($this->columns, 'name');
-
-        $this->pool($this->optionals);
-
+        $pool = $this->pool($this->columns, $this->optionals);
         $values = is_array($input) ? $input : [];
         $preference = $this->preference();
         $parents = $this->subject->parents($context, $this->params);
@@ -87,7 +85,7 @@ class ListService extends CrudService {
         $enable = $metadata?->enable;
         $disable = $metadata?->disable;
         $arrangeable = $enable !== null && $disable !== null;
-        $plan = $this->plan($this->columns);
+        $plan = $this->plan($pool->columns);
         $query = $this->projection($plan);
 
         $this->select($query, $plan, $arrangeable ? [...$this->selects, $enable, $disable] : $this->selects);
@@ -98,8 +96,8 @@ class ListService extends CrudService {
         $sorted = (new Sorting($this->sorting))->apply($query, $plan, array_get_value($values, 'sort'));
         $pagination = $this->paginate($query, $values, $total, $preference);
         $rowActions = $this->permitted($this->traceable($this->rowActions), $prefix);
-        $rows = $this->rows($query, $rowActions, $enable, $disable);
-        $columns = $arrangeable ? array_values(array_filter($this->columns, fn (Column $column): bool => $column->name !== $enable && $column->name !== $disable)) : $this->columns;
+        $rows = $this->rows($query, $pool->columns, $rowActions, $enable, $disable);
+        $columns = $arrangeable ? array_values(array_filter($pool->columns, fn (Column $column): bool => $column->name !== $enable && $column->name !== $disable)) : $pool->columns;
         $data = $context->toArray();
 
         return [
@@ -108,7 +106,7 @@ class ListService extends CrudService {
             'breadcrumbs' => $this->breadcrumbs($this->foreign() === null ? [null, ...$parents] : $parents, $context),
             'context' => $data === [] ? (object) [] : $data,
             'rows' => $rows,
-            'columns' => array_map(fn (array $column): array => [...$column, 'default' => in_array($column['name'], $defaults, true), 'replaces' => array_get_value($this->replaced, $column['name'])], $this->payload($columns, $context)),
+            'columns' => array_map(fn (array $column): array => [...$column, 'default' => in_array($column['name'], $defaults, true), 'replaces' => array_get_value($pool->replaced, $column['name'])], $this->payload($columns, $context)),
             'filters' => $arrangeable ? $this->payload([$this->scheduleColumn()], $context) : [],
             'features' => $arrangeable && $this->arrangeable !== false ? $this->arrangeFeatures($prefix) : [],
             'preference' => $this->columnPreference($preference),
@@ -200,16 +198,17 @@ class ListService extends CrudService {
 
     /**
      * @param Builder<Model> $query
+     * @param list<Column> $columns
      * @param list<Operation> $rowActions
      * @return list<array<string, mixed>>
      */
-    private function rows(Builder $query, array $rowActions, ?string $enable, ?string $disable): array {
+    private function rows(Builder $query, array $columns, array $rowActions, ?string $enable, ?string $disable): array {
         $rows = [];
 
         foreach ($query->get() as $row) {
             $this->inspect($row);
 
-            $data = $this->dated(array_intersect_key($row->toArray(), $row->getAttributes()), $row, $this->columns);
+            $data = $this->dated(array_intersect_key($row->toArray(), $row->getAttributes()), $row, $columns);
 
             if ($enable !== null && $disable !== null) {
                 $data = Arr::except($data, [$enable, $disable]);
