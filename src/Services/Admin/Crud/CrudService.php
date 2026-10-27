@@ -109,8 +109,6 @@ abstract class CrudService {
      */
     protected array $subnames = [];
 
-    private ?QueryPlan $plan = null;
-
     private ColumnResolver $resolver;
 
     private Variants $variants;
@@ -138,8 +136,6 @@ abstract class CrudService {
                 $this->columns[] = $resolved;
             }
         }
-
-        $this->plan = null;
 
         return $this;
     }
@@ -366,8 +362,8 @@ abstract class CrudService {
     /**
      * @return Builder<Model>
      */
-    protected function complete(): Builder {
-        return $this->prepared($this->plan()->complete());
+    protected function complete(QueryPlan $plan): Builder {
+        return $this->prepared($plan->complete());
     }
 
     protected function composed(Column $column): bool {
@@ -493,7 +489,7 @@ abstract class CrudService {
     /**
      * @param Builder<Model> $query
      */
-    protected function filter(Builder $query, mixed $filters): void {
+    protected function filter(Builder $query, QueryPlan $plan, mixed $filters): void {
         $metadata = app(MetadataRegistry::class)->of($this->model::class);
 
         if (is_array($filters) && $metadata?->enable !== null && $metadata->disable !== null && array_key_exists(ScheduleFilter::NAME, $filters)) {
@@ -502,7 +498,7 @@ abstract class CrudService {
             unset($filters[ScheduleFilter::NAME]);
         }
 
-        (new Filtering())->apply($query, $this->plan(), $filters, $this->filterHandlers);
+        (new Filtering())->apply($query, $plan, $filters, $this->filterHandlers);
     }
 
     /**
@@ -667,12 +663,11 @@ abstract class CrudService {
         return $this->prepared($this->model->query());
     }
 
-    protected function plan(): QueryPlan {
-        if ($this->plan === null) {
-            $this->plan = new QueryPlan($this->model, $this->columns, $this->foreign());
-        }
-
-        return $this->plan;
+    /**
+     * @param list<Column> $columns
+     */
+    protected function plan(array $columns): QueryPlan {
+        return new QueryPlan($this->model, $columns, $this->foreign());
     }
 
     /**
@@ -744,8 +739,8 @@ abstract class CrudService {
     /**
      * @return Builder<Model>
      */
-    protected function projection(): Builder {
-        return $this->prepared($this->plan()->projection());
+    protected function projection(QueryPlan $plan): Builder {
+        return $this->prepared($plan->projection());
     }
 
     /**
@@ -792,12 +787,12 @@ abstract class CrudService {
      * @param Builder<Model> $query
      * @param list<string> $fields
      */
-    protected function select(Builder $query, array $fields): void {
-        $present = array_column($this->columns, 'name');
+    protected function select(Builder $query, QueryPlan $plan, array $fields): void {
+        $present = array_column($plan->columns(), 'name');
         $missing = array_values(array_diff(array_unique($fields), $present));
 
         if ($missing !== []) {
-            $query->addSelect(array_map(fn (string $field): string => "{$this->plan()->table()}.{$field}", $missing));
+            $query->addSelect(array_map(fn (string $field): string => "{$plan->table()}.{$field}", $missing));
         }
     }
 
@@ -893,7 +888,6 @@ abstract class CrudService {
      */
     protected function swap(array $columns): void {
         $this->columns = $columns;
-        $this->plan = null;
     }
 
     protected function title(): ?string {

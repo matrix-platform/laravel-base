@@ -24,7 +24,7 @@ class GetService extends CrudService {
      * @return array<string, mixed>
      */
     public function get(int|string $id): array {
-        $model = $this->complete()->findOrFail($id);
+        $model = $this->complete($this->plan($this->columns))->findOrFail($id);
 
         $this->expandComposites(null, $model);
         $this->inspect($model);

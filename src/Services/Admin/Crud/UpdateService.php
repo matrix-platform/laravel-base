@@ -30,7 +30,7 @@ class UpdateService extends CrudService {
     }
 
     public function find(int|string $id): Model {
-        return $this->complete()->findOrFail($id);
+        return $this->complete($this->plan($this->columns))->findOrFail($id);
     }
 
     /**
@@ -72,7 +72,7 @@ class UpdateService extends CrudService {
     public function rows(?string $ranking): array {
         $table = $this->model->getTable();
         $key = $this->model->getKeyName();
-        $query = $this->complete();
+        $query = $this->complete($this->plan($this->columns));
         $rows = [];
 
         if ($ranking !== null) {
@@ -90,7 +90,7 @@ class UpdateService extends CrudService {
      * @return array{id: mixed}
      */
     public function update(int|string $id, mixed $input): array {
-        $model = $this->complete()->findOrFail($id);
+        $model = $this->complete($this->plan($this->columns))->findOrFail($id);
 
         $this->expandComposites($input, $model);
 

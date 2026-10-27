@@ -87,14 +87,15 @@ class ListService extends CrudService {
         $enable = $metadata?->enable;
         $disable = $metadata?->disable;
         $arrangeable = $enable !== null && $disable !== null;
-        $query = $this->projection();
+        $plan = $this->plan($this->columns);
+        $query = $this->projection($plan);
 
-        $this->select($query, $arrangeable ? [...$this->selects, $enable, $disable] : $this->selects);
+        $this->select($query, $plan, $arrangeable ? [...$this->selects, $enable, $disable] : $this->selects);
 
-        $this->filter($query, array_get_value($values, 'filters'));
+        $this->filter($query, $plan, array_get_value($values, 'filters'));
 
         $total = $query->count();
-        $sorted = (new Sorting($this->sorting))->apply($query, $this->plan(), array_get_value($values, 'sort'));
+        $sorted = (new Sorting($this->sorting))->apply($query, $plan, array_get_value($values, 'sort'));
         $pagination = $this->paginate($query, $values, $total, $preference);
         $rowActions = $this->permitted($this->traceable($this->rowActions), $prefix);
         $rows = $this->rows($query, $rowActions, $enable, $disable);

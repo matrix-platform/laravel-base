@@ -78,16 +78,17 @@ class ExportService extends CrudService {
         $this->attach($this->model);
 
         $items = Arr::wrap(array_get_value($values, 'id'));
-        $query = $this->projection();
+        $plan = $this->plan($this->columns);
+        $query = $this->projection($plan);
 
-        $this->select($query, $this->selects);
-        $this->filter($query, $filters);
+        $this->select($query, $plan, $this->selects);
+        $this->filter($query, $plan, $filters);
 
         if ($items !== []) {
             $query->whereKey($items);
         }
 
-        (new Sorting($this->sorting))->apply($query, $this->plan(), $sorts);
+        (new Sorting($this->sorting))->apply($query, $plan, $sorts);
 
         $query->orderBy($this->model->getQualifiedKeyName());
 
