@@ -26,11 +26,12 @@ class GetService extends CrudService {
     public function get(int|string $id): array {
         $model = $this->complete($this->plan($this->columns))->findOrFail($id);
 
-        $this->expandComposites(null, $model);
+        $form = $this->expandComposites(null, $model);
+
         $this->inspect($model);
 
         $parents = $this->subject->parents($model, $model);
-        $names = [...$this->names($this->columns), $this->model->getKeyName()];
+        $names = [...$this->names($form->columns), $this->model->getKeyName()];
         $foreign = $this->foreign();
 
         if ($foreign !== null) {
@@ -41,8 +42,8 @@ class GetService extends CrudService {
             'title' => $this->title(),
             'subtitle' => $this->subject->title($model),
             'breadcrumbs' => $this->breadcrumbs([$model, ...$parents], $model),
-            'data' => $this->flattenComposites($this->dated(Arr::only($model->toArray(), $names), $model, $this->columns), $model),
-            'columns' => $this->payload($this->columns, $model),
+            'data' => $this->flattenComposites($form, $this->dated(Arr::only($model->toArray(), $names), $model, $form->columns), $model),
+            'columns' => $this->payload($form->columns, $model),
             'preference' => $this->formPreference($this->preference()),
             'orderable' => $this->orderable,
             'staged' => $this->staged,

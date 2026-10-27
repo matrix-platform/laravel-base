@@ -15,13 +15,11 @@ class UpdateService extends CrudService {
 
         try {
             $model = $this->find($id);
-
-            $this->expandComposites($input, $model);
-
-            $values = $this->validated($input, $id);
+            $form = $this->expandComposites($input, $model);
+            $values = $this->validated($form, $input, $id);
             $before = $model->toArray();
 
-            $this->assign($model, $values);
+            $this->assign($form, $model, $values);
             $this->reattach($model, $values);
             $this->inspect($model, $before);
         } finally {
@@ -38,10 +36,9 @@ class UpdateService extends CrudService {
      */
     public function form(int|string $id, mixed $input): array {
         $model = $this->find($id);
+        $form = $this->expandComposites($input, $model);
 
-        $this->expandComposites($input, $model);
-
-        return $this->payload($this->columns, $model);
+        return $this->payload($form->columns, $model);
     }
 
     public function movable(bool $movable): static {
@@ -54,16 +51,9 @@ class UpdateService extends CrudService {
      * @return array<string, mixed>
      */
     public function row(Model $model): array {
-        $columns = $this->columns;
-
-        $this->expandComposites(null, $model);
-
-        $names = [...$this->names($this->columns), $model->getKeyName(), ...Arr::whereNotNull([$this->foreign()])];
-        $row = $this->flattenComposites($this->dated(Arr::only($model->toArray(), $names), $model, $this->columns), $model);
-
-        $this->swap($columns);
-
-        return $row;
+        $form = $this->expandComposites(null, $model);
+        $names = [...$this->names($form->columns), $model->getKeyName(), ...Arr::whereNotNull([$this->foreign()])];
+        return $this->flattenComposites($form, $this->dated(Arr::only($model->toArray(), $names), $model, $form->columns), $model);
     }
 
     /**
@@ -91,13 +81,11 @@ class UpdateService extends CrudService {
      */
     public function update(int|string $id, mixed $input): array {
         $model = $this->complete($this->plan($this->columns))->findOrFail($id);
-
-        $this->expandComposites($input, $model);
-
-        $values = $this->validated($input, $id);
+        $form = $this->expandComposites($input, $model);
+        $values = $this->validated($form, $input, $id);
         $before = $model->toArray();
 
-        $this->assign($model, $values);
+        $this->assign($form, $model, $values);
         $this->reattach($model, $values);
         $this->inspect($model, $before);
 

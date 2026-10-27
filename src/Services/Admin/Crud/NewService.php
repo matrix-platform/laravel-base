@@ -27,17 +27,17 @@ class NewService extends CrudService {
         $model = $this->model->newInstance();
 
         $this->attach($model);
-        $this->expandComposites($input, $model);
 
+        $form = $this->expandComposites($input, $model);
         $parents = $this->subject->parents($model, $model);
-        $blank = array_fill_keys($this->names($this->local()), null);
+        $blank = array_fill_keys($this->names($this->local($form->columns)), null);
 
         return [
             'title' => $this->title(),
             'subtitle' => $this->subtitle($parents),
             'breadcrumbs' => $this->breadcrumbs([$model, ...$parents], $model),
-            'data' => array_merge($blank, $model->toArray(), $this->defaults($input)),
-            'columns' => $this->payload($this->columns, $model),
+            'data' => array_merge($blank, $model->toArray(), $this->defaults($form, $input)),
+            'columns' => $this->payload($form->columns, $model),
             'preference' => $this->formPreference($this->preference()),
             'orderable' => $this->orderable,
             'staged' => $this->staged,
@@ -48,16 +48,16 @@ class NewService extends CrudService {
     /**
      * @return array<string, mixed>
      */
-    private function defaults(mixed $input): array {
+    private function defaults(Form $form, mixed $input): array {
         $values = is_array($input) ? $input : [];
         $presets = [];
 
-        foreach ($this->presets as $name => $defaults) {
+        foreach ($form->presets as $name => $defaults) {
             $presets = [...$presets, ...Arr::prependKeysWith($defaults, "{$name}__")];
         }
 
         $values = [...$presets, ...$values];
-        $writable = array_values(array_filter($this->local(), $this->writable(...)));
+        $writable = array_values(array_filter($this->local($form->columns), $this->writable(...)));
 
         return Arr::only($values, $this->names($writable));
     }

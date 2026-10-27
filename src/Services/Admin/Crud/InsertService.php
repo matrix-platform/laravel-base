@@ -11,9 +11,9 @@ class InsertService extends CrudService {
         DB::beginTransaction();
 
         try {
-            $model = $this->fresh($input);
+            [$model, $form] = $this->fresh($input);
 
-            $this->assign($model, $this->validated($input));
+            $this->assign($form, $model, $this->validated($form, $input));
             $this->inspect($model);
         } finally {
             DB::rollBack();
@@ -24,9 +24,9 @@ class InsertService extends CrudService {
      * @return list<array<string, mixed>>
      */
     public function form(mixed $input): array {
-        $model = $this->fresh($input);
+        [$model, $form] = $this->fresh($input);
 
-        return $this->payload($this->columns, $model);
+        return $this->payload($form->columns, $model);
     }
 
     /**
@@ -37,14 +37,17 @@ class InsertService extends CrudService {
 
         $this->attach($model);
 
-        $this->expandComposites($input, $model);
+        $form = $this->expandComposites($input, $model);
 
-        $this->store($model, $input);
+        $this->store($form, $model, $input);
 
         return ['id' => $model->getKey()];
     }
 
-    private function fresh(mixed $input): Model {
+    /**
+     * @return array{Model, Form}
+     */
+    private function fresh(mixed $input): array {
         $model = $this->model->newInstance();
         $foreign = $this->foreign();
 
@@ -52,9 +55,7 @@ class InsertService extends CrudService {
             $this->attach($model);
         }
 
-        $this->expandComposites($input, $model);
-
-        return $model;
+        return [$model, $this->expandComposites($input, $model)];
     }
 
 }

@@ -41,9 +41,8 @@ class ImportService extends CrudService {
 
         $rows = $this->rows($input);
 
-        $this->narrow();
-
-        $fields = $this->fields($this->columns, locales());
+        $form = new Form($this->narrow());
+        $fields = $this->fields($form->columns, locales());
         $errors = [];
         $count = 0;
 
@@ -55,7 +54,7 @@ class ImportService extends CrudService {
             }
 
             if ($failures === []) {
-                $failures = $this->locator === null ? $this->insert($data) : $this->update($item, $data);
+                $failures = $this->locator === null ? $this->insert($form, $data) : $this->update($form, $item, $data);
             }
 
             if ($failures === []) {
@@ -90,11 +89,9 @@ class ImportService extends CrudService {
      * @return array{title: string, columns: list<array<string, mixed>>, rows: array{}}
      */
     public function template(): array {
-        $this->narrow();
-
         $columns = [];
 
-        foreach ($this->fields($this->columns, locales()) as $field) {
+        foreach ($this->fields($this->narrow(), locales()) as $field) {
             $column = $field['column'];
             $map = array_get_value($this->options, $column->name);
 
@@ -194,26 +191,31 @@ class ImportService extends CrudService {
      * @param array<string, mixed> $data
      * @return array<string, list<string>>
      */
-    private function insert(array $data): array {
-        return $this->attempt(fn () => $this->store($this->model->newInstance(), $data));
+    private function insert(Form $form, array $data): array {
+        return $this->attempt(fn () => $this->store($form, $this->model->newInstance(), $data));
     }
 
-    private function narrow(): void {
+    /**
+     * @return list<Column>
+     */
+    private function narrow(): array {
         $foreign = $this->foreign();
-        $scoped = array_filter($this->local(), fn (Column $column): bool => $this->writable($column) && $column->name !== $foreign);
+        $scoped = array_filter($this->local($this->columns), fn (Column $column): bool => $this->writable($column) && $column->name !== $foreign);
         $unsupported = array_filter($scoped, fn (Column $column): bool => $column->required && !$this->supported($column));
 
         if ($unsupported !== []) {
             error('import-column-unsupported', extra: ['columns' => array_column($unsupported, 'name')]);
         }
 
-        $this->swap(array_values(array_filter($scoped, $this->supported(...))));
+        $narrowed = array_values(array_filter($scoped, $this->supported(...)));
 
-        foreach ($this->columns as $column) {
+        foreach ($narrowed as $column) {
             if ($column->options !== null && !array_key_exists($column->name, $this->lookups)) {
                 $this->options[$column->name] = $this->collect([], $column->options->options($this->model));
             }
         }
+
+        return $narrowed;
     }
 
     /**
@@ -255,8 +257,8 @@ class ImportService extends CrudService {
      * @param array<string, mixed> $data
      * @return array<string, list<string>>
      */
-    private function update(array $item, array $data): array {
-        return $this->attempt(function () use ($item, $data): void {
+    private function update(Form $form, array $item, array $data): array {
+        return $this->attempt(function () use ($form, $item, $data): void {
             $locator = $this->locator;
             $model = $locator === null ? null : $locator($this->plain(), $item['values'], $item['row']);
 
@@ -266,7 +268,7 @@ class ImportService extends CrudService {
 
             $before = $model->toArray();
 
-            $this->assign($model, Validator::make($data, array_intersect_key($this->rules($model->getKey()), $data))->validate());
+            $this->assign($form, $model, Validator::make($data, array_intersect_key($this->rules($form, $model->getKey()), $data))->validate());
             $this->inspect($model, $before);
 
             $model->save();

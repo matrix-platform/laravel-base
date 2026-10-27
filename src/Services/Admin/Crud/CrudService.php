@@ -47,11 +47,6 @@ abstract class CrudService {
     protected array $columns = [];
 
     /**
-     * @var array<string, array<string, Column>>
-     */
-    protected array $composites = [];
-
-    /**
      * @var array<string, Closure>
      */
     protected array $filterHandlers = [];
@@ -76,11 +71,6 @@ abstract class CrudService {
     protected array $params = [];
 
     /**
-     * @var array<string, array<string, mixed>>
-     */
-    protected array $presets = [];
-
-    /**
      * @var list<Closure>
      */
     protected array $scopes = [];
@@ -98,11 +88,6 @@ abstract class CrudService {
     protected bool $standalone = false;
 
     protected Subject $subject;
-
-    /**
-     * @var array<string, true>
-     */
-    protected array $subnames = [];
 
     private ColumnResolver $resolver;
 
@@ -211,9 +196,9 @@ abstract class CrudService {
     /**
      * @param array<string, mixed> $values
      */
-    protected function assign(Model $model, array $values): void {
-        foreach ($this->local() as $column) {
-            if ($column->readonly || $this->composed($column)) {
+    protected function assign(Form $form, Model $model, array $values): void {
+        foreach ($this->local($form->columns) as $column) {
+            if ($column->readonly || $form->composed($column)) {
                 continue;
             }
 
@@ -228,9 +213,9 @@ abstract class CrudService {
             }
         }
 
-        $this->assignComposites($model, $values);
+        $this->assignComposites($form, $model, $values);
 
-        foreach ($this->columns as $column) {
+        foreach ($form->columns as $column) {
             if ($column->virtual && $column->assign !== null && $this->writable($column) && array_key_exists($column->name, $values)) {
                 ($column->assign)($model, $values[$column->name]);
             }
@@ -240,8 +225,8 @@ abstract class CrudService {
     /**
      * @param array<string, mixed> $values
      */
-    protected function assignComposites(Model $model, array $values): void {
-        foreach ($this->composites as $group => $columns) {
+    protected function assignComposites(Form $form, Model $model, array $values): void {
+        foreach ($form->composites as $group => $columns) {
             if (array_filter($columns, fn (Column $column): bool => $column->readonly) !== []) {
                 continue;
             }
@@ -359,10 +344,6 @@ abstract class CrudService {
         return $this->prepared($plan->complete());
     }
 
-    protected function composed(Column $column): bool {
-        return array_key_exists($column->name, $this->subnames);
-    }
-
     /**
      * @param array<string, mixed> $data
      * @param list<Column> $columns
@@ -421,12 +402,10 @@ abstract class CrudService {
         return app(FileService::class)->resolveDriveReferences($this->driveEntries($value), actor()->requireUser());
     }
 
-    protected function expandComposites(mixed $input, ?Model $model): void {
+    protected function expandComposites(mixed $input, ?Model $model): Form {
         $expanded = [];
-
-        $this->composites = [];
-        $this->presets = [];
-        $this->subnames = [];
+        $composites = [];
+        $presets = [];
 
         foreach ($this->columns as $column) {
             if ($column->variantGroup === null) {
@@ -443,17 +422,16 @@ abstract class CrudService {
             }
 
             if ($variant instanceof Presets) {
-                $this->presets[$column->name] = $variant->defaults();
+                $presets[$column->name] = $variant->defaults();
             }
 
             foreach ($this->subfields($column, $column->variantGroup, $type, $variant->definitions()) as $field => $subfield) {
-                $this->composites[$column->name][$field] = $subfield;
-                $this->subnames[$subfield->name] = true;
+                $composites[$column->name][$field] = $subfield;
                 $expanded[] = $subfield;
             }
         }
 
-        $this->swap($expanded);
+        return new Form($expanded, $composites, $presets);
     }
 
     /**
@@ -498,8 +476,8 @@ abstract class CrudService {
      * @param array<string, mixed> $data
      * @return array<string, mixed>
      */
-    protected function flattenComposites(array $data, Model $model): array {
-        foreach ($this->composites as $group => $columns) {
+    protected function flattenComposites(Form $form, array $data, Model $model): array {
+        foreach ($form->composites as $group => $columns) {
             $stored = $model->getAttribute($group);
             $stored = is_array($stored) ? $stored : [];
 
@@ -563,10 +541,11 @@ abstract class CrudService {
     }
 
     /**
+     * @param list<Column> $columns
      * @return list<Column>
      */
-    protected function local(): array {
-        return array_values(array_filter($this->columns, $this->isLocal(...)));
+    protected function local(array $columns): array {
+        return array_values(array_filter($columns, $this->isLocal(...)));
     }
 
     protected function localized(string $title, string $locale): string {
@@ -770,16 +749,16 @@ abstract class CrudService {
     /**
      * @return array<string, list<string|Unique>>
      */
-    protected function rules(int|string|null $ignoreId = null): array {
+    protected function rules(Form $form, int|string|null $ignoreId = null): array {
         $rules = [];
 
-        foreach ($this->columns as $column) {
+        foreach ($form->columns as $column) {
             if (!$this->writable($column)) {
                 continue;
             }
 
             $rule = $column->rule === [] ? [$column->type->rule()] : $column->rule;
-            $rule = $this->composed($column) ? $rule : [...$rule, ...$this->range($column, $rule)];
+            $rule = $form->composed($column) ? $rule : [...$rule, ...$this->range($column, $rule)];
             $prefix = $column->required ? ['required'] : ($column->virtual ? ['nullable'] : ['present', 'nullable']);
             $keys = $column->translatable ? $this->translated($column) : [$column->name];
 
@@ -827,8 +806,8 @@ abstract class CrudService {
         ];
     }
 
-    protected function store(Model $model, mixed $input): void {
-        $this->assign($model, $this->validated($input));
+    protected function store(Form $form, Model $model, mixed $input): void {
+        $this->assign($form, $model, $this->validated($form, $input));
         $this->attach($model);
         $this->inspect($model);
 
@@ -898,13 +877,6 @@ abstract class CrudService {
         return null;
     }
 
-    /**
-     * @param list<Column> $columns
-     */
-    protected function swap(array $columns): void {
-        $this->columns = $columns;
-    }
-
     protected function title(): ?string {
         $menu = app(AdminPermission::class)->getCurrentMenu();
 
@@ -940,10 +912,10 @@ abstract class CrudService {
     /**
      * @return array<string, mixed>
      */
-    protected function validated(mixed $input, int|string|null $ignoreId = null): array {
+    protected function validated(Form $form, mixed $input, int|string|null $ignoreId = null): array {
         $values = is_array($input) ? $input : [];
 
-        return Validator::make($values, $this->rules($ignoreId))->validate();
+        return Validator::make($values, $this->rules($form, $ignoreId))->validate();
     }
 
     /**
