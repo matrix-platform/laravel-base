@@ -200,12 +200,14 @@ abstract class BaseModel extends Model {
     private function traceUpdated(): void {
         $changes = $this->getTraceables($this->getChanges(), false);
 
-        if ($changes) {
-            $original = $this->getOriginal();
-            $before = Arr::map($changes, fn (mixed $_, string $name) => array_get_value($original, $name));
-
-            $this->trace(ManipulationType::Updated, $this->serialized($before), $this->decoded($changes));
+        if ($changes === []) {
+            return;
         }
+
+        $original = $this->getOriginal();
+        $before = Arr::map($changes, fn (mixed $_, string $name) => array_get_value($original, $name));
+
+        $this->trace(ManipulationType::Updated, $this->serialized($before), $this->decoded($changes));
     }
 
 }

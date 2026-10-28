@@ -53,6 +53,7 @@ class UpdateService extends CrudService {
     public function row(Model $model): array {
         $form = $this->expandComposites(null, $model);
         $names = [...$this->names($form->columns), $model->getKeyName(), ...Arr::whereNotNull([$this->foreign()])];
+
         return $this->flattenComposites($form, $this->dated(Arr::only($model->toArray(), $names), $model, $form->columns), $model);
     }
 
@@ -80,7 +81,7 @@ class UpdateService extends CrudService {
      * @return array{id: mixed}
      */
     public function update(int|string $id, mixed $input): array {
-        $model = $this->complete($this->plan($this->columns))->findOrFail($id);
+        $model = $this->find($id);
         $form = $this->expandComposites($input, $model);
         $values = $this->validated($form, $input, $id);
         $before = $model->toArray();

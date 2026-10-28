@@ -83,9 +83,7 @@ class MenusTest extends FeatureTestCase {
     }
 
     public function test_nothing_is_listed_when_the_configuration_is_empty(): void {
-        config()->set('matrix.admin-menus', null);
-
-        app()->forgetInstance(Menus::class);
+        $this->useMenus(null);
 
         $this->assertSame([], $this->menus()->bundle());
         $this->assertFalse($this->menus()->has('widget'));

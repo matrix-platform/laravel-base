@@ -273,9 +273,14 @@ trait StagesChildren {
 
             $class = ActionRoutes::controller($prefix);
             $child = $class === null ? null : app($class);
-            $foreign = $child instanceof CrudController && !$child->standalone() ? app(Subject::class)->foreign($child->instance()) : null;
 
-            if ($child === null || $foreign === null) {
+            if (!$child instanceof CrudController || $child->standalone()) {
+                error('invalid-staged-child');
+            }
+
+            $foreign = app(Subject::class)->foreign($child->instance());
+
+            if ($foreign === null) {
                 error('invalid-staged-child');
             }
 

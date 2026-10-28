@@ -115,10 +115,11 @@ class FileService {
     }
 
     /**
-     * @param list<array<string, mixed>> $entries
+     * @param array<mixed> $entries
      * @return list<array<string, mixed>>
      */
     public function resolveDriveReferences(array $entries, User $actor): array {
+        $entries = array_values(array_filter($entries, is_array(...)));
         $ids = array_values(array_unique(array_map(
             fn (array $entry): int => (int) $entry['id'],
             array_filter($entries, fn (array $entry): bool => array_key_exists('id', $entry))

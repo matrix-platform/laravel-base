@@ -77,11 +77,13 @@ class RotateEncryptionKeyCommandTest extends FeatureTestCase {
 
         try {
             $this->command()->run();
-            $this->fail('the rotation should have failed');
         } catch (RuntimeException) {
+            $this->assertSame($previous->kid, EncryptionKey::active()?->kid);
+
+            return;
         }
 
-        $this->assertSame($previous->kid, EncryptionKey::active()?->kid);
+        $this->fail('the rotation should have failed');
     }
 
     public function test_a_key_still_inside_its_grace_period_keeps_its_expiry_on_the_next_rotation(): void {

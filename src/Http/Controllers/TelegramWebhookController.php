@@ -15,8 +15,6 @@ class TelegramWebhookController extends BaseController {
      */
     #[Action(encrypted: false)]
     public function webhook(Request $request): array {
-        $matches = [];
-
         if (preg_match('#^/start\s+(\S+)$#', strval($request->input('message.text')), $matches) === 1) {
             $this->bind($request, $matches[1]);
         }

@@ -123,9 +123,6 @@ final class PasskeyAuthenticator {
         return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
     }
 
-    /**
-     * @return string
-     */
     private static function clientData(string $type, string $challenge, string $origin): string {
         return json_encode([
             'type' => $type,

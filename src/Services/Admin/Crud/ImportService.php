@@ -54,7 +54,7 @@ class ImportService extends CrudService {
             }
 
             if ($failures === []) {
-                $failures = $this->locator === null ? $this->insert($form, $data) : $this->update($form, $item, $data);
+                $failures = $this->locator === null ? $this->insert($form, $data) : $this->update($form, $this->locator, $item, $data);
             }
 
             if ($failures === []) {
@@ -257,10 +257,9 @@ class ImportService extends CrudService {
      * @param array<string, mixed> $data
      * @return array<string, list<string>>
      */
-    private function update(Form $form, array $item, array $data): array {
-        return $this->attempt(function () use ($form, $item, $data): void {
-            $locator = $this->locator;
-            $model = $locator === null ? null : $locator($this->plain(), $item['values'], $item['row']);
+    private function update(Form $form, Closure $locator, array $item, array $data): array {
+        return $this->attempt(function () use ($form, $locator, $item, $data): void {
+            $model = $locator($this->plain(), $item['values'], $item['row']);
 
             if (!$model instanceof Model) {
                 error('data-not-found', 404);

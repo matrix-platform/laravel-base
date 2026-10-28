@@ -19,14 +19,12 @@ trait Thumbnails {
     protected function withThumbnail(Request $request, string $disk, string $location, ?string $mimeType, Closure $thumbnailLocation): array {
         $size = $this->optionalString($request, 'size');
         $service = app(FileService::class);
-        $valid = $size !== null && $service->isRasterImage($mimeType) && $service->thumbnailWidth($size) !== null;
 
-        if (!$valid) {
+        if ($size === null || !$service->isRasterImage($mimeType) || $service->thumbnailWidth($size) === null) {
             return ['location' => $location, 'mime_type' => $mimeType];
         }
 
         $destination = $thumbnailLocation($size);
-
         $storage = Storage::disk($disk);
 
         $service->thumbnail($storage->path($location), $storage->path($destination), $size);

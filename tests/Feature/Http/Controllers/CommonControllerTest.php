@@ -192,7 +192,6 @@ class CommonControllerTest extends FeatureTestCase {
         $response->assertJsonPath('data.children.0.type', 'editor');
         $response->assertJsonPath('data.children.0.children.0.children', []);
 
-        // json() decodes objects into arrays, so `{}` and `[]` are indistinguishable there.
         $this->assertSame(3, substr_count($body, '"data":{}'));
         $this->assertStringContainsString('"og_image":[]', $body);
     }

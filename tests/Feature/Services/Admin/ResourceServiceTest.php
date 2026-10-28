@@ -471,7 +471,7 @@ class ResourceServiceTest extends FeatureTestCase {
     public function test_a_value_the_rules_reject_writes_nothing(): void {
         try {
             $this->service()->update(ResourceGroup::Cfg, 'admin', ['captcha-ttl' => 'not-a-number']);
-        } catch (ValidationException $exception) {
+        } catch (ValidationException) {
             $this->assertSame(0, ResourceOverride::query()->count());
 
             return;

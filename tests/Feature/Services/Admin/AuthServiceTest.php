@@ -17,16 +17,7 @@ class AuthServiceTest extends FeatureTestCase {
     public function test_changing_password_with_the_wrong_current_one_reports_the_current_field(): void {
         $user = UserFactory::new()->createOne();
 
-        try {
-            app(AuthService::class)->passwd($user, 'not-the-real-password', 'new-Passw0rd1', null);
-        } catch (ServiceException $exception) {
-            $this->assertSame(422, $exception->getCode());
-            $this->assertSame(['fields' => ['current' => ['invalid-password']]], $exception->getExtra());
-
-            return;
-        }
-
-        $this->fail('the password change was expected to be rejected');
+        $this->refusesField('current', 'invalid-password', fn () => app(AuthService::class)->passwd($user, 'not-the-real-password', 'new-Passw0rd1', null));
     }
 
     public function test_logging_in_with_the_wrong_captcha_code_reports_the_code_field(): void {
@@ -34,16 +25,7 @@ class AuthServiceTest extends FeatureTestCase {
 
         Cache::put('captcha:test-token', hash('sha256', 'ABCDE'), 60);
 
-        try {
-            app(AuthService::class)->login('someone', 'whatever', 'test-token', 'WRONG', null);
-        } catch (ServiceException $exception) {
-            $this->assertSame(422, $exception->getCode());
-            $this->assertSame(['fields' => ['code' => ['invalid-captcha']]], $exception->getExtra());
-
-            return;
-        }
-
-        $this->fail('the login was expected to be rejected');
+        $this->refusesField('code', 'invalid-captcha', fn () => app(AuthService::class)->login('someone', 'whatever', 'test-token', 'WRONG', null));
     }
 
     public function test_a_captcha_provider_that_resolves_to_no_driver_is_refused_instead_of_disabling_the_captcha(): void {
@@ -65,16 +47,7 @@ class AuthServiceTest extends FeatureTestCase {
 
         Cache::put('captcha:test-token', hash('sha256', 'ABCDE'), 60);
 
-        try {
-            app(AuthService::class)->login($user->username, 'not-the-real-password', 'test-token', 'ABCDE', null);
-        } catch (ServiceException $exception) {
-            $this->assertSame(422, $exception->getCode());
-            $this->assertSame(['fields' => ['password' => ['invalid-username-or-password']]], $exception->getExtra());
-
-            return;
-        }
-
-        $this->fail('the login was expected to be rejected');
+        $this->refusesField('password', 'invalid-username-or-password', fn () => app(AuthService::class)->login($user->username, 'not-the-real-password', 'test-token', 'ABCDE', null));
     }
 
     public function test_a_wrong_password_is_logged_even_outside_a_transaction(): void {

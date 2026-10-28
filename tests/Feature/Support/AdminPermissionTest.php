@@ -42,12 +42,6 @@ class AdminPermissionTest extends FeatureTestCase {
         $this->granted[$id] = $permissions;
     }
 
-    private function listing(?string $menus): void {
-        config()->set('matrix.admin-menus', $menus);
-
-        app()->forgetInstance(Menus::class);
-    }
-
     private function override(): void {
         app(PackageRegistry::class)->register('menu-override', __DIR__ . '/../../fixtures/package-menu-override');
 
@@ -100,7 +94,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_a_regular_user_with_a_personal_grant_is_allowed(): void {
-        $this->grantUser(2000, ['user' => ['query' => true]]);
+        $this->grantUser(self::REGULAR, ['user' => ['query' => true]]);
 
         $this->route('admin/user');
 
@@ -117,7 +111,7 @@ class AdminPermissionTest extends FeatureTestCase {
 
     public function test_a_personal_grant_is_merged_over_the_group_grant(): void {
         $this->grantGroup(77, ['user' => ['query' => true]]);
-        $this->grantUser(2000, ['user' => ['delete' => true]]);
+        $this->grantUser(self::REGULAR, ['user' => ['delete' => true]]);
 
         $this->route('admin/user/delete');
 
@@ -137,7 +131,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_an_action_node_is_authorised_through_its_parent(): void {
-        $this->grantUser(2000, ['user' => ['insert' => true]]);
+        $this->grantUser(self::REGULAR, ['user' => ['insert' => true]]);
 
         $this->route('admin/user/insert');
 
@@ -145,7 +139,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_an_action_node_is_denied_when_only_a_sibling_action_is_granted(): void {
-        $this->grantUser(2000, ['user' => ['query' => true]]);
+        $this->grantUser(self::REGULAR, ['user' => ['query' => true]]);
 
         $this->route('admin/user/insert');
 
@@ -153,7 +147,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_every_action_tag_is_enforced_independently(): void {
-        $this->grantUser(2000, ['user' => ['update' => true]]);
+        $this->grantUser(self::REGULAR, ['user' => ['update' => true]]);
 
         foreach (['user/{id}/update' => true, 'user/delete' => false, 'user/insert' => false, 'user/{id}' => false] as $path => $allowed) {
             $this->route("admin/{$path}");
@@ -170,7 +164,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_a_system_tagged_node_can_still_be_granted_explicitly(): void {
-        $this->grantUser(500, ['console' => ['system' => true]]);
+        $this->grantUser(self::ADMIN, ['console' => ['system' => true]]);
 
         $this->route('admin/console');
 
@@ -184,7 +178,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_a_tag_defined_by_the_host_package_can_be_granted(): void {
-        $this->grantUser(2000, ['report' => ['export' => true]]);
+        $this->grantUser(self::REGULAR, ['report' => ['export' => true]]);
 
         $this->route('admin/report');
 
@@ -199,7 +193,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_a_host_tag_reaches_the_action_nodes_through_their_parent(): void {
-        $this->grantUser(2000, ['report' => ['export' => true]]);
+        $this->grantUser(self::REGULAR, ['report' => ['export' => true]]);
 
         $this->route('admin/report/run');
 
@@ -207,7 +201,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_a_menu_bundle_that_is_not_listed_never_enters_the_system(): void {
-        $this->listing('authority');
+        $this->useMenus('authority');
 
         $this->route('admin/resource');
 
@@ -215,7 +209,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_a_menu_bundle_that_is_not_listed_is_absent_from_the_navigation(): void {
-        $this->listing('authority');
+        $this->useMenus('authority');
 
         $nodes = $this->permission(User::ROOT)->getMenuNodes();
 
@@ -225,7 +219,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_no_menu_is_loaded_when_nothing_is_listed(): void {
-        $this->listing(null);
+        $this->useMenus(null);
 
         $this->route('admin/user');
 
@@ -268,7 +262,7 @@ class AdminPermissionTest extends FeatureTestCase {
     }
 
     public function test_menu_nodes_hide_the_resources_the_user_cannot_reach(): void {
-        $this->grantUser(2000, ['user' => ['query' => true]]);
+        $this->grantUser(self::REGULAR, ['user' => ['query' => true]]);
 
         $nodes = $this->permission(self::REGULAR)->getMenuNodes();
 

@@ -86,9 +86,7 @@ class TranslationServiceTest extends FeatureTestCase {
     }
 
     public function test_a_placeholder_survives_the_driver_rewriting_the_marker_tag(): void {
-        $rewrites = ['attribute-before', 'reordered', 'spaced-equals', 'uppercase-tag'];
-
-        foreach ($rewrites as $rewrite) {
+        foreach (['attribute-before', 'reordered', 'spaced-equals', 'uppercase-tag'] as $rewrite) {
             $translated = strval($this->mangled($rewrite, 'Hi {name}, your order {no} shipped.'));
 
             $this->assertStringContainsString('{name}', $translated, "the {$rewrite} rewrite lost {name}");

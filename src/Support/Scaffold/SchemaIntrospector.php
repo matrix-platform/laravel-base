@@ -263,7 +263,9 @@ class SchemaIntrospector {
             ];
         }
 
-        return $this->uniqueIndexesCache[$table] = $indexes;
+        $this->uniqueIndexesCache[$table] = $indexes;
+
+        return $indexes;
     }
 
 }

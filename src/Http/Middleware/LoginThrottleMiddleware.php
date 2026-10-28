@@ -12,10 +12,8 @@ use Symfony\Component\HttpFoundation\Response;
 class LoginThrottleMiddleware {
 
     public function handle(Request $request, Closure $next, string $bundle): mixed {
-        $name = "matrix-login-{$bundle}";
-
         $limit = (new LoginRateLimiter($bundle))($request);
-        $key = "{$name}|{$limit->key}";
+        $key = "matrix-login-{$bundle}|{$limit->key}";
 
         if (RateLimiter::increment($key, $limit->decaySeconds) > $limit->maxAttempts) {
             throw new ThrottleRequestsException('Too Many Attempts.');

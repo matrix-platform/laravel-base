@@ -233,11 +233,6 @@ abstract class CrudService {
      */
     protected function breadcrumbs(array $items, ?Model $context): array {
         $menu = app(AdminPermission::class)->getCurrentMenu();
-
-        if ($menu === null) {
-            return [];
-        }
-
         $menus = app(Menus::class);
         $breadcrumbs = [];
 
@@ -302,12 +297,14 @@ abstract class CrudService {
      */
     protected function dated(array $data, Model $record, array $columns): array {
         foreach ($columns as $column) {
-            if ($column->type === ColumnType::Date) {
-                $value = $record->getAttribute($column->name);
+            if ($column->type !== ColumnType::Date) {
+                continue;
+            }
 
-                if ($value instanceof DateTimeInterface) {
-                    $data[$column->name] = $value->format(config('matrix.date-format'));
-                }
+            $value = $record->getAttribute($column->name);
+
+            if ($value instanceof DateTimeInterface) {
+                $data[$column->name] = $value->format(config('matrix.date-format'));
             }
         }
 
@@ -814,17 +811,6 @@ abstract class CrudService {
     }
 
     /**
-     * @param array<mixed> $value
-     * @return list<array<string, mixed>>
-     */
-    private function driveEntries(array $value): array {
-        /** @var list<array<string, mixed>> $entries */
-        $entries = array_values(array_filter($value, is_array(...)));
-
-        return $entries;
-    }
-
-    /**
      * @return array<string, mixed>
      */
     private function driveProps(Column $column): array {
@@ -849,7 +835,7 @@ abstract class CrudService {
             return $value;
         }
 
-        return app(FileService::class)->resolveDriveReferences($this->driveEntries($value), actor()->requireUser());
+        return app(FileService::class)->resolveDriveReferences($value, actor()->requireUser());
     }
 
     private function drives(Column $column): bool {

@@ -8,7 +8,6 @@ use MatrixPlatform\Columns\ColumnResolver;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Query\QueryPlan;
 use MatrixPlatform\Columns\Syntax\ColumnParser;
-use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
 use Tests\FeatureTestCase;
@@ -42,15 +41,7 @@ class QueryPlanTest extends FeatureTestCase {
      * @param list<string|array<string, mixed>> $columns
      */
     private function assertRejects(array $columns, ?Model $root = null): void {
-        try {
-            $this->plan($columns, $root);
-        } catch (ServiceException $exception) {
-            $this->assertSame('invalid-column-expression', $exception->getError());
-
-            return;
-        }
-
-        $this->fail('the plan was expected to be rejected');
+        $this->refuses('invalid-column-expression', fn () => $this->plan($columns, $root));
     }
 
     /**

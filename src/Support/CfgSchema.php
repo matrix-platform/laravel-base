@@ -95,14 +95,14 @@ class CfgSchema {
     }
 
     /**
-     * @param array<string, mixed> $column
+     * @param Column $column
      */
     private function coerce(array $column, mixed $value): mixed {
-        if (in_array(array_get_value($column, 'presentation'), self::DRIVES, true) && is_array($value)) {
-            return app(FileService::class)->resolveDriveReferences(array_values(array_filter($value, is_array(...))), actor()->requireUser());
+        if (in_array($column['presentation'], self::DRIVES, true) && is_array($value)) {
+            return app(FileService::class)->resolveDriveReferences($value, actor()->requireUser());
         }
 
-        return match (array_get_value($column, 'type')) {
+        return match ($column['type']) {
             ColumnType::Boolean->value => filter_var($value, FILTER_VALIDATE_BOOL),
             ColumnType::Float->value => floatval($value),
             ColumnType::Integer->value => intval($value),
@@ -111,10 +111,10 @@ class CfgSchema {
     }
 
     /**
-     * @param array<string, mixed> $column
+     * @param Column $column
      */
     private function masked(array $column, mixed $value): bool {
-        return array_get_value($column, 'secret') === true && $value === self::MASK;
+        return $column['secret'] && $value === self::MASK;
     }
 
     /**

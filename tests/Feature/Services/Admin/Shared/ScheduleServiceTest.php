@@ -81,13 +81,8 @@ class ScheduleServiceTest extends FeatureTestCase {
         $this->service()->toggle('widget', $widget->id, false);
 
         $widget->refresh();
-        $refreshedEnableTime = $widget->enable_time;
 
-        if ($refreshedEnableTime === null) {
-            $this->fail('expected enable_time to survive the toggle');
-        }
-
-        $this->assertSame($enabledAt, $refreshedEnableTime->toDateTimeString());
+        $this->assertSame($enabledAt, $widget->enable_time?->toDateTimeString());
         $this->assertNotNull($widget->disable_time);
     }
 

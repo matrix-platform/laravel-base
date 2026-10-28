@@ -214,7 +214,7 @@ class ExportService extends CrudService {
         }
 
         $keyed = array_column($pooled, null, 'name');
-        $names = is_array($requested) ? array_filter(array_unique(array_filter($requested, 'is_string')), fn (string $name): bool => array_key_exists($name, $keyed)) : [];
+        $names = is_array($requested) ? array_filter(array_unique(array_filter($requested, is_string(...))), fn (string $name): bool => array_key_exists($name, $keyed)) : [];
 
         if ($names === []) {
             $names = array_intersect(array_keys($keyed), array_column($declared, 'name'));

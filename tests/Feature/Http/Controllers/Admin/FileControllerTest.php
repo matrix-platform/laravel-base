@@ -22,8 +22,8 @@ class FileControllerTest extends FeatureTestCase {
         Storage::fake('local');
     }
 
-    private function stored(int $privilege = File::PUBLIC): File {
-        return app(FileService::class)->upload(UploadedFile::fake()->createWithContent('original.bin', 'stored-bytes'), $privilege);
+    private function stored(): File {
+        return app(FileService::class)->upload(UploadedFile::fake()->createWithContent('original.bin', 'stored-bytes'));
     }
 
     /**

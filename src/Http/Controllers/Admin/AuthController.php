@@ -70,7 +70,7 @@ class AuthController extends BaseController {
             is_string($trust) ? $trust : null
         );
 
-        return $this->authenticated($data, isset($data['token']) ? $data['token'] : null);
+        return $this->authenticated($data, array_get_value($data, 'token'));
     }
 
     #[Action]

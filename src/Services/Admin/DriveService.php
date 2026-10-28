@@ -58,9 +58,7 @@ class DriveService {
     }
 
     public function createdBy(DriveNode $node): ?string {
-        $map = $this->createdByMany(new Collection([$node]));
-
-        return array_get_value($map, $node->id);
+        return array_get_value($this->createdByMany(new Collection([$node])), $node->id);
     }
 
     /**
@@ -87,9 +85,7 @@ class DriveService {
             return null;
         }
 
-        $map = $this->deletedByMany(new Collection([$node]));
-
-        return array_get_value($map, $node->id);
+        return array_get_value($this->deletedByMany(new Collection([$node])), $node->id);
     }
 
     /**

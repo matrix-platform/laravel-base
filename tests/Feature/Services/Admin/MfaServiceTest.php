@@ -4,7 +4,6 @@ namespace Tests\Feature\Services\Admin;
 
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
-use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Services\Admin\MfaService;
 use PragmaRX\Google2FA\Google2FA;
@@ -76,16 +75,7 @@ class MfaServiceTest extends FeatureTestCase {
 
         app(MfaService::class)->setup($user);
 
-        try {
-            app(MfaService::class)->confirm($user, '000000');
-        } catch (ServiceException $exception) {
-            $this->assertSame(422, $exception->getCode());
-            $this->assertSame(['fields' => ['code' => ['invalid-code']]], $exception->getExtra());
-
-            return;
-        }
-
-        $this->fail('confirm() was expected to reject the wrong code');
+        $this->refusesField('code', 'invalid-code', fn () => app(MfaService::class)->confirm($user, '000000'));
     }
 
     public function test_confirm_with_the_right_code_enables_mfa(): void {

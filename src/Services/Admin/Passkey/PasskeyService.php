@@ -11,7 +11,6 @@ use MatrixPlatform\Models\User;
 use MatrixPlatform\Models\UserLogType;
 use MatrixPlatform\Support\RollbackCallbacks;
 use ParagonIE\ConstantTime\Base64UrlSafe;
-use RuntimeException;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Uid\Uuid;
 use Throwable;
@@ -55,11 +54,11 @@ class PasskeyService {
 
         try {
             $publicKeyCredential = $this->deserialize($credential);
-
-            if (!$publicKeyCredential->response instanceof AuthenticatorAssertionResponse) {
-                throw new RuntimeException('Not an assertion response.');
-            }
         } catch (Throwable) {
+            invalid('credential', 'invalid-passkey');
+        }
+
+        if (!$publicKeyCredential->response instanceof AuthenticatorAssertionResponse) {
             invalid('credential', 'invalid-passkey');
         }
 
@@ -142,11 +141,15 @@ class PasskeyService {
 
         try {
             $publicKeyCredential = $this->deserialize($credential);
+        } catch (Throwable) {
+            invalid('credential', 'invalid-passkey');
+        }
 
-            if (!$publicKeyCredential->response instanceof AuthenticatorAttestationResponse) {
-                throw new RuntimeException('Not an attestation response.');
-            }
+        if (!$publicKeyCredential->response instanceof AuthenticatorAttestationResponse) {
+            invalid('credential', 'invalid-passkey');
+        }
 
+        try {
             $record = AuthenticatorAttestationResponseValidator::create($this->ceremonies()->creationCeremony())
                 ->check($publicKeyCredential->response, $options, request()->getHost());
         } catch (Throwable) {

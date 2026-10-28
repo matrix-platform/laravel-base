@@ -32,7 +32,7 @@ class ScaffoldPlan {
         $titleField = self::resolveTitleField($columns, $title);
         $resolvedAlias = $alias === null || $alias === '' ? Str::kebab($modelName) : $alias;
         $parentInfo = $parent === null ? null : self::resolveParent($packages, $registry, $subject, $columns, $parent);
-        $path = self::resolvePath($resolvedAlias, $parentInfo);
+        $path = $parentInfo === null ? $resolvedAlias : Subject::joinSegment($parentInfo['prefix'], $parentInfo['column'], $resolvedAlias);
         $sortable = array_key_exists('ranking', $columns);
         $arrangeable = array_key_exists('enable_time', $columns) && array_key_exists('disable_time', $columns);
         $groups = self::groupColumns($columns, $titleField);
@@ -194,13 +194,6 @@ class ScaffoldPlan {
         $unresolved = $registry->unresolvedModels($packages);
 
         throw new RuntimeException("parent-model-not-found: no declared (#[Declared]) model found for table '{$referencedTable}'" . ($unresolved === [] ? '' : '; these model files could not be autoloaded: ' . implode(', ', $unresolved)));
-    }
-
-    /**
-     * @param array{relation: string, column: string, modelClass: class-string<Model>, prefix: string}|null $parent
-     */
-    private static function resolvePath(string $alias, ?array $parent): string {
-        return $parent === null ? $alias : Subject::joinSegment($parent['prefix'], $parent['column'], $alias);
     }
 
     /**

@@ -77,6 +77,7 @@ class ColumnParser {
         $expression = $this->expression(str_replace('{locale}', app()->getLocale(), $source));
         $sortable = array_get_value($given, 'sortable');
         $assign = array_get_value($given, 'assign');
+        $options = array_get_value($given, 'options');
 
         return new ParsedColumn(
             $expression,
@@ -86,7 +87,7 @@ class ColumnParser {
             $this->operator($given),
             array_key_exists('op', $given),
             $locked,
-            $this->provider(array_get_value($given, 'options')),
+            $options instanceof OptionProvider ? $options : null,
             $optionsName,
             array_get_value($given, 'path') === false ? '' : $this->text(array_get_value($given, 'path')),
             $this->text(array_get_value($given, 'placeholder')),
@@ -240,10 +241,6 @@ class ColumnParser {
         }
 
         return Presentation::tryFrom($type) ?: $type;
-    }
-
-    private function provider(mixed $options): ?OptionProvider {
-        return $options instanceof OptionProvider ? $options : null;
     }
 
     /**

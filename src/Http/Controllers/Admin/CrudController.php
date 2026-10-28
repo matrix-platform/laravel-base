@@ -241,8 +241,7 @@ abstract class CrudController extends BaseController {
             return $this->withCounts($this->updates);
         }
 
-        $found = app(MetadataRegistry::class)->definitions($this->model);
-        $definitions = $found === null ? [] : $found;
+        $definitions = app(MetadataRegistry::class)->definitions($this->model) ?: [];
         $excluded = $this->arranging();
         $names = [];
 

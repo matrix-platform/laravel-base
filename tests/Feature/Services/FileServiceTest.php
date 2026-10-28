@@ -662,25 +662,13 @@ class FileServiceTest extends FeatureTestCase {
     }
 
     public function test_an_unknown_drive_id_is_rejected(): void {
-        try {
-            $this->service()->resolveDriveReferences([['id' => 999999]], $this->user());
-
-            $this->fail('expected an exception');
-        } catch (ServiceException $exception) {
-            $this->assertSame('invalid-drive-file', $exception->getError());
-        }
+        $this->refuses('invalid-drive-file', fn () => $this->service()->resolveDriveReferences([['id' => 999999]], $this->user()));
     }
 
     public function test_a_folder_node_is_rejected(): void {
         $folder = $this->driveFolder();
 
-        try {
-            $this->service()->resolveDriveReferences([['id' => $folder->id]], $this->user());
-
-            $this->fail('expected an exception');
-        } catch (ServiceException $exception) {
-            $this->assertSame('invalid-drive-file', $exception->getError());
-        }
+        $this->refuses('invalid-drive-file', fn () => $this->service()->resolveDriveReferences([['id' => $folder->id]], $this->user()));
     }
 
     public function test_a_node_outside_the_actors_reach_is_refused(): void {
@@ -760,16 +748,9 @@ class FileServiceTest extends FeatureTestCase {
         $stranger = $this->user();
 
         foreach ([[[$foreign, $folder], 'permission-denied'], [[$folder, $foreign], 'invalid-drive-file']] as [$nodes, $error]) {
-            try {
-                $this->service()->resolveDriveReferences(array_map(fn (DriveNode $node): array => ['id' => $node->id], $nodes), $stranger);
-
-                $this->fail('expected an exception');
-            } catch (ServiceException $exception) {
-                $this->assertSame($error, $exception->getError());
-            }
+            $this->refuses($error, fn () => $this->service()->resolveDriveReferences(array_map(fn (DriveNode $node): array => ['id' => $node->id], $nodes), $stranger));
         }
     }
-
 
     public function test_importing_a_local_file_stores_a_public_copy_and_leaves_the_source_alone(): void {
         $source = tempnam(sys_get_temp_dir(), 'source') . '.svg';

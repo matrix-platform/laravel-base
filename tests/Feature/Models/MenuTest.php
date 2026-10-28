@@ -4,7 +4,6 @@ namespace Tests\Feature\Models;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
-use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\Menu;
 use MatrixPlatform\Services\Admin\Crud\DeleteService;
 use Tests\FeatureTestCase;
@@ -75,16 +74,9 @@ class MenuTest extends FeatureTestCase {
         $child->parent_id = $root->id;
         $child->save();
 
-        try {
-            (new DeleteService(Menu::class))->standalone(true)->delete(['id' => $root->id]);
-        } catch (ServiceException $exception) {
-            $this->assertSame('data-in-use', $exception->getError());
-            $this->assertNotNull(Menu::query()->find($root->id));
+        $this->refuses('data-in-use', fn () => (new DeleteService(Menu::class))->standalone(true)->delete(['id' => $root->id]));
 
-            return;
-        }
-
-        $this->fail('the delete was expected to be refused');
+        $this->assertNotNull(Menu::query()->find($root->id));
     }
 
 }

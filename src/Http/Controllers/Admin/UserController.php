@@ -111,7 +111,7 @@ class UserController extends CrudController {
                 'edit',
                 'delete',
                 new Operation('disable-mfa', fn (User $model): bool => $model->hasMfaEnabled() && !$this->isSelf($model)),
-                new Operation('revoke-passkeys', fn (User $model): bool => ((int) $model->getAttribute('passkeys_count')) > 0 && !$this->isSelf($model))
+                new Operation('revoke-passkeys', fn (User $model): bool => (int) $model->getAttribute('passkeys_count') > 0 && !$this->isSelf($model))
             ]);
     }
 

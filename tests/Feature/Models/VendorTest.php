@@ -3,7 +3,6 @@
 namespace Tests\Feature\Models;
 
 use Illuminate\Support\Facades\Hash;
-use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\AuthToken;
 use MatrixPlatform\Models\IdentityType;
 use MatrixPlatform\Models\ManipulationLog;
@@ -82,16 +81,9 @@ class VendorTest extends FeatureTestCase {
 
         $vendor->writeLog(VendorLogType::Login->value);
 
-        try {
-            (new DeleteService(Vendor::class))->standalone(true)->delete(['id' => $vendor->id]);
-        } catch (ServiceException $exception) {
-            $this->assertSame('data-in-use', $exception->getError());
-            $this->assertNotNull(Vendor::query()->find($vendor->id));
+        $this->refuses('data-in-use', fn () => (new DeleteService(Vendor::class))->standalone(true)->delete(['id' => $vendor->id]));
 
-            return;
-        }
-
-        $this->fail('the delete was expected to be refused');
+        $this->assertNotNull(Vendor::query()->find($vendor->id));
     }
 
     public function test_deleting_a_vendor_that_never_logged_in_takes_its_logs_along(): void {

@@ -395,13 +395,7 @@ class ImportServiceTest extends FeatureTestCase {
 
     public function test_a_malformed_body_is_refused(): void {
         foreach ([[], ['rows' => []], ['rows' => 'x'], ['rows' => [['row' => 2]]], ['rows' => [['row' => '2', 'values' => []]]]] as $input) {
-            try {
-                $this->importer(['title'])->import($input);
-
-                $this->fail('The body was expected to be refused.');
-            } catch (ServiceException $exception) {
-                $this->assertSame('validation-failed', $exception->getError());
-            }
+            $this->refuses('validation-failed', fn () => $this->importer(['title'])->import($input));
         }
     }
 
