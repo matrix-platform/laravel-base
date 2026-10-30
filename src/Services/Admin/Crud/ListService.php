@@ -94,6 +94,9 @@ class ListService extends CrudService {
 
         $total = $query->count();
         $sorted = (new Sorting($this->sorting))->apply($query, $plan, array_get_value($values, 'sort'));
+
+        $query->orderBy($this->model->getQualifiedKeyName());
+
         $pagination = $this->paginate($query, $values, $total, $preference);
         $rowActions = $this->permitted($this->traceable($this->rowActions), $prefix);
         $rows = $this->rows($query, $pool->columns, $rowActions, $enable, $disable);

@@ -150,6 +150,24 @@ class ListServiceTest extends FeatureTestCase {
         return strval(collect(DB::getQueryLog())->pluck('query')->last(fn (string $query): bool => str_contains($query, 'stub_widget')));
     }
 
+    public function test_a_non_unique_sorting_is_settled_by_the_primary_key(): void {
+        $this->arrangeable();
+
+        $this->widget('Alpha');
+
+        DB::enableQueryLog();
+
+        (new ListService(Widget::class))
+            ->standalone(true)
+            ->columns(['title'])
+            ->sorting(['title'])
+            ->list([]);
+
+        $sql = strval(collect(DB::getQueryLog())->pluck('query')->last(fn (string $query): bool => str_contains($query, 'stub_widget')));
+
+        $this->assertStringEndsWith('order by "stub_widget"."title" asc, "stub_widget"."id" asc limit 10 offset 0', $sql);
+    }
+
     public function test_selects_does_not_duplicate_a_field_already_in_columns(): void {
         $this->arrangeable();
 
