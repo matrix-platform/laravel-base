@@ -86,6 +86,39 @@ class ScheduleServiceTest extends FeatureTestCase {
         $this->assertNotNull($widget->disable_time);
     }
 
+    public function test_enabling_an_enabled_model_leaves_it_untouched(): void {
+        $widget = $this->widget();
+        $widget->enable_time = now()->subDay();
+        $widget->save();
+
+        $enabledAt = $widget->enable_time->toDateTimeString();
+        $before = ManipulationLog::query()->count();
+
+        $this->assertSame(['enabled' => true], $this->service()->toggle('widget', $widget->id, true));
+
+        $widget->refresh();
+
+        $this->assertSame($enabledAt, $widget->enable_time?->toDateTimeString());
+        $this->assertSame($before, ManipulationLog::query()->count());
+    }
+
+    public function test_disabling_a_disabled_model_leaves_it_untouched(): void {
+        $widget = $this->widget();
+        $widget->enable_time = now()->subWeek();
+        $widget->disable_time = now()->subDay();
+        $widget->save();
+
+        $disabledAt = $widget->disable_time->toDateTimeString();
+        $before = ManipulationLog::query()->count();
+
+        $this->assertSame(['enabled' => false], $this->service()->toggle('widget', $widget->id, false));
+
+        $widget->refresh();
+
+        $this->assertSame($disabledAt, $widget->disable_time?->toDateTimeString());
+        $this->assertSame($before, ManipulationLog::query()->count());
+    }
+
     public function test_toggling_writes_an_entry_to_the_audit_trail(): void {
         $widget = $this->widget();
         $before = ManipulationLog::query()->count();

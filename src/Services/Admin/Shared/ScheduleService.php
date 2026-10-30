@@ -20,6 +20,10 @@ class ScheduleService {
             invalid('prefix', 'schedule-not-supported');
         }
 
+        if ($enabled === Schedule::isEnabled($model, $metadata->enable, $metadata->disable)) {
+            return ['enabled' => $enabled];
+        }
+
         if ($enabled) {
             $model->setAttribute($metadata->enable, now());
 
