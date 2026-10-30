@@ -339,7 +339,9 @@ class PasskeyService {
     }
 
     private function rpName(): string {
-        return i18n('backend.app.name');
+        $name = i18n('backend.app.name');
+
+        return $name === 'backend.app.name' ? strval(config('app.name')) : $name;
     }
 
     private function serializer(): SerializerInterface {

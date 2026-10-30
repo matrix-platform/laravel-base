@@ -95,6 +95,14 @@ class PasskeyServiceTest extends FeatureTestCase {
         $this->assertSame([$credential->credential_id], array_column($options['options']['excludeCredentials'], 'id'));
     }
 
+    public function test_the_rp_name_falls_back_to_the_app_name_when_the_i18n_entry_is_unset(): void {
+        config(['app.name' => 'Matrix Travel']);
+
+        $options = $this->service()->registrationOptions(UserFactory::new()->createOne());
+
+        $this->assertSame('Matrix Travel', $options['options']['rp']['name']);
+    }
+
     public function test_a_valid_attestation_response_creates_a_credential_row(): void {
         $user = UserFactory::new()->createOne();
 
