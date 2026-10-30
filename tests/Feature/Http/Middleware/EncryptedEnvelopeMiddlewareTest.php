@@ -127,6 +127,15 @@ class EncryptedEnvelopeMiddlewareTest extends FeatureTestCase {
         $this->assertSame(['success' => true, 'data' => 'ok'], $this->opened($response));
     }
 
+    public function test_an_encrypted_request_is_trimmed_and_blank_strings_become_null_like_a_plain_one(): void {
+        EncryptionKey::issue();
+
+        $envelope = $this->envelope('admin/echoed', ['name' => '  matrix  ', 'blank' => '', 'password' => '  secret  ']);
+        $response = $this->postJson('admin/echoed', $envelope);
+
+        $this->assertSame(['name' => 'matrix', 'blank' => null, 'password' => '  secret  '], $this->opened($response)['data']);
+    }
+
     public function test_the_response_body_carries_no_plain_text(): void {
         EncryptionKey::issue();
 

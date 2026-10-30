@@ -3,6 +3,8 @@
 namespace MatrixPlatform\Http\Middleware;
 
 use Closure;
+use Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -64,6 +66,10 @@ class EncryptedEnvelopeMiddleware {
 
         $request->initialize($request->query->all(), $data, $request->attributes->all(), $request->cookies->all(), $request->files->all(), $request->server->all(), $plain);
         $request->setJson(new InputBag($data));
+
+        foreach ([TrimStrings::class, ConvertEmptyStringsToNull::class] as $middleware) {
+            app($middleware)->handle($request, fn (): null => null);
+        }
     }
 
     private function sealed(mixed $response, string $secret, string $aad): mixed {

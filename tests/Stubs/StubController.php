@@ -21,6 +21,14 @@ class StubController extends BaseController {
         error('invalid-password', 422, ['fields' => ['current' => ['invalid-password']]]);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    #[Action]
+    public function echoed(Request $request): array {
+        return $request->all();
+    }
+
     #[Action(middleware: 'throttle:1,1')]
     public function limited(): string {
         return 'limited';
