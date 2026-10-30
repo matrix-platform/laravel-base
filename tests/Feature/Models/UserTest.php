@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Models;
 
+use Illuminate\Encryption\Encrypter;
+use Illuminate\Support\Facades\Crypt;
 use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\ManipulationType;
 use MatrixPlatform\Models\User;
@@ -47,6 +49,46 @@ class UserTest extends FeatureTestCase {
         $this->assertSame(0, ManipulationLog::query()->where('data_type', 'base_user')->where('data_id', $user->id)->where('type', ManipulationType::Updated)->count());
         $this->assertArrayNotHasKey('password', $user->toArray());
         $this->assertArrayNotHasKey('secret', $user->toArray());
+    }
+
+    private function sealedWithALostKey(): User {
+        $user = UserFactory::new()->createOne(['name' => 'original', 'secret' => 'totp-seed']);
+
+        Crypt::swap(new Encrypter(Encrypter::generateKey('AES-256-CBC'), 'AES-256-CBC'));
+
+        return User::query()->findOrFail($user->id);
+    }
+
+    private function traced(User $user, ManipulationType $type): ManipulationLog {
+        return ManipulationLog::query()
+            ->where('data_type', 'base_user')
+            ->where('data_id', $user->id)
+            ->where('type', $type)
+            ->sole();
+    }
+
+    public function test_a_secret_sealed_with_a_lost_key_does_not_block_an_update(): void {
+        $user = $this->sealedWithALostKey();
+
+        $user->name = 'renamed';
+        $user->secret = null;
+        $user->save();
+
+        $log = $this->traced($user, ManipulationType::Updated);
+
+        $this->assertSame(['name' => 'original'], (array) $log->before);
+        $this->assertSame(['name' => 'renamed'], (array) $log->after);
+    }
+
+    public function test_a_secret_sealed_with_a_lost_key_does_not_block_a_delete(): void {
+        $user = $this->sealedWithALostKey();
+
+        $user->delete();
+
+        $before = (array) $this->traced($user, ManipulationType::Deleted)->before;
+
+        $this->assertSame('original', array_get_value($before, 'name'));
+        $this->assertArrayNotHasKey('secret', $before);
     }
 
     public function test_logins_keep_only_the_login_logs_of_the_user(): void {

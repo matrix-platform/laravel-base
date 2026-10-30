@@ -194,7 +194,9 @@ abstract class BaseModel extends Model {
     }
 
     private function traceDeleted(): void {
-        $this->trace(ManipulationType::Deleted, $this->serialized($this->getTraceables($this->getOriginal())), null);
+        $original = Arr::map($this->getTraceables($this->getRawOriginal(), false), fn (mixed $_, string $name) => $this->getOriginal($name));
+
+        $this->trace(ManipulationType::Deleted, $this->serialized(Arr::whereNotNull($original)), null);
     }
 
     private function traceUpdated(): void {
@@ -204,8 +206,7 @@ abstract class BaseModel extends Model {
             return;
         }
 
-        $original = $this->getOriginal();
-        $before = Arr::map($changes, fn (mixed $_, string $name) => array_get_value($original, $name));
+        $before = Arr::map($changes, fn (mixed $_, string $name) => $this->getOriginal($name));
 
         $this->trace(ManipulationType::Updated, $this->serialized($before), $this->decoded($changes));
     }
