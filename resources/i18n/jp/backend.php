@@ -14,6 +14,8 @@ return [
     'arrange.published' => '公開済み',
     'arrange.unpublished' => '未公開',
 
+    'capsLockOn' => 'Caps Lock がオンです',
+
     'clear' => 'クリア',
 
     'colorConfirm' => '確定',

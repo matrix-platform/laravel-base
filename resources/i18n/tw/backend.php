@@ -14,6 +14,8 @@ return [
     'arrange.published' => '已上架',
     'arrange.unpublished' => '未上架',
 
+    'capsLockOn' => '大寫鎖定已開啟',
+
     'clear' => '清除',
 
     'colorConfirm' => '確定',

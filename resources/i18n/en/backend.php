@@ -14,6 +14,8 @@ return [
     'arrange.published' => 'Published',
     'arrange.unpublished' => 'Unpublished',
 
+    'capsLockOn' => 'Caps Lock is on',
+
     'clear' => 'Clear',
 
     'colorConfirm' => 'Confirm',
