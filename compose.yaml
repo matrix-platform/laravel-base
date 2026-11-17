@@ -2,11 +2,11 @@ name: laravel-base
 
 services:
   postgres:
-    image: postgres:17
+    image: postgres:18
     environment:
       POSTGRES_HOST_AUTH_METHOD: trust
     tmpfs:
-      - /var/lib/postgresql/data
+      - /var/lib/postgresql
     restart: unless-stopped
 
   php:

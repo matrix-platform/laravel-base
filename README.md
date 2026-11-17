@@ -1976,6 +1976,18 @@ docker compose exec php composer format     # 自動修正程式風格
 docker compose exec php composer coverage   # 覆蓋率,結果在 build/coverage/clover.xml
 ```
 
+**捷徑腳本**(`docker/` 底下,可以在任何目錄執行)
+
+```sh
+docker/test.sh                             # 等同 vendor/bin/phpunit,參數原樣轉給 phpunit
+docker/test.sh --filter=測試方法名稱
+docker/stan.sh                             # 等同 composer stan
+docker/lint.sh                             # 等同 composer lint
+docker/rebuild.sh                          # 拉最新的基底映像,重建 php 與 postgres 並重新啟動
+```
+
+`dev.Dockerfile` 與 `compose.yaml` 用的是浮動標籤(`php:8.5-cli`、`composer:2`、`postgres:18`),要更新 PHP、Composer、Xdebug 或 PostgreSQL 的修補版本時跑 `docker/rebuild.sh`。
+
 **停止**
 
 ```sh
