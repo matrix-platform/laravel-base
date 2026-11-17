@@ -14,7 +14,7 @@ class RecaptchaDriverTest extends FeatureTestCase {
     /**
      * @return array{token: string}|array{mfa: true, challenge: string}
      */
-    private function attempt(string $token = 'recaptcha-token'): array {
+    private function login(string $token = 'recaptcha-token'): array {
         $user = UserFactory::new()->createOne();
 
         return app(AuthService::class)->login($user->username, 'secret-Passw0rd', $token, '', null);
@@ -46,21 +46,21 @@ class RecaptchaDriverTest extends FeatureTestCase {
         $this->useRecaptcha();
         $this->siteverify(['success' => true, 'action' => 'login', 'score' => 0.1]);
 
-        $this->refusesField('code', 'invalid-captcha', fn () => $this->attempt());
+        $this->refusesField('code', 'invalid-captcha', fn () => $this->login());
     }
 
     public function test_a_token_scoring_exactly_the_threshold_logs_the_user_in(): void {
         $this->useRecaptcha();
         $this->siteverify(['success' => true, 'action' => 'login', 'score' => 0.5]);
 
-        $this->assertArrayHasKey('token', $this->attempt());
+        $this->assertArrayHasKey('token', $this->login());
     }
 
     public function test_an_unverified_token_reports_the_code_field(): void {
         $this->useRecaptcha();
         $this->siteverify(['success' => false, 'error-codes' => ['invalid-input-response']]);
 
-        $this->refusesField('code', 'invalid-captcha', fn () => $this->attempt());
+        $this->refusesField('code', 'invalid-captcha', fn () => $this->login());
     }
 
     public function test_a_response_without_a_score_is_rejected_even_at_a_zero_threshold(): void {
@@ -69,7 +69,7 @@ class RecaptchaDriverTest extends FeatureTestCase {
         $this->useCfg('captcha-recaptcha', ['secret' => 'test-secret', 'threshold' => 0]);
         $this->siteverify(['success' => true, 'action' => 'login']);
 
-        $this->refusesField('code', 'invalid-captcha', fn () => $this->attempt());
+        $this->refusesField('code', 'invalid-captcha', fn () => $this->login());
     }
 
     public function test_a_missing_threshold_falls_back_to_the_default_and_rejects_a_low_score(): void {
@@ -78,7 +78,7 @@ class RecaptchaDriverTest extends FeatureTestCase {
         $this->useCfg('captcha-recaptcha', ['secret' => 'test-secret', 'threshold' => null]);
         $this->siteverify(['success' => true, 'action' => 'login', 'score' => 0.3]);
 
-        $this->refusesField('code', 'invalid-captcha', fn () => $this->attempt());
+        $this->refusesField('code', 'invalid-captcha', fn () => $this->login());
     }
 
     public function test_a_missing_threshold_falls_back_to_the_default_and_accepts_a_high_score(): void {
@@ -87,14 +87,14 @@ class RecaptchaDriverTest extends FeatureTestCase {
         $this->useCfg('captcha-recaptcha', ['secret' => 'test-secret', 'threshold' => null]);
         $this->siteverify(['success' => true, 'action' => 'login', 'score' => 0.7]);
 
-        $this->assertArrayHasKey('token', $this->attempt());
+        $this->assertArrayHasKey('token', $this->login());
     }
 
     public function test_the_request_posts_the_configured_secret_and_the_token_to_google(): void {
         $this->useRecaptcha();
         $this->siteverify(['success' => true, 'action' => 'login', 'score' => 0.9]);
 
-        $this->attempt('token-from-the-widget');
+        $this->login('token-from-the-widget');
 
         Http::assertSent(function (Request $request): bool {
             $this->assertSame('POST', $request->method());
@@ -117,7 +117,7 @@ class RecaptchaDriverTest extends FeatureTestCase {
 
         Http::fake(fn () => throw new ConnectionException('unreachable'));
 
-        $this->refuses('captcha-request-failed', fn () => $this->attempt());
+        $this->refuses('captcha-request-failed', fn () => $this->login());
     }
 
 }

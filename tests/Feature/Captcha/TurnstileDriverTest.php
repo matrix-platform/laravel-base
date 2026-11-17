@@ -15,7 +15,7 @@ class TurnstileDriverTest extends FeatureTestCase {
     /**
      * @return array{token: string}|array{mfa: true, challenge: string}
      */
-    private function attempt(string $token = 'turnstile-token'): array {
+    private function login(string $token = 'turnstile-token'): array {
         $user = UserFactory::new()->createOne();
 
         return app(AuthService::class)->login($user->username, 'secret-Passw0rd', $token, '', null);
@@ -44,56 +44,56 @@ class TurnstileDriverTest extends FeatureTestCase {
         $this->useHostnames('admin.example.com');
         $this->siteverify(['success' => true, 'action' => 'login', 'hostname' => 'attacker.example.net']);
 
-        $this->refusesField('code', 'invalid-captcha', fn () => $this->attempt());
+        $this->refusesField('code', 'invalid-captcha', fn () => $this->login());
     }
 
     public function test_a_token_minted_on_an_allowed_host_logs_the_user_in(): void {
         $this->useHostnames('staging.example.com admin.example.com');
         $this->siteverify(['success' => true, 'action' => 'login', 'hostname' => 'admin.example.com']);
 
-        $this->assertArrayHasKey('token', $this->attempt());
+        $this->assertArrayHasKey('token', $this->login());
     }
 
     public function test_an_empty_allow_list_accepts_any_host(): void {
         $this->useTurnstile();
         $this->siteverify(['success' => true, 'action' => 'login', 'hostname' => 'anything.example.net']);
 
-        $this->assertArrayHasKey('token', $this->attempt());
+        $this->assertArrayHasKey('token', $this->login());
     }
 
     public function test_an_unverified_token_reports_the_code_field(): void {
         $this->useTurnstile();
         $this->siteverify(['success' => false, 'error-codes' => ['invalid-input-response']]);
 
-        $this->refusesField('code', 'invalid-captcha', fn () => $this->attempt());
+        $this->refusesField('code', 'invalid-captcha', fn () => $this->login());
     }
 
     public function test_a_token_issued_for_another_action_is_rejected(): void {
         $this->useTurnstile();
         $this->siteverify(['success' => true, 'action' => 'subscribe']);
 
-        $this->refusesField('code', 'invalid-captcha', fn () => $this->attempt());
+        $this->refusesField('code', 'invalid-captcha', fn () => $this->login());
     }
 
     public function test_a_response_without_an_action_is_rejected(): void {
         $this->useTurnstile();
         $this->siteverify(['success' => true]);
 
-        $this->refusesField('code', 'invalid-captcha', fn () => $this->attempt());
+        $this->refusesField('code', 'invalid-captcha', fn () => $this->login());
     }
 
     public function test_the_login_is_blocked_when_the_siteverify_request_fails(): void {
         $this->useTurnstile();
         $this->siteverify([], 500);
 
-        $this->refuses('captcha-request-failed', fn () => $this->attempt());
+        $this->refuses('captcha-request-failed', fn () => $this->login());
     }
 
     public function test_the_request_posts_the_configured_secret_and_the_token_to_cloudflare(): void {
         $this->useTurnstile();
         $this->siteverify(['success' => true, 'action' => 'login']);
 
-        $this->attempt('token-from-the-widget');
+        $this->login('token-from-the-widget');
 
         Http::assertSent(function (Request $request): bool {
             $this->assertSame('POST', $request->method());

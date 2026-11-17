@@ -66,10 +66,10 @@ final class PasskeyAuthenticator {
             'rawId' => self::base64url($this->credentialId),
             'type' => 'public-key',
             'response' => [
-                'authenticatorData' => base64_encode($authData),
+                'authenticatorData' => self::base64url($authData),
                 'clientDataJSON' => self::base64url($clientData),
-                'signature' => base64_encode((string) $signature),
-                'userHandle' => $userHandle === null ? null : base64_encode($userHandle)
+                'signature' => self::base64url((string) $signature),
+                'userHandle' => $userHandle === null ? null : self::base64url($userHandle)
             ]
         ];
     }

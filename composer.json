@@ -32,7 +32,7 @@
         "ext-openssl": "*",
         "ext-pdo_pgsql": "*",
         "ext-zip": "*",
-        "intervention/image": "^3.11",
+        "intervention/image": "^4.4",
         "ip2location/ip2location-php": "^9.8",
         "james-heinrich/getid3": "^1.9",
         "laravel/framework": "^13.23",
@@ -46,7 +46,7 @@
         "larastan/larastan": "^3.10",
         "orchestra/testbench": "^11.2",
         "phpstan/phpstan": "^2.2.8",
-        "phpunit/phpunit": "^12.5"
+        "phpunit/phpunit": "^13"
     },
     "config": {
         "allow-plugins": {

@@ -6,6 +6,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Intervention\Image\Drivers\Gd\Driver as GdDriver;
 use Intervention\Image\Encoders\WebpEncoder;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Interfaces\ImageInterface;
@@ -311,7 +312,7 @@ class FileService {
 
     private function decode(string $path): ImageInterface {
         try {
-            return ImageManager::gd()->read($path);
+            return ImageManager::usingDriver(GdDriver::class)->decode($path);
         } catch (Throwable) {
             error('image-decode-failed');
         }
