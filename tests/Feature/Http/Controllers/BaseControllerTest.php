@@ -40,15 +40,10 @@ class BaseControllerTest extends FeatureTestCase {
         $this->postJson('undeclared')->assertJson(['success' => false, 'error' => 'undeclared-action']);
     }
 
-    public function test_the_action_runs_inside_a_transaction(): void {
+    public function test_the_action_and_its_audit_log_roll_back_together(): void {
         $this->postJson('rollback');
 
         $this->assertSame(0, Widget::query()->where('title', 'doomed')->count());
-    }
-
-    public function test_the_audit_log_rolls_back_with_the_action(): void {
-        $this->postJson('rollback');
-
         $this->assertSame(0, ManipulationLog::query()->count());
     }
 

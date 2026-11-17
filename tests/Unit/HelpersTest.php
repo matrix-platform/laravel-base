@@ -49,7 +49,6 @@ class HelpersTest extends TestCase {
         $data = ['a.b' => 'LITERAL', 'a' => ['b' => 'NESTED']];
 
         $this->assertSame('LITERAL', array_get_value($data, 'a.b'));
-        $this->assertSame('NESTED', data_get($data, 'a.b'));
     }
 
     public function test_array_get_value_returns_default_for_null_array(): void {

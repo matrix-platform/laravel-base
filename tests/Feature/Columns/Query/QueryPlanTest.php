@@ -83,6 +83,12 @@ class QueryPlanTest extends FeatureTestCase {
         $this->assertSame('select * from "stub_widget"', $this->plan(['title'])->complete()->toSql());
     }
 
+    public function test_a_path_token_that_is_not_a_relation_of_the_root_is_rejected(): void {
+        $column = app(ColumnResolver::class)->resolve((new ColumnParser())->parse('relic.label'), new Widget());
+
+        $this->refuses('invalid-column-expression', fn () => new QueryPlan(new Trinket(), [$column]));
+    }
+
     public function test_a_belongs_to_relation_becomes_a_left_join(): void {
         $sql = $this->plan(['widget.title'], new Trinket())
             ->projection()

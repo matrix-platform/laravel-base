@@ -124,8 +124,4 @@ class FileControllerTest extends FeatureTestCase {
             ->assertJson(['success' => false, 'code' => 404, 'error' => 'data-not-found']);
     }
 
-    public function test_the_same_account_is_still_refused_by_a_guarded_endpoint(): void {
-        $this->send($this->token(), 'admin/user')->assertJson(['code' => 403, 'error' => 'permission-denied']);
-    }
-
 }

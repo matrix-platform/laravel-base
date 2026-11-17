@@ -17,7 +17,6 @@ class AuthTokenDeclarationTest extends TestCase {
     public function test_the_plaintext_token_is_not_used_as_the_record_title(): void {
         $metadata = (new AuthTokenDeclaration())->metadata();
 
-        $this->assertNotSame('token', $metadata->title);
         $this->assertSame('type', $metadata->title);
     }
 

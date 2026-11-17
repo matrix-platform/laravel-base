@@ -233,14 +233,6 @@ class ImportServiceTest extends FeatureTestCase {
         $this->assertSame('A', $widget->translated__en);
     }
 
-    public function test_a_nested_import_takes_the_foreign_key_from_the_route(): void {
-        $widget = Widget::forceCreate(['title' => 'Owner']);
-
-        $this->trinkets($widget)->import($this->input([['label' => 'Alpha'], ['label' => 'Beta']]));
-
-        $this->assertSame([$widget->id, $widget->id], Trinket::query()->pluck('widget_id')->all());
-    }
-
     public function test_an_option_title_becomes_its_id(): void {
         $options = new StaticOptions([$this->option('draft', 'Draft'), $this->option('published', 'Published')]);
 
@@ -458,6 +450,16 @@ class ImportServiceTest extends FeatureTestCase {
 
         $this->assertSame(['count' => 0], $result);
         $this->assertFalse($called);
+    }
+
+    public function test_a_locator_that_returns_no_model_is_refused_as_not_found(): void {
+        $service = $this->importer(['title'])->locate(fn (): ?Model => null);
+
+        $this->expectException(ServiceException::class);
+        $this->expectExceptionMessage('data-not-found');
+        $this->expectExceptionCode(404);
+
+        $service->import($this->input([['title' => 'Alpha']]));
     }
 
     public function test_a_row_the_locator_rejects_fails_without_stopping_the_later_rows(): void {

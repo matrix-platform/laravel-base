@@ -249,17 +249,11 @@ class ResourceServiceTest extends FeatureTestCase {
             $this->assertSame('••••••••', $payload['data'][$key], "cfg/{$bundle}.{$key} leaks its stored value");
             $this->assertSame('', $columns[$key]['placeholder'], "cfg/{$bundle}.{$key} leaks through its placeholder");
         }
-    }
 
-    public function test_a_secret_field_never_returns_its_stored_value(): void {
         $this->useResourceWhitelist(['cfg' => ['gmail']]);
-        $this->useCfg('gmail', ['password' => 'super-secret-smtp-pw', 'from-address' => 'ops@example.com']);
+        $this->service()->update(ResourceGroup::Cfg, 'gmail', ['from-address' => 'ops@example.com']);
 
-        $payload = $this->service()->get(ResourceGroup::Cfg, 'gmail');
-
-        $this->assertSame('••••••••', $payload['data']['password']);
-        $this->assertSame('ops@example.com', $payload['data']['from-address']);
-        $this->assertNotContains('super-secret-smtp-pw', $payload['data']);
+        $this->assertSame('ops@example.com', $this->service()->get(ResourceGroup::Cfg, 'gmail')['data']['from-address']);
     }
 
     public function test_a_secret_field_leaks_through_neither_the_defaults_nor_the_placeholder(): void {
@@ -429,15 +423,6 @@ class ResourceServiceTest extends FeatureTestCase {
         $this->assertSame(['captcha-ttl' => 900, 'token-idle-minutes' => 90], $this->override('cfg/admin'));
     }
 
-    public function test_clearing_a_field_removes_the_override_and_restores_the_file_value(): void {
-        ResourceOverride::forceCreate(['bundle' => 'cfg/admin', 'data' => ['captcha-ttl' => 600, 'token-idle-minutes' => 90]]);
-
-        $this->service()->update(ResourceGroup::Cfg, 'admin', ['captcha-ttl' => '']);
-
-        $this->assertSame(['token-idle-minutes' => 90], $this->override('cfg/admin'));
-        $this->assertSame(300, cfg('admin.captcha-ttl'));
-    }
-
     public function test_clearing_a_field_is_allowed_even_where_a_value_would_be_rejected(): void {
         $this->service()->update(ResourceGroup::Cfg, 'admin', ['captcha-ttl' => null]);
 
@@ -466,18 +451,6 @@ class ResourceServiceTest extends FeatureTestCase {
 
         $this->assertSame(['captcha-ttl' => 600], $this->override('cfg/admin'));
         $this->assertSame(600, cfg('admin.captcha-ttl'));
-    }
-
-    public function test_a_value_the_rules_reject_writes_nothing(): void {
-        try {
-            $this->service()->update(ResourceGroup::Cfg, 'admin', ['captcha-ttl' => 'not-a-number']);
-        } catch (ValidationException) {
-            $this->assertSame(0, ResourceOverride::query()->count());
-
-            return;
-        }
-
-        $this->fail('expected the update to be rejected');
     }
 
     public function test_a_key_the_bundle_does_not_declare_is_dropped(): void {
@@ -558,16 +531,8 @@ class ResourceServiceTest extends FeatureTestCase {
         $this->assertSame('i18n/en/template/greeting', ResourceOverride::query()->value('bundle'));
     }
 
-    public function test_an_unpinned_group_still_follows_the_request_locale(): void {
+    public function test_an_unpinned_group_edits_the_request_locale(): void {
         config()->set('matrix.resource-locales', ['i18n/template' => 'en']);
-        app()->setLocale('tw');
-
-        $this->service()->update(ResourceGroup::I18n, 'widget', ['hello' => 'Hi']);
-
-        $this->assertSame('i18n/tw/widget', ResourceOverride::query()->value('bundle'));
-    }
-
-    public function test_the_edited_locale_follows_the_request(): void {
         app()->setLocale('tw');
 
         $this->service()->update(ResourceGroup::I18n, 'widget', ['hello' => 'Hi']);

@@ -122,7 +122,7 @@ class CustomKeyTest extends FeatureTestCase {
         $this->assertSame([1, 2], array_column($rows, 'id'));
     }
 
-    public function test_arrange_breaks_ranking_ties_by_the_model_key(): void {
+    public function test_arrange_orders_the_rows_by_the_model_key(): void {
         $this->keyed(2, 'second');
         $this->keyed(1, 'first');
 

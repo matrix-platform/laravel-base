@@ -98,7 +98,7 @@ class DrivePermissionServiceTest extends FeatureTestCase {
         $this->assertTrue($this->service()->allowed($home, $rootUser));
     }
 
-    public function test_a_soft_deleted_ancestor_blocks_the_anchor_climb_for_everyone(): void {
+    public function test_a_soft_deleted_ancestor_blocks_allowed_for_everyone_but_visible_tolerates_it(): void {
         $owner = $this->user();
         $home = $this->anchor($owner->id, $owner->username);
         $folder = $this->child($home, 'drafts');
@@ -109,6 +109,7 @@ class DrivePermissionServiceTest extends FeatureTestCase {
 
         $this->assertFalse($this->service()->allowed($note->refresh(), $owner));
         $this->assertFalse($this->service()->allowed($note->refresh(), $rootUser));
+        $this->assertTrue($this->service()->visible($note->refresh(), $owner));
     }
 
     public function test_root_user_is_denied_when_no_root_typed_anchor_is_reachable(): void {
@@ -124,18 +125,6 @@ class DrivePermissionServiceTest extends FeatureTestCase {
 
         $this->assertFalse($this->service()->allowed($orphan, $rootUser));
         $this->assertFalse($this->service()->visible($orphan, $rootUser));
-    }
-
-    public function test_visible_tolerates_a_soft_deleted_ancestor_but_allowed_does_not(): void {
-        $owner = $this->user();
-        $home = $this->anchor($owner->id, $owner->username);
-        $folder = $this->child($home, 'drafts');
-        $note = $this->child($folder, 'note.txt');
-
-        $folder->delete();
-
-        $this->assertFalse($this->service()->allowed($note->refresh(), $owner));
-        $this->assertTrue($this->service()->visible($note->refresh(), $owner));
     }
 
     public function test_visible_still_denies_a_stranger_through_a_soft_deleted_ancestor(): void {

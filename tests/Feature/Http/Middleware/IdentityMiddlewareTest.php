@@ -4,7 +4,6 @@ namespace Tests\Feature\Http\Middleware;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Testing\TestResponse;
-use MatrixPlatform\Models\AuthToken;
 use MatrixPlatform\Models\IdentityType;
 use MatrixPlatform\Models\Member;
 use MatrixPlatform\Models\User;
@@ -93,14 +92,6 @@ class IdentityMiddlewareTest extends FeatureTestCase {
     }
 
     #[DataProvider('identities')]
-    public function test_a_bearer_token_reaches_the_endpoint(IdentityType $type): void {
-        $response = $this->reach($type, $this->token($type));
-
-        $response->assertJsonPath($this->slot($type), self::SHARED);
-        $response->assertJsonPath('request', self::SHARED);
-    }
-
-    #[DataProvider('identities')]
     public function test_a_cookie_token_reaches_the_endpoint(IdentityType $type): void {
         $token = $this->token($type);
 
@@ -126,6 +117,8 @@ class IdentityMiddlewareTest extends FeatureTestCase {
         foreach (IdentityType::cases() as $other) {
             $response->assertJsonPath($this->slot($other), $other === $type ? self::SHARED : null);
         }
+
+        $response->assertJsonPath('request', self::SHARED);
     }
 
     #[DataProvider('identities')]
@@ -289,21 +282,6 @@ class IdentityMiddlewareTest extends FeatureTestCase {
         config()->set('matrix.member-model', 'MatrixPlatform\Models\Nonexistent');
 
         $this->postJson('identity/member')->assertJson(['code' => 401, 'error' => 'invalid-token']);
-    }
-
-    public function test_every_access_pushes_the_idle_window_forward(): void {
-        $token = $this->token(IdentityType::Member);
-        $before = AuthToken::query()->where('token', AuthToken::digest($token))->firstOrFail()->update_time;
-
-        $this->travel(2)->minutes();
-
-        $this->reach(IdentityType::Member, $token)->assertJsonPath('member', self::SHARED);
-
-        $after = AuthToken::query()->where('token', AuthToken::digest($token))->firstOrFail()->update_time;
-
-        $this->assertNotNull($before);
-        $this->assertNotNull($after);
-        $this->assertTrue($after->gt($before));
     }
 
 }

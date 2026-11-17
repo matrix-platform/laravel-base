@@ -208,28 +208,8 @@ class MessageServiceTest extends FeatureTestCase {
         $spy->shouldHaveReceived('info', ['messaging.sms.schedule', Mockery::on(fn (array $context) => !str_contains(strval(json_encode($context)), '987654'))]);
     }
 
-    public function test_send_stores_and_queues_a_message_immediately(): void {
-        $log = $this->mail()->send('alice@example.com', 'welcome', ['name' => 'Alice']);
-        $mail = $this->reload($log);
-
-        $this->assertSame('Welcome Alice', $mail->subject);
-        $this->assertSame(MessageStatus::Scheduled, $log->status);
-
-        Queue::assertPushed(SendMessageJob::class, fn (SendMessageJob $job) => $job->channel === 'mail');
-    }
-
-    public function test_resend_creates_a_new_log_from_the_original_and_queues_it(): void {
-        $original = $this->reload($this->mail()->schedule(now(), 'alice@example.com', 'welcome', ['name' => 'Alice']));
-
-        $resent = $this->reload($this->mail()->resend($original->id));
-
-        $this->assertNotSame($original->id, $resent->id);
-        $this->assertSame('alice@example.com', $resent->receiver);
-        $this->assertSame('Welcome Alice', $resent->subject);
-        $this->assertSame(MessageStatus::Scheduled, $resent->status);
-        $this->assertNull($resent->send_time);
-
-        Queue::assertPushed(SendMessageJob::class, fn (SendMessageJob $job) => $job->channel === 'mail');
+    public function test_send_schedules_the_message_right_away(): void {
+        $this->assertSame(MessageStatus::Scheduled, $this->mail()->send('alice@example.com', 'welcome', ['name' => 'Alice'])->status);
     }
 
     public function test_cc_and_bcc_options_are_recorded_on_the_mail_as_a_normalized_list(): void {
@@ -260,6 +240,8 @@ class MessageServiceTest extends FeatureTestCase {
 
         $resent = $this->reload($this->mail()->resend($original->id));
 
+        $this->assertSame('alice@example.com', $resent->receiver);
+        $this->assertSame('Welcome Alice', $resent->subject);
         $this->assertSame(MessageStatus::Scheduled, $resent->status);
         $this->assertNull($resent->response);
         $this->assertNull($resent->error);

@@ -17,11 +17,7 @@ class SandboxTest extends FeatureTestCase {
         $this->assertNull(Sandbox::recipient('stub'));
     }
 
-    public function test_a_sandboxed_provider_reports_its_own_sink(): void {
-        $this->assertSame('sink@example.com', Sandbox::recipient('sandboxed'));
-    }
-
-    public function test_one_provider_being_sandboxed_does_not_sandbox_the_others(): void {
+    public function test_a_provider_with_the_sandbox_off_ignores_its_recipient(): void {
         $this->assertSame('sink@example.com', Sandbox::recipient('sandboxed'));
         $this->assertNull(Sandbox::recipient('unsandboxed'));
     }

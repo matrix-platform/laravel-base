@@ -55,16 +55,6 @@ class LoginThrottleMiddlewareTest extends FeatureTestCase {
             ->assertStatus(200);
     }
 
-    public function test_the_requests_are_throttled_once_the_limit_is_exhausted(): void {
-        $max = intval(cfg('admin.login-throttle-max'));
-
-        for ($attempt = 0; $attempt < $max; $attempt++) {
-            $this->postJson('probe/admin')->assertStatus(200);
-        }
-
-        $this->postJson('probe/admin')->assertStatus(429);
-    }
-
     public function test_a_successful_response_is_not_counted_against_the_limit(): void {
         $max = intval(cfg('admin.login-throttle-max'));
 

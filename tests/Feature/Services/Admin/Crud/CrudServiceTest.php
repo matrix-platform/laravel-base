@@ -15,11 +15,13 @@ use MatrixPlatform\Services\Admin\Crud\DeleteService;
 use MatrixPlatform\Services\Admin\Crud\GetService;
 use MatrixPlatform\Services\Admin\Crud\InsertService;
 use MatrixPlatform\Services\Admin\Crud\ListService;
+use MatrixPlatform\Services\Admin\Crud\NewService;
 use MatrixPlatform\Services\Admin\Crud\UpdateService;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
 use stdClass;
 use Tests\FeatureTestCase;
+use Tests\Stubs\CappedWidget;
 use Tests\Stubs\Gizmo;
 use Tests\Stubs\LooseWidget;
 use Tests\Stubs\PremiumWidget;
@@ -351,7 +353,7 @@ class CrudServiceTest extends FeatureTestCase {
         $this->assertSame('2026-08-12', $data['enable_time']);
     }
 
-    public function test_options_are_resolved_against_the_record(): void {
+    public function test_relation_options_are_resolved_into_the_payload(): void {
         $widget = $this->widgets();
 
         $columns = (new ListService(Trinket::class))->standalone(true)->columns(['widget_id'])->list([])['columns'];
@@ -607,6 +609,25 @@ class CrudServiceTest extends FeatureTestCase {
         $this->assertSame(1, Trinket::query()->count());
     }
 
+    public function test_a_referencing_relation_with_a_limit_is_still_counted_in_full(): void {
+        app(MetadataRegistry::class)->register(CappedWidget::class, new StubDeclaration(new Metadata('widget')));
+
+        $widget = CappedWidget::forceCreate(['title' => 'Capped']);
+
+        $this->trinkets($widget->id, ['a', 'b', 'c']);
+
+        try {
+            (new DeleteService(CappedWidget::class))->standalone(true)->delete(['id' => $widget->id]);
+        } catch (ServiceException $exception) {
+            $this->assertSame('data-in-use', $exception->getError());
+            $this->assertSame(['count' => 3], $exception->getExtra());
+
+            return;
+        }
+
+        $this->fail('the delete was expected to be refused');
+    }
+
     public function test_cascade_delete_still_checks_an_uncascaded_relation_on_a_cascaded_child(): void {
         $widget = $this->widgets();
         $child = Trinket::forceCreate(['label' => 'child', 'widget_id' => $widget->id]);
@@ -809,31 +830,16 @@ class CrudServiceTest extends FeatureTestCase {
         $this->assertSame(['ip', 'ranking', 'title', 'trinket_id'], $keys);
     }
 
-    public function test_a_removal_is_recorded_in_the_audit_trail(): void {
-        $widget = $this->widgets();
-        $before = ManipulationLog::query()->where('data_type', 'stub_widget')->count();
+    public function test_the_new_form_offers_the_given_actions(): void {
+        $this->useMenuFixtures('crud');
 
-        (new DeleteService(Widget::class))->standalone(true)->delete(['id' => $widget->id]);
-
-        $this->assertSame($before + 1, ManipulationLog::query()->where('data_type', 'stub_widget')->count());
-    }
-
-    public function test_a_guard_can_refuse_a_single_record(): void {
-        $widget = $this->widgets();
-
-        $this->expectException(ServiceException::class);
-
-        (new GetService(Widget::class))
+        $actions = (new NewService(Widget::class))
             ->standalone(true)
             ->columns(['title'])
-            ->guard(fn () => error('permission-denied', 403))
-            ->get($widget->id);
-    }
+            ->actions(['insert'])
+            ->new()['actions'];
 
-    public function test_a_nested_service_without_the_route_parameter_is_not_found(): void {
-        $this->expectException(ServiceException::class);
-
-        (new ListService(Trinket::class))->columns(['label'])->list([]);
+        $this->assertSame(['insert'], array_column($actions, 'type'));
     }
 
 }

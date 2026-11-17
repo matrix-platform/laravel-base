@@ -84,7 +84,7 @@ class BaseBuilderTest extends FeatureTestCase {
 
     public function test_the_or_inside_where_not_expired_stays_grouped(): void {
         Widget::forceCreate(['title' => 'wanted']);
-        Widget::forceCreate(['title' => 'other']);
+        Widget::forceCreate(['title' => 'other', 'disable_time' => now()->addDay()]);
 
         $query = Widget::query()->where('title', 'wanted')->whereNotExpired('disable_time');
 

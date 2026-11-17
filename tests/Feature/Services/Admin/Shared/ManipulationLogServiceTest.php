@@ -244,6 +244,7 @@ class ManipulationLogServiceTest extends FeatureTestCase {
         $widget = Widget::forceCreate(['title' => 'Alpha']);
 
         $this->refuses('undeclared-model', fn () => $this->service()->query('widget', $widget->id, 1, 20));
+        $this->refuses('undeclared-model', fn () => $this->service()->query('widget', $widget->id + 1, 1, 20));
     }
 
     public function test_resolving_creators_runs_a_single_query_no_matter_how_many_rows_there_are(): void {

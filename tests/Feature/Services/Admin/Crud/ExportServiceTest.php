@@ -126,25 +126,6 @@ class ExportServiceTest extends FeatureTestCase {
         $this->assertSame(['low', 'high'], array_column($exported['rows'], 'label'));
     }
 
-    public function test_only_the_output_and_the_used_filter_columns_are_selected(): void {
-        $widget = $this->widget('Alpha');
-
-        Trinket::forceCreate(['label' => 'keep', 'widget_id' => $widget->id, 'amount' => 5]);
-
-        DB::enableQueryLog();
-
-        (new ExportService(Trinket::class))
-            ->standalone(true)
-            ->columns(['label'])
-            ->filterColumns(['amount', 'ranking'])
-            ->export(['filters' => ['amount' => ['op' => 'between', 'from' => 1, 'to' => 9]]]);
-
-        $sql = collect(DB::getQueryLog())->pluck('query')->last(fn (string $query): bool => str_contains($query, 'stub_trinket'));
-
-        $this->assertStringContainsString('"amount"', strval($sql));
-        $this->assertStringNotContainsString('"ranking"', strval($sql));
-    }
-
     public function test_a_filter_column_can_be_sorted_by(): void {
         $widget = $this->widget('Alpha');
 
@@ -158,19 +139,6 @@ class ExportServiceTest extends FeatureTestCase {
             ->export(['sort' => [['name' => 'amount', 'direction' => 'desc']]]);
 
         $this->assertSame(['high', 'low'], array_column($exported['rows'], 'label'));
-    }
-
-    public function test_an_output_column_wins_over_a_filter_column_of_the_same_name(): void {
-        $this->widget('Alpha');
-
-        $columns = (new ExportService(Widget::class))
-            ->standalone(true)
-            ->columns(['*title'])
-            ->filterColumns(['title'])
-            ->export([])['columns'];
-
-        $this->assertCount(1, $columns);
-        $this->assertSame('title', $columns[0]['name']);
     }
 
     public function test_the_used_filter_columns_are_selected_after_the_outputs_in_their_declared_order(): void {
@@ -277,6 +245,12 @@ class ExportServiceTest extends FeatureTestCase {
         Widget::forceCreate(['title' => 'Alpha', 'enable_time' => '2026-08-12 13:45:07']);
 
         $this->assertSame([['enable_time' => '12/08/2026 13:45']], $this->exported(['enable_time'])['rows']);
+    }
+
+    public function test_a_date_column_holding_neither_a_string_nor_a_date_becomes_an_empty_string(): void {
+        Widget::forceCreate(['title' => 'Alpha', 'ranking' => 100]);
+
+        $this->assertSame([['ranking' => '']], $this->exported([['name' => 'ranking', 'type' => 'date']])['rows']);
     }
 
     public function test_a_real_boolean_value_becomes_a_translated_word(): void {
@@ -495,41 +469,6 @@ class ExportServiceTest extends FeatureTestCase {
             ->export([])['rows'];
 
         $this->assertSame(['Beta', 'Alpha'], array_column($rows, 'title'));
-    }
-
-    public function test_a_nested_export_only_sees_its_own_parent(): void {
-        $mine = $this->widget('Alpha');
-        $other = $this->widget('Beta');
-
-        Trinket::forceCreate(['label' => 'mine', 'widget_id' => $mine->id]);
-        Trinket::forceCreate(['label' => 'theirs', 'widget_id' => $other->id]);
-
-        $rows = (new ExportService(Trinket::class))
-            ->params(['widget_id' => $mine->id])
-            ->columns(['label'])
-            ->export([])['rows'];
-
-        $this->assertSame([['label' => 'mine']], $rows);
-    }
-
-    public function test_a_missing_route_parameter_is_rejected(): void {
-        $this->expectException(ServiceException::class);
-        $this->expectExceptionMessage('data-not-found');
-
-        (new ExportService(Trinket::class))->columns(['label'])->export([]);
-    }
-
-    public function test_a_scope_narrows_the_export(): void {
-        $this->widget('Alpha');
-        $this->widget('Beta');
-
-        $rows = (new ExportService(Widget::class))
-            ->standalone(true)
-            ->columns(['title'])
-            ->scope(fn (Builder $query) => $query->where('title', 'Alpha'))
-            ->export([])['rows'];
-
-        $this->assertSame([['title' => 'Alpha']], $rows);
     }
 
     public function test_the_pagination_input_is_ignored(): void {

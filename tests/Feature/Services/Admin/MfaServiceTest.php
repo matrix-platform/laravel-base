@@ -112,14 +112,20 @@ class MfaServiceTest extends FeatureTestCase {
         $this->assertFalse(app(MfaService::class)->verify($this->reload($user), $stale));
     }
 
-    public function test_verify_rejects_a_code_that_was_already_used(): void {
+    public function test_verify_rejects_a_used_code_by_its_timestamp_alone(): void {
         $user = UserFactory::new()->createOne();
 
         app(MfaService::class)->setup($user);
 
-        $code = (new Google2FA())->getCurrentOtp($this->secretOf($user));
+        $google2fa = new Google2FA();
+        $secret = $this->secretOf($user);
+        $timestamp = $google2fa->getTimestamp();
+        $code = $google2fa->oathTotp($secret, $timestamp);
 
         $this->assertTrue(app(MfaService::class)->verify($this->reload($user), $code));
+
+        Cache::forget('mfa-used:' . hash('sha256', $secret) . ":{$timestamp}");
+
         $this->assertFalse(app(MfaService::class)->verify($this->reload($user), $code));
     }
 

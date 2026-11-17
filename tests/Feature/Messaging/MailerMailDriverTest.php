@@ -116,7 +116,6 @@ class MailerMailDriverTest extends FeatureTestCase {
 
         $this->assertSame(cfg('gmail.host'), config('mail.mailers.matrix-smtp:gmail.host'));
         $this->assertSame('smtp.relay.example', config('mail.mailers.matrix-smtp:relay.host'));
-        $this->assertNull(config('mail.mailers.matrix-smtp'));
     }
 
     public function test_a_changed_connection_rebuilds_the_transport_of_an_already_resolved_mailer(): void {

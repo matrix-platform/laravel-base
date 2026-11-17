@@ -227,15 +227,4 @@ class BlockItemControllerTest extends FeatureTestCase {
         $this->assertSame(0, BlockItem::query()->count());
     }
 
-    public function test_an_item_is_not_capped(): void {
-        $page = PageFactory::new()->createOne();
-        $block = BlockFactory::new()->createOne(['page_id' => $page->id, 'type' => 'gallery']);
-
-        BlockItemFactory::new()->count(60)->create(['block_id' => $block->id]);
-
-        $this->send("admin/page/{$page->id}/block/{$block->id}/item/insert", $this->input())->assertJsonPath('success', true);
-
-        $this->assertSame(61, BlockItem::query()->count());
-    }
-
 }

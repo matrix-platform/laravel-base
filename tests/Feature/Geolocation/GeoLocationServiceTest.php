@@ -4,7 +4,6 @@ namespace Tests\Feature\Geolocation;
 
 use MatrixPlatform\Geolocation\GeoLocationService;
 use Tests\FeatureTestCase;
-use Tests\Stubs\NotFoundGeolocationDriver;
 use Tests\Stubs\OkGeolocationDriver;
 
 class GeoLocationServiceTest extends FeatureTestCase {
@@ -52,17 +51,6 @@ class GeoLocationServiceTest extends FeatureTestCase {
 
         $this->assertSame('8.8.8.8', OkGeolocationDriver::$requested);
         $this->assertSame('US', $location?->countryCode);
-    }
-
-    public function test_a_driver_instance_bound_in_the_container_is_the_one_used(): void {
-        $this->useGeolocationFixtures();
-
-        config()->set('matrix.geolocation-provider', 'stub');
-
-        app()->instance(OkGeolocationDriver::class, new NotFoundGeolocationDriver());
-
-        $this->assertNull($this->service()->locate('8.8.8.8'));
-        $this->assertNull(OkGeolocationDriver::$requested);
     }
 
 }

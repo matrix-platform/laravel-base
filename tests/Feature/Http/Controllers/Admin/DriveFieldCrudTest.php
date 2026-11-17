@@ -201,7 +201,7 @@ class DriveFieldCrudTest extends FeatureTestCase {
         $this->assertSame(File::DRIVE_PREFIX . $second->path, $attachments[0]['path']);
     }
 
-    public function test_an_unknown_drive_id_is_refused_with_a_validation_style_error(): void {
+    public function test_an_unknown_drive_id_is_refused_as_an_invalid_drive_file(): void {
         $this->admin('admin/drive-gadget/insert', [
             'title' => 'Alpha',
             'attachments' => [['id' => 999999]]

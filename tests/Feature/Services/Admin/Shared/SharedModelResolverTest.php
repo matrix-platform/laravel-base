@@ -94,4 +94,10 @@ class SharedModelResolverTest extends FeatureTestCase {
         $this->refuses('data-not-found', fn () => $this->resolver()->resolve('menu', $child->id, 'update'));
     }
 
+    public function test_a_root_menu_does_not_belong_to_a_prefix_with_no_mounted_controller(): void {
+        $root = $this->menu(null);
+
+        $this->refuses('data-not-found', fn () => $this->resolver()->belong('nowhere', $root));
+    }
+
 }

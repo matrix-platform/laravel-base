@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Console;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\PendingCommand;
@@ -60,14 +61,6 @@ class DispatchMessagesCommandTest extends FeatureTestCase {
         return $log;
     }
 
-    public function test_a_due_message_dispatches_a_job_for_its_channel(): void {
-        $this->mail();
-
-        $this->dispatch()->assertSuccessful();
-
-        Queue::assertPushed(SendMessageJob::class, fn (SendMessageJob $job) => $job->channel === 'mail');
-    }
-
     public function test_a_channel_gets_a_single_job_however_many_messages_are_waiting(): void {
         $this->mail();
         $this->mail();
@@ -102,11 +95,17 @@ class DispatchMessagesCommandTest extends FeatureTestCase {
     }
 
     public function test_the_job_is_held_until_the_writing_transaction_commits(): void {
-        $this->mail();
+        Queue::fakeExcept(SendMessageJob::class);
 
-        $this->dispatch()->assertSuccessful();
+        $log = $this->mail();
 
-        Queue::assertPushed(SendMessageJob::class, fn (SendMessageJob $job) => $job->afterCommit === true);
+        DB::transaction(function () use ($log): void {
+            $this->dispatch()->assertSuccessful();
+
+            $this->assertSame(MessageStatus::Scheduled, $log->fresh()?->status);
+        });
+
+        $this->assertSame(MessageStatus::Success, $log->fresh()?->status);
     }
 
     public function test_the_shipped_channels_are_served_by_a_queue_each(): void {

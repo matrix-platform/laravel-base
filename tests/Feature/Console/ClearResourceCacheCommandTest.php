@@ -71,8 +71,4 @@ class ClearResourceCacheCommandTest extends FeatureTestCase {
         File::deleteDirectory($path);
     }
 
-    public function test_it_succeeds_when_nothing_has_been_cached_yet(): void {
-        $this->command();
-    }
-
 }

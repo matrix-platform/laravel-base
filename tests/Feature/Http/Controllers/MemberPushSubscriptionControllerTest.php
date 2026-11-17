@@ -3,10 +3,24 @@
 namespace Tests\Feature\Http\Controllers;
 
 use MatrixPlatform\Models\PushSubscription;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Factories\MemberFactory;
 use Tests\FeatureTestCase;
 
 class MemberPushSubscriptionControllerTest extends FeatureTestCase {
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function unsupportedEndpoints(): array {
+        return [
+            'plain http' => ['http://fcm.googleapis.com/fcm/send/device-1'],
+            'a link-local address' => ['https://169.254.169.254/latest/meta-data'],
+            'an internal host' => ['https://internal.example.test/hook'],
+            'a lookalike host' => ['https://fcm.googleapis.com.example.test/send'],
+            'a non-default port' => ['https://fcm.googleapis.com:8443/fcm/send/device-1']
+        ];
+    }
 
     /**
      * @param array<string, mixed> $overrides
@@ -56,30 +70,13 @@ class MemberPushSubscriptionControllerTest extends FeatureTestCase {
             ->assertJson(['success' => false, 'code' => 422, 'error' => 'validation-failed']);
     }
 
-    public function test_an_endpoint_that_is_not_https_is_refused(): void {
+    #[DataProvider('unsupportedEndpoints')]
+    public function test_an_unsupported_endpoint_is_refused(string $endpoint): void {
         $this->withToken($this->token())
-            ->postJson('api/member/push/subscribe', $this->payload(['endpoint' => 'http://fcm.googleapis.com/fcm/send/device-1']))
+            ->postJson('api/member/push/subscribe', $this->payload(['endpoint' => $endpoint]))
             ->assertJsonPath('fields.endpoint', ['unsupported-push-endpoint']);
 
         $this->assertSame(0, PushSubscription::query()->count());
-    }
-
-    public function test_an_endpoint_outside_the_push_services_is_refused(): void {
-        $token = $this->token();
-
-        foreach (['https://169.254.169.254/latest/meta-data', 'https://internal.example.test/hook', 'https://fcm.googleapis.com.example.test/send'] as $endpoint) {
-            $this->withToken($token)
-                ->postJson('api/member/push/subscribe', $this->payload(['endpoint' => $endpoint]))
-                ->assertJsonPath('fields.endpoint', ['unsupported-push-endpoint']);
-        }
-
-        $this->assertSame(0, PushSubscription::query()->count());
-    }
-
-    public function test_an_endpoint_on_a_non_default_port_is_refused(): void {
-        $this->withToken($this->token(5))
-            ->postJson('api/member/push/subscribe', $this->payload(['endpoint' => 'https://fcm.googleapis.com:8443/fcm/send/device-1']))
-            ->assertJsonPath('fields.endpoint', ['unsupported-push-endpoint']);
     }
 
     public function test_an_endpoint_naming_the_default_port_explicitly_is_accepted(): void {

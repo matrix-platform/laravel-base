@@ -3,6 +3,7 @@
 namespace Tests\Feature\Routing;
 
 use Illuminate\Routing\Router;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\FeatureTestCase;
 
 class FallbackRoutesTest extends FeatureTestCase {
@@ -15,14 +16,20 @@ class FallbackRoutesTest extends FeatureTestCase {
         $router->post('admin/host-endpoint', fn (): string => 'from the host');
     }
 
-    public function test_an_unknown_admin_endpoint_answers_the_envelope(): void {
-        $this->postJson('admin/nope')
-            ->assertOk()
-            ->assertJson(['success' => false, 'code' => 404, 'error' => 'endpoint-not-found']);
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function unknownEndpoints(): array {
+        return [
+            'an admin endpoint' => ['admin/nope'],
+            'a frontend endpoint' => ['api/nope'],
+            'a deep admin path' => ['admin/resource/i18n/nope/get']
+        ];
     }
 
-    public function test_an_unknown_frontend_endpoint_answers_the_envelope(): void {
-        $this->postJson('api/nope')
+    #[DataProvider('unknownEndpoints')]
+    public function test_an_unknown_endpoint_answers_the_envelope(string $uri): void {
+        $this->postJson($uri)
             ->assertOk()
             ->assertJson(['success' => false, 'code' => 404, 'error' => 'endpoint-not-found']);
     }
@@ -31,18 +38,6 @@ class FallbackRoutesTest extends FeatureTestCase {
         $this->getJson('admin/i18n/get')
             ->assertOk()
             ->assertJson(['success' => false, 'code' => 404, 'error' => 'endpoint-not-found']);
-    }
-
-    public function test_a_deep_unknown_path_answers_the_envelope(): void {
-        $this->postJson('admin/resource/i18n/nope/get')
-            ->assertOk()
-            ->assertJson(['success' => false, 'code' => 404, 'error' => 'endpoint-not-found']);
-    }
-
-    public function test_the_registered_endpoints_still_reach_their_controllers(): void {
-        $this->postJson('admin/i18n/get', ['name' => 'errors'])
-            ->assertOk()
-            ->assertJson(['success' => true]);
     }
 
     public function test_a_host_route_registered_after_the_package_still_reaches_its_handler(): void {

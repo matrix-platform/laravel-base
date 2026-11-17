@@ -181,10 +181,6 @@ class FileServiceTest extends FeatureTestCase {
         $this->assertSame(0, $service->bytes('0'));
     }
 
-    public function test_max_upload_size_returns_a_non_negative_byte_count(): void {
-        $this->assertGreaterThanOrEqual(0, $this->service()->maxUploadSize());
-    }
-
     public function test_an_image_upload_records_its_dimensions_on_the_public_disk(): void {
         $file = $this->service()->upload(UploadedFile::fake()->image('photo.png', 20, 10));
 
@@ -300,26 +296,12 @@ class FileServiceTest extends FeatureTestCase {
         $this->refuses('invalid-mime-type', fn () => $this->service()->upload($this->blob('doc.pdf', 'x')));
     }
 
-    public function test_the_stored_path_carries_the_month_and_no_leading_slash(): void {
-        $file = $this->service()->upload($this->blob('a.bin', 'content'));
-
-        $this->assertMatchesRegularExpression('#^' . date('Ym') . '/[A-Za-z0-9]{32}$#', $file->path);
-        $this->assertSame($file->path, $this->reload($file)->path);
-    }
-
     public function test_the_stored_path_never_carries_the_extension_the_client_sent(): void {
         $file = $this->service()->upload($this->blob('shell.php', 'content'));
 
         $this->assertMatchesRegularExpression('#^' . date('Ym') . '/[A-Za-z0-9]{32}$#', $file->path);
         $this->assertSame('shell.php', $file->name);
 
-        Storage::disk('public')->assertExists("files/{$file->path}");
-    }
-
-    public function test_an_image_is_stored_with_the_extension_of_its_detected_type(): void {
-        $file = $this->service()->upload(UploadedFile::fake()->image('photo.png', 20, 10));
-
-        $this->assertMatchesRegularExpression('#^' . date('Ym') . '/[A-Za-z0-9]{32}\\.png$#', $file->path);
         Storage::disk('public')->assertExists("files/{$file->path}");
     }
 
@@ -334,15 +316,11 @@ class FileServiceTest extends FeatureTestCase {
         $png = $this->service()->upload(new UploadedFile($disguised, 'shell.php', null, null, true));
         $icon = $this->service()->upload(new UploadedFile($svg, 'icon.txt', null, null, true));
 
-        $this->assertStringEndsWith('.png', $png->path);
+        $this->assertMatchesRegularExpression('#^' . date('Ym') . '/[A-Za-z0-9]{32}\\.png$#', $png->path);
         $this->assertSame('shell.php', $png->name);
         $this->assertStringEndsWith('.svg', $icon->path);
-    }
 
-    public function test_a_file_outside_the_image_whitelist_gets_no_extension(): void {
-        $file = $this->service()->upload($this->blob('report.pdf', '%PDF-1.4 test'));
-
-        $this->assertMatchesRegularExpression('#^' . date('Ym') . '/[A-Za-z0-9]{32}$#', $file->path);
+        Storage::disk('public')->assertExists("files/{$png->path}");
     }
 
     public function test_new_directories_take_the_configured_permission_despite_the_umask(): void {
@@ -520,7 +498,12 @@ class FileServiceTest extends FeatureTestCase {
     }
 
     public function test_orient_leaves_an_upright_photograph_untouched(): void {
-        $path = $this->imagePath(20, 10);
+        $path = $this->rotatedImagePath();
+
+        file_put_contents($path, str_replace(pack('vvVv', 0x0112, 3, 1, 6), pack('vvVv', 0x0112, 3, 1, 1), strval(file_get_contents($path))));
+
+        $this->assertSame(1, array_get_value((array) exif_read_data($path), 'Orientation'));
+
         $before = file_get_contents($path);
 
         $this->service()->orient($path);

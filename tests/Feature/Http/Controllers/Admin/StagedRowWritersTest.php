@@ -163,6 +163,31 @@ class StagedRowWritersTest extends FeatureTestCase {
         $response->assertJsonPath('data.list.columns.1.name', 'widget_title');
     }
 
+    public function test_the_edit_page_keeps_a_row_the_child_list_leaves_out_in_its_form_shape(): void {
+        $widget = $this->widget('Alpha');
+
+        $this->trinket($widget, 'unlisted');
+
+        $response = $this->admin("admin/widget/{$widget->id}/staged/trinkets");
+
+        $response->assertJsonPath('success', true);
+        $response->assertJsonPath('data.rows.0.label', 'unlisted');
+        $this->assertArrayNotHasKey('badge', $response->json('data.rows.0'));
+        $this->assertArrayNotHasKey('widget_title', $response->json('data.rows.0'));
+    }
+
+    public function test_a_service_error_carrying_fields_on_a_delete_is_reported_under_its_id(): void {
+        $widget = $this->widget('Alpha');
+        $sealed = $this->trinket($widget, 'sealed');
+
+        $response = $this->admin("admin/widget/{$widget->id}/update", $this->parent('Renamed', ['trinkets' => ['delete' => [$sealed->id]]]));
+
+        $response->assertJson(['success' => false, 'code' => 422, 'error' => 'validation-failed']);
+        $this->assertSame(["trinkets.delete.{$sealed->id}" => ['sealed']], $response->json('fields'));
+        $this->assertSame('Alpha', $widget->fresh()?->title);
+        $this->assertNotNull($sealed->fresh());
+    }
+
     public function test_a_service_error_carrying_fields_is_reported_on_the_row(): void {
         $widget = $this->widget('Alpha');
 

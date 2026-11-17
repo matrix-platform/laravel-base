@@ -26,9 +26,9 @@ final class PasskeyAuthenticator {
     private readonly OpenSSLAsymmetricKey $privateKey;
     private int $signCount = 0;
 
-    public function __construct(?string $credentialId = null, ?string $aaguid = null, private readonly bool $alwaysZeroCounter = false) {
+    public function __construct(?string $credentialId = null, private readonly bool $alwaysZeroCounter = false) {
         $this->credentialId = $credentialId === null ? random_bytes(32) : $credentialId;
-        $this->aaguid = $aaguid === null ? (string) Uuid::v4() : $aaguid;
+        $this->aaguid = (string) Uuid::v4();
 
         $keyPair = openssl_pkey_new([
             'curve_name' => 'prime256v1',

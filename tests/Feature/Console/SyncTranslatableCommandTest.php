@@ -70,20 +70,7 @@ class SyncTranslatableCommandTest extends FeatureTestCase {
         $this->assertNull($widget->getAttribute('translated__fr'));
     }
 
-    public function test_the_new_column_copies_the_type_of_an_existing_locale_column(): void {
-        config(['matrix.locales' => 'tw en fr']);
-
-        $this->artisanCommand('matrix:sync-translatable')->assertExitCode(0);
-
-        $type = DB::table('information_schema.columns')
-            ->where('table_name', 'stub_widget')
-            ->where('column_name', 'translated__fr')
-            ->value('data_type');
-
-        $this->assertSame('text', $type);
-    }
-
-    public function test_the_new_column_keeps_the_length_of_an_existing_varchar_column(): void {
+    public function test_the_new_column_copies_the_type_of_an_existing_locale_column_including_its_length(): void {
         DB::statement('ALTER TABLE stub_widget ADD COLUMN caption__tw varchar(40)');
 
         $this->declare('App\\Models\\Probe', 'caption');

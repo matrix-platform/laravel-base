@@ -67,7 +67,14 @@ class TelegramWebhookControllerTest extends FeatureTestCase {
 
         $this->withHeader('X-Telegram-Bot-Api-Secret-Token', 'shh')->postJson('api/telegram/webhook', $this->update(['message' => ['text' => '/start abc123']]));
 
-        $this->assertNull(Cache::get('telegram-link:abc123'));
+        $this->withHeader('X-Telegram-Bot-Api-Secret-Token', 'shh')
+            ->postJson('api/telegram/webhook', $this->update(['message' => ['text' => '/start abc123', 'chat' => ['id' => 777888], 'from' => ['username' => 'bob']]]))
+            ->assertJson(['success' => true]);
+
+        $subscription = TelegramSubscription::query()->where('user_id', 5)->sole();
+
+        $this->assertSame(1, TelegramSubscription::query()->count());
+        $this->assertSame(['555666', 'alice'], [$subscription->chat_id, $subscription->username]);
     }
 
     public function test_a_message_without_a_chat_id_binds_nothing_and_keeps_the_token(): void {

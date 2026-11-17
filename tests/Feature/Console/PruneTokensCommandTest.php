@@ -16,6 +16,7 @@ use MatrixPlatform\Models\SmsLog;
 use MatrixPlatform\Models\UserLog;
 use MatrixPlatform\Models\UserLogType;
 use MatrixPlatform\Models\VendorLog;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Factories\MemberFactory;
 use Tests\Factories\UserFactory;
 use Tests\Factories\VendorFactory;
@@ -180,14 +181,6 @@ class PruneTokensCommandTest extends FeatureTestCase {
         $this->assertSame([], $this->remaining());
     }
 
-    public function test_a_token_still_within_its_threshold_survives(): void {
-        $alive = $this->token(IdentityType::User, 5)->id;
-
-        $this->command()->assertExitCode(0);
-
-        $this->assertSame([$alive], $this->remaining());
-    }
-
     public function test_a_token_that_logged_out_is_deleted_even_when_it_is_not_idle(): void {
         $this->loggedOut(IdentityType::User);
 
@@ -238,29 +231,25 @@ class PruneTokensCommandTest extends FeatureTestCase {
         $this->assertSame(7, $batches);
     }
 
-    public function test_a_zero_limit_is_refused_without_deleting_anything(): void {
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function invalidLimits(): array {
+        return [
+            'zero' => ['0'],
+            'negative' => ['-1'],
+            'non-numeric' => ['abc'],
+            'trailing garbage' => ['2x']
+        ];
+    }
+
+    #[DataProvider('invalidLimits')]
+    public function test_an_invalid_limit_is_refused_without_deleting_anything(string $limit): void {
         $dead = $this->token(IdentityType::User, 400)->id;
 
-        $this->command('--limit=0')
+        $this->command("--limit={$limit}")
             ->expectsOutputToContain('The --limit option must be a positive integer')
             ->assertExitCode(1);
-
-        $this->assertSame([$dead], $this->remaining());
-    }
-
-    public function test_a_negative_limit_is_refused_without_deleting_anything(): void {
-        $dead = $this->token(IdentityType::User, 400)->id;
-
-        $this->command('--limit=-1')->assertExitCode(1);
-
-        $this->assertSame([$dead], $this->remaining());
-    }
-
-    public function test_a_non_numeric_limit_is_refused_without_deleting_anything(): void {
-        $dead = $this->token(IdentityType::User, 400)->id;
-
-        $this->command('--limit=abc')->assertExitCode(1);
-        $this->command('--limit=2x')->assertExitCode(1);
 
         $this->assertSame([$dead], $this->remaining());
     }

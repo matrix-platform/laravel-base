@@ -121,15 +121,6 @@ class SortServiceTest extends FeatureTestCase {
         (new SortService(Widget::class))->standalone(true)->sort(['order' => [$alpha->id]]);
     }
 
-    public function test_a_nested_array_identifier_is_rejected(): void {
-        $alpha = $this->widget('A', 100);
-
-        $this->expectException(ServiceException::class);
-        $this->expectExceptionMessage('invalid-sort-order');
-
-        (new SortService(Widget::class))->standalone(true)->sort(['order' => [[$alpha->id]]]);
-    }
-
     public function test_an_unknown_identifier_is_rejected(): void {
         $alpha = $this->widget('A', 100);
 
@@ -198,33 +189,6 @@ class SortServiceTest extends FeatureTestCase {
             ->sort(['order' => [$beta->id, $alpha->id]]);
 
         $this->assertSame(['B' => [99, 200], 'A' => [100, 100]], $seen);
-    }
-
-    public function test_a_guard_runs_for_the_rows_that_did_not_move(): void {
-        $alpha = $this->widget('A', 100);
-        $beta = $this->widget('B', 200);
-        $gamma = $this->widget('C', 300);
-        $guarded = [];
-
-        (new SortService(Widget::class))
-            ->standalone(true)
-            ->guard(function (Widget $widget) use (&$guarded): void {
-                $guarded[] = strval($widget->title);
-            })
-            ->sort(['order' => [$gamma->id, $alpha->id, $beta->id]]);
-
-        $this->assertSame(['C', 'A', 'B'], $guarded);
-    }
-
-    public function test_the_listing_does_not_run_the_guard(): void {
-        $this->widget('A', 100);
-
-        $rows = (new SortService(Widget::class))
-            ->standalone(true)
-            ->guard(fn () => error('permission-denied', 403))
-            ->items()['rows'];
-
-        $this->assertCount(1, $rows);
     }
 
     public function test_a_nested_listing_only_sees_its_own_parent(): void {

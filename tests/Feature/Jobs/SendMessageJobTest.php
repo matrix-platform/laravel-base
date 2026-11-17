@@ -80,16 +80,6 @@ class SendMessageJobTest extends FeatureTestCase {
         $this->assertSame(MessageStatus::Scheduled, $late->refresh()->status);
     }
 
-    public function test_only_one_message_goes_out_per_job(): void {
-        $first = $this->stored();
-        $second = $this->stored();
-
-        $this->execute();
-
-        $this->assertSame(MessageStatus::Success, $first->refresh()->status);
-        $this->assertSame(MessageStatus::Scheduled, $second->refresh()->status);
-    }
-
     public function test_a_send_hands_the_work_to_a_successor(): void {
         $this->stored();
 

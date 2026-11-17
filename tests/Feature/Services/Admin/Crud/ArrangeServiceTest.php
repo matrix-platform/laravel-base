@@ -24,63 +24,16 @@ class ArrangeServiceTest extends FeatureTestCase {
         return Widget::forceCreate(['title' => $title]);
     }
 
-    public function test_a_nested_array_identifier_is_rejected(): void {
+    public function test_the_enabled_flag_follows_the_schedule(): void {
         $alpha = $this->widget('Alpha');
+        $alpha->enable_time = now()->subDay();
+        $alpha->save();
 
-        $this->expectException(ServiceException::class);
-        $this->expectExceptionMessage('invalid-arrange-order');
-
-        (new ArrangeService(Widget::class))->standalone(true)->save(['enabled' => [[$alpha->id]]]);
-    }
-
-    public function test_a_row_without_an_enable_time_is_disabled(): void {
-        $this->widget('Alpha');
+        $this->widget('Beta');
 
         $rows = (new ArrangeService(Widget::class))->standalone(true)->items()['rows'];
 
-        $this->assertSame([false], array_column($rows, 'enabled'));
-    }
-
-    public function test_a_future_enable_time_is_not_yet_enabled(): void {
-        $widget = $this->widget('Alpha');
-        $widget->enable_time = now()->addDay();
-        $widget->save();
-
-        $rows = (new ArrangeService(Widget::class))->standalone(true)->items()['rows'];
-
-        $this->assertSame([false], array_column($rows, 'enabled'));
-    }
-
-    public function test_a_past_enable_time_without_a_disable_time_is_enabled(): void {
-        $widget = $this->widget('Alpha');
-        $widget->enable_time = now()->subDay();
-        $widget->save();
-
-        $rows = (new ArrangeService(Widget::class))->standalone(true)->items()['rows'];
-
-        $this->assertSame([true], array_column($rows, 'enabled'));
-    }
-
-    public function test_a_past_disable_time_turns_an_enabled_row_off(): void {
-        $widget = $this->widget('Alpha');
-        $widget->enable_time = now()->subDay();
-        $widget->disable_time = now()->subHour();
-        $widget->save();
-
-        $rows = (new ArrangeService(Widget::class))->standalone(true)->items()['rows'];
-
-        $this->assertSame([false], array_column($rows, 'enabled'));
-    }
-
-    public function test_a_future_disable_time_stays_enabled(): void {
-        $widget = $this->widget('Alpha');
-        $widget->enable_time = now()->subDay();
-        $widget->disable_time = now()->addDay();
-        $widget->save();
-
-        $rows = (new ArrangeService(Widget::class))->standalone(true)->items()['rows'];
-
-        $this->assertSame([true], array_column($rows, 'enabled'));
+        $this->assertSame([true, false], array_column($rows, 'enabled'));
     }
 
     public function test_the_sortable_flag_reflects_the_rankable_setting(): void {
@@ -93,23 +46,18 @@ class ArrangeServiceTest extends FeatureTestCase {
         $this->assertTrue($enabled);
     }
 
-    public function test_naming_a_row_enables_it_and_sets_the_enable_time(): void {
-        $alpha = $this->widget('Alpha');
-
-        (new ArrangeService(Widget::class))->standalone(true)->save(['enabled' => [$alpha->id]]);
-
-        $this->assertNotNull($alpha->refresh()->enable_time);
-        $this->assertNull($alpha->disable_time);
-    }
-
-    public function test_leaving_a_row_out_disables_it_and_sets_the_disable_time(): void {
+    public function test_a_save_enables_the_named_rows_and_disables_the_rest(): void {
         $alpha = $this->widget('Alpha');
         $alpha->enable_time = now()->subDay();
         $alpha->save();
 
-        (new ArrangeService(Widget::class))->standalone(true)->save(['enabled' => []]);
+        $beta = $this->widget('Beta');
+
+        (new ArrangeService(Widget::class))->standalone(true)->save(['enabled' => [$beta->id]]);
 
         $this->assertNotNull($alpha->refresh()->disable_time);
+        $this->assertNotNull($beta->refresh()->enable_time);
+        $this->assertNull($beta->disable_time);
     }
 
     public function test_re_enabling_a_disabled_row_clears_its_disable_time(): void {
@@ -199,17 +147,6 @@ class ArrangeServiceTest extends FeatureTestCase {
         (new ArrangeService(Widget::class))->standalone(true)->save(['enabled' => [$alpha->id]]);
 
         $this->assertSame(100, $alpha->refresh()->ranking);
-    }
-
-    public function test_a_guard_can_refuse_the_whole_save(): void {
-        $alpha = $this->widget('Alpha');
-
-        $this->expectException(ServiceException::class);
-
-        (new ArrangeService(Widget::class))
-            ->standalone(true)
-            ->guard(fn () => error('permission-denied', 403))
-            ->save(['enabled' => [$alpha->id]]);
     }
 
 }

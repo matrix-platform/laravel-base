@@ -37,12 +37,6 @@ class PermissionMapTest extends FeatureTestCase {
         $this->assertSame(['user' => ['query' => true]], $group->refresh()->permissions);
     }
 
-    public function test_a_falsy_action_is_dropped_instead_of_being_stored(): void {
-        $group = $this->stored(['user' => ['query' => true, 'update' => false, 'delete' => 0, 'insert' => null]]);
-
-        $this->assertSame('{"user": {"query": true}}', $this->raw($group));
-    }
-
     public function test_only_true_one_and_the_string_one_grant_an_action(): void {
         $group = $this->stored(['user' => [
             'a' => true, 'b' => 1, 'c' => '1',
@@ -56,6 +50,18 @@ class PermissionMapTest extends FeatureTestCase {
         $group = $this->stored(['user' => ['query' => false], 'group' => [], 'nowhere' => 'granted']);
 
         $this->assertSame('{}', $this->raw($group));
+    }
+
+    public function test_a_grant_on_an_unregistered_path_is_kept_through_a_replicated_save(): void {
+        $group = GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => ['nowhere' => ['query' => true]]]);
+
+        $copy = $group->refresh()->replicate();
+
+        $copy->setAttribute('title__tw', 'Copied');
+        $copy->setAttribute('title__en', 'Copied');
+        $copy->save();
+
+        $this->assertSame(['nowhere' => ['query' => true]], $copy->refresh()->permissions);
     }
 
     public function test_a_value_stored_outside_the_cast_is_read_back_unchanged(): void {

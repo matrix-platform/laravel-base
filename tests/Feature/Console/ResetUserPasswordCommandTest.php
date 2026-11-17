@@ -138,6 +138,12 @@ class ResetUserPasswordCommandTest extends FeatureTestCase {
         $token = strval($this->login('admin', self::PASSWORD)->json('data.token'));
         $replacement = 'another-Passw0rd';
 
+        $this->assertNotSame('', $token);
+
+        $this->withToken($token)
+            ->postJson('admin/auth/profile')
+            ->assertJsonPath('data.profile.username', 'admin');
+
         $this->command('admin')
             ->expectsQuestion('New password', $replacement)
             ->expectsQuestion('Retype new password', $replacement)

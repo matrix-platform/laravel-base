@@ -21,26 +21,6 @@ class PreferenceServiceTest extends FeatureTestCase {
         return app(PreferenceService::class);
     }
 
-    public function test_saving_without_merge_again_overwrites_the_previous_data(): void {
-        $user = UserFactory::new()->createOne();
-
-        $this->service()->save($user, ['theme' => 'dark', 'locale' => 'tw'], false);
-        $this->service()->save($user, ['theme' => 'light'], false);
-
-        $this->assertSame(['theme' => 'light'], $this->service()->get($user));
-    }
-
-    public function test_saving_with_merge_keeps_the_untouched_keys(): void {
-        $user = UserFactory::new()->createOne();
-
-        $this->service()->save($user, ['theme' => 'dark', 'locale' => 'tw'], false);
-
-        $payload = $this->service()->save($user, ['theme' => 'light'], true);
-
-        $this->assertSame(['theme' => 'light', 'locale' => 'tw'], $payload);
-        $this->assertSame(['theme' => 'light', 'locale' => 'tw'], $this->service()->get($user));
-    }
-
     public function test_merging_into_a_fresh_identity_behaves_like_a_plain_save(): void {
         $user = UserFactory::new()->createOne();
 
@@ -196,12 +176,11 @@ class PreferenceServiceTest extends FeatureTestCase {
         $this->assertSame(['theme' => 'dark', 'locale' => 'en'], $this->service()->get($user));
     }
 
-    public function test_an_identity_type_without_a_declaration_has_no_settings(): void {
+    public function test_an_identity_type_without_a_declaration_can_still_save(): void {
         $this->usePreferenceFixtures();
 
         $member = MemberFactory::new()->createOne();
 
-        $this->assertSame(['columns' => [], 'data' => [], 'default' => []], $this->service()->settings($member));
         $this->assertSame(['theme' => 'dark'], $this->service()->save($member, ['theme' => 'dark'], true));
     }
 

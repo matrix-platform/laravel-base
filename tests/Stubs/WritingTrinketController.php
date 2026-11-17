@@ -2,6 +2,7 @@
 
 namespace Tests\Stubs;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use MatrixPlatform\Http\Controllers\Admin\Concerns\WritesStagedRows;
 use MatrixPlatform\Services\Admin\Crud\ListService;
@@ -22,6 +23,10 @@ class WritingTrinketController extends TrinketController implements WritesStaged
         self::$calls[] = ['delete', $id];
 
         $trinket = $this->owned($id);
+
+        if ($trinket->label === 'sealed') {
+            error('row-sealed', 409, ['fields' => ['label' => ['sealed']]]);
+        }
 
         $trinket->delete();
     }
@@ -47,10 +52,12 @@ class WritingTrinketController extends TrinketController implements WritesStaged
     }
 
     protected function onList(ListService $service): ListService {
-        return parent::onList($service)->guard(function (Trinket $trinket): void {
-            $trinket->setAttribute('label', strtoupper($trinket->label));
-            $trinket->setAttribute('badge', "#{$trinket->id}");
-        });
+        return parent::onList($service)
+            ->scope(fn (Builder $query) => $query->where('label', '!=', 'unlisted'))
+            ->guard(function (Trinket $trinket): void {
+                $trinket->setAttribute('label', strtoupper($trinket->label));
+                $trinket->setAttribute('badge', "#{$trinket->id}");
+            });
     }
 
     private function owned(string $id): Trinket {

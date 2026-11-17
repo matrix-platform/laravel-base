@@ -65,12 +65,6 @@ class MenuControllerTest extends FeatureTestCase {
         return $node;
     }
 
-    public function test_the_listing_reports_each_rows_title(): void {
-        $this->node(null, 'Header Menu', 100);
-
-        $this->send('admin/menu')->assertJsonPath('data.rows.0.title', 'Header Menu');
-    }
-
     public function test_the_listing_without_a_parent_id_reports_only_the_root_nodes(): void {
         $root = $this->node(null, 'root', 100);
 
@@ -357,6 +351,21 @@ class MenuControllerTest extends FeatureTestCase {
 
         $this->assertTrue($secondChild->refresh()->ranking < $firstChild->refresh()->ranking);
         $this->assertSame(200, $other->refresh()->ranking);
+    }
+
+    public function test_arranging_at_the_root_only_reaches_the_root_nodes(): void {
+        $first = $this->node(null, 'first-root', 100);
+        $child = $this->node($first->id, 'child', 50);
+        $second = $this->node(null, 'second-root', 200);
+
+        $this->assertSame([$first->id, $second->id], array_column($this->send('admin/menu/arrange')->json('data.rows'), 'id'));
+
+        $this->send('admin/menu/arrange/save', ['enabled' => [$second->id, $child->id]])->assertJsonPath('error', 'invalid-arrange-order');
+
+        $this->send('admin/menu/arrange/save', ['enabled' => [$second->id, $first->id]])->assertJsonPath('success', true);
+
+        $this->assertTrue($second->refresh()->ranking < $first->refresh()->ranking);
+        $this->assertSame(50, $child->refresh()->ranking);
     }
 
     public function test_the_root_route_cannot_reach_a_child_node(): void {

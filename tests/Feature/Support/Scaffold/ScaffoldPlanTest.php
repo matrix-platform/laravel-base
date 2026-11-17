@@ -157,6 +157,12 @@ class ScaffoldPlanTest extends FeatureTestCase {
         $this->assertStringContainsString("'seen_at' => 'datetime'", $tokens['members']);
     }
 
+    public function test_a_string_presentation_is_passed_as_a_quoted_argument(): void {
+        DB::statement('CREATE TABLE scaffold_article (id integer PRIMARY KEY, name text NOT NULL, description text)');
+
+        $this->assertStringContainsString("'description' => Definition::text('textarea')", $this->build('scaffold_article')->declarationTokens()['segments']);
+    }
+
     public function test_a_label_is_escaped_into_a_php_string_literal(): void {
         $entries = $this->build('scaffold_plain')->modelI18nTokens(['title' => "It's C:\\temp"])['entries'];
 

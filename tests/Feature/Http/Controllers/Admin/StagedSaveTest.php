@@ -11,6 +11,7 @@ use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
+use Tests\Stubs\PlainStagingWidgetController;
 use Tests\Stubs\StagedGadget;
 use Tests\Stubs\StagedGadgetController;
 use Tests\Stubs\StagingWidgetController;
@@ -39,6 +40,10 @@ class StagedSaveTest extends FeatureTestCase {
                 ActionRoutes::mount('widget/{widget_id}/trinket', TrinketController::class);
                 ActionRoutes::mount('widget/{widget_id}/gadget', StagedGadgetController::class);
             });
+
+        $router->middleware(['envelope-api', 'user-api'])
+            ->prefix('admin')
+            ->group(fn () => ActionRoutes::mount('plain-widget', PlainStagingWidgetController::class));
     }
 
     protected function setUp(): void {
@@ -290,6 +295,17 @@ class StagedSaveTest extends FeatureTestCase {
 
         $this->assertSame('Beta', $widget->fresh()?->title);
         $this->assertSame([], StagingWidgetController::$hooks);
+    }
+
+    public function test_a_controller_that_declares_no_staged_children_saves_and_reads_as_before(): void {
+        $widget = $this->widget('Alpha');
+
+        $this->admin("admin/plain-widget/{$widget->id}/update", $this->parent('Beta', ['trinkets' => ['rows' => [['label' => 'ignored', 'amount' => '1']]]]))
+            ->assertJsonPath('success', true);
+
+        $this->assertSame('Beta', $widget->fresh()?->title);
+        $this->assertSame(0, Trinket::query()->count());
+        $this->admin("admin/plain-widget/{$widget->id}")->assertJsonPath('data.staged', []);
     }
 
     public function test_each_change_needs_its_child_permission(): void {

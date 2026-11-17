@@ -184,7 +184,7 @@ class PageControllerTest extends FeatureTestCase {
         $this->assertTrue($column['writable']);
     }
 
-    public function test_reading_one_page_reports_its_columns(): void {
+    public function test_reading_one_page_reports_its_row(): void {
         $page = $this->page('about-us');
 
         $this->send("admin/page/{$page->id}")->assertJsonPath('data.data.path', 'about-us');

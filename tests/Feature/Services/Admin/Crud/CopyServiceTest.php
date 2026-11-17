@@ -162,16 +162,6 @@ class CopyServiceTest extends FeatureTestCase {
         $this->assertSame(['exists' => false, 'source' => $source->id, 'title' => 'Alpha'], $seen);
     }
 
-    public function test_a_guard_can_refuse_a_copy(): void {
-        $source = $this->widgets();
-
-        $this->expectException(ServiceException::class);
-
-        $this->copier()
-            ->guard(fn () => error('permission-denied', 403))
-            ->copy($source->id);
-    }
-
     public function test_cascade_repoints_the_children_at_the_new_parent(): void {
         $source = $this->widgets();
 

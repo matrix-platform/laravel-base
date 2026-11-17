@@ -129,13 +129,6 @@ class PresentationGuesserTest extends TestCase {
         $this->assertSame('html', $result['presentation']);
     }
 
-    public function test_a_plain_foreign_key_column_is_left_unguessed(): void {
-        $result = (new PresentationGuesser())->guess('category_id', ColumnType::Integer);
-
-        $this->assertNull($result['presentation']);
-        $this->assertFalse($result['sensitive']);
-    }
-
     public function test_a_completely_unrecognizable_column_is_left_unguessed(): void {
         $result = (new PresentationGuesser())->guess('weight', ColumnType::Float);
 

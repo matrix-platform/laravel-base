@@ -23,11 +23,9 @@ class RankingTest extends TestCase {
 
     public function test_a_strictly_increasing_input_is_left_untouched(): void {
         $this->assertSame([1, 2, 3], $this->reassign([1, 2, 3]));
-    }
-
-    public function test_the_gap_size_is_irrelevant_when_the_input_is_already_increasing(): void {
         $this->assertSame([-5, 3], $this->reassign([-5, 3]));
         $this->assertSame([100, 200, 300], $this->reassign([100, 200, 300]));
+        $this->assertSame([42], $this->reassign([42]));
     }
 
     public function test_moving_the_last_row_to_the_front_changes_only_that_row(): void {
@@ -55,16 +53,12 @@ class RankingTest extends TestCase {
     }
 
     public function test_every_redistributed_value_stays_above_zero(): void {
-        $this->assertSame([100, 200, 300], $this->reassign([0, 0, 0]));
-        $this->assertSame([100, 200, 300], $this->reassign([1, 1, 1]));
+        $this->assertSame([1, 2], $this->reassign([2, 2]));
+        $this->assertSame([100, 200], $this->reassign([1, 1]));
     }
 
     public function test_an_empty_input_yields_an_empty_result(): void {
         $this->assertSame([], Ranking::reassign([]));
-    }
-
-    public function test_a_single_row_is_left_untouched(): void {
-        $this->assertSame([42], $this->reassign([42]));
     }
 
     public function test_the_anchor_tie_break_copies_the_suboptimal_choice_of_the_original(): void {

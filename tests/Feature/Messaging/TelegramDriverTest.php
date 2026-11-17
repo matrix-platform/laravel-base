@@ -118,7 +118,7 @@ class TelegramDriverTest extends FeatureTestCase {
 
         $this->assertStringStartsWith('sandbox:', $response);
 
-        Http::assertSent(fn (Request $request) => $request['chat_id'] !== '-999999999');
+        Http::assertSent(fn (Request $request) => $request['chat_id'] === '900000000');
     }
 
     public function test_a_blocked_bot_deletes_the_subscription_it_was_found_through(): void {

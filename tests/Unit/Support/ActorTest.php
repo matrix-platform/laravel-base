@@ -2,10 +2,12 @@
 
 namespace Tests\Unit\Support;
 
+use Closure;
 use Illuminate\Database\Eloquent\Model;
 use MatrixPlatform\Exceptions\ServiceException;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Support\Actor;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class ActorTest extends TestCase {
@@ -63,35 +65,30 @@ class ActorTest extends TestCase {
         $actor->requireUser();
     }
 
-    public function test_reassigning_the_user_fails(): void {
+    /**
+     * @return array<string, array{Closure(Actor): void}>
+     */
+    public static function identitySetters(): array {
+        return [
+            'user' => [fn (Actor $actor) => $actor->setUser(new User())],
+            'member' => [fn (Actor $actor) => $actor->setMember(new User())],
+            'vendor' => [fn (Actor $actor) => $actor->setVendor(new User())]
+        ];
+    }
+
+    /**
+     * @param Closure(Actor): void $assign
+     */
+    #[DataProvider('identitySetters')]
+    public function test_reassigning_an_identity_fails(Closure $assign): void {
         $actor = new Actor();
-        $actor->setUser(new User());
+        $assign($actor);
 
         $this->expectException(ServiceException::class);
         $this->expectExceptionMessage('actor-already-assigned');
         $this->expectExceptionCode(500);
 
-        $actor->setUser(new User());
-    }
-
-    public function test_reassigning_the_member_fails(): void {
-        $actor = new Actor();
-        $actor->setMember($this->model());
-
-        $this->expectException(ServiceException::class);
-        $this->expectExceptionMessage('actor-already-assigned');
-
-        $actor->setMember($this->model());
-    }
-
-    public function test_reassigning_the_vendor_fails(): void {
-        $actor = new Actor();
-        $actor->setVendor($this->model());
-
-        $this->expectException(ServiceException::class);
-        $this->expectExceptionMessage('actor-already-assigned');
-
-        $actor->setVendor($this->model());
+        $assign($actor);
     }
 
     public function test_the_current_identity_prefers_the_user_then_the_member_then_the_vendor(): void {

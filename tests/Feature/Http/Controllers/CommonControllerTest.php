@@ -294,13 +294,6 @@ class CommonControllerTest extends FeatureTestCase {
         $this->assertSame($lean, $heavy);
     }
 
-    public function test_the_error_message_follows_the_requested_locale(): void {
-        $fallback = $this->postJson('api/common/menu', ['parent' => 'not-a-number']);
-        $localised = $this->postJson('api/common/menu', ['parent' => 'not-a-number'], ['Matrix-Locale' => 'tw']);
-
-        $this->assertNotSame($fallback->json('message'), $localised->json('message'));
-    }
-
     public function test_cfg_values_set_in_the_resource_backend_are_returned(): void {
         $this->useResourceFixtures();
 

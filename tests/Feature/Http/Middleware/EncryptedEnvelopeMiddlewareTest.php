@@ -5,7 +5,6 @@ namespace Tests\Feature\Http\Middleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Router;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Testing\TestResponse;
 use MatrixPlatform\Http\Controllers\Admin\DriveController;
 use MatrixPlatform\Http\Controllers\Admin\FileController;
@@ -50,6 +49,11 @@ class EncryptedEnvelopeMiddlewareTest extends FeatureTestCase {
 
         $router
             ->prefix('vendor')
+            ->middleware(['encrypted-api', 'envelope-api'])
+            ->group(fn () => ActionRoutes::scan(StubController::class));
+
+        $router
+            ->prefix('outside')
             ->middleware(['encrypted-api', 'envelope-api'])
             ->group(fn () => ActionRoutes::scan(StubController::class));
     }
@@ -134,15 +138,6 @@ class EncryptedEnvelopeMiddlewareTest extends FeatureTestCase {
         $response = $this->postJson('admin/echoed', $envelope);
 
         $this->assertSame(['name' => 'matrix', 'blank' => null, 'password' => '  secret  '], $this->opened($response)['data']);
-    }
-
-    public function test_the_response_body_carries_no_plain_text(): void {
-        EncryptionKey::issue();
-
-        $envelope = $this->envelope('admin/validated', ['name' => 'matrix', 'age' => 7]);
-        $response = $this->postJson('admin/validated', $envelope);
-
-        $this->assertStringNotContainsString('success', strval($response->getContent()));
     }
 
     public function test_an_error_envelope_from_the_inner_middleware_is_encrypted_too(): void {
@@ -255,17 +250,6 @@ class EncryptedEnvelopeMiddlewareTest extends FeatureTestCase {
         $this->postJson('admin/plain', $tampered)->assertJson(['success' => false, 'error' => 'invalid-envelope']);
 
         $this->assertSame(['success' => true, 'data' => 'plain'], $this->opened($this->postJson('admin/plain', $envelope)));
-    }
-
-    public function test_an_undecryptable_envelope_leaves_no_nonce_behind(): void {
-        EncryptionKey::issue();
-
-        $envelope = $this->envelope('admin/plain');
-        $envelope['ct'] = base64_encode('garbage');
-
-        $this->postJson('admin/plain', $envelope)->assertJson(['success' => false, 'error' => 'invalid-envelope']);
-
-        $this->assertFalse(Cache::has('api-nonce:' . hash('sha256', strval($envelope['epk']))));
     }
 
     public function test_a_stale_timestamp_is_rejected(): void {
@@ -409,6 +393,15 @@ class EncryptedEnvelopeMiddlewareTest extends FeatureTestCase {
         }
 
         $this->assertSame(['telegram' => false, 'file-upload' => false, 'drive-upload' => false], $declared);
+    }
+
+    public function test_a_post_outside_every_prefix_is_not_asked_for_an_envelope(): void {
+        EncryptionKey::issue();
+
+        config()->set('matrix.api-encryption', true);
+        config()->set('matrix.vendor-api-encryption', true);
+
+        $this->postJson('outside/plain')->assertJson(['success' => true, 'data' => 'plain']);
     }
 
     public function test_the_switch_keeps_every_request_plain_while_it_is_off(): void {

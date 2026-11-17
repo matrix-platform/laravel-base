@@ -14,8 +14,11 @@ use MatrixPlatform\Routing\ActionRoutes;
 use MatrixPlatform\Services\PreferenceService;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
+use Tests\Stubs\DriveGadget;
+use Tests\Stubs\DriveGadgetController;
 use Tests\Stubs\FixedOrderWidgetController;
 use Tests\Stubs\Gadget;
 use Tests\Stubs\GadgetController;
@@ -45,6 +48,7 @@ class CrudControllerTest extends FeatureTestCase {
                 Route::prefix('widget/{widget_id}/trinket')->group(fn () => ActionRoutes::scan(TrinketController::class));
                 Route::prefix('gizmo')->group(fn () => ActionRoutes::scan(GizmoController::class));
                 Route::prefix('gadget')->group(fn () => ActionRoutes::scan(GadgetController::class));
+                Route::prefix('drive-gadget')->group(fn () => ActionRoutes::scan(DriveGadgetController::class));
             });
     }
 
@@ -271,6 +275,21 @@ class CrudControllerTest extends FeatureTestCase {
         $this->assertSame('Alpha', $listResponse->json('data.rows.0.widget_title'));
     }
 
+    public function test_the_auto_derived_listing_keeps_a_foreign_key_without_a_belongs_to_relation(): void {
+        app(MetadataRegistry::class)->register(DriveGadget::class, new StubDeclaration(new Metadata('drive-gadget'), [
+            'title' => Definition::text(),
+            'widget_id' => Definition::integer()
+        ]));
+
+        $this->assertSame(['title', 'widget_id'], array_column($this->admin('admin/drive-gadget')->json('data.columns'), 'name'));
+    }
+
+    public function test_reading_a_row_of_an_undeclared_model_reports_the_undeclared_model(): void {
+        $gadget = DriveGadget::forceCreate(['title' => 'Alpha']);
+
+        $this->admin("admin/drive-gadget/{$gadget->id}")->assertJson(['success' => false, 'code' => 500, 'error' => 'undeclared-model']);
+    }
+
     public function test_the_page_size_defaults_to_ten_and_zero_means_everything(): void {
         foreach (range(1, 12) as $index) {
             $this->widget("W{$index}");
@@ -471,14 +490,15 @@ class CrudControllerTest extends FeatureTestCase {
     }
 
     public function test_update_writes_only_the_declared_columns(): void {
-        $widget = $this->widget('Alpha');
+        $widget = Widget::forceCreate(['title' => 'Alpha', 'ranking' => 3]);
 
-        $this->admin("admin/widget/{$widget->id}/update", ['title' => 'Renamed', 'secret' => 'hidden', 'enable_time' => null]);
+        $this->admin("admin/widget/{$widget->id}/update", ['title' => 'Renamed', 'secret' => 'hidden', 'enable_time' => null, 'ranking' => 99]);
 
         $widget->refresh();
 
         $this->assertSame('Renamed', $widget->title);
         $this->assertSame('hidden', $widget->secret);
+        $this->assertSame(3, $widget->ranking);
     }
 
     public function test_delete_removes_the_rows_and_reports_the_identifiers(): void {
@@ -858,12 +878,25 @@ class CrudControllerTest extends FeatureTestCase {
         $response->assertJsonPath('data.rows.0.trinkets_count', '1');
     }
 
-    public function test_export_falls_back_to_the_list_columns(): void {
+    /**
+     * @return array<string, array{array<string, mixed>}>
+     */
+    public static function exportFallbackInputs(): array {
+        return [
+            'no requested columns' => [[]],
+            'an empty requested list' => [['columns' => []]],
+            'no requested column in the pool' => [['columns' => ['unknown']]]
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $input
+     */
+    #[DataProvider('exportFallbackInputs')]
+    public function test_export_falls_back_to_the_list_columns(array $input): void {
         $alpha = $this->widget('Alpha');
 
-        Trinket::forceCreate(['label' => 'mine', 'widget_id' => $alpha->id]);
-
-        $names = array_column($this->admin("admin/widget/{$alpha->id}/trinket/export")->json('data.columns'), 'name');
+        $names = array_column($this->admin("admin/widget/{$alpha->id}/trinket/export", $input)->json('data.columns'), 'name');
 
         $this->assertSame(['label', 'widget_title', 'amount'], $names);
     }
@@ -877,14 +910,6 @@ class CrudControllerTest extends FeatureTestCase {
 
         $this->assertSame(['amount', 'label', 'ranking'], array_column($response->json('data.columns'), 'name'));
         $response->assertJsonPath('data.rows.0.amount', '3');
-    }
-
-    public function test_export_treats_empty_requested_columns_as_none_requested(): void {
-        $alpha = $this->widget('Alpha');
-
-        $names = array_column($this->admin("admin/widget/{$alpha->id}/trinket/export", ['columns' => []])->json('data.columns'), 'name');
-
-        $this->assertSame(['label', 'widget_title', 'amount'], $names);
     }
 
     public function test_export_ignores_requested_columns_when_the_exports_are_declared(): void {
@@ -926,14 +951,6 @@ class CrudControllerTest extends FeatureTestCase {
         $descending = $this->admin('admin/widget/export', ['sort' => [['name' => 'secret', 'direction' => 'desc']]])->json('data.rows');
 
         $this->assertSame(array_column($ascending, 'title'), array_column($descending, 'title'));
-    }
-
-    public function test_export_falls_back_to_the_defaults_when_no_requested_column_is_in_the_pool(): void {
-        $alpha = $this->widget('Alpha');
-
-        $names = array_column($this->admin("admin/widget/{$alpha->id}/trinket/export", ['columns' => ['unknown']])->json('data.columns'), 'name');
-
-        $this->assertSame(['label', 'widget_title', 'amount'], $names);
     }
 
     public function test_an_empty_export_list_yields_no_columns(): void {

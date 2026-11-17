@@ -2,11 +2,12 @@
 
 namespace Tests\Feature\Messaging;
 
-use MatrixPlatform\Attributes\Declared;
 use MatrixPlatform\Messaging\MessageStatus;
+use MatrixPlatform\Models\MailLog;
 use MatrixPlatform\Models\MessageLog;
+use MatrixPlatform\Support\MetadataRegistry;
+use MatrixPlatform\Support\PackageRegistry;
 use MatrixPlatform\Support\Resources;
-use ReflectionClass;
 use Tests\FeatureTestCase;
 
 class MessageStatusTest extends FeatureTestCase {
@@ -45,10 +46,10 @@ class MessageStatusTest extends FeatureTestCase {
     }
 
     public function test_the_abstract_base_is_not_offered_to_the_declaration_scanner(): void {
-        $reflection = new ReflectionClass(MessageLog::class);
+        $models = array_keys(app(MetadataRegistry::class)->declaredModels(app(PackageRegistry::class)));
 
-        $this->assertTrue($reflection->isAbstract());
-        $this->assertSame([], $reflection->getAttributes(Declared::class));
+        $this->assertContains(MailLog::class, $models);
+        $this->assertNotContains(MessageLog::class, $models);
     }
 
 }

@@ -5,6 +5,7 @@ namespace Tests\Feature\Captcha;
 use MatrixPlatform\Captcha\CaptchaService;
 use MatrixPlatform\Captcha\ImageDriver;
 use MatrixPlatform\Captcha\NoneDriver;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\FeatureTestCase;
 
 class CaptchaServiceTest extends FeatureTestCase {
@@ -18,12 +19,19 @@ class CaptchaServiceTest extends FeatureTestCase {
         $this->assertInstanceOf(NoneDriver::class, $this->service()->driver('captcha-none'));
     }
 
-    public function test_a_provider_that_resolves_to_no_driver_is_refused_rather_than_disabling_the_captcha(): void {
-        $this->refuses('invalid-captcha-driver', fn () => $this->service()->driver('does-not-exist'));
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function providersWithoutADriver(): array {
+        return [
+            'unknown' => ['does-not-exist'],
+            'empty' => ['']
+        ];
     }
 
-    public function test_an_empty_provider_is_refused_rather_than_read_as_off(): void {
-        $this->refuses('invalid-captcha-driver', fn () => $this->service()->driver(''));
+    #[DataProvider('providersWithoutADriver')]
+    public function test_a_provider_that_resolves_to_no_driver_is_refused(string $provider): void {
+        $this->refuses('invalid-captcha-driver', fn () => $this->service()->driver($provider));
     }
 
     public function test_the_none_driver_issues_no_challenge_and_accepts_any_code(): void {

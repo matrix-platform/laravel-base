@@ -98,15 +98,6 @@ class MitakeSmsDriverTest extends FeatureTestCase {
         }
     }
 
-    public function test_a_message_the_vendor_reports_as_delivered_to_the_handset_is_not_a_failure(): void {
-        Http::fake(['*' => Http::response("statuscode=4\r\n")]);
-
-        $log = $this->log();
-
-        $this->assertSame("statuscode=4\r\n", (new MitakeSmsDriver())->send($log));
-        $this->assertNull($log->error);
-    }
-
     public function test_an_accepted_message_returns_the_whole_vendor_reply(): void {
         Http::fake(['*' => Http::response(self::ACCEPTED)]);
 

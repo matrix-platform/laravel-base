@@ -104,11 +104,12 @@ class DriveServiceTest extends FeatureTestCase {
         $this->assertSame(['shared'], $names);
     }
 
-    public function test_children_of_a_regular_folder_is_not_filtered_to_anchors(): void {
+    public function test_children_lists_the_folders_direct_children(): void {
         $service = $this->service();
         $owner = $this->user();
         $home = $service->home($owner);
-        $folder = $service->createFolder($home, 'drafts', $owner);
+
+        $service->createFolder($home, 'drafts', $owner);
 
         $names = $service
             ->children($home, $owner)
@@ -116,7 +117,6 @@ class DriveServiceTest extends FeatureTestCase {
             ->all();
 
         $this->assertSame(['drafts'], $names);
-        $this->assertSame($home->id, $folder->parent_id);
     }
 
     public function test_create_folder_rejects_a_colliding_name(): void {

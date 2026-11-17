@@ -13,8 +13,13 @@ class EncryptionControllerTest extends FeatureTestCase {
 
         $response = $this->postJson('encryption-key');
 
+        $client = ApiEncryption::generate();
+
         $response->assertJson(['success' => true, 'data' => ['kid' => $key->kid, 'public_key' => $key->public_key]]);
-        $this->assertNotSame('', ApiEncryption::derive(ApiEncryption::generate()['private'], strval($response->json('data.public_key'))));
+        $this->assertSame(
+            ApiEncryption::derive($key->private_key, $client['public']),
+            ApiEncryption::derive($client['private'], strval($response->json('data.public_key')))
+        );
     }
 
     public function test_the_endpoint_hands_out_the_new_key_right_after_a_rotation(): void {
@@ -29,18 +34,6 @@ class EncryptionControllerTest extends FeatureTestCase {
 
     public function test_the_endpoint_reports_a_missing_key_ring(): void {
         $this->postJson('encryption-key')->assertJson(['success' => false, 'error' => 'encryption-unavailable']);
-    }
-
-    public function test_the_endpoint_stays_readable_while_every_switch_is_on(): void {
-        config([
-            'matrix.admin-api-encryption' => true,
-            'matrix.api-encryption' => true,
-            'matrix.vendor-api-encryption' => true
-        ]);
-
-        EncryptionKey::issue();
-
-        $this->postJson('encryption-key')->assertJson(['success' => true]);
     }
 
 }

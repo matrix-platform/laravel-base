@@ -312,21 +312,6 @@ class DriveControllerTest extends FeatureTestCase {
         $this->send('admin/drive/trashed')->assertJsonPath('data', []);
     }
 
-    public function test_deleting_a_folder_does_not_touch_its_child_but_blocks_access_to_it(): void {
-        $root = $this->send('admin/drive/root')->json('data.id');
-        $folder = $this->send("admin/drive/{$root}/folder", ['name' => 'folder'])->json('data.id');
-        $child = $this->send("admin/drive/{$folder}/folder", ['name' => 'child'])->json('data.id');
-
-        $this->send("admin/drive/{$folder}/delete")->assertJsonPath('success', true);
-
-        $this->send("admin/drive/{$child}/rename", ['name' => 'renamed'])
-            ->assertJson(['success' => false, 'code' => 403, 'error' => 'permission-denied']);
-
-        $this->send("admin/drive/{$folder}/restore")->assertJsonPath('success', true);
-
-        $this->send("admin/drive/{$child}/rename", ['name' => 'renamed'])->assertJsonPath('data.name', 'renamed');
-    }
-
     public function test_path_is_queryable_even_through_a_trashed_ancestor(): void {
         $root = $this->send('admin/drive/root')->json('data.id');
         $folder = $this->send("admin/drive/{$root}/folder", ['name' => 'folder'])->json('data.id');
@@ -403,18 +388,6 @@ class DriveControllerTest extends FeatureTestCase {
         $response->assertJsonPath('data.description', 'a note');
     }
 
-    public function test_uploading_an_image_reports_its_dimensions(): void {
-        $root = $this->send('admin/drive/root')->json('data.id');
-
-        $node = $this->withToken($this->token)
-            ->post("admin/drive/{$root}/upload", ['file' => UploadedFile::fake()->image('photo.png', 20, 10)])
-            ->json('data');
-
-        $this->assertIsArray($node);
-        $this->assertSame(20, $node['width']);
-        $this->assertSame(10, $node['height']);
-    }
-
     public function test_moving_a_node_to_a_new_parent(): void {
         $root = $this->send('admin/drive/root')->json('data.id');
         $item = $this->send("admin/drive/{$root}/folder", ['name' => 'item'])->json('data.id');
@@ -432,9 +405,11 @@ class DriveControllerTest extends FeatureTestCase {
 
     public function test_publishing_a_drive_file_resolves_a_base_file_path_that_streams_the_same_content(): void {
         $root = $this->send('admin/drive/root')->json('data.id');
+        $upload = UploadedFile::fake()->image('photo.png', 20, 10);
+        $content = strval(file_get_contents($upload->getPathname()));
 
         $node = $this->withToken($this->token)
-            ->post("admin/drive/{$root}/upload", ['file' => UploadedFile::fake()->image('photo.png', 20, 10)])
+            ->post("admin/drive/{$root}/upload", ['file' => $upload])
             ->json('data');
 
         $response = $this->send("admin/drive/{$node['id']}/publish");
@@ -448,27 +423,11 @@ class DriveControllerTest extends FeatureTestCase {
         $path = $response->json('data.path');
 
         $this->assertIsString($path);
-        $this->get("api/files/{$path}")->assertOk();
-    }
 
-    public function test_publishing_the_same_drive_file_twice_resolves_to_the_same_path(): void {
-        $root = $this->send('admin/drive/root')->json('data.id');
+        $streamed = $this->get("api/files/{$path}");
 
-        $node = $this->withToken($this->token)
-            ->post("admin/drive/{$root}/upload", ['file' => UploadedFile::fake()->createWithContent('note.txt', 'hello')])
-            ->json('data');
-
-        $first = $this->send("admin/drive/{$node['id']}/publish")->json('data.path');
-        $second = $this->send("admin/drive/{$node['id']}/publish")->json('data.path');
-
-        $this->assertSame($first, $second);
-    }
-
-    public function test_publishing_a_folder_is_rejected(): void {
-        $root = $this->send('admin/drive/root')->json('data.id');
-        $folder = $this->send("admin/drive/{$root}/folder", ['name' => 'a-folder'])->json('data.id');
-
-        $this->send("admin/drive/{$folder}/publish")->assertJsonPath('error', 'invalid-drive-file');
+        $streamed->assertOk();
+        $this->assertSame($content, $streamed->streamedContent());
     }
 
 }

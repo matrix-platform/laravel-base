@@ -303,6 +303,29 @@ class PasskeyServiceTest extends FeatureTestCase {
         $this->assertSame(['PasskeyRegistered'], $this->logType($user));
     }
 
+    public function test_a_login_credential_that_cannot_be_parsed_is_rejected(): void {
+        $options = $this->service()->authenticationOptions();
+
+        $this->refusesField('credential', 'invalid-passkey', fn () => $this->service()->authenticate($options['challenge'], ['id' => 'garbage']));
+    }
+
+    public function test_a_registration_credential_that_cannot_be_parsed_is_rejected(): void {
+        $user = UserFactory::new()->createOne();
+        $options = $this->service()->registrationOptions($user);
+
+        $this->refusesField('credential', 'invalid-passkey', fn () => $this->service()->register($user, $options['challenge'], ['id' => 'garbage'], 'my device'));
+        $this->assertFalse(PasskeyCredential::query()->exists());
+    }
+
+    public function test_an_assertion_response_is_not_accepted_as_a_registration(): void {
+        $user = UserFactory::new()->createOne();
+        $options = $this->service()->registrationOptions($user);
+        $response = (new PasskeyAuthenticator())->assertionResponse(Base64UrlSafe::decodeNoPadding($options['challenge']), self::RP_ID, self::ORIGIN, (string) $user->id);
+
+        $this->refusesField('credential', 'invalid-passkey', fn () => $this->service()->register($user, $options['challenge'], $response, 'my device'));
+        $this->assertFalse(PasskeyCredential::query()->exists());
+    }
+
     public function test_a_registration_from_a_foreign_origin_is_rejected(): void {
         $user = UserFactory::new()->createOne();
         $options = $this->service()->registrationOptions($user);

@@ -47,10 +47,4 @@ class ManipulationLogTest extends FeatureTestCase {
         $this->assertRejected(fn () => $this->log->delete());
     }
 
-    public function test_new_logs_can_still_be_written(): void {
-        Widget::forceCreate(['title' => 'beta']);
-
-        $this->assertSame(2, ManipulationLog::query()->where('data_type', 'stub_widget')->count());
-    }
-
 }

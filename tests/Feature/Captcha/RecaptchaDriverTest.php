@@ -33,11 +33,13 @@ class RecaptchaDriverTest extends FeatureTestCase {
         $this->useCfg('captcha-recaptcha', ['secret' => 'test-secret']);
     }
 
-    public function test_a_token_scoring_above_the_threshold_logs_the_user_in(): void {
+    public function test_a_login_without_a_token_names_the_token_field(): void {
         $this->useRecaptcha();
-        $this->siteverify(['success' => true, 'action' => 'login', 'score' => 0.9]);
 
-        $this->assertArrayHasKey('token', $this->attempt());
+        $user = UserFactory::new()->createOne();
+        $response = $this->postJson('admin/auth/login', ['username' => $user->username, 'password' => 'secret-Passw0rd']);
+
+        $response->assertJson(['error' => 'validation-failed'])->assertJsonStructure(['fields' => ['token']]);
     }
 
     public function test_a_token_scoring_below_the_threshold_reports_the_code_field(): void {

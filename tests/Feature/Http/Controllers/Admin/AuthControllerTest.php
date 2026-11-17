@@ -5,6 +5,7 @@ namespace Tests\Feature\Http\Controllers\Admin;
 use Illuminate\Contracts\Hashing\Hasher;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
@@ -666,26 +667,24 @@ class AuthControllerTest extends FeatureTestCase {
         $this->assertSame(0, UserLog::query()->count());
     }
 
-    public function test_a_user_that_was_never_activated_cannot_log_in(): void {
-        $this->user(['enable_time' => null]);
-
-        $this->login()->assertJson(['error' => 'validation-failed']);
+    /**
+     * @return array<string, array{array<string, mixed>}>
+     */
+    public static function inactiveAccountProvider(): array {
+        return [
+            'never activated' => [['enable_time' => null]],
+            'activation still in the future' => [['enable_time' => Carbon::now()->addDay()]],
+            'disabled' => [['disabled' => true]],
+            'past its disable time' => [['disable_time' => Carbon::now()->subDay()]]
+        ];
     }
 
-    public function test_a_user_whose_activation_is_still_in_the_future_cannot_log_in(): void {
-        $this->user(['enable_time' => now()->addDay()]);
-
-        $this->login()->assertJson(['error' => 'validation-failed']);
-    }
-
-    public function test_a_disabled_user_cannot_log_in(): void {
-        $this->user(['disabled' => true]);
-
-        $this->login()->assertJson(['error' => 'validation-failed']);
-    }
-
-    public function test_a_user_past_its_disable_time_cannot_log_in(): void {
-        $this->user(['disable_time' => now()->subDay()]);
+    /**
+     * @param array<string, mixed> $attributes
+     */
+    #[DataProvider('inactiveAccountProvider')]
+    public function test_an_inactive_user_cannot_log_in(array $attributes): void {
+        $this->user($attributes);
 
         $this->login()->assertJson(['error' => 'validation-failed']);
     }

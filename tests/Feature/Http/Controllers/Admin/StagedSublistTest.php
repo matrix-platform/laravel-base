@@ -361,6 +361,12 @@ class StagedSublistTest extends FeatureTestCase {
         $this->admin('admin/widget/staged/things')->assertJson(['success' => false, 'error' => 'invalid-staged-child']);
     }
 
+    public function test_a_child_without_a_parent_relation_is_rejected(): void {
+        app(MetadataRegistry::class)->register(Trinket::class, new StubDeclaration(new Metadata('trinket', 'label')));
+
+        $this->admin('admin/widget/staged/trinkets')->assertJson(['success' => false, 'error' => 'invalid-staged-child']);
+    }
+
     public function test_a_key_matching_a_parent_field_is_rejected(): void {
         StagingWidgetController::$declared = ['secret' => 'widget/{widget_id}/trinket'];
 

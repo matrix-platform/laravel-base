@@ -61,13 +61,6 @@ class TurnstileDriverTest extends FeatureTestCase {
         $this->assertArrayHasKey('token', $this->attempt());
     }
 
-    public function test_a_verified_token_logs_the_user_in(): void {
-        $this->useTurnstile();
-        $this->siteverify(['success' => true, 'action' => 'login']);
-
-        $this->assertArrayHasKey('token', $this->attempt());
-    }
-
     public function test_an_unverified_token_reports_the_code_field(): void {
         $this->useTurnstile();
         $this->siteverify(['success' => false, 'error-codes' => ['invalid-input-response']]);

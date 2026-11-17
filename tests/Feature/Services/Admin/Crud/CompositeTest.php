@@ -7,6 +7,7 @@ use MatrixPlatform\Services\Admin\Crud\InsertService;
 use MatrixPlatform\Services\Admin\Crud\UpdateService;
 use Tests\Factories\PageFactory;
 use Tests\FeatureTestCase;
+use Tests\Stubs\TestNestedCompositeFields;
 
 class CompositeTest extends FeatureTestCase {
 
@@ -47,7 +48,7 @@ class CompositeTest extends FeatureTestCase {
         $this->assertSame(['seconds' => '99999999999'], $block->refresh()->data);
     }
 
-    public function test_the_form_after_the_rows_expands_the_target_row_only(): void {
+    public function test_each_row_expands_its_own_variant(): void {
         $gallery = $this->block('gallery', ['seconds' => 5]);
         $editor = $this->block('editor', ['content' => ['tw' => '甲', 'en' => 'A']]);
         $service = $this->updater();
@@ -63,17 +64,26 @@ class CompositeTest extends FeatureTestCase {
         $this->assertSame(['page_id', 'type', 'title', 'data__seconds'], array_column($form, 'name'));
     }
 
-    public function test_a_row_built_from_a_found_record_leaves_the_next_lookup_unexpanded(): void {
-        $editor = $this->block('editor', ['content' => ['tw' => '甲', 'en' => 'A']]);
-        $gallery = $this->block('gallery', ['seconds' => 5]);
-        $service = $this->updater();
+    public function test_a_readonly_composite_keeps_its_stored_data_on_update(): void {
+        $block = $this->block('editor', ['content' => ['tw' => 'kept', 'en' => 'kept']]);
 
-        $first = $service->row($service->find($editor->id));
-        $second = $service->row($service->find($gallery->id));
+        (new UpdateService(Block::class))
+            ->standalone(true)
+            ->columns(['*title', '!data'])
+            ->update($block->id, ['title' => 'b']);
 
-        $this->assertSame('甲', $first['data__content__tw']);
-        $this->assertSame(5, $second['data__seconds']);
-        $this->assertArrayNotHasKey('data__content__tw', $second);
+        $block->refresh();
+
+        $this->assertSame('b', $block->title);
+        $this->assertEquals(['content' => ['tw' => 'kept', 'en' => 'kept']], $block->data);
+    }
+
+    public function test_a_composite_inside_a_composite_is_refused(): void {
+        $this->useVariants(['block-data' => ['nested' => TestNestedCompositeFields::class]]);
+
+        $block = $this->block('nested', []);
+
+        $this->refuses('nested-composite-not-supported', fn () => $this->updater()->form($block->id, null));
     }
 
 }

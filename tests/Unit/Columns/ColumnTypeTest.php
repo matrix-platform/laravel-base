@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 
 class ColumnTypeTest extends TestCase {
 
-    public function test_the_rules_match_the_original_mapping(): void {
+    public function test_each_type_maps_to_its_validation_rule(): void {
         $this->assertSame('boolean', ColumnType::Boolean->rule());
         $this->assertSame('date', ColumnType::Date->rule());
         $this->assertSame('date', ColumnType::DateTime->rule());

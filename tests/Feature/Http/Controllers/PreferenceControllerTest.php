@@ -39,11 +39,8 @@ class PreferenceControllerTest extends FeatureTestCase {
         };
     }
 
-    public function test_reading_without_a_token_is_refused(): void {
+    public function test_reading_and_saving_without_a_token_are_refused(): void {
         $this->postJson('admin/user/preference/get')->assertJson(['success' => false, 'code' => 401, 'error' => 'invalid-token']);
-    }
-
-    public function test_saving_without_a_token_is_refused(): void {
         $this->postJson('admin/user/preference/save', ['data' => ['theme' => 'dark']])->assertJson(['success' => false, 'code' => 401, 'error' => 'invalid-token']);
     }
 

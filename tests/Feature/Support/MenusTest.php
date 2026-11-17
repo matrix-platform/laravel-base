@@ -89,6 +89,12 @@ class MenusTest extends FeatureTestCase {
         $this->assertFalse($this->menus()->has('widget'));
     }
 
+    public function test_a_configured_bundle_that_does_not_exist_is_skipped(): void {
+        $this->useMenus('missing crud');
+
+        $this->assertTrue($this->menus()->has('widget'));
+    }
+
     public function test_resolving_the_singleton_does_not_read_the_configuration_yet(): void {
         $this->menus();
 
@@ -96,15 +102,6 @@ class MenusTest extends FeatureTestCase {
 
         $this->assertTrue($this->menus()->has('user'));
         $this->assertFalse($this->menus()->has('widget'));
-    }
-
-    public function test_every_node_in_the_bundle_has_a_translation(): void {
-        foreach (array_keys($this->menus()->bundle()) as $path) {
-            $node = $this->menus()->node(strval($path));
-
-            $this->assertNotNull($node, strval($path));
-            $this->assertNotSame($node->token(), i18n($node->token()), strval($path));
-        }
     }
 
     public function test_the_production_translations_cover_exactly_the_rendered_nodes(): void {

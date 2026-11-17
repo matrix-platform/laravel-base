@@ -13,6 +13,7 @@ use MatrixPlatform\Services\Admin\Crud\GetService;
 use MatrixPlatform\Services\Admin\Crud\ImportService;
 use MatrixPlatform\Services\Admin\Crud\InsertService;
 use MatrixPlatform\Services\Admin\Crud\ListService;
+use MatrixPlatform\Services\Admin\Crud\SortService;
 use MatrixPlatform\Services\Admin\Crud\UpdateService;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
@@ -177,6 +178,7 @@ class GuardTest extends FeatureTestCase {
         $this->assertSame(['title'], array_column($updater->form($widget->id, null), 'name'));
         $this->assertSame(['title'], array_column((new InsertService(Widget::class))->standalone(true)->columns(['title'])->guard($this->refuse(...))->form(null), 'name'));
         $this->assertCount(1, (new ArrangeService(Widget::class))->standalone(true)->guard($this->refuse(...))->items()['rows']);
+        $this->assertCount(1, (new SortService(Widget::class))->standalone(true)->guard($this->refuse(...))->items()['rows']);
     }
 
     public function test_an_arrange_guards_each_record_after_applying_the_schedule_and_before_saving_it(): void {

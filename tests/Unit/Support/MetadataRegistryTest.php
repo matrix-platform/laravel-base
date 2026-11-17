@@ -13,12 +13,11 @@ use Tests\Stubs\Widget;
 
 class MetadataRegistryTest extends TestCase {
 
-    public function test_an_undeclared_model_has_no_metadata(): void {
-        $this->assertNull((new MetadataRegistry())->of(Widget::class));
-    }
+    public function test_an_undeclared_model_has_no_metadata_or_definitions(): void {
+        $registry = new MetadataRegistry();
 
-    public function test_an_undeclared_model_has_no_definitions(): void {
-        $this->assertNull((new MetadataRegistry())->definitions(Widget::class));
+        $this->assertNull($registry->of(Widget::class));
+        $this->assertNull($registry->definitions(Widget::class));
     }
 
     public function test_an_unknown_class_has_no_metadata(): void {

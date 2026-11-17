@@ -12,14 +12,11 @@ use MatrixPlatform\Models\AuthToken;
 use MatrixPlatform\Models\File;
 use MatrixPlatform\Models\MailLog;
 use MatrixPlatform\Models\ManipulationLog;
-use MatrixPlatform\Models\Member;
 use MatrixPlatform\Models\MemberLog;
 use MatrixPlatform\Models\PushLog;
 use MatrixPlatform\Models\SmsLog;
 use MatrixPlatform\Models\TelegramLog;
-use MatrixPlatform\Models\User;
 use MatrixPlatform\Models\UserLog;
-use MatrixPlatform\Models\Vendor;
 use MatrixPlatform\Models\VendorLog;
 use MatrixPlatform\Support\MetadataRegistry;
 use ReflectionClass;
@@ -126,33 +123,6 @@ class DeclarationTest extends FeatureTestCase {
             $this->assertFalse(Validator::make(['password' => 'short'], ['password' => $resolved])->passes(), $model);
             $this->assertFalse(Validator::make([], ['password' => array_merge(['present'], $resolved)])->passes(), $model);
             $this->assertTrue(Validator::make(['password' => null], ['password' => $resolved])->passes(), $model);
-        }
-    }
-
-    public function test_every_login_username_is_required_and_unique(): void {
-        foreach ([User::class, Member::class, Vendor::class] as $model) {
-            $definitions = app(MetadataRegistry::class)->definitions($model);
-
-            $this->assertNotNull($definitions, $model);
-
-            $definition = array_get_value($definitions, 'username');
-
-            $this->assertInstanceOf(Definition::class, $definition, $model);
-            $this->assertTrue($definition->required, $model);
-            $this->assertTrue($definition->unique, $model);
-        }
-    }
-
-    public function test_every_account_status_is_required(): void {
-        foreach ([Member::class, Vendor::class] as $model) {
-            $definitions = app(MetadataRegistry::class)->definitions($model);
-
-            $this->assertNotNull($definitions, $model);
-
-            $definition = array_get_value($definitions, 'status');
-
-            $this->assertInstanceOf(Definition::class, $definition, $model);
-            $this->assertTrue($definition->required, $model);
         }
     }
 

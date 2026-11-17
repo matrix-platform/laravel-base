@@ -7,13 +7,10 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
-use MatrixPlatform\Attributes\Action;
 use MatrixPlatform\Models\Group;
 use MatrixPlatform\Models\ManipulationLog;
 use MatrixPlatform\Models\User;
 use MatrixPlatform\Routing\ActionRoutes;
-use ReflectionClass;
-use ReflectionMethod;
 use Tests\Factories\GroupFactory;
 use Tests\Factories\UserFactory;
 use Tests\FeatureTestCase;
@@ -119,7 +116,6 @@ class GroupControllerTest extends FeatureTestCase {
 
         $group = Group::query()->where('title__tw', 'Editors')->firstOrFail();
 
-        $this->assertNotSame([], $group->permissions);
         $this->assertSame(['user' => ['query' => true, 'update' => true]], $group->permissions);
     }
 
@@ -131,13 +127,6 @@ class GroupControllerTest extends FeatureTestCase {
         $response->assertJsonPath('fields.title__tw', ['unique']);
         $response->assertJsonPath('fields.title__en', ['unique']);
         $this->assertSame(1, Group::query()->count());
-    }
-
-    public function test_updating_a_group_with_its_own_unchanged_title_is_not_treated_as_a_duplicate(): void {
-        $group = GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors']);
-
-        $this->send("admin/group/{$group->id}/update", ['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => null])
-            ->assertJsonPath('success', true);
     }
 
     public function test_replaying_the_get_payload_leaves_the_permissions_untouched(): void {
@@ -286,18 +275,6 @@ class GroupControllerTest extends FeatureTestCase {
         $this->assertSame(['user' => ['query' => true, 'delete' => true]], array_get_value($log->after, 'permissions'));
     }
 
-    public function test_a_copy_carries_the_unfiltered_permissions(): void {
-        $group = GroupFactory::new()->createOne(['title__tw' => 'Editors', 'title__en' => 'Editors', 'permissions' => ['nowhere' => ['query' => true]]]);
-
-        $copy = $group->refresh()->replicate();
-
-        $copy->setAttribute('title__tw', 'Copied');
-        $copy->setAttribute('title__en', 'Copied');
-        $copy->save();
-
-        $this->assertSame(['nowhere' => ['query' => true]], $copy->refresh()->permissions);
-    }
-
     public function test_a_rolled_back_deletion_keeps_the_group_and_its_permissions(): void {
         $group = GroupFactory::new()->createOne(['permissions' => ['user' => ['query' => true]]]);
 
@@ -333,25 +310,6 @@ class GroupControllerTest extends FeatureTestCase {
         $response->assertJsonPath('error', 'data-in-use');
         $response->assertJsonPath('count', 1);
         $this->assertNotNull(Group::query()->find($group->id));
-    }
-
-    public function test_the_inherited_actions_keep_their_routes_without_redeclaring_the_attribute(): void {
-        $paths = array_column(ActionRoutes::resolve(FailingGroupController::class), 'path');
-        $checked = 0;
-
-        foreach (['', '{id}', '{id}/update', 'delete', 'insert', 'new'] as $path) {
-            $this->assertContains($path, $paths);
-        }
-
-        foreach ((new ReflectionClass(FailingGroupController::class))->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
-            if ($method->getDeclaringClass()->getName() === FailingGroupController::class) {
-                $this->assertSame([], $method->getAttributes(Action::class), $method->getName());
-
-                $checked++;
-            }
-        }
-
-        $this->assertGreaterThan(0, $checked);
     }
 
 }

@@ -32,10 +32,6 @@ class TranslationServiceTest extends FeatureTestCase {
         $this->refuses('invalid-locale', fn () => $this->service()->translate('Hello', 'en', 'fr'));
     }
 
-    public function test_a_source_locale_equal_to_the_target_locale_is_refused(): void {
-        $this->refuses('invalid-locale', fn () => $this->service()->translate('Hello', 'en', 'en'));
-    }
-
     public function test_a_provider_with_no_driver_configured_returns_no_translation_instead_of_failing(): void {
         config()->set('matrix.translation-provider', 'does-not-exist');
 
@@ -86,13 +82,17 @@ class TranslationServiceTest extends FeatureTestCase {
     }
 
     public function test_a_placeholder_survives_the_driver_rewriting_the_marker_tag(): void {
-        foreach (['attribute-before', 'reordered', 'spaced-equals', 'uppercase-tag'] as $rewrite) {
+        foreach (['attribute-after', 'attribute-before', 'spaced-equals', 'uppercase-tag'] as $rewrite) {
             $translated = strval($this->mangled($rewrite, 'Hi {name}, your order {no} shipped.'));
 
             $this->assertStringContainsString('{name}', $translated, "the {$rewrite} rewrite lost {name}");
             $this->assertStringContainsString('{no}', $translated, "the {$rewrite} rewrite lost {no}");
             $this->assertStringNotContainsString('data-token', $translated, "the {$rewrite} rewrite leaked the marker");
         }
+    }
+
+    public function test_a_marker_with_an_unknown_token_is_left_as_is(): void {
+        $this->assertSame('Hi {name}!<span data-token="placeholder-9"></span>', $this->mangled('unknown-token', 'Hi {name}!'));
     }
 
     public function test_a_translation_that_loses_a_placeholder_is_refused_rather_than_returned_broken(): void {

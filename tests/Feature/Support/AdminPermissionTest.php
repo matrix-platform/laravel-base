@@ -156,6 +156,16 @@ class AdminPermissionTest extends FeatureTestCase {
         }
     }
 
+    public function test_a_node_without_a_tag_or_a_parent_is_out_of_reach_for_a_regular_user(): void {
+        $this->grantUser(self::REGULAR, ['user' => ['query' => true]]);
+
+        $permission = $this->permission(self::REGULAR);
+
+        $this->assertTrue($permission->reaches('user'));
+        $this->assertFalse($permission->reaches('authority'));
+        $this->assertFalse($permission->reaches('system'));
+    }
+
     public function test_a_system_tagged_node_is_reserved_for_root(): void {
         $this->route('admin/console');
 

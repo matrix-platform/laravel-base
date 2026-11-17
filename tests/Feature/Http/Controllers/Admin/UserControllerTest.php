@@ -380,12 +380,15 @@ class UserControllerTest extends FeatureTestCase {
 
         $this->send($token, "admin/user/{$id}/update", $this->form([
             'username' => 'granted',
+            'enable_time' => now()->subMinute()->format('Y-m-d H:i:s'),
             'permissions' => ['user' => ['query' => true], 'nowhere' => ['query' => true]]
         ]))->assertJsonPath('success', true);
 
         $this->assertSame(['user' => ['query' => true]], User::query()->findOrFail($id)->permissions);
 
         $this->send($token, "admin/user/{$id}")->assertJsonPath('data.data.permissions.user.query', true);
+
+        $this->send(User::query()->findOrFail($id)->createToken(), 'admin/user')->assertJsonPath('success', true);
     }
 
     public function test_a_regular_user_without_a_grant_is_denied(): void {
@@ -475,24 +478,10 @@ class UserControllerTest extends FeatureTestCase {
         $this->send($token, 'admin/user/600')->assertJsonPath('data.data.username', 'peer-admin');
     }
 
-    public function test_the_account_resource_offers_no_copy_export_or_sort(): void {
-        $token = $this->signIn(User::ROOT);
-
-        foreach (['admin/user/1/copy', 'admin/user/export', 'admin/user/sort', 'admin/user/sort/save'] as $uri) {
-            $this->send($token, $uri)->assertJsonPath('error', 'endpoint-not-found');
+    public function test_the_shipped_menu_registers_no_user_copy_export_or_sort_and_no_group_export(): void {
+        foreach (['admin/user/1/copy', 'admin/user/export', 'admin/user/sort', 'admin/user/sort/save', 'admin/group/export'] as $uri) {
+            $this->postJson($uri)->assertJsonPath('error', 'endpoint-not-found');
         }
-    }
-
-    public function test_the_shipped_menu_keeps_user_and_group_export_closed_even_to_a_granted_regular_user(): void {
-        $token = $this->signIn(self::REGULAR, ['user' => ['query' => true, 'export' => true], 'group' => ['query' => true, 'export' => true]]);
-
-        foreach (['admin/user/export', 'admin/group/export'] as $uri) {
-            $this->send($token, $uri)->assertJsonPath('error', 'endpoint-not-found');
-        }
-    }
-
-    public function test_the_shipped_menu_keeps_group_export_closed_to_root(): void {
-        $this->send($this->signIn(User::ROOT), 'admin/group/export')->assertJsonPath('error', 'endpoint-not-found');
     }
 
     public function test_an_admin_disables_mfa_for_an_account(): void {

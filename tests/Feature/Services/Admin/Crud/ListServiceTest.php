@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use MatrixPlatform\Columns\Declarations\Definition;
 use MatrixPlatform\Columns\Declarations\Definitions;
 use MatrixPlatform\Services\Admin\Crud\ListService;
+use MatrixPlatform\Services\Admin\Crud\Operation;
 use MatrixPlatform\Support\Metadata;
 use MatrixPlatform\Support\MetadataRegistry;
 use Tests\Factories\UserFactory;
@@ -99,7 +100,7 @@ class ListServiceTest extends FeatureTestCase {
         $this->assertContains('edit', array_column($result['actions']['row'], 'type'));
     }
 
-    public function test_a_non_arrangeable_model_has_no_enabled_state_or_arrange_feature(): void {
+    public function test_a_non_arrangeable_model_has_no_enabled_state_arrange_feature_or_filter(): void {
         app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget'), ['title' => Definition::text()]));
 
         $this->widget('Alpha');
@@ -111,6 +112,7 @@ class ListServiceTest extends FeatureTestCase {
 
         $this->assertArrayNotHasKey('enabled', $result['rows'][0]);
         $this->assertSame([], $result['features']);
+        $this->assertSame([], $result['filters']);
     }
 
     public function test_selects_adds_extra_fields_that_are_returned_in_rows(): void {
@@ -197,17 +199,6 @@ class ListServiceTest extends FeatureTestCase {
         $this->assertSame(['enabled', 'disabling', 'disabled', 'enabling', 'expired'], array_column($filter['options'], 'id'));
         $this->assertSame(['Enabled', 'Ending Soon', 'Not Enabled', 'Upcoming', 'Ended'], array_column($filter['options'], 'title'));
         $this->assertSame(['title'], array_column($result['columns'], 'name'));
-    }
-
-    public function test_a_non_arrangeable_model_offers_no_filter(): void {
-        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget'), ['title' => Definition::text()]));
-
-        $result = (new ListService(Widget::class))
-            ->standalone(true)
-            ->columns(['title'])
-            ->list([]);
-
-        $this->assertSame([], $result['filters']);
     }
 
     public function test_the_schedule_filter_narrows_the_rows_before_counting(): void {
@@ -451,23 +442,6 @@ class ListServiceTest extends FeatureTestCase {
         $this->assertSame(['title', 'payload'], array_column($result['columns'], 'name'));
     }
 
-    public function test_a_joined_list_column_replaces_its_foreign_key(): void {
-        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
-        app(MetadataRegistry::class)->register(Gadget::class, new StubDeclaration(new Metadata('gadget'), [
-            'title' => Definition::text(),
-            'widget_id' => Definition::integer()
-        ]));
-
-        $result = (new ListService(Gadget::class))
-            ->standalone(true)
-            ->columns(['title', 'widget.title'])
-            ->optionals(['widget_id', 'title'])
-            ->list([]);
-
-        $this->assertSame(['title', 'widget_title'], array_column($result['columns'], 'name'));
-        $this->assertSame([null, 'widget_id'], array_column($result['columns'], 'replaces'));
-    }
-
     public function test_the_first_joined_list_column_of_a_relation_replaces_its_foreign_key(): void {
         $this->gadgets();
 
@@ -594,6 +568,23 @@ class ListServiceTest extends FeatureTestCase {
         $this->assertSame(['widget/{widget_id}/trinket/arrange'], array_column($mounted['actions']['page'], 'url'));
         $this->assertSame(['widget/{widget_id}/trinket/{id}'], array_column($mounted['actions']['row'], 'url'));
         $this->assertSame(['edit'], $mounted['rows'][0]['actions']);
+    }
+
+    public function test_a_given_log_action_is_not_appended_again(): void {
+        $this->useMenuFixtures('crud');
+
+        app(MetadataRegistry::class)->register(Widget::class, new StubDeclaration(new Metadata('widget')));
+
+        $this->widget('Alpha');
+
+        $actions = fn (string|Operation $log): mixed => (new ListService(Widget::class))
+            ->standalone(true)
+            ->columns(['title'])
+            ->rowActions([$log, 'edit'])
+            ->list([])['rows'][0]['actions'];
+
+        $this->assertSame(['log', 'edit'], $actions('log'));
+        $this->assertSame(['log', 'edit'], $actions(new Operation('log')));
     }
 
     public function test_without_optionals_every_column_is_a_default(): void {

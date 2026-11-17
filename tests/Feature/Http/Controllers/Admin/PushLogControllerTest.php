@@ -64,6 +64,8 @@ class PushLogControllerTest extends FeatureTestCase {
     public function test_resend_copies_the_log_and_queues_it(): void {
         $log = $this->schedule();
 
+        Queue::fake();
+
         $resentId = $this->send("admin/push-log/{$log->id}/resend")->json('data.id');
 
         $this->assertNotSame($log->id, $resentId);

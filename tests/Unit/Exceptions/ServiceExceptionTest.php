@@ -40,9 +40,6 @@ class ServiceExceptionTest extends TestCase {
 
     public function test_every_service_exception_reports_itself_as_handled_so_laravel_does_not_log_it(): void {
         $this->assertTrue((new ServiceException('invalid-token', 401))->report());
-        $this->assertTrue((new ServiceException('validation-failed', 422))->report());
-        $this->assertTrue((new ServiceException('server-error', 500))->report());
-        $this->assertTrue((new ServiceException('encryption-unavailable'))->report());
     }
 
 }

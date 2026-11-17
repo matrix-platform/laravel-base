@@ -91,24 +91,10 @@ class PermissionTreeTest extends FeatureTestCase {
         $this->assertSame(['query'], $this->ids($this->pick($section->children, 'group')->children));
     }
 
-    public function test_a_node_without_a_ranking_still_contributes_its_tag(): void {
-        $section = $this->pick($this->tree('authority'), 'authority');
-        $node = app(Menus::class)->node('user/delete');
-
-        $this->assertNotNull($node);
-        $this->assertNull($node->ranking);
-        $this->assertContains('delete', $this->ids($this->pick($section->children, 'user')->children));
-    }
-
-    public function test_a_resource_tagged_outside_the_whitelist_offers_no_actions(): void {
+    public function test_a_resource_tagged_outside_the_whitelist_or_root_only_offers_no_actions(): void {
         $section = $this->pick($this->tree('authority'), 'system');
 
         $this->assertSame([], $this->pick($section->children, 'report')->children);
-    }
-
-    public function test_a_root_only_resource_offers_no_actions(): void {
-        $section = $this->pick($this->tree('authority'), 'system');
-
         $this->assertSame([], $this->pick($section->children, 'console')->children);
     }
 
@@ -123,6 +109,12 @@ class PermissionTreeTest extends FeatureTestCase {
 
         $this->assertSame(['query', 'delete', 'insert', 'update', 'widget/{widget_id}/trinket'], $this->ids($widget->children));
         $this->assertSame(['query', 'delete', 'insert', 'update'], $this->ids($this->pick($widget->children, 'widget/{widget_id}/trinket')->children));
+    }
+
+    public function test_a_nested_resource_granted_to_everyone_is_left_out_of_its_owner(): void {
+        $widget = $this->pick($this->pick($this->tree('everyone'), '')->children, 'widget');
+
+        $this->assertSame(['query'], $this->ids($widget->children));
     }
 
     public function test_a_resource_without_a_section_ancestor_lands_in_the_empty_section(): void {
