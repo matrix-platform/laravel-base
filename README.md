@@ -7,9 +7,9 @@ class WidgetController extends CrudController {
 
     protected string $model = Widget::class;
 
-    protected array $lists = ['id', 'title', 'status:select', 'category.title=category_title', 'create_time'];
+    protected ?array $lists = ['id', 'title', 'status:select', 'category_title=category.title', 'create_time'];
 
-    protected array $forms = ['title', 'status:select', 'category_id:select', 'content:text'];
+    protected array $updates = ['title', 'status:select', 'category_id:select', 'content:text'];
 
 }
 ```
@@ -94,20 +94,38 @@ composer require matrix-platform/laravel-base
 
 use MatrixPlatform\Models\MailLog;
 use MatrixPlatform\Models\Member;
+use MatrixPlatform\Models\PushLog;
 use MatrixPlatform\Models\SmsLog;
+use MatrixPlatform\Models\TelegramLog;
 use MatrixPlatform\Models\Vendor;
 
 return [
 
+    'admin-api-encryption' => true,
+
     'admin-api-prefix' => 'admin',
+
+    'admin-captcha-provider' => 'captcha-none',
 
     'admin-menus' => 'base',
 
+    'api-encryption' => false,
+
     'api-prefix' => 'api',
+
+    'date-format' => 'Y-m-d',
+
+    'datetime-format' => 'Y-m-d H:i:s',
+
+    'directory-permission' => null,
+
+    'drive-disk' => 'local',
 
     'file-private-disk' => 'local',
 
     'file-public-disk' => 'public',
+
+    'geolocation-provider' => 'ip2location-bin',
 
     'locales' => 'tw en',
 
@@ -116,11 +134,23 @@ return [
     'messaging' => [
         'channels' => [
             'mail' => ['model' => MailLog::class, 'queue' => 'messaging-mail'],
+            'push' => ['model' => PushLog::class, 'queue' => 'messaging-push'],
             'sms' => ['model' => SmsLog::class, 'queue' => 'messaging-sms'],
+            'telegram' => ['model' => TelegramLog::class, 'queue' => 'messaging-telegram'],
         ],
     ],
 
     'packages' => 'app base',
+
+    'passkey-rp-id' => null,
+
+    'public-cfg' => [],
+
+    'public-i18n' => [],
+
+    'resource-cache-enabled' => false,
+
+    'resource-cache-store' => null,
 
     'resource-cfg' => [],
 
@@ -134,7 +164,26 @@ return [
 
     'resource-i18n-template' => [],
 
+    'resource-locales' => [],
+
+    'thumbnail-quality' => 80,
+
+    'thumbnail-sizes' => [
+        'icon' => 64,
+        'thumb' => 256,
+    ],
+
+    'translation-provider' => 'google-translate',
+
+    'variants' => [],
+
+    'vendor-api-encryption' => true,
+
+    'vendor-api-prefix' => 'vendor',
+
     'vendor-model' => Vendor::class,
+
+    'webpush-hosts' => ['fcm.googleapis.com', '*.push.services.mozilla.com', 'web.push.apple.com', '*.notify.windows.com'],
 
 ];
 ```
@@ -149,7 +198,7 @@ php artisan migrate
 
 套件的 migration 檔名是 `0001_` 到 `0008_`,字串排序落在 Laravel 內建的 `0001_01_01_*` 之後、你自己的日期式 migration 之前。**你自己的表如果要用套件的主鍵慣例,順序不能反過來** —— `0001_foundation` 建立 `base_id` 與 `base_ranking` 兩個 sequence,你的 migration 必須排在它後面。
 
-**驗證:** `base_user`、`base_group`、`base_auth_token` 等 17 張表存在。
+**驗證:** `base_user`、`base_group`、`base_auth_token` 等 27 張表與 `base_operator` 檢視表存在。
 
 ### 5. 跑 seeder
 
@@ -176,7 +225,7 @@ php artisan matrix:passwd root@matrix
 
 指令會問兩次密碼。密碼規則來自 `cfg('admin.password-pattern')`,出貨值是「至少 8 碼、含英文與數字」。同一規則也套用在登入後自行改密碼與後台使用者表單的非空密碼;重設成功會撤銷該帳號所有既有 session。
 
-**這是建立管理員的唯一官方入口。** 後台介面建出來的帳號一律是一般使用者 —— 因為 id 來自從 10000000 起跳的共用 sequence,而管理員等級是由 id 區間決定的。
+**這支指令只重設既有帳號的密碼,不會建帳號** —— 帳號不存在時直接失敗。管理員帳號要用 seeder 或手動指定 id 建立;後台介面建出來的帳號一律是一般使用者 —— 因為 id 來自從 10000000 起跳的共用 sequence,而管理員等級是由 id 區間決定的。
 
 **驗證:** 下一步能登入。
 
@@ -191,6 +240,8 @@ php artisan matrix:rotate-encryption-key
 `matrix.admin-api-encryption` 與 `matrix.vendor-api-encryption` 出貨是**開的**,金鑰圈空著的時候 `encryption-key` 只會回 `encryption-unavailable`,整個後台開不起來。
 
 **然後下面這兩個 curl 還是會失敗**——加密開著的時候明文請求一律回 `invalid-envelope`,`auth/captcha` 與 `auth/login` 沒有宣告 `#[Action(encrypted: false)]`。要用 curl 驗證,先在你的 `config/matrix.php` 把 `'admin-api-encryption' => false` 關掉;要驗證加密路徑,用瀏覽器端(前端 `initConfig` 的 `encryption` 也是預設開的),或照[給前端](#傳輸加密)那節的線路格式自己組信封。
+
+下面的範例假設 `matrix.admin-captcha-provider` 設成 `captcha-image`。出貨值 `captcha-none` 時,`auth/captcha` 回 `{"success":true,"data":null}`,登入也不需要 `token` 與 `code`。
 
 ```bash
 # 1. 取驗證碼(匿名)
@@ -242,7 +293,7 @@ worker 會睡掉供應商的 `interval` 來節流,所以 `--timeout` 與 connect
 
 這不是風格偏好:客戶端的防火牆會擋掉非 200 的回應。`error` 欄位就是 i18n key,`message` 是後端已經翻好的字串 —— 前端可以直接顯示 `message`,也可以拿 `error` 自己對照。**例外是兩個檔案串流的 GET 端點:`GET api/files/{path}` 與 `GET admin/drive/{id}/download`**——它們要直接當 `<img src>`、下載連結或瀏覽器重定向目標用,錯誤時回真正的 HTTP 狀態碼(狀態碼就是 `error()` 的數字代碼,body 為空),不走信封(見「端點」表)。
 
-**信封的範圍是套件的兩個路由前綴。** `admin/` 與 `api/` 底下打不到的路徑、用錯方法的請求,都會回信封格式的 404,**`GET api/files/{path}` 與 `GET admin/drive/{id}/download` 除外**——它們是刻意不信封化的檔案串流端點。**這兩個前綴之外的請求不受影響** —— 你自己的網頁 404 還是 Laravel 原本的樣子。
+**信封的範圍是套件的三個路由前綴。** `admin/`、`api/` 與 `vendor/` 底下打不到的路徑、用錯方法的請求,都會回信封格式的 404,**`GET api/files/{path}` 與 `GET admin/drive/{id}/download` 除外**——它們是刻意不信封化的檔案串流端點。**這三個前綴之外的請求不受影響** —— 你自己的網頁 404 還是 Laravel 原本的樣子。
 
 代價要知道:因為兜底路由吃下所有方法,**「方法用錯」不再回 405,而是回 404 信封**。前端分不出「網址拼錯」與「方法用錯」。
 
@@ -254,7 +305,7 @@ worker 會睡掉供應商的 `interval` 來節流,所以 `--timeout` 與 connect
 
 | 別名 | 作用 |
 |---|---|
-| `encrypted-api` | 解開/封回加密信封,只作用在 `admin` 前綴。**必須掛在 `envelope-api` 之前**,否則錯誤信封不會被加密 |
+| `encrypted-api` | 解開/封回加密信封,作用在 `admin`、`api`、`vendor` 三組前綴,各自由 `matrix.admin-api-encryption`、`matrix.api-encryption`、`matrix.vendor-api-encryption` 開關。**必須掛在 `envelope-api` 之前**,否則錯誤信封不會被加密 |
 | `envelope-api` | 把例外收斂成信封。**必須掛在 `encrypted-api` 以外的最外層** |
 | `locale-api` | 讀 `Matrix-Locale` header 決定語系。**放在最外層**(`encrypted-api` 之前),信封解不開時的錯誤訊息才會跟著語系走 |
 | `user-api` | 後台身分,解析 token,失敗回 401 `invalid-token` |
@@ -462,7 +513,7 @@ translatable 的子欄位就是一個 `translatable: true` 的普通 column,前�
 
 - `{欄位名}__` 是**保留前綴**。真的有一個叫 `data__layout` 的實體欄位就會撞,引擎不會警告。
 - 子欄位的標題查 `resources/i18n/{locale}/model/{group}.php`(不是 `model/{資料表}.php`),`{子欄位名}:placeholder` / `:hint` / `:remark` 同一份。**同一個 group 的所有 type 共用這一份**,所以同名的子欄位會拿到同一個標題;要讓某個 type 的子欄位有自己的說法,再放一份 `model/{group}-{type}.php`,它**逐 key 覆蓋**共用那份(跟 `model/default.php` 與 `model/{資料表}.php` 的關係一樣),沒寫到的 key 落回共用層,檔案不存在就只剩共用層。
-- 子欄位可以宣告 `section`、`group`、`required`、`rule`、`options`、`presentation`,全部照一般欄位生效。
+- 子欄位可以宣告 `section`、`required`、`rule`、`options`、`presentation`,全部照一般欄位生效。
 - **清單與匯出不展開**,composite 只在表單情境有意義。
 
 **這個欄位不需要對應到任何真實的 DB 欄位存 type 值**——`TypeResolver::resolve()` 要依據什麼判斷(另一個欄位的值、目前操作者、資料庫查詢……)完全是你的邏輯,引擎只在需要知道「這次要用哪個 variant」的當下呼叫它。**沒有設定 `driver`、或算出來的 type 沒有對應的 `Variant` 時,這個欄位一個 column 都不會出現**,送出時也不驗證、不寫入,原值保留。只支援一層,子欄位不能再是 `Definition::composite()`。
@@ -545,7 +596,7 @@ class WidgetController extends CrudController {
 
     protected string $model = Widget::class;
 
-    protected ?array $lists = ['title', 'category.title=category_title', 'enable_time'];
+    protected ?array $lists = ['title', 'category_title=category.title', 'enable_time'];
 
     protected array $updates = ['*title', 'category_id:select', 'enable_time', 'disable_time'];
 
@@ -566,7 +617,7 @@ closure 拿到的 `$filter` 是前端送來的條件,`op` 已確認在宣告的 
 
 **鎖定(`=`)是「可寫但不可編輯」。** 值在表單開啟之前就決定了(例如區塊的型別由型別選擇器決定),所以它照樣驗證、照樣寫入,但 `columns[]` 上的 `writable` 是 `false`,前端據此把輸入框停用。`readonly`(`!`)是另一回事:不驗證、不寫入。鎖定同時隱含必填 —— 值既然是先決定好的,就不該是空的;要「鎖定但可為空」請用陣列語法 `['name' => 'x', 'locked' => true]`。
 
-**清單回傳的是「欄位池」,`$lists` 只決定預設顯示哪些。** 欄位池 = 清單欄位(`$lists`,沒設就照 `listing()` 的退回規則)加上編輯欄位(`$updates` 或自動推導):清單欄位依 `$lists` 的順序排在前面,其餘編輯欄位依編輯欄位的順序接在後面;同名欄位用清單欄位的定義。清單欄位裡若有經由 `belongsTo` 關聯取值的欄位(例如 `category_title=category.title`),它會取代編輯欄位中該關聯的外鍵(`category_id`),外鍵不再另外進欄位池(同一個關聯有多個清單欄位時,由第一個取代),`columns[]` 上的 `replaces` 標出被取代的外鍵名稱(其餘欄位為 `null`),前端排列表單時用它把清單欄位對應回表單的外鍵欄位。只在編輯欄位裡、清單畫不出來的欄位不進欄位池:Composite、Password、Hidden、自訂呈現、虛擬(`+`;明寫了非 null `op` 的虛擬欄位除外,那是專供篩選的欄位,例如 `['name' => '+receipt_time', 'type' => 'datetime', 'op' => 'between']`,會進欄位池成為搜尋條件,值由 guard 填、篩選用 `filters()` 掛處理方式,沒掛的話這個條件會被略過)、model `$hidden` 裡的欄位、有設定區塊(`section`)的欄位、沒宣告呈現方式也沒有選項的 JSON,以及巢狀資源的父層外鍵(例如 `faq-category/{category_id}/items` 的 `category_id`:巢狀清單裡它永遠是目前的父層,`$updates` 明列它並在 controller 開 `$movable`(見[已知限制與取捨](#已知限制與取捨))只為了讓編輯表單能搬移父層,每列資料仍照常帶這個外鍵);清單欄位本身一律保留。`columns[]` 上的 `default` 標出哪些屬於清單欄位,使用者沒有 preference 時前端只顯示這些;欄位池裡的欄位能不能篩選、排序,依各欄位的 `op` 與 `sortable`。後端不解讀 preference,每次都 select 整個欄位池。編輯頁(`get`)與新增頁(`new`)的回應也帶同一份 `preference`(`column:{key}`,沒登入身分或沒設定時為 `null`),前端據此排列表單欄位的順序。
+**清單回傳的是「欄位池」,`$lists` 只決定預設顯示哪些。** 欄位池 = 清單欄位(`$lists`,沒設就照 `listing()` 的退回規則)加上編輯欄位(`$updates` 或自動推導):清單欄位依 `$lists` 的順序排在前面,其餘編輯欄位依編輯欄位的順序接在後面;同名欄位用清單欄位的定義。清單欄位裡若有經由 `belongsTo` 關聯取值的欄位(例如 `category_title=category.title`),它會取代編輯欄位中該關聯的外鍵(`category_id`),外鍵不再另外進欄位池(同一個關聯有多個清單欄位時,由第一個取代),`columns[]` 上的 `replaces` 標出被取代的外鍵名稱(其餘欄位為 `null`),前端排列表單時用它把清單欄位對應回表單的外鍵欄位。只在編輯欄位裡、清單畫不出來的欄位不進欄位池:Composite、Password、Hidden、自訂呈現、虛擬(`+`;明寫了非 null `op` 的虛擬欄位除外,那是專供篩選的欄位,例如 `['name' => '+receipt_time', 'type' => 'datetime', 'op' => 'between']`,會進欄位池成為搜尋條件,值由 guard 填、篩選用 `filters()` 掛處理方式,沒掛的話這個條件會被略過)、model `$hidden` 裡的欄位、有設定區塊(`section`)的欄位、沒宣告呈現方式也沒有選項的 JSON,以及巢狀資源的父層外鍵(例如 `faq-category/{category_id}/items` 的 `category_id`:巢狀清單裡它永遠是目前的父層,`$updates` 明列它並在 controller 開 `$movable`(見[已知限制與取捨](#已知限制與取捨))只為了讓編輯表單能搬移父層,每列資料仍照常帶這個外鍵);清單欄位本身一律保留。`columns[]` 上的 `default` 標出哪些屬於清單欄位,使用者沒有 preference 時前端只顯示這些;欄位池裡的欄位能不能篩選、排序,依各欄位的 `op` 與 `sortable`。後端不解讀 preference,每次都 select 整個欄位池。編輯頁(`get`)與新增頁(`new`)的回應也帶 `preference`,但讀的是另一個鍵 `column:{key}-edit`(清單是 `column:{key}`;沒登入身分或沒設定時為 `null`),前端據此排列表單欄位的順序。
 
 **要在程式裡決定清單欄位(例如依設定多加幾欄),覆寫 `listing()`。** 它預設回傳 `$lists`(沒設就照退回規則),清單欄位、匯出輸出欄位(沒設 `$exports` 時)與匯出的篩選欄位池都從它來,覆寫一次三處一起生效。不要在 `onList()` / `onExport()` 裡先 `columns(...)` 再呼叫 `parent`——那樣匯出的篩選欄位池不會跟著變,新加的欄位匯出時篩不到。
 
@@ -681,7 +732,7 @@ class WidgetController extends CrudController {
 - **controller 要 `use ImportsRows`**(`MatrixPlatform\Http\Controllers\Admin\Concerns\ImportsRows`),才有 `import` 與 `import/template` 兩支端點;`$imports`、`onImport()` 留在 `CrudController`,沒 `use` 時宣告了也不會生效。
 - **開關就是選單**:`{prefix}/import` 與 `{prefix}/import/template` 兩個節點(tag 用 `insert`)。**兩個要一起加**:按鈕只看 `import` 節點,漏了 `import/template` 時按鈕照樣出現,開窗卻 `permission-denied`。`import/template` 節點的標題是範本檔名。預設 `pageActions` 已含 `import`。
 - **`onInsert()` 的 guard 不會沿用**,匯入要在 `onImport()` 重掛,否則商業規則會被繞過。
-- **可匯入欄位**:非虛擬、非 join、非唯讀,且不是主鍵、Json、多選、雲端硬碟、密碼、Hidden、Composite;巢狀資源(非 standalone)的外鍵也排除,一律取路由參數。其餘欄位若出現在 `$imports` 直接略過。被排除的欄位裡有**必填**的(巢狀外鍵除外)→ `import-column-unsupported`,這個 model 無法以匯入建立。
+- **可匯入欄位**:非虛擬、非 join、非唯讀,且不是主鍵、Json、多選、雲端硬碟、密碼、Hidden、Composite;巢狀資源(非 standalone)的外鍵也排除,一律取路由參數。其餘欄位若出現在 `$imports` 直接略過。因主鍵、Json、多選、雲端硬碟、密碼、Hidden、Composite 而被排除的欄位裡有**必填**的 → `import-column-unsupported`,這個 model 無法以匯入建立;虛擬、join、唯讀欄位與巢狀外鍵即使必填也只是略過,不會丟錯。
 - **多語欄位一律展開全部語系**,表頭同匯出(`backend.export.locale-column`)。
 - **轉換**:值先 trim;空白 → `null`(必填得 `required`),**布林欄空白 → `false`**;有選項的欄位以標題完全比對反查 id(查不到或同名兩個以上 → `in`,不默默取第一個);`Date` / `DateTime` 嚴格依 `matrix.date-format` / `matrix.datetime-format`(擋 `2026-02-31`)。`lookup($name, fn)` 取代該欄的選項反查,可用 `invalid()` 回自訂代碼,空白值不會呼叫。
 - **往返**:只有明寫 `$exports` 與 `$imports` 且兩者一致時,匯出檔才能直接拿來匯入;預設匯出的是使用者選的清單欄位(關聯欄位是標題欄而非外鍵),請從範本開始填。
@@ -714,7 +765,7 @@ class CityController extends CrudController {
 ```
 
 - **只有 `use StagesChildren` 的 controller 才有暫存模式**,也才會註冊下面四支端點。trait 覆寫 `CrudController` 的 `persist()`(`insert()` / `update()` 的寫入掛點),所以父 controller 自己覆寫 `insert()` / `update()` 並呼叫 `parent::` 時照樣會處理暫存子項目。
-- **編輯頁(`get`)與新增頁(`new`)的回應帶 `staged`**,依 `staged()` 的宣告順序列出 `[{ name, title }]`,`title` 是子資源前綴選單節點的標題(沒有節點時為 `null`)。trait 為此覆寫 `CrudController` 的 `prepare()`。前端用它把暫存子清單放進表單的欄位設定,排好的位置與欄位一起存在同一份 preference(`column:{key}`)裡。
+- **編輯頁(`get`)與新增頁(`new`)的回應帶 `staged`**,依 `staged()` 的宣告順序列出 `[{ name, title }]`,`title` 是子資源前綴選單節點的標題(沒有節點時為 `null`)。trait 為此覆寫 `CrudController` 的 `prepare()`。前端用它把暫存子清單放進表單的欄位設定,排好的位置與欄位一起存在同一份 preference(`column:{key}-edit`)裡。
 - **宣告的是子資源前綴,不是 class。** 框架用 `ActionRoutes::controller($prefix)` 找出掛在這個前綴上的子 controller,權限也用同一個前綴檢查(`AdminPermission::permits($prefix, $tag)`)。子 controller 必須用 `ActionRoutes::mount()` 掛上、不是 standalone,且子 model 的 metadata 要有父層(外鍵靠它推導),否則丟 `invalid-staged-child`。key 與父表單欄位同名會丟 `staged-key-conflict`(存檔時 body 會互相覆蓋)。這兩項只在用到暫存模式時才檢查:打下面四支端點,或存檔的 body 帶了宣告的 key。
 - **子 service 一律由子 controller 的 `onInsert()` / `onUpdate()` / `onDelete()` / `onSort()` 建立**,子資源原本的欄位與 guard 都沿用。params 是父路由參數去掉 `id`,加上 `[外鍵 => 父 id]`;新增頁沒有父 id,不放外鍵。
 - **編輯頁的既有子列用子 controller 的 `onUpdate()` 讀取:套用 scope,不跑 guard。** guard 是寫入規則,讀取時不執行,所以靠 guard 補的虛擬欄位在子表格裡會是空的;要顯示衍生值,在 `onUpdate()` 用 `scope()` 加 `addSelect` 子查詢,在 SQL 裡算出來。
@@ -935,7 +986,7 @@ Service worker 註冊、`Notification.requestPermission()`、呼叫這兩支 API
 
 ### Telegram 綁定與 Webhook
 
-Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`)**——這個通道設計給營運/維運告警之類「後台人員自己訂閱通知」的情境。收件者(`base_telegram_log.chat_id`)有兩種寫法,以前綴區分:`user:{id}` 表示後台使用者(**User 訂閱**模式),`TelegramDriver` 會去查 `base_telegram_subscription.user_id`,送到對應的訂閱 `chat_id`;查不到訂閱(或 id 不是合法的使用者編號)時回 `telegram-not-subscribed`,不呼叫 Telegram。其他任何值都原樣當成 chat_id 送(**固定 chat** 模式):群組/頻道的負數 id、個人 chat_id、`@channelusername` 都可以,純數字**不會**被當成使用者編號。寄給後台使用者時用 `sendToUser(User|int $user, ...)`,它會自動組出 `user:{id}`;`send('user:5', ...)` 也等效。
+Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`)**——這個通道設計給營運/維運告警之類「後台人員自己訂閱通知」的情境。收件者(`base_telegram_log.chat_id`)有兩種寫法,以前綴區分:`user:{id}` 表示後台使用者(**User 訂閱**模式),`TelegramDriver` 會去查 `base_telegram_subscription.user_id`,送到對應的訂閱 `chat_id`;查不到訂閱時回 `telegram-not-subscribed`(id 以 `intval()` 解析,`user:5abc` 會當成 5,`user:abc` 當成 0 而查不到),不呼叫 Telegram。其他任何值都原樣當成 chat_id 送(**固定 chat** 模式):群組/頻道的負數 id、個人 chat_id、`@channelusername` 都可以,純數字**不會**被當成使用者編號。寄給後台使用者時用 `sendToUser(User|int $user, ...)`,它會自動組出 `user:{id}`;`send('user:5', ...)` 也等效。
 
 跟 Push 用 JS 直接呼叫 subscribe API 不同,User 訂閱需要使用者主動在 Telegram 裡點一個連結、跟 bot 對話。綁定端點掛在 `admin` 前綴、`user-api` middleware 底下(跟 `admin/user/preference` 同層,不需要額外權限,登入即可管理自己的綁定):
 
@@ -947,7 +998,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 
 這是套件目前唯一一個**接收外部主動呼叫**的端點(前面所有端點都是「我們主動對外呼叫」或「被已登入使用者呼叫」),所以認證方式也不同——不是 token,是 header:呼叫方要帶 `X-Telegram-Bot-Api-Secret-Token`,值要等於 `cfg('telegram.webhook-secret')`,對不上或這把密鑰根本沒設定,一律 403。跑 `php artisan messages:telegram-webhook` 之前記得先把 `telegram.bot-token` 與 `telegram.webhook-secret` 設定好(這支指令本身也會檢查,兩個空字串會直接失敗、不呼叫 Telegram)。
 
-無效或已過期的 token 會被靜靜忽略(不是 `/start` 開頭的訊息也一樣),webhook 一律回 200 系列的成功——Telegram 只在乎「有沒有收到」,不在乎綁定有沒有真的成功。
+無效或已過期的 token 會被靜靜忽略(不是 `/start` 開頭的訊息也一樣)。這個 `chat_id` 已經綁在別的使用者名下時也不寫入,只在應用程式日誌記 `messaging.telegram.bind-conflict`;token 在檢查之前就已用掉,要重新產生連結。webhook 一律回 200 系列的成功——Telegram 只在乎「有沒有收到」,不在乎綁定有沒有真的成功。
 
 ### 自訂訊息通道
 
@@ -957,7 +1008,7 @@ Telegram 的訂閱對象是**後台使用者(`User`),不是前台會員(`Member`
 | **每個 channel 都必須宣告 `queue`** | 沒宣告就是 `invalid-message-channel`,那個 channel 完全不能用。加一個 channel 就是加一條 queue 加一個 worker |
 | 每個供應商還要一份 `resources/cfg/{provider}.php` | **`driver` 是必填** —— 沒有它 `schedule()` 當場回 `message-provider-has-no-driver`。其餘的鍵照 [cfg 設定鍵](#cfg-設定鍵)裡 `gmail`、`mitake`、`webpush`、`telegram` 四組的形狀寫 |
 | **供應商與樣板名稱要跨 channel 唯一** | —— |
-| 樣板必須指名 `provider` | 否則 `schedule()` 當場回 `invalid-message-provider` |
+| 供應商由樣板的 `provider` 或 `$options['provider']` 決定 | 兩者都沒有、或找不到對應的 cfg bundle,`schedule()` 當場回 `invalid-message-provider` |
 
 ---
 
@@ -1029,7 +1080,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 
 | 方法 | 路徑 | 需要 |
 |---|---|---|
-| POST | `admin/auth/captcha` | 匿名 |
+| POST | `admin/auth/captcha` | 匿名（有節流） |
 | POST | `admin/auth/login` | 匿名（有節流） |
 | POST | `admin/auth/logout` | 登入 |
 | POST | `admin/auth/mfa` | 匿名（有節流） |
@@ -1039,7 +1090,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | POST | `admin/auth/passkey/options` | 匿名（有節流） |
 | POST | `admin/auth/passkey/login` | 匿名（有節流） |
 | POST | `admin/auth/passwd` | 登入 |
-| POST | `admin/auth/profile` | 登入 |
+| POST | `admin/auth/profile` | 匿名可呼叫,有登入時帶身分(未登入回 `nodes: []`、`profile: null`) |
 | POST | `admin/i18n/get` | **匿名** |
 | POST | `admin/file/upload` | 登入 |
 | POST | `admin/file/update` | 登入 |
@@ -1318,10 +1369,26 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | `telegram.driver` | `TelegramDriver::class` | 同 `gmail.driver` |
 | `telegram.bot-token` | `''` | Bot API token,呼叫 `sendMessage`/`setWebhook` 都用它 |
 | `telegram.bot-username` | `''` | 組 `link()` 回傳的 deep-link(`https://t.me/{bot-username}?start=...`)用,不含 `@` |
-| `telegram.webhook-secret` | `''` | `TelegramWebhookController` 拿來比對 `X-Telegram-Bot-Api-Secret-Token` header,空字串會讓 webhook 對所有請求一律 403 |
+| `telegram.webhook-secret` | `''` | `TelegramWebhookMiddleware`(別名 `telegram-webhook-api`)拿來比對 `X-Telegram-Bot-Api-Secret-Token` header,空字串會讓 webhook 對所有請求一律 403 |
 | `telegram.interval` | `1` | 同 `gmail.interval` |
 | `telegram.sandbox` | `false` | 同 `gmail.sandbox`,開啟後訊息一律送到 `sandbox-recipient` 那個 chat_id |
 | `telegram.sandbox-recipient` | `''` | 同 `gmail.sandbox-recipient` |
+| `google-translate.driver` | `GoogleTranslateDriver::class` | 翻譯 driver,唯讀 |
+| `google-translate.api-key` | `''` | API key,空字串時翻譯回 `available: false` |
+| `google-translate.endpoint` | `'https://translation.googleapis.com/language/translate/v2'` | API 端點,唯讀 |
+| `gemini-translate.driver` | `GeminiTranslateDriver::class` | 翻譯 driver,唯讀 |
+| `gemini-translate.api-key` | `''` | API key,空字串時翻譯回 `available: false` |
+| `gemini-translate.endpoint` | `'https://generativelanguage.googleapis.com/v1beta'` | API 端點,唯讀 |
+| `gemini-translate.model` | `'gemini-flash-lite-latest'` | 模型名稱 |
+| `gemini-translate.prompt` | (多行 prompt) | 翻譯指示,唯讀。必須含 `:text`,否則 `invalid-translation-driver`;`:source` / `:target` 換成語系代碼 |
+| `ip2location-bin.driver` | `Ip2LocationBinDriver::class` | 地理位置 driver,唯讀 |
+| `ip2location-bin.bin-path` | `'ip2location.bin'` | .BIN 檔在私有 disk 上的相對路徑,唯讀。檔案不存在就 `geolocation-database-not-found` |
+| `ip2location-bin.download-token` | `''` | `geolocation:update-database` 下載用的 token,空字串時指令直接失敗 |
+| `ip2location-bin.db-code` | `'DB11LITEBIN'` | `geolocation:update-database` 要下載的資料庫代碼 |
+| `ip2location-webservice.driver` | `Ip2LocationWebServiceDriver::class` | 地理位置 driver,唯讀 |
+| `ip2location-webservice.api-key` | `''` | API key |
+| `ip2location-webservice.package` | `'WS10'` | 查詢套餐代碼 |
+| `ip2location-webservice.endpoint` | `'https://api.ip2location.com/v2/'` | API 端點,唯讀 |
 | `file.max-size` | `0` | 上傳大小上限,**0 = 不限制** |
 | `file.mime-patterns` | `''` | 型別白名單(正則,空白 = 不檢查) |
 | `drive.deduplicate` | `true` | 開啟後,雲端硬碟上傳內容雜湊相同的檔案會共用同一份實體檔案,不重複寫入。後台以開關呈現。共用時 `api/files/@…` 的下載檔名取同一份實體檔最早、未刪除的節點名稱,可能是別人取的檔名;需要正確檔名請用欄位 JSON 裡的 `name` 搭配 `<a download>`(只對同源網址有效) |
@@ -1333,9 +1400,10 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 
 | 指令 | 作用 |
 |---|---|
+| `geolocation:update-database` | 用 `ip2location-bin.download-token` 下載 `ip2location-bin.db-code` 指定的最新 IP2Location .BIN 檔,寫到私有 disk 的 `ip2location-bin.bin-path`;token 是空字串時直接失敗 |
 | `matrix:clear-resource-cache` | 清掉所有已快取的 cfg/i18n/menu/style 資源 bundle defaults 與 DB override 快取(`matrix.resource-cache-store`)。部署後改了資源檔案卻沒生效,先跑這個 |
 | `matrix:make-crud` | 傳入資料表名稱(`{table}`),從已存在的資料表反向產生 Model、Declaration、Controller 草稿與 `resources/i18n/{locale}/model/{table}.php`(欄位清單、型別、translatable 欄位由 `information_schema` 內省,`unique` 由 `pg_index` 判斷(unique 約束與 unique index 都算;partial、運算式索引只提醒不套用);NOT NULL 的欄位一律加 `required: true`,`--parent` 外鍵除外)。不存在才寫入,`--force` 才覆寫既有檔案,`--dry-run` 只印出全部內容不寫入;路由(`routes/*.php`)、選單(`resources/menu/*.php`)與選單標題(`resources/i18n/{locale}/menu/*.php`)只印出建議片段供人工貼上,不會自動改寫這幾份共用陣列檔。**只有 `--parent` 指定的那個關聯會被轉成 `belongsTo()` 並在清單頁享有 `joined()` 智慧轉換,其餘一般外鍵欄位清單頁仍顯示裸 ID**;複合(多欄位)`unique`/`FOREIGN KEY` 約束不自動處理;只支援 `public` schema 的 PostgreSQL。**欄位若在資料庫設有 `COMMENT`,該註解會直接作為應用程式預設語系(`app()->getLocale()`)的欄位標題,其餘語系不翻譯**,一律退回 `TODO: {欄位}`,並在警示清單附上註解原文供人工翻譯;沒有 `COMMENT` 的欄位各語系都是 `TODO: {欄位}` |
-| `matrix:passwd` | 設定後台帳號密碼,建立管理員的唯一官方入口 |
+| `matrix:passwd` | 重設既有後台帳號的密碼,帳號不存在時失敗(不會建帳號) |
 | `matrix:prune-tokens` | 刪掉已經不能用來認證的 token,`--limit` 控制每批筆數（預設 1000） |
 | `matrix:rotate-encryption-key` | 產生新的 API 加密金鑰並把舊的標記為 `expire_time = now + grace`(`--grace` 秒數,預設 `encryption.grace-period`);同時刪除已經過完寬限期的舊金鑰。**任何一組前綴的加密開關是開的,上線之前就必須先跑過一次**——金鑰圈是空的時候,bootstrap 端點只會回 `encryption-unavailable` |
 | `matrix:sync-translatable` | 掃描所有套件、所有 Model 的 translatable 欄位,幫缺少目前設定語言的欄位補上實體欄位（皆為 nullable,不回填）。型別照既有語系欄位;既有語系欄位有單欄 `unique` 時,新欄位也會加上(`{表}_{欄位}_unique`),其他約束不複製 |
@@ -1353,7 +1421,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | `data-not-found` | 查無資料 |
 | `directory-create-failed` | 無法建立目錄 |
 | `drive-anchor-immutable` | home 目錄與群組目錄不能被搬移或丟進垃圾桶 |
-| `encryption-unavailable` | 金鑰圈沒有可用的金鑰(還沒跑過 `matrix:rotate-encryption-key`) |
+| `encryption-unavailable` | 金鑰圈沒有可用的金鑰(還沒跑過 `matrix:rotate-encryption-key`),或 OpenSSL 產生金鑰、加密失敗 |
 | `endpoint-not-found` | 端點不存在 |
 | `file-too-large` | 檔案大小超過限制 |
 | `file-write-failed` | 檔案寫入失敗 |
@@ -1446,7 +1514,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 | `base_telegram_log` | Telegram 佇列與送達結果 |
 | `base_telegram_subscription` | 後台使用者(`User`)的 Telegram 綁定(user_id / chat_id / username) |
 | `base_user` | 後台帳號(含選填的姓名 `name`、信箱 `mail`、電話 `phone`) |
-| `base_user_log` | 後台帳號的登入 / 改密碼紀錄 |
+| `base_user_log` | 後台帳號的登入、登出、登入失敗、改密碼、MFA 與 Passkey 紀錄 |
 | `base_vendor` | 廠商 |
 | `base_vendor_log` | 廠商行為紀錄 |
 | `base_operator` | **檢視表**,把 user / member / vendor 併成一份「操作者」清單,給宿主查 `creator_id` 用。唯讀,不要對它寫入 |
@@ -1520,7 +1588,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 清單回應含 `columns`（欄位描述）、`rows`、`pagination`、`actions`、`title`、麵包屑等。`columns[]` 每一項的三個維度要分開讀:
 
 - `type` 是**資料型別**（`text` / `integer` / `float` / `boolean` / `date` / `datetime` / `json`）—— 決定驗證與比較。
-- `presentation` 是**呈現方式**（`plain` / `hidden` / `select` / `multi-select` / `password` / `count` / `switch`）—— 決定畫面怎麼畫。宣告時給的字串若不是這七個,會**原樣送給前端**,那是自訂呈現方式的出口。
+- `presentation` 是**呈現方式**（`plain` / `hidden` / `select` / `multi-select` / `password` / `count` / `switch` / `drive-file` / `drive-image`;另有 `composite`,但它在表單被拆成子欄位、不進清單欄位池,前端不會收到）—— 決定畫面怎麼畫。宣告時給的字串若不是 `Presentation` enum 的值,會**原樣送給前端**,那是自訂呈現方式的出口。
 - `writable` 是**這一欄送回來會不會被寫入**。
 
 一個「有選項的整數欄位」是 `type: integer` + `presentation: select`,三個維度都完整。
@@ -1578,7 +1646,7 @@ preference('locale', $member);  // 沒有請求的情境(例如寄訊息)要指�
 
 ### 驗證碼
 
-**前後端必須成對。** 後端的 `matrix.admin-captcha-provider` 決定驗哪一種憑證,前端的 `config.captcha` 決定畫哪一種元件——兩邊對不上的話登入一律 422。每個 driver 會宣告自己要哪些憑證欄位(`captcha-image` 要 `token` + `code`,Turnstile / reCAPTCHA 只要 `token`,`captcha-none` 兩個都不要),所以前端少送的時候錯誤是 `validation-failed` 並在 `fields` 裡指名缺的是 `token` 還是 `code`,而不是含糊的驗證碼錯誤。
+**前後端必須成對。** 後端的 `matrix.admin-captcha-provider` 決定驗哪一種憑證,前端的 `config.captcha` 決定畫哪一種元件——兩邊對不上的話登入回 422(後端是 `captcha-none` 時例外:它不驗任何憑證,前端畫什麼都會通過)。每個 driver 會宣告自己要哪些憑證欄位(`captcha-image` 要 `token` + `code`,Turnstile / reCAPTCHA 只要 `token`,`captcha-none` 兩個都不要),所以前端少送的時候錯誤是 `validation-failed` 並在 `fields` 裡指名缺的是 `token` 還是 `code`,而不是含糊的驗證碼錯誤。
 
 | 後端 `matrix.admin-captcha-provider` | 前端 `initConfig({ captcha })` | 還要準備什麼 |
 |---|---|---|
@@ -1713,7 +1781,7 @@ return (new PhpCsFixer\Config())
 
 ### 3. `phpstan.neon`
 
-這裡沒有共用檔:套件的設定只有 `level: 8` 一個參數,抄一行比多一層 include 划算。
+這裡沒有共用檔:套件的設定除了 larastan 的 include 與各自的 `paths`、`tmpDir`,只有 `level: 8` 一個參數,抄一行比多一層 include 划算。
 
 ```neon
 includes:
@@ -1734,7 +1802,7 @@ parameters:
 | 檢查 | 生效範圍 |
 |---|---|
 | `<?php //>` 開頭、class 主體前後空行、`fn` 後空一格、禁 `??` 與 `??=` | 全部 |
-| 多行陣列的尾逗號 | `config/`、`resources/` 要加,其餘不加 |
+| 多行陣列的尾逗號 | 路徑中任何一層有 `config/` 或 `resources/` 目錄就要加(例如 `tests/fixtures/config/`),其餘不加 |
 | 方法鏈超過兩個 `->` 要逐行展開 | `app/`、`src/`、`tests/` |
 | 類別成員字母序 | 除 `tests/` 之外全部 |
 | 禁用繞過 model 事件的寫法 | 除 `bin/`、`config/`、`resources/` 之外全部 |
@@ -1752,10 +1820,9 @@ parameters:
 | 事實 | 你要做什麼 |
 |---|---|
 | **`admin/i18n/get` 是匿名端點,任何人可以讀走任何一份翻譯檔** —— 包含 `template/*`（郵件與簡訊樣板全文）。登入畫面需要它,所以不能關 | 不要在 i18n 資源裡放非公開內容 |
-| **驗證碼端點匿名且沒有節流** | 需要的話自己加 |
 | **驗證碼的 site key 是公開的,不設 `hostnames` 就擋不住別人拿它在自己的網站養 token** —— 攻擊者把你的 site key 放進自己的頁面,訪客產生的 token 有 `success`、有正確的 `action`(那是他自己設的)、分數還是真人的高分,拿來打你的登入端點會完全穿透驗證碼這一關 | 設 `captcha-recaptcha.hostnames` / `captcha-turnstile.hostnames` 為後台登入頁的網域(可多個)。**出貨是空的 = 不檢查**,因為預設開啟會讓既有部署升級後全部登不進去,而症狀只會是「驗證碼錯誤」。這件事在本套件特別要緊——見下面那條,登入節流擋不住拿一組密碼掃一堆帳號,驗證碼是應用層唯一能讓 spraying 變貴的東西 |
 | **`captcha-recaptcha` 是 Enterprise 分數式的,低於 `captcha-recaptcha.threshold` 的真人沒有任何自證管道** —— 它不跳挑戰,分數不夠就是進不去(傳統的 v2 隱形式已無法申請新金鑰) | 用這顆就要求管理員都註冊 passkey(passkey 登入完全不經過驗證碼),否則唯一的出路是下方的 cfg override。要「可疑時才要求互動、互動完就過」請改用 `captcha-turnstile` |
-| **第三方驗證碼 driver(`captcha-turnstile` / `captcha-recaptcha`)是 fail-closed 的** —— 對方服務打不通時回 `captcha-request-failed`,登入一律擋下。而且每一次被擋都吃掉一格登入節流(`afterCallback` 只計失敗),五次之後同一組 IP+帳號連 `too-many-requests` 都會拿到 | 接受它,但事先知道逃生門怎麼走:見下方〈驗證碼服務掛掉時怎麼進後台〉。**不要改成「打不通就放行」**,那等於給攻擊者一個把驗證碼關掉的開關 |
+| **第三方驗證碼 driver(`captcha-turnstile` / `captcha-recaptcha`)是 fail-closed 的** —— 對方服務打不通時回 `captcha-request-failed`,登入一律擋下。而且每一次被擋都吃掉一格登入節流(`LoginThrottleMiddleware` 每次先計數、成功才清除,所以只有失敗會留下),五次之後同一組 IP+帳號連 `too-many-requests` 都會拿到 | 接受它,但事先知道逃生門怎麼走:見下方〈驗證碼服務掛掉時怎麼進後台〉。**不要改成「打不通就放行」**,那等於給攻擊者一個把驗證碼關掉的開關 |
 | **`api/common/city`、`menu`、`page` 匿名且沒有節流**,`base_menu.data` 與 `base_page.data` 的內容會原樣出現在回應裡 | 不要在這些 `data` 欄位放非公開資料。`api/common/page` 另外會把區塊引用的雲端硬碟檔案路徑吐出來,而 `api/files/{path}` 對 drive 檔案匿名可取、不看 `privilege` —— 區塊放什麼圖就等於公開發佈什麼圖 |
 | **被雲端硬碟欄位引用過的檔案,憑 URL 永遠可以匿名下載**。不只區塊,任何 model 的 `DriveImage` / `DriveFile` 欄位(含只有後台看得到的資料表)選過的檔案都會建一筆 `base_file`,`api/files/@…` 對它不看 `privilege`、不需要登入。拿掉引用不會刪那一列;節點丟進垃圾桶也照樣串流 | 刻意的:已發佈的頁面不會因為有人清理雲端硬碟而破圖。路徑是隨機檔名猜不到,風險在 URL 已經流出去的時候。要下架只能直接刪 `base_file` 那一列或磁碟上的實體檔;機密文件不要放進雲端硬碟欄位 |
 | **`api/common/cfg`、`api/common/i18n` 匿名且沒有節流**,`matrix.public-cfg`、`matrix.public-i18n` 列出的 bundle 會原樣出現在回應裡(cfg 的 `secret` 欄位也不例外) | 不要把含非公開內容或憑證的 bundle 列進這兩份白名單 |
@@ -1770,7 +1837,7 @@ parameters:
 | **私鑰以 `APP_KEY` 加密後存在 `base_encryption_key`** | 資料庫與 `APP_KEY` 同時外洩,等於過去 `encryption.grace-period` 之內錄下來的流量都能解開。輪替頻率照你的合規要求定 |
 | **cookie 的 `secure` 跟隨 `config('session.secure')`** | 生產環境務必設成 true,否則 token 會在明文連線上傳 |
 | **上傳不檢查型別**（`cfg('file.mime-patterns')` 出貨空白 = 全部放行） | 要限制就設 `mime-patterns`（正則,空白分隔,**不能含空白、逗號或分號** —— 那是分隔字元,`{1,8}` 這類寫法請改寫）。寫錯（不是合法正則）的那一條會被略過並寫 `Log::warning`(`file.invalid-mime-pattern`),全部都不合法時一律拒絕上傳 |
-| **上傳不沿用使用者送來的副檔名** | 磁碟上是 `年月/32 碼隨機名`;只有伺服器偵測到的類型在 `FileStorage::EXTENSIONS` 白名單內(JPG / PNG / GIF / WebP / AVIF / SVG)才加上對應的副檔名,讓公開 disk 由 web server 直接提供時帶得出正確的 Content-Type(SVG 沒有 `image/svg+xml` 瀏覽器不會當圖片畫);副檔名看內容不看檔名,所以改名成 `.jpg` 的程式不會拿到可執行的副檔名,名單外的檔案一律不帶副檔名。下載的 Content-Type 取自 `base_file.mime_type`,檔名取自 `base_file.name`（原始檔名,含副檔名）,使用者端無感 |
+| **上傳不沿用使用者送來的副檔名** | 磁碟上是 `年月/32 碼隨機名`;只有伺服器偵測到的類型在 `FileStorage::EXTENSIONS` 白名單內(JPG / PNG / GIF / WebP / AVIF / SVG)才加上對應的副檔名,讓公開 disk 由 web server 直接提供時帶得出正確的 Content-Type(SVG 沒有 `image/svg+xml` 瀏覽器不會當圖片畫);副檔名看內容不看檔名,所以改名成 `.jpg` 的程式不會拿到可執行的副檔名,名單外的檔案一律不帶副檔名。公開檔經 `api/files/{path}` 302 轉址到 disk 網址,Content-Type 由 web server 依副檔名決定;雲端硬碟檔串流時的 Content-Type 與檔名取自 `base_drive_node` 的 `mime_type` / `name` |
 | **公開 disk 上的 SVG 由 web server 直接提供** | SVG 可以內嵌程式碼:以 `<img>` 載入不會執行,但直接開啟它的網址會在那個網域上執行。正式環境建議讓 web server 對 `.svg` 加上 `Content-Security-Policy: sandbox`(例如 nginx `location ~* \.svg$ { add_header Content-Security-Policy "sandbox"; }`),或不開放上傳 SVG(`file.mime-patterns`) |
 | **上傳不限制大小**（`cfg('file.max-size')` 出貨 `0`）。真正的上限是 PHP 的 `upload_max_filesize` / `post_max_size` | 兩層都要調。只調 cfg 沒用,只調 ini 的話使用者會拿到 422 而不是 `file-too-large` |
 | 檔案的 `privilege` 決定存哪個 disk（`0` 公開 / `1` 私有）。**私有檔沒有出貨的下載端點** —— `api/files/{path}` 只提供公開檔與雲端硬碟引用檔,私有檔一律 404 | 要讓人下載私有檔,宿主自己開端點,用 `FileService::disk(File::PRIVATE)` 與 `location()` 讀檔,並自己決定授權。公開 disk 若做了 `storage:link`,那些檔案就有公開 URL —— 這是 disk 設定的結果,不是套件的存取控制。另外 `admin/file/*` 掛的是 `user-api`,沒有 `permission-api`,所以**選單權限完全為空的管理員**也能改名任何 path 的檔案。要更細的檔案授權,自己在該路由前加 middleware |
@@ -1796,7 +1863,7 @@ parameters:
 
 沒事先鋪這條線、而且現在不能部署的話,才輪到下面這個:
 
-實際可用的是 DB override(`Resources::overrides()` 會把 `base_resource_override` 疊在 cfg 預設值上):
+實際可用的是 DB override(`Resources::getOverrides()` 會把 `base_resource_override` 疊在 cfg 預設值上):
 
 ```sql
 INSERT INTO base_resource_override (bundle, data, create_time)
@@ -1815,7 +1882,7 @@ php artisan matrix:clear-resource-cache
 
 ⚠️ 服務恢復之後,先前被擋掉的失敗仍然佔著登入節流的配額,可能還要等一個 `admin.login-throttle-window` 或自己清掉 rate limiter。
 
-⚠️ 新增或改動 cfg bundle 的檔案之後也要跑同一個指令 —— `Resources::merge()` 把「這個 bundle 不存在」也一起 `forever` 快取了,不清的話會一直拿到 `invalid-captcha-driver`。
+⚠️ 新增或改動 cfg bundle 的檔案之後也要跑同一個指令 —— `Resources::getDefaults()` 把「這個 bundle 不存在」也一起 `forever` 快取了,不清的話會一直拿到 `invalid-captcha-driver`。
 
 ### 規模與效能
 
@@ -1856,8 +1923,8 @@ php artisan matrix:clear-resource-cache
 
 | 事實 | 說明 |
 |---|---|
-| **每個 `#[Action]` 都要有選單節點** | 漏一個,那個端點對所有人 403,包含 ROOT |
-| **每一個 action 都跑在一個交易裡** | `BaseController::callAction()` 用 `DB::transaction()` 包住整個動作。要在 rollback 之後仍然執行的副作用（寄信、打第三方、刪檔）請註冊到 `RollbackCallbacks`,不要直接做:`register()` 是撤銷,只在登記當下那一層交易 rollback 時執行(巢狀交易內層 rollback 不會動到外層登記的;交易外登記不會執行);`persist()` 是一定要留下的寫入(例如登入失敗紀錄),交易 commit 或 rollback 後執行一次,交易外則立即執行 |
+| **每個 `#[Action]` 都要有選單節點** | 漏一個,`ActionRoutes` 掛的端點不註冊、對所有人回 404 `endpoint-not-found`(自己用 `Route::post()` 掛的則回 403),包含 ROOT |
+| **每一個 action 預設都跑在一個交易裡** | `BaseController::callAction()` 用 `DB::transaction()` 包住整個動作;`#[Action(transaction: false)]` 可以關掉(出貨的 `admin/auth/mfa`、`api/files/{path}`、`admin/drive/{id}/download` 就是)。要在 rollback 之後仍然執行的副作用（寄信、打第三方、刪檔）請註冊到 `RollbackCallbacks`,不要直接做:`register()` 是撤銷,只在登記當下那一層交易 rollback 時執行(巢狀交易內層 rollback 不會動到外層登記的;交易外登記不會執行);`persist()` 是一定要留下的寫入(例如登入失敗紀錄),交易 commit 或 rollback 後執行一次,交易外則立即執行 |
 | **`#[Action]` 會沿繼承鏈繼承** | 覆寫 action 不需要重新宣告 attribute |
 | **套件的 controller 可以整個換成子類別** | 路由掛的是套件的類別,但 controller 由容器建立,所以 `$app->bind(MailLogController::class, App\...\MailLogController::class)` 就會改用子類別(例如改 `$lists`、加 guard);要加欄位就另外 `app(MetadataRegistry::class)->register(MailLog::class, new 子類別宣告())`,放在 `$app->booted()` 裡。掛路由時(`ActionRoutes::mount()` / `scan()`)若容器對那個 controller 有 bind,就改掃實際綁定的類別,所以子類別**新增的 `#[Action]` 也會註冊**,選單要有對應節點。bind 必須在套件路由載入前完成 —— 放在 `bootstrap/app.php` 或 provider 的 `register()`;在 `boot()` 才 bind 就趕不上,路由仍掛套件類別,新增的端點要自己對同一個前綴再 `ActionRoutes::mount()` 一次(相同方法與 URI 以後註冊的為準) |
 | **`#[Action(encrypted: false)]` 讓那支 action 不受所屬前綴的加密開關約束** | 呼叫方不可能封信封的端點要標記它:出貨已標的是 telegram webhook、兩支 multipart 上傳(`file/upload`、`drive/{id}/upload`)與 `encryption-key`。自己的上傳端點也要自己標,漏標的症狀是開關一開就變 `invalid-envelope`。**回傳檔案或串流(不是 JSON)的 action 也要標**:加密開著時,中介層遇到封不進信封的回應會改回加密過的 `500 server-error`,並寫 `encryption.unsealable-response` 日誌,不會把內容以明文送出 |
@@ -1887,13 +1954,13 @@ php artisan matrix:clear-resource-cache
 |---|---|
 | **清單預設按鈕是 `pageActions(['new', 'delete', 'arrange', 'sort', 'export', 'import'])`、`rowActions(['edit', 'copy', 'delete'])`(可追蹤的 model 再補 `log`)** | 每一顆都要選單有對應節點(`{prefix}/export`、`{prefix}/import`、`{prefix}/{id}/copy` 等)且使用者有權限才會出現,所以開不開複製／匯出／匯入由選單決定——端點本身也一樣:沒有節點的 `export` / `import` / `{id}/copy` 不會註冊,請求回 `endpoint-not-found`(含 ROOT),controller 不需要另開旗標;匯入另外要 controller `use ImportsRows` |
 | **複製不跑驗證規則,唯一欄位照抄** | `copy` 只做 `replicate()`、清掉上下架與 `ranking`、跑 guard 就存檔,不經過 `rules()`。有唯一欄位(資料庫 unique 索引)的資源照抄就撞索引,回 500 `server-error`;要開放複製,就在 controller 覆寫 `onCopy()`,用 guard 把唯一欄位改成不重複的值(guard 拿到的是複本與來源) |
-| **複製會沿用來源的 `ranking`** | 除非那個資源開了 `$sortable`,否則不會自我修復 |
+| **級聯複製的子層會沿用來源的 `ranking`** | 根層複本清掉 `ranking`,存檔時拿新的序號;`$cascade` 複製出來的子層不經過這一步,照抄來源的值。除非那個資源開了 `$sortable`,否則不會自我修復 |
 | 複製時 `$generators` 管的欄位（建立時間、建立者等）**重新產生**,不照抄 | —— |
 | **級聯複製只接受 `hasOne` / `hasMany` 及其 morph 形式** | `belongsToMany` 不支援 |
 | **匯出明寫 `'id'` 匯不出主鍵** | 要主鍵請寫 `'key=id'` |
-| **匯入只新增** | 檔案裡的 id 欄忽略;不做更新或 upsert |
+| **匯入預設只新增** | 檔案裡的 id 欄忽略;要更新既有資料得在 controller 用 `locate()` 改成更新模式(見[匯入](#匯入)),但同一批不會混合新增與更新,沒有 upsert |
 | **匯入時前面的列照樣寫入,最後才整批退回** | 為了讓 unique 與 guard 抓到檔案內自己重複的值。每列包一層 savepoint,資料庫錯誤只記在那一列(`*` / `query-failed`),後面的列照常處理 |
-| **資料庫不允許 NULL 的選填欄位,匯入空白會失敗** | 空白寫入 `null`(布林欄除外,寫 `false`)。這種欄位要設預設值或改成必填,否則該列報 `query-failed` |
+| **資料庫不允許 NULL 的選填欄位,匯入空白會失敗** | 新增模式下空白寫入 `null`(布林欄除外,寫 `false`;`locate()` 更新模式下空白保留原值)。這種欄位要設預設值或改成必填,否則該列報 `query-failed` |
 | **匯入的表頭與選項以目前介面語系的標題完全比對** | 範本與匯入要用同一個介面語系;樹狀選項攤平後不同父層同名(例如兩個「其他」)會回 `in`,所以含同名節點的匯出檔無法原樣匯入。跨 model 的選項樹(例如國家 > 城市)只有目標 model 的節點可反查(`Option::$selectable`) |
 | **匯入不支援多選欄位** | 存成 Json 的多選收不了標題,存成 Text 的驗證規則是 `string`,第一版一律排除 |
 | **有選項的欄位,值是陣列時匯出成標題以「, 」串接** | 不論呈現方式(`multi-select` 或自訂的 `transfer` 等)都一樣;沒有選項的 Json 欄位匯出空字串 |
@@ -1904,7 +1971,6 @@ php artisan matrix:clear-resource-cache
 | **`base_city_area.ranking` 與 `base_ranking` 序列不同量級** | 後台第一次拖曳排序就會把整組重編 |
 | **巢狀資源的父層鏈驗證用的是父層 model 的預設查詢** | 每個請求對路由上的每一層父層各多一次查詢(`admin/page/{page_id}/block/{block_id}/item` 多兩次)。父層被軟刪除或被自己的 global scope 排除時,底下的子資料在後台整組變成 404;要讓後台操作這種父層底下的資料,得在父層 model 調整 scope,或改用 standalone 並自己加條件。`admin/page/999/block/31/item` 這種祖父層對不上的網址也回 404,不會再顯示網址與麵包屑不符的資料 |
 | **`count()` 的鑽取路徑只把最後一個佔位符換成 `{id}`** | `ColumnResolver::path()` 推導出前綴後會經過 `Subject::generic()`,它只替換**最後一個**佔位符:一層巢狀是 `city/{id}/area`,兩層是 `page/{page_id}/block/{id}/item`。前端是拿**那一列**去填佔位符的,而列本身帶著自己的外鍵(`page_id`)與 `id`,所以具名佔位符填得滿,兩層以上也不必自己寫。推導不出來時(選單沒有對應節點)`path` 是 `null`;不要連結就寫 `'path' => false`(送出空字串,前端不畫連結;直接寫 `''` 也可以);要指定別的路徑,在 `$lists` 用陣列語法明寫 `path`,明寫的值直接送出,不經過 `generic()` 也不查 `Menus::has()`,代價是這個字串與路由、選單三處必須人工保持一致,寫錯的症狀是點數字連到 404 |
-| **`$counts` 在設了 `$lists` 或 `$updates` 的 controller 上會靜默失效** | `CrudController::listing()` 只有在 `$lists` 為 null **且** `$updates` 為空時才把 `counted()` 併進清單。設了其中任何一個,`$counts` 就完全沒有作用,也不會有任何警告。要 count 欄位就直接寫進 `$lists`(`'count(items)'`),不要用 `$counts` |
 | **自我參照的樹,巢狀資源必須掛在與關聯名同名的路由段下** | `count(children)` 的鑽取路徑是這樣推出來的:`Subject::path()` 遇到自我參照會停在 alias(`menu`),引擎改用關聯名 `children` 去選單裡找 `menu/{任意參數}/children`,找到才有 `path`。掛成別的名字(例如 `menu/{parent_id}/sub`)不會壞,但 `path` 會是 `null`,前端的數字就點不進去。`admin/menu` 只列頂層,子層一律走 `admin/menu/{parent_id}/children`,每一層都回到同一個 pattern,深度不限 |
 
 #### 資料寫入與稽核

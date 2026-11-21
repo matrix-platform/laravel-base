@@ -32,7 +32,7 @@ class Menus {
     }
 
     public function has(string $path): bool {
-        return array_key_exists($path, $this->bundle());
+        return is_array(array_get_value($this->bundle(), $path));
     }
 
     public function node(string $path): ?MenuNode {
