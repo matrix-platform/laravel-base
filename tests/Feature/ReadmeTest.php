@@ -29,8 +29,8 @@ class ReadmeTest extends FeatureTestCase {
     private function commands(): array {
         $names = [];
 
-        foreach (array_keys(Artisan::all()) as $name) {
-            if (str_starts_with(strval($name), 'matrix:') || str_starts_with(strval($name), 'messages:')) {
+        foreach (Artisan::all() as $name => $command) {
+            if (str_starts_with($command::class, 'MatrixPlatform\\')) {
                 $names[] = strval($name);
             }
         }
