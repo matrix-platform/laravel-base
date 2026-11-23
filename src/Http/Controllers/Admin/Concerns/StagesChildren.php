@@ -77,6 +77,13 @@ trait StagesChildren {
                 DB::beginTransaction();
 
                 try {
+                    // Rows already marked for removal on the page are deleted first on save, so validate against that state.
+                    foreach (Arr::wrap($request->input('removed')) as $removed) {
+                        if (is_scalar($removed) && strval($removed) !== $id) {
+                            $child->stagedDeleteRow(strval($removed));
+                        }
+                    }
+
                     $written = $id === null ? $child->stagedInsertRow($data) : $child->stagedUpdateRow($id, $data);
                     $listing = $this->stagedListing($child, $prefix, $request, $foreign, $parent, $written->getKey());
 

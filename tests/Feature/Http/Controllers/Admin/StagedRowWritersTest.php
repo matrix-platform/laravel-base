@@ -133,6 +133,17 @@ class StagedRowWritersTest extends FeatureTestCase {
         $this->assertSame(0, Trinket::query()->count());
     }
 
+    public function test_validating_applies_the_rows_marked_for_removal_first_and_rolls_them_back(): void {
+        $widget = $this->widget('Alpha');
+        $dropped = $this->trinket($widget, 'dropped');
+
+        $response = $this->admin("admin/widget/{$widget->id}/staged/trinkets/validate", ['removed' => [$dropped->id], 'data' => ['label' => 'fresh', 'amount' => '1']]);
+
+        $response->assertJsonPath('success', true);
+        $this->assertSame([['delete', strval($dropped->id)], ['insert']], WritingTrinketController::$calls);
+        $this->assertSame(['dropped'], Trinket::query()->pluck('label')->all());
+    }
+
     public function test_validating_an_existing_row_returns_the_computed_row_without_saving(): void {
         $widget = $this->widget('Alpha');
         $trinket = $this->trinket($widget, 'old');
