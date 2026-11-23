@@ -54,6 +54,13 @@ class MailLogControllerTest extends FeatureTestCase {
         $response->assertJsonPath('data.rows.0.provider', 'stub');
     }
 
+    public function test_the_listing_shows_the_newest_log_first(): void {
+        $this->schedule();
+        $latest = $this->mail()->schedule(now(), 'bob@example.com', 'welcome', ['name' => 'Bob']);
+
+        $this->send('admin/mail-log')->assertJsonPath('data.rows.0.id', $latest->id);
+    }
+
     public function test_the_template_is_an_optional_column_that_can_be_filtered(): void {
         $this->schedule();
 

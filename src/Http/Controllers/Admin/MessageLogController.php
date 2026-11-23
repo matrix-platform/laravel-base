@@ -13,6 +13,11 @@ use MatrixPlatform\Support\MetadataRegistry;
 
 abstract class MessageLogController extends CrudController {
 
+    /**
+     * @var list<string>
+     */
+    protected array $sorting = ['-id'];
+
     public function __construct(protected MessageService $service) {
         $this->readonly = array_keys(app(MetadataRegistry::class)->definitions($this->model) ?: []);
     }
